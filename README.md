@@ -6,7 +6,7 @@ Welcome to the **KulKul Fellowship Management System** sandbox! This application
 
 ## 🛠️ Tech Stack & Architecture
 
-*   **Frontend:** React 19 + Vite 8. Styled using a custom glassmorphic design token system in `src/index.css`.
+*   **Frontend:** React 19 + Vite 8. Styled to match the Astro Starlight design theme in `src/index.css`.
 *   **Backend:** Netlify Functions v2 (running an ES Module serverless API router in `netlify/functions/api.js`).
 *   **Database (Repository Pattern):**
     *   **Production (Netlify):** Implements **Netlify Blobs** (a serverless key-value store requiring zero database credentials).
@@ -34,25 +34,4 @@ We use **Vitest** to run our test suite:
 ```bash
 npm run test
 ```
-*This command executes the repository tests. You will see 3 failures initially. Once you fix all 3 bugs, the test suite will print a successful green output.*
-
----
-
-## 🐛 Seeded Bug Tickets (Holes to Solve)
-
-To complete the onboarding challenge, you must resolve the following three issues:
-
-### Ticket 1: Step-3 Progress Checklist Toggle Bug
-*   **Symptom:** When clicking "Step 3: Configure Coding Agents" in the fellow details checklist panel, it toggles the visual checkbox state, but the server database flips the value incorrectly (it becomes checked when it should be unchecked, and vice versa).
-*   **Target File:** `netlify/functions/lib/InMemoryFellowRepository.js` (and `NetlifyBlobFellowRepository.js`).
-*   **Task:** Locate the toggle flip logic under `updateProgress` and fix the boolean assignment so that it saves the correct checked state.
-
-### Ticket 2: Missing Form Fields Validation
-*   **Symptom:** The application form allows submitting empty names, malformed emails (e.g. `bademail.com`), and GitHub usernames with spaces or invalid characters. Note that the email is optional on registration: if omitted, it defaults to the placeholder format `github_username@placeholder.kulkul.tech`.
-*   **Target File:** `netlify/functions/lib/InMemoryFellowRepository.js` (and `NetlifyBlobFellowRepository.js`).
-*   **Task:** Under `saveApplication`, add validation logic. If the email is provided but does not contain `@`, or the GitHub username contains spaces, throw an error to reject the application with a `400 Bad Request`. If the email is omitted, it should default to `github_username@placeholder.kulkul.tech`.
-
-### Ticket 3: Graduation Certificate Generation TypeError
-*   **Symptom:** When clicking the "Graduate Fellow" button for a candidate, the server crashes with a `TypeError: Cannot read properties of undefined (reading 'toUpperCase')` when trying to split the email address.
-*   **Target File:** `netlify/functions/lib/InMemoryFellowRepository.js` (and `NetlifyBlobFellowRepository.js`).
-*   **Task:** Under `graduateFellow`, locate the email string parsing logic. Correct the split/hashing calculation so that it parses standard email formats successfully without throwing an exception.
+*This command executes the repository tests. Your task is to resolve all failing tests until the test suite prints a successful green output.*
