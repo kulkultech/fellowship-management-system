@@ -120,11 +120,13 @@ function App() {
 		setError(null);
 		setSuccess(null);
 
+		const submissionEmail = email.trim() || `${github.trim()}@placeholder.kulkul.tech`;
+
 		try {
 			const res = await fetch('/api/applications', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, email, github_username: github, track })
+				body: JSON.stringify({ name, email: submissionEmail, github_username: github, track })
 			});
 
 			const data = await res.json();
@@ -319,14 +321,13 @@ function App() {
 							/>
 						</div>
 						<div className="form-group">
-							<label>Email Address</label>
+							<label>Email Address (Optional)</label>
 							<input
 								type="email"
 								className="form-control"
 								value={email}
 								onChange={e => setEmail(e.target.value)}
-								placeholder="e.g. name@kulkul.tech"
-								required
+								placeholder="Defaults to username@placeholder.kulkul.tech"
 							/>
 						</div>
 						<div className="form-group">
