@@ -1,0 +1,329 @@
+:root {
+	--primary: hsl(265, 85%, 62%);
+	--primary-light: hsl(265, 85%, 80%);
+	--primary-glow: rgba(139, 92, 246, 0.35);
+	
+	--secondary: hsl(332, 90%, 65%);
+	--secondary-glow: rgba(236, 72, 153, 0.3);
+
+	--success: hsl(142, 70%, 45%);
+	--success-bg: rgba(16, 185, 129, 0.1);
+	--success-border: rgba(16, 185, 129, 0.3);
+
+	--warning: hsl(38, 92%, 50%);
+	--warning-bg: rgba(245, 158, 11, 0.1);
+	--warning-border: rgba(245, 158, 11, 0.3);
+
+	--error: hsl(0, 84%, 60%);
+	--error-bg: rgba(239, 68, 68, 0.1);
+	--error-border: rgba(239, 68, 68, 0.3);
+
+	/* Theme Specifics - Sleek Modern Dark as default, adaptive in light mode */
+	--bg-app: radial-gradient(circle at 50% 0%, hsl(240, 20%, 10%) 0%, hsl(240, 30%, 5%) 100%);
+	--text-main: hsl(210, 20%, 85%);
+	--text-muted: hsl(210, 10%, 60%);
+	--text-title: hsl(0, 0%, 100%);
+	
+	--border-glass: rgba(255, 255, 255, 0.08);
+	--bg-glass: rgba(17, 18, 25, 0.65);
+	--shadow-glass: rgba(0, 0, 0, 0.5) 0 8px 32px 0;
+	
+	--sans: 'Inter', system-ui, -apple-system, sans-serif;
+	--mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--bg-app: radial-gradient(circle at 50% 0%, hsl(240, 30%, 98%) 0%, hsl(240, 25%, 93%) 100%);
+		--text-main: hsl(240, 15%, 25%);
+		--text-muted: hsl(240, 10%, 45%);
+		--text-title: hsl(240, 20%, 10%);
+		
+		--border-glass: rgba(0, 0, 0, 0.06);
+		--bg-glass: rgba(255, 255, 255, 0.7);
+		--shadow-glass: rgba(0, 0, 0, 0.08) 0 8px 32px 0;
+	}
+}
+
+body {
+	margin: 0;
+	font-family: var(--sans);
+	background: var(--bg-app);
+	color: var(--text-main);
+	min-height: 100vh;
+	display: flex;
+	justify-content: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+	width: 1200px;
+	max-width: 100%;
+	padding: 2rem 1.5rem;
+	box-sizing: border-box;
+}
+
+h1, h2, h3, h4 {
+	color: var(--text-title);
+	font-weight: 800;
+	letter-spacing: -0.03em;
+}
+
+h1 {
+	font-size: 3rem;
+	margin: 0 0 0.5rem 0;
+	background: linear-gradient(135deg, #fff 30%, var(--primary-light) 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
+
+@media (max-width: 768px) {
+	h1 { font-size: 2.25rem; }
+}
+
+.text-gradient {
+	background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+	background: var(--bg-glass);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid var(--border-glass);
+	border-radius: 16px;
+	box-shadow: var(--shadow-glass);
+	padding: 2rem;
+	box-sizing: border-box;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+	border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Flex & Grid layouts */
+.dashboard-grid {
+	display: grid;
+	grid-template-columns: 1fr 2fr;
+	gap: 2rem;
+	margin-top: 2rem;
+}
+
+@media (max-width: 1024px) {
+	.dashboard-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* Form Styles */
+.form-group {
+	margin-bottom: 1.25rem;
+	text-align: left;
+}
+
+.form-group label {
+	display: block;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--text-title);
+	margin-bottom: 0.5rem;
+}
+
+.form-control {
+	width: 100%;
+	padding: 0.75rem 1rem;
+	font-size: 0.95rem;
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid var(--border-glass);
+	border-radius: 8px;
+	color: var(--text-title);
+	box-sizing: border-box;
+	transition: all 0.2s ease;
+}
+
+.form-control:focus {
+	outline: none;
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px var(--primary-glow);
+	background: rgba(0, 0, 0, 0.3);
+}
+
+/* Interactive Buttons */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.75rem 1.5rem;
+	font-size: 0.95rem;
+	font-weight: 700;
+	border-radius: 8px;
+	border: none;
+	cursor: pointer;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary {
+	background: linear-gradient(135deg, var(--primary) 0%, hsl(265, 80%, 55%) 100%);
+	color: #fff;
+}
+
+.btn-primary:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 15px var(--primary-glow);
+}
+
+.btn-secondary {
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--text-title);
+	border: 1px solid var(--border-glass);
+}
+
+.btn-secondary:hover {
+	background: rgba(255, 255, 255, 0.15);
+	transform: translateY(-2px);
+}
+
+/* Fellows Lists & Badges */
+.fellows-list {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.fellow-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 1.5rem;
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid var(--border-glass);
+	border-radius: 12px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.fellow-item:hover, .fellow-item.active {
+	background: rgba(255, 255, 255, 0.05);
+	border-color: var(--primary);
+	transform: translateX(4px);
+}
+
+.badge {
+	display: inline-flex;
+	padding: 0.25rem 0.75rem;
+	font-size: 0.75rem;
+	font-weight: 700;
+	border-radius: 9999px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.badge-applied {
+	background: var(--warning-bg);
+	color: var(--warning);
+	border: 1px solid var(--warning-border);
+}
+
+.badge-approved {
+	background: var(--success-bg);
+	color: var(--success);
+	border: 1px solid var(--success-border);
+}
+
+.badge-graduated {
+	background: rgba(139, 92, 246, 0.15);
+	color: hsl(265, 80%, 75%);
+	border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Step Checklist Tracker */
+.steps-checklist {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+	text-align: left;
+	margin-top: 1.5rem;
+}
+
+@media (max-width: 600px) {
+	.steps-checklist {
+		grid-template-columns: 1fr;
+	}
+}
+
+.step-check-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid var(--border-glass);
+	border-radius: 8px;
+	cursor: pointer;
+	user-select: none;
+	transition: all 0.2s ease;
+}
+
+.step-check-item:hover {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.step-check-item.checked {
+	border-color: var(--success-border);
+	background: var(--success-bg);
+}
+
+.step-check-item.checked span {
+	text-decoration: line-through;
+	color: var(--text-muted);
+}
+
+/* Certificate Widget */
+.certificate-card {
+	background: radial-gradient(circle at 0% 0%, hsl(45, 20%, 15%) 0%, hsl(45, 30%, 8%) 100%);
+	border: 2px solid hsl(45, 60%, 40%);
+	border-radius: 12px;
+	padding: 2.5rem;
+	text-align: center;
+	position: relative;
+	overflow: hidden;
+	box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15);
+}
+
+.certificate-card::before {
+	content: '';
+	position: absolute;
+	top: -50%;
+	left: -50%;
+	width: 200%;
+	height: 200%;
+	background: linear-gradient(45deg, transparent 45%, rgba(245, 158, 11, 0.05) 50%, transparent 55%);
+	transform: rotate(30deg);
+	animation: shine 6s infinite linear;
+}
+
+@keyframes shine {
+	0% { transform: translate(-30%, -30%) rotate(30deg); }
+	100% { transform: translate(30%, 30%) rotate(30deg); }
+}
+
+.certificate-seal {
+	width: 80px;
+	height: 80px;
+	margin: 0 auto 1.5rem;
+	background: radial-gradient(circle, hsl(45, 80%, 55%) 0%, hsl(45, 90%, 40%) 100%);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 0 20px hsl(45, 80%, 45%);
+	color: #1a1a1a;
+	font-weight: 900;
+	font-size: 1.75rem;
+}
