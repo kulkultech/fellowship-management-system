@@ -48,9 +48,9 @@ To complete the onboarding challenge, you must resolve the following three issue
 *   **Task:** Locate the toggle flip logic under `updateProgress` and fix the boolean assignment so that it saves the correct checked state.
 
 ### Ticket 2: Missing Form Fields Validation
-*   **Symptom:** The application form allows submitting empty names, malformed emails (e.g. `bademail.com`), and GitHub usernames with spaces or invalid characters.
+*   **Symptom:** The application form allows submitting empty names, malformed emails (e.g. `bademail.com`), and GitHub usernames with spaces or invalid characters. Note that the email is optional on registration: if omitted, it defaults to the placeholder format `github_username@placeholder.kulkul.tech`.
 *   **Target File:** `netlify/functions/lib/InMemoryFellowRepository.js` (and `NetlifyBlobFellowRepository.js`).
-*   **Task:** Under `saveApplication`, add validation logic. If the email does not contain `@`, or the GitHub username contains spaces, throw an error to reject the application with a `400 Bad Request`.
+*   **Task:** Under `saveApplication`, add validation logic. If the email is provided but does not contain `@`, or the GitHub username contains spaces, throw an error to reject the application with a `400 Bad Request`. If the email is omitted, it should default to `github_username@placeholder.kulkul.tech`.
 
 ### Ticket 3: Graduation Certificate Generation TypeError
 *   **Symptom:** When clicking the "Graduate Fellow" button for a candidate, the server crashes with a `TypeError: Cannot read properties of undefined (reading 'toUpperCase')` when trying to split the email address.
