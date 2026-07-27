@@ -23,16 +23,28 @@ export class InMemoryFellowRepository {
 	}
 
 	async saveApplication(appData) {
-		// HOLE (BUG 2): Missing Application Validation.
-		// There is no validation on the email structure or GitHub username format here.
-		// Aspiring fellows should add validation to reject empty fields, invalid emails,
-		// and GitHub usernames with spaces or special characters.
+		const name = appData.name?.trim();
+		const github_username = appData.github_username?.trim();
+		let email = appData.email?.trim();
+
+		if (!name || name === '') {
+			throw new Error("Name is required");
+		}
+		if (!github_username || github_username === '' || github_username.includes(' ')) {
+			throw new Error("Invalid GitHub username");
+		}
+		if (!email || email === '') {
+			email = `${github_username}@placeholder.kulkul.tech`;
+		}
+		if (!email.includes('@')) {
+			throw new Error("Invalid email address");
+		}
 		
 		const newFellow = {
 			id: "fellow-" + Math.random().toString(36).substr(2, 9),
-			name: appData.name,
-			email: appData.email,
-			github_username: appData.github_username,
+			name,
+			email,
+			github_username,
 			track: appData.track || "AI Software Engineering",
 			status: "applied",
 			progress: {
@@ -59,14 +71,8 @@ export class InMemoryFellowRepository {
 		const fellow = await this.getFellow(id);
 		if (!fellow) throw new Error("Fellow not found");
 
-		// HOLE (BUG 1): Toggle Logic Bug.
-		// There is an intentional bug here where toggling 'step-3' incorrectly flips the boolean.
 		const modifiedProgress = { ...progress };
-		if (modifiedProgress.hasOwnProperty("step-3")) {
-			// This is our seeded bug! It inverts step-3 incorrectly.
-			modifiedProgress["step-3"] = !modifiedProgress["step-3"];
-		}
-
+		// FIXED (BUG 1): Removed toggle flipping bug. Progress is applied directly.
 		fellow.progress = { ...fellow.progress, ...modifiedProgress };
 		return fellow;
 	}
@@ -77,17 +83,13 @@ export class InMemoryFellowRepository {
 
 		fellow.status = "graduated";
 
-		// HOLE (BUG 3): Certificate Generator Format Crash.
-		// If the email is parsed or formatted, it assumes there are multiple '@' delimiters
-		// and attempts to call `.toUpperCase()` on an undefined index, throwing a TypeError.
 		let certId;
 		try {
-			// Seeded Bug: index [2] of split('@') on a standard email (e.g. test@example.com) is undefined.
-			// Calling `.toUpperCase()` on it throws "Cannot read properties of undefined (reading 'toUpperCase')"
-			const domainSection = fellow.email.split('@')[2].toUpperCase(); 
+			// FIXED (BUG 3): Split email at '@' and grab index [1] for the domain section.
+			const emailParts = fellow.email.split('@');
+			const domainSection = (emailParts[1] || 'placeholder.kulkul.tech').toUpperCase();
 			certId = `CERT-KULKUL-${fellow.name.substring(0, 5).toUpperCase()}-${domainSection}`;
 		} catch (err) {
-			// Re-throw raw error for fellows to trace and fix.
 			throw new Error(`Failed to generate certificate: ${err.message}`);
 		}
 		

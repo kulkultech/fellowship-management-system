@@ -1,54 +1,56 @@
 :root {
-	--primary: hsl(265, 85%, 62%);
-	--primary-light: hsl(265, 85%, 80%);
-	--primary-glow: rgba(139, 92, 246, 0.35);
+	/* Astro Starlight HSL Hue Hues (based on Starlight's default color palette) */
+	--primary: hsl(224, 100%, 60%); /* Starlight accent blue */
+	--primary-light: hsl(224, 100%, 85%);
+	--primary-glow: rgba(59, 130, 246, 0.25);
 	
-	--secondary: hsl(332, 90%, 65%);
-	--secondary-glow: rgba(236, 72, 153, 0.3);
+	--secondary: hsl(281, 82%, 63%); /* Starlight purple */
+	--secondary-glow: rgba(168, 85, 247, 0.2);
 
-	--success: hsl(142, 70%, 45%);
-	--success-bg: rgba(16, 185, 129, 0.1);
-	--success-border: rgba(16, 185, 129, 0.3);
+	--success: hsl(101, 82%, 63%); /* Starlight green */
+	--success-bg: hsla(101, 39%, 22%, 0.15);
+	--success-border: hsla(101, 82%, 63%, 0.3);
 
-	--warning: hsl(38, 92%, 50%);
-	--warning-bg: rgba(245, 158, 11, 0.1);
-	--warning-border: rgba(245, 158, 11, 0.3);
+	--warning: hsl(41, 82%, 63%); /* Starlight orange */
+	--warning-bg: hsla(41, 39%, 22%, 0.15);
+	--warning-border: hsla(41, 82%, 63%, 0.3);
 
-	--error: hsl(0, 84%, 60%);
-	--error-bg: rgba(239, 68, 68, 0.1);
-	--error-border: rgba(239, 68, 68, 0.3);
+	--error: hsl(339, 82%, 63%); /* Starlight red */
+	--error-bg: hsla(339, 39%, 22%, 0.15);
+	--error-border: hsla(339, 82%, 63%, 0.3);
 
-	/* Theme Specifics - Sleek Modern Dark as default, adaptive in light mode */
-	--bg-app: radial-gradient(circle at 50% 0%, hsl(240, 20%, 10%) 0%, hsl(240, 30%, 5%) 100%);
-	--text-main: hsl(210, 20%, 85%);
-	--text-muted: hsl(210, 10%, 60%);
-	--text-title: hsl(0, 0%, 100%);
+	/* Theme Specifics - Aligning with Astro Starlight Dark Mode Theme */
+	--bg-app: hsl(224, 10%, 10%); /* Starlight dark background (#171821) */
+	--text-main: hsl(224, 6%, 77%); /* Starlight text (#c2c8d0) */
+	--text-muted: hsl(224, 6%, 56%); /* Starlight gray-3 (#888d96) */
+	--text-title: hsl(0, 0%, 100%); /* Starlight white text */
 	
-	--border-glass: rgba(255, 255, 255, 0.08);
-	--bg-glass: rgba(17, 18, 25, 0.65);
-	--shadow-glass: rgba(0, 0, 0, 0.5) 0 8px 32px 0;
+	--border-glass: hsl(224, 10%, 23%); /* Starlight hairline border (#23262f) */
+	--bg-glass: hsl(224, 14%, 16%); /* Starlight card/nav background (#1d2027) */
+	--shadow-glass: 0 4px 12px rgba(0, 0, 0, 0.3);
 	
-	--sans: 'Inter', system-ui, -apple-system, sans-serif;
-	--mono: 'JetBrains Mono', ui-monospace, monospace;
+	--sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: light) {
 	:root {
-		--bg-app: radial-gradient(circle at 50% 0%, hsl(240, 30%, 98%) 0%, hsl(240, 25%, 93%) 100%);
-		--text-main: hsl(240, 15%, 25%);
-		--text-muted: hsl(240, 10%, 45%);
-		--text-title: hsl(240, 20%, 10%);
+		--bg-app: hsl(224, 20%, 94%); /* Starlight light background */
+		--text-main: hsl(224, 10%, 23%); /* Starlight dark text */
+		--text-muted: hsl(224, 7%, 36%);
+		--text-title: hsl(224, 10%, 10%);
 		
-		--border-glass: rgba(0, 0, 0, 0.06);
-		--bg-glass: rgba(255, 255, 255, 0.7);
-		--shadow-glass: rgba(0, 0, 0, 0.08) 0 8px 32px 0;
+		--border-glass: hsl(224, 6%, 77%);
+		--bg-glass: hsl(0, 0%, 100%);
+		--shadow-glass: 0 2px 8px rgba(0, 0, 0, 0.05);
 	}
 }
 
 body {
 	margin: 0;
 	font-family: var(--sans);
-	background: var(--bg-app);
+	background-color: var(--bg-app);
+	background-image: none; /* Removed the radial gradient to match Astro's solid theme */
 	color: var(--text-main);
 	min-height: 100vh;
 	display: flex;
@@ -66,43 +68,44 @@ body {
 
 h1, h2, h3, h4 {
 	color: var(--text-title);
-	font-weight: 800;
-	letter-spacing: -0.03em;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	font-family: var(--sans);
 }
 
 h1 {
-	font-size: 3rem;
+	font-size: 2.5rem;
 	margin: 0 0 0.5rem 0;
-	background: linear-gradient(135deg, #fff 30%, var(--primary-light) 100%);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
+	background: none;
+	-webkit-background-clip: initial;
+	-webkit-text-fill-color: initial;
+	color: var(--text-title);
 }
 
 @media (max-width: 768px) {
-	h1 { font-size: 2.25rem; }
+	h1 { font-size: 2rem; }
 }
 
 .text-gradient {
-	background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
+	color: var(--primary-light);
+	background: none;
+	-webkit-background-clip: initial;
+	-webkit-text-fill-color: initial;
 }
 
-/* Glassmorphism Panels */
+/* Starlight-style Cards/Panels */
 .glass-panel {
 	background: var(--bg-glass);
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
 	border: 1px solid var(--border-glass);
-	border-radius: 16px;
+	border-radius: 8px; /* Astro uses sharper borders */
 	box-shadow: var(--shadow-glass);
-	padding: 2rem;
+	padding: 1.5rem;
 	box-sizing: border-box;
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: border-color 0.2s ease;
 }
 
 .glass-panel:hover {
-	border-color: rgba(255, 255, 255, 0.15);
+	border-color: var(--text-muted);
 }
 
 /* Flex & Grid layouts */
@@ -165,28 +168,28 @@ h1 {
 	border: none;
 	cursor: pointer;
 	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary {
-	background: linear-gradient(135deg, var(--primary) 0%, hsl(265, 80%, 55%) 100%);
+	background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
 	color: #fff;
 }
 
 .btn-primary:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 6px 15px var(--primary-glow);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px var(--primary-glow);
 }
 
 .btn-secondary {
-	background: rgba(255, 255, 255, 0.08);
+	background: var(--bg-app);
 	color: var(--text-title);
 	border: 1px solid var(--border-glass);
 }
 
 .btn-secondary:hover {
-	background: rgba(255, 255, 255, 0.15);
-	transform: translateY(-2px);
+	background: var(--border-glass);
+	transform: translateY(-1px);
 }
 
 /* Fellows Lists & Badges */
@@ -203,7 +206,7 @@ h1 {
 	padding: 1rem 1.5rem;
 	background: rgba(255, 255, 255, 0.02);
 	border: 1px solid var(--border-glass);
-	border-radius: 12px;
+	border-radius: 8px; /* Astro uses sharper borders */
 	cursor: pointer;
 	transition: all 0.2s ease;
 }
@@ -211,7 +214,7 @@ h1 {
 .fellow-item:hover, .fellow-item.active {
 	background: rgba(255, 255, 255, 0.05);
 	border-color: var(--primary);
-	transform: translateX(4px);
+	transform: translateX(2px);
 }
 
 .badge {
@@ -219,7 +222,7 @@ h1 {
 	padding: 0.25rem 0.75rem;
 	font-size: 0.75rem;
 	font-weight: 700;
-	border-radius: 9999px;
+	border-radius: 4px; /* sharper badges matching Starlight tags */
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 }
@@ -237,9 +240,9 @@ h1 {
 }
 
 .badge-graduated {
-	background: rgba(139, 92, 246, 0.15);
-	color: hsl(265, 80%, 75%);
-	border: 1px solid rgba(139, 92, 246, 0.3);
+	background: rgba(168, 85, 247, 0.15);
+	color: hsl(281, 80%, 75%);
+	border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
 /* Step Checklist Tracker */

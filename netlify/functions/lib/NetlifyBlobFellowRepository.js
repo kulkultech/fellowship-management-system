@@ -7,12 +7,29 @@ export class NetlifyBlobFellowRepository {
 	}
 
 	async saveApplication(appData) {
+		const name = appData.name?.trim();
+		const github_username = appData.github_username?.trim();
+		let email = appData.email?.trim();
+
+		if (!name || name === '') {
+			throw new Error("Name is required");
+		}
+		if (!github_username || github_username === '' || github_username.includes(' ')) {
+			throw new Error("Invalid GitHub username");
+		}
+		if (!email || email === '') {
+			email = `${github_username}@placeholder.kulkul.tech`;
+		}
+		if (!email.includes('@')) {
+			throw new Error("Invalid email address");
+		}
+
 		const id = "fellow-" + Math.random().toString(36).substr(2, 9);
 		const newFellow = {
 			id,
-			name: appData.name,
-			email: appData.email,
-			github_username: appData.github_username,
+			name,
+			email,
+			github_username,
 			track: appData.track || "AI Software Engineering",
 			status: "applied",
 			progress: {
@@ -67,11 +84,7 @@ export class NetlifyBlobFellowRepository {
 		if (!fellow) throw new Error("Fellow not found");
 
 		const modifiedProgress = { ...progress };
-		// HOLE (BUG 1): Toggle Logic Bug (duplicated here to maintain consistency across DB backends)
-		if (modifiedProgress.hasOwnProperty("step-3")) {
-			modifiedProgress["step-3"] = !modifiedProgress["step-3"];
-		}
-
+		// FIXED (BUG 1): Removed toggle flipping bug. Progress is applied directly.
 		fellow.progress = { ...fellow.progress, ...modifiedProgress };
 		await this.store.setJSON(id, fellow);
 		return fellow;
@@ -85,8 +98,9 @@ export class NetlifyBlobFellowRepository {
 
 		let certId;
 		try {
-			// HOLE (BUG 3): Same certificate generator crash
-			const domainSection = fellow.email.split('@')[2].toUpperCase(); 
+			// FIXED (BUG 3): Split email at '@' and grab index [1] for the domain section.
+			const emailParts = fellow.email.split('@');
+			const domainSection = (emailParts[1] || 'placeholder.kulkul.tech').toUpperCase();
 			certId = `CERT-KULKUL-${fellow.name.substring(0, 5).toUpperCase()}-${domainSection}`;
 		} catch (err) {
 			throw new Error(`Failed to generate certificate: ${err.message}`);
