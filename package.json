@@ -11,7 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@netlify/blobs": "^0.3.0",
+    "@netlify/blobs": "^10.7.9",
+    "@supabase/supabase-js": "^2.45.0",
+    "lucide-react": "^0.435.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -19,6 +21,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "netlify-cli": "^17.30.0",
     "oxlint": "^1.71.0",
     "vite": "^8.1.1",
     "vitest": "^3.0.0"

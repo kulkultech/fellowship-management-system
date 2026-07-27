@@ -47,6 +47,10 @@ export default async (req, context) => {
 		// Route: PUT /fellows/:id/progress (Update 10-step progress checkboxes)
 		const progressMatch = path.match(/^\/fellows\/([a-zA-Z0-9\-]+)\/progress$/);
 		if (progressMatch && req.method === 'PUT') {
+			const authHeader = req.headers.get('authorization');
+			if (authHeader !== 'Bearer admin123') {
+				return new Response(JSON.stringify({ error: 'Unauthorized: Admin authorization required' }), { status: 401, headers });
+			}
 			const id = progressMatch[1];
 			const body = await req.json();
 			const result = await repo.updateProgress(id, body);
@@ -56,6 +60,10 @@ export default async (req, context) => {
 		// Route: POST /fellows/:id/graduate (Mark fellow as graduated & generate cert)
 		const graduateMatch = path.match(/^\/fellows\/([a-zA-Z0-9\-]+)\/graduate$/);
 		if (graduateMatch && req.method === 'POST') {
+			const authHeader = req.headers.get('authorization');
+			if (authHeader !== 'Bearer admin123') {
+				return new Response(JSON.stringify({ error: 'Unauthorized: Admin authorization required' }), { status: 401, headers });
+			}
 			const id = graduateMatch[1];
 			const result = await repo.graduateFellow(id);
 			return new Response(JSON.stringify(result), { status: 200, headers });
