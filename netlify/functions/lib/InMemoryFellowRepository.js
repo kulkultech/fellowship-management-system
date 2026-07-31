@@ -1,99 +1,122 @@
 export class InMemoryFellowRepository {
-	constructor() {
-		// Initialize global in-memory database if not exists
-		if (!global._inMemoryFellows) {
-			global._inMemoryFellows = [
-				{
-					id: "fellow-1",
-					name: "Ragil Zakaria",
-					email: "ragil@kulkul.tech",
-					github_username: "ragilzakaria",
-					track: "AI Software Engineering",
-					status: "approved",
-					progress: {
-						"step-1": true, "step-2": true, "step-3": true, "step-4": false,
-						"step-5": false, "step-6": false, "step-7": false, "step-8": false,
-						"step-9": false, "step-10": false
-					},
-					certificate_id: null,
-					created_at: new Date().toISOString()
-				}
-			];
-		}
-	}
+  constructor() {
+    // Initialize global in-memory database if not exists
+    if (!global._inMemoryFellows) {
+      global._inMemoryFellows = [
+        {
+          id: "fellow-1",
+          name: "Ragil Zakaria",
+          email: "ragil@kulkul.tech",
+          github_username: "ragilzakaria",
+          track: "AI Software Engineering",
+          status: "approved",
+          progress: {
+            "step-1": true,
+            "step-2": true,
+            "step-3": true,
+            "step-4": false,
+            "step-5": false,
+            "step-6": false,
+            "step-7": false,
+            "step-8": false,
+            "step-9": false,
+            "step-10": false,
+          },
+          certificate_id: null,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+  }
 
-	async saveApplication(appData) {
-		const name = appData.name?.trim();
-		const github_username = appData.github_username?.trim();
-		let email = appData.email?.trim();
+  async saveApplication(appData) {
+    const name = appData.name?.trim();
+    const github_username = appData.github_username?.trim();
+    let email = appData.email?.trim();
 
-		if (!name || name === '') {
-			throw new Error("Name is required");
-		}
-		if (!github_username || github_username === '' || github_username.includes(' ')) {
-			throw new Error("Invalid GitHub username");
-		}
-		if (!email || email === '') {
-			email = `${github_username}@placeholder.kulkul.tech`;
-		}
-		if (!email.includes('@')) {
-			throw new Error("Invalid email address");
-		}
-		
-		const newFellow = {
-			id: "fellow-" + Math.random().toString(36).substr(2, 9),
-			name,
-			email,
-			github_username,
-			track: appData.track || "AI Software Engineering",
-			status: "applied",
-			progress: {
-				"step-1": false, "step-2": false, "step-3": false, "step-4": false,
-				"step-5": false, "step-6": false, "step-7": false, "step-8": false,
-				"step-9": false, "step-10": false
-			},
-			certificate_id: null,
-			created_at: new Date().toISOString()
-		};
-		global._inMemoryFellows.push(newFellow);
-		return newFellow;
-	}
+    if (!name || name === "") {
+      throw new Error("Name is required");
+    }
+    if (
+      !github_username ||
+      github_username === "" ||
+      github_username.includes(" ")
+    ) {
+      throw new Error("Invalid GitHub username");
+    }
+    if (!email) {
+      email = `${github_username}@placeholder.kulkul.tech`;
+    }
 
-	async getApplications() {
-		return global._inMemoryFellows;
-	}
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-	async getFellow(id) {
-		return global._inMemoryFellows.find(f => f.id === id) || null;
-	}
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email address");
+    }
 
-	async updateProgress(id, progress) {
-		const fellow = await this.getFellow(id);
-		if (!fellow) throw new Error("Fellow not found");
+    const newFellow = {
+      id: "fellow-" + Math.random().toString(36).substr(2, 9),
+      name,
+      email,
+      github_username,
+      track: appData.track || "AI Software Engineering",
+      status: "applied",
+      progress: {
+        "step-1": false,
+        "step-2": false,
+        "step-3": false,
+        "step-4": false,
+        "step-5": false,
+        "step-6": false,
+        "step-7": false,
+        "step-8": false,
+        "step-9": false,
+        "step-10": false,
+      },
+      certificate_id: null,
+      created_at: new Date().toISOString(),
+    };
+    global._inMemoryFellows.push(newFellow);
+    return newFellow;
+  }
 
-		const modifiedProgress = { ...progress };
-		// FIXED (BUG 1): Removed toggle flipping bug. Progress is applied directly.
-		fellow.progress = { ...fellow.progress, ...modifiedProgress };
-		return fellow;
-	}
+  async getApplications() {
+    return global._inMemoryFellows;
+  }
 
-	async graduateFellow(id) {
-		const fellow = await this.getFellow(id);
-		if (!fellow) throw new Error("Fellow not found");
+  async getFellow(id) {
+    return global._inMemoryFellows.find((f) => f.id === id) || null;
+  }
 
-		fellow.status = "graduated";
+  async updateProgress(id, progress) {
+    const fellow = await this.getFellow(id);
+    if (!fellow) throw new Error("Fellow not found");
 
-		let certId;
-		try {
-			// FIXED (BUG 3): Split email at '@' and grab index [1] for the domain section.
-			const emailParts = fellow.email.split('@');
-			const domainSection = (emailParts[1] || 'placeholder.kulkul.tech').toUpperCase();
-			certId = `CERT-KULKUL-${fellow.name.substring(0, 5).toUpperCase()}-${domainSection}`;
-		} catch (err) {
-			throw new Error(`Failed to generate certificate: ${err.message}`);
-		}
-		
-		fellow.certificate_id = certId;
-		return fellow;
-	}
+    const modifiedProgress = { ...progress };
+    // FIXED (BUG 1): Removed toggle flipping bug. Progress is applied directly.
+    fellow.progress = { ...fellow.progress, ...modifiedProgress };
+    return fellow;
+  }
+
+  async graduateFellow(id) {
+    const fellow = await this.getFellow(id);
+    if (!fellow) throw new Error("Fellow not found");
+
+    fellow.status = "graduated";
+
+    let certId;
+    try {
+      // FIXED (BUG 3): Split email at '@' and grab index [1] for the domain section.
+      const emailParts = fellow.email.split("@");
+      const domainSection = (
+        emailParts[1] || "placeholder.kulkul.tech"
+      ).toUpperCase();
+      certId = `CERT-KULKUL-${fellow.name.substring(0, 5).toUpperCase()}-${domainSection}`;
+    } catch (err) {
+      throw new Error(`Failed to generate certificate: ${err.message}`);
+    }
+
+    fellow.certificate_id = certId;
+    return fellow;
+  }
 }
