@@ -1,6 +1,9 @@
 name: Deploy Staging
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       deploy_backend:
@@ -32,8 +35,13 @@ jobs:
       - name: Check inputs
         id: filter
         run: |
-          echo "backend=${{ github.event.inputs.deploy_backend }}" >> "$GITHUB_OUTPUT"
-          echo "frontend=${{ github.event.inputs.deploy_frontend }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=${{ github.event.inputs.deploy_backend }}" >> "$GITHUB_OUTPUT"
+            echo "frontend=${{ github.event.inputs.deploy_frontend }}" >> "$GITHUB_OUTPUT"
+          fi
 
   backend:
     needs: changes
@@ -94,7 +102,6 @@ jobs:
           IMAGE_TAG="${{ steps.img.outputs.prefix }}-backend:staging-${{ github.sha }}"
           
           # Update the container image in the deployment
-          # Note: If your container name is different (e.g. 'api' or 'backend'), adjust the container name below
           CONTAINER_NAME=$(kubectl get deployment fellowhire-backend -n fellowhire -o jsonpath='{.spec.template.spec.containers[0].name}')
           echo "Updating deployment fellowhire-backend container: ${CONTAINER_NAME} with image: ${IMAGE_TAG}"
           kubectl set image deployment/fellowhire-backend "${CONTAINER_NAME}=${IMAGE_TAG}" -n fellowhire
@@ -166,7 +173,6 @@ jobs:
           IMAGE_TAG="${{ steps.img.outputs.prefix }}-frontend:staging-${{ github.sha }}"
           
           # Update the container image in the deployment
-          # Note: If your container name is different (e.g. 'web' or 'frontend'), adjust the container name below
           CONTAINER_NAME=$(kubectl get deployment fellowhire-frontend -n fellowhire -o jsonpath='{.spec.template.spec.containers[0].name}')
           echo "Updating deployment fellowhire-frontend container: ${CONTAINER_NAME} with image: ${IMAGE_TAG}"
           kubectl set image deployment/fellowhire-frontend "${CONTAINER_NAME}=${IMAGE_TAG}" -n fellowhire
