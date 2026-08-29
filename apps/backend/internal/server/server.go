@@ -33,6 +33,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	aiInterviewRepo := repository.NewAIInterviewRepository(pool)
 
 	// Handlers
+	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, applicantRepo, submissionRepo)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, programRepo, applicantRepo, aiInterviewRepo)
@@ -72,7 +73,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		MaxAge:           300,
 	}))
 
-	r.Get("/healthz", handler.Healthz)
+	// Health and probe endpoints (root level)
+	r.Get("/health", healthHandler.Health)
+	r.Get("/healthz", healthHandler.Liveness)
+	r.Get("/livez", healthHandler.Liveness)
+	r.Get("/readyz", healthHandler.Readiness)
 
 	if cfg.MetricsToken != "" {
 		r.Group(func(m chi.Router) {
@@ -82,6 +87,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	}
 
 	r.Route("/api/v1", func(api chi.Router) {
+		// Health & Probes
+		api.Route("/health", func(h chi.Router) {
+			h.Get("/", healthHandler.Health)
+			h.Get("/live", healthHandler.Liveness)
+			h.Get("/liveness", healthHandler.Liveness)
+			h.Get("/ready", healthHandler.Readiness)
+			h.Get("/readiness", healthHandler.Readiness)
+		})
 		// Public Auth
 		api.Route("/auth", func(a chi.Router) {
 			a.Use(httprate.LimitByIP(20, time.Minute))
