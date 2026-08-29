@@ -1,29 +1,21 @@
 {
-  "name": "sandbox",
+  "name": "fellowship-management-system",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "description": "Multi-tenant Assessment Platform & Fellowship Management System",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "oxlint",
-    "test": "vitest run",
-    "preview": "vite preview"
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose down",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
   },
-  "dependencies": {
-    "@netlify/blobs": "^10.7.9",
-    "@supabase/supabase-js": "^2.45.0",
-    "lucide-react": "^0.435.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
-  },
+  "workspaces": [
+    "apps/*"
+  ],
   "devDependencies": {
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "netlify-cli": "^17.30.0",
-    "oxlint": "^1.71.0",
-    "vite": "^8.1.1",
-    "vitest": "^3.0.0"
+    "turbo": "^2.1.3"
   }
 }

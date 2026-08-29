@@ -1,27 +1,83 @@
-# Logs
-logs
-*.log
+# ── Operating System ─────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ── Secrets & Environment Variables ─────────────────────
+# Ignore all .env files and variants
+.env
+.env.*
+!.env.example
+*.env
+*.env.*
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
+
+# Secret manager credentials, API keys & Service Accounts
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.keystore
+*credentials*.json
+*service_account*.json
+*service-account*.json
+*client_secret*.json
+gcp-key*.json
+secrets*.json
+secrets/
+.secrets/
+
+# ── Node / Frontend ─────────────────────────────────────
+node_modules/
+dist/
+build/
+.turbo/
+.cache/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
+.pnpm-debug.log*
+tsconfig.tsbuildinfo
 
-node_modules
-dist
-dist-ssr
-*.local
+# ── Go / Backend ────────────────────────────────────────
+bin/
+apps/backend/bin/
+apps/backend/uploads/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+*.prof
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# ── Temporary & Scratch Files ───────────────────────────
+tmp/
+temp/
+/tmp/
+.tempmediaStorage/
+*.swp
+*.swo
+*~
 
-# Local Netlify folder
-.netlify
+# ── IDEs & Editors ──────────────────────────────────────
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ── Infrastructure & Cloud ──────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

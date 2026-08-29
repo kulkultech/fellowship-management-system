@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-slate-900 antialiased font-sans selection:bg-kulkul-orange/20 selection:text-kulkul-purple;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  input, select, textarea {
+    @apply text-slate-900 bg-white border-slate-300 placeholder:text-slate-400;
+  }
+}
+
+/* Google Stitch / Material 3 & Kulkul Floating Surfaces */
+.stitch-card {
+  @apply bg-white border border-slate-100 rounded-3xl transition-all duration-200;
+  box-shadow: 0 2px 8px -2px rgba(51, 18, 93, 0.05), 0 8px 24px -4px rgba(51, 18, 93, 0.08);
+}
+
+.stitch-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px -2px rgba(51, 18, 93, 0.08), 0 12px 32px -4px rgba(51, 18, 93, 0.12);
+}
+
+.stitch-pill {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all duration-200;
+}
+
+.stitch-pill-purple {
+  @apply bg-kulkul-purple text-white hover:bg-kulkul-purple-hover shadow-sm hover:shadow active:scale-[0.98];
+}
+
+.stitch-pill-orange {
+  @apply bg-kulkul-orange text-white hover:bg-kulkul-orange-hover shadow-sm hover:shadow active:scale-[0.98];
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
