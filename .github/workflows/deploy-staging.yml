@@ -1,0 +1,174 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_backend:
+        description: 'Deploy Backend'
+        required: true
+        type: boolean
+        default: true
+      deploy_frontend:
+        description: 'Deploy Frontend'
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: staging-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Check inputs
+        id: filter
+        run: |
+          echo "backend=${{ github.event.inputs.deploy_backend }}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${{ github.event.inputs.deploy_frontend }}" >> "$GITHUB_OUTPUT"
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: apps/backend/go.sum
+
+      - name: Vet Backend
+        run: cd apps/backend && go vet ./...
+
+      - name: Test Backend
+        run: cd apps/backend && go test -v ./...
+
+      - name: Compute image prefix (lowercase)
+        id: img
+        run: echo "prefix=${REGISTRY}/${IMAGE_PREFIX,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.img.outputs.prefix }}-backend:staging-${{ github.sha }}
+            ${{ steps.img.outputs.prefix }}-backend:latest
+
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Deploy Backend to Staging Cluster
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+          IMAGE_TAG="${{ steps.img.outputs.prefix }}-backend:staging-${{ github.sha }}"
+          
+          # Update the container image in the deployment
+          # Note: If your container name is different (e.g. 'api' or 'backend'), adjust the container name below
+          CONTAINER_NAME=$(kubectl get deployment fellowhire-backend -n fellowhire -o jsonpath='{.spec.template.spec.containers[0].name}')
+          echo "Updating deployment fellowhire-backend container: ${CONTAINER_NAME} with image: ${IMAGE_TAG}"
+          kubectl set image deployment/fellowhire-backend "${CONTAINER_NAME}=${IMAGE_TAG}" -n fellowhire
+          
+          kubectl rollout status deployment/fellowhire-backend -n fellowhire --timeout=180s
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'apps/frontend/package.json'
+
+      - name: Install Frontend Dependencies
+        run: cd apps/frontend && npm install
+
+      - name: Typecheck Frontend
+        run: cd apps/frontend && npx tsc -b
+
+      - name: Build Frontend
+        run: cd apps/frontend && npm run build
+
+      - name: Compute image prefix (lowercase)
+        id: img
+        run: echo "prefix=${REGISTRY}/${IMAGE_PREFIX,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || '/api/v1' }}
+          tags: |
+            ${{ steps.img.outputs.prefix }}-frontend:staging-${{ github.sha }}
+            ${{ steps.img.outputs.prefix }}-frontend:latest
+
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Deploy Frontend to Staging Cluster
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+          IMAGE_TAG="${{ steps.img.outputs.prefix }}-frontend:staging-${{ github.sha }}"
+          
+          # Update the container image in the deployment
+          # Note: If your container name is different (e.g. 'web' or 'frontend'), adjust the container name below
+          CONTAINER_NAME=$(kubectl get deployment fellowhire-frontend -n fellowhire -o jsonpath='{.spec.template.spec.containers[0].name}')
+          echo "Updating deployment fellowhire-frontend container: ${CONTAINER_NAME} with image: ${IMAGE_TAG}"
+          kubectl set image deployment/fellowhire-frontend "${CONTAINER_NAME}=${IMAGE_TAG}" -n fellowhire
+          
+          kubectl rollout status deployment/fellowhire-frontend -n fellowhire --timeout=180s
