@@ -94,9 +94,15 @@ jobs:
         uses: azure/setup-kubectl@v4
 
       - name: Deploy Backend to Staging Cluster
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          if echo "$KUBECONFIG_DATA" | base64 -d > /dev/null 2>&1 && ! echo "$KUBECONFIG_DATA" | grep -q 'apiVersion:'; then
+            echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
+          else
+            echo "$KUBECONFIG_DATA" > ~/.kube/config
+          fi
           chmod 600 ~/.kube/config
           
           IMAGE_TAG="${{ steps.img.outputs.prefix }}-backend:staging-${{ github.sha }}"
@@ -165,9 +171,15 @@ jobs:
         uses: azure/setup-kubectl@v4
 
       - name: Deploy Frontend to Staging Cluster
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          if echo "$KUBECONFIG_DATA" | base64 -d > /dev/null 2>&1 && ! echo "$KUBECONFIG_DATA" | grep -q 'apiVersion:'; then
+            echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
+          else
+            echo "$KUBECONFIG_DATA" > ~/.kube/config
+          fi
           chmod 600 ~/.kube/config
           
           IMAGE_TAG="${{ steps.img.outputs.prefix }}-frontend:staging-${{ github.sha }}"
