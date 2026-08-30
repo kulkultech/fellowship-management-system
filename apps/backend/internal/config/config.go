@@ -56,21 +56,37 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	frontendURL := strings.TrimRight(getString("FRONTEND_URL", ""), "/")
+	defaultSuccessURL := "http://localhost:5173/admin/dashboard"
+	if frontendURL != "" {
+		defaultSuccessURL = frontendURL + "/admin/dashboard"
+	}
+
+	defaultRedirectURL := ""
+	if frontendURL != "" {
+		defaultRedirectURL = frontendURL + "/api/v1/auth/oauth/google/callback"
+	}
+
+	corsOrigins := getCSV("CORS_ALLOWED_ORIGINS")
+	if len(corsOrigins) == 0 && frontendURL != "" {
+		corsOrigins = []string{frontendURL}
+	}
+
 	cfg := &Config{
 		AppEnv:             getString("APP_ENV", "development"),
 		HTTPPort:           getString("HTTP_PORT", "8080"),
 		DatabaseURL:        getString("DATABASE_URL", ""),
 		JWTSecret:          getString("JWT_SECRET", "development-jwt-secret-key-32characters-long!!"),
 		JWTTTL:             time.Duration(ttlMinutes) * time.Minute,
-		CORSAllowedOrigins: getCSV("CORS_ALLOWED_ORIGINS"),
+		CORSAllowedOrigins: corsOrigins,
 		MetricsToken:       getString("METRICS_TOKEN", ""),
 		CookieSecure:       getBool("COOKIE_SECURE", false),
 		CookieDomain:       getString("COOKIE_DOMAIN", ""),
 		GoogleOAuth: OAuthConfig{
 			ClientID:           getString("GOOGLE_CLIENT_ID", ""),
 			ClientSecret:       getString("GOOGLE_CLIENT_SECRET", ""),
-			RedirectURL:        getString("GOOGLE_REDIRECT_URL", ""),
-			FrontendSuccessURL: getString("OAUTH_FRONTEND_SUCCESS_URL", "http://localhost:5173/admin/dashboard"),
+			RedirectURL:        getString("GOOGLE_REDIRECT_URL", defaultRedirectURL),
+			FrontendSuccessURL: getString("OAUTH_FRONTEND_SUCCESS_URL", defaultSuccessURL),
 		},
 		Storage: StorageConfig{
 			Provider:       getString("STORAGE_PROVIDER", "local"),
