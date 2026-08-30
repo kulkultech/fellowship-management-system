@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
           <div className="stitch-card bg-white p-8">
             <div className="flex items-center gap-3.5 mb-6">
               <div className="h-11 px-2 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center">
-                <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-8 w-auto object-contain" />
+                <img src="/kulkul-logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-kulkul-purple">Reviewer Portal</h1>

@@ -33,14 +33,11 @@ export const LandingPage: React.FC = () => {
             {/* Brand Logo */}
             <div className="flex items-center gap-3.5">
               <div className="h-10 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-center">
-                <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-7 w-auto object-contain" />
+                <img src="/kulkul-logo.svg" alt="Logo" className="h-7 w-auto object-contain" />
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <span className="font-extrabold text-kulkul-purple text-lg tracking-tight">FellowHire</span>
-                  <span className="px-2 py-0.5 rounded-full bg-kulkul-orange-light text-kulkul-orange border border-kulkul-orange/20 text-2xs font-bold uppercase">
-                    Kulkul
-                  </span>
                 </div>
                 <span className="text-2xs text-slate-500 font-medium">Multi-Tenant Assessment Platform</span>
               </div>
@@ -99,8 +96,8 @@ export const LandingPage: React.FC = () => {
             </span>
             <span className="text-slate-300">&bull;</span>
             <span className="flex items-center gap-1.5 text-slate-600">
-              <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-3.5 w-auto object-contain" />
-              <span>Kulkul Tech Engine</span>
+              <img src="/kulkul-logo.svg" alt="Logo" className="h-3.5 w-auto object-contain" />
+              <span>Assessment Engine</span>
             </span>
           </div>
 
@@ -327,11 +324,11 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3.5">
             <div className="h-9 px-2 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs flex items-center justify-center">
-              <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-6 w-auto object-contain" />
+              <img src="/kulkul-logo.svg" alt="Logo" className="h-6 w-auto object-contain" />
             </div>
             <div>
               <span className="font-bold text-slate-900 text-sm">FellowHire</span>
-              <p className="text-xs text-slate-500">&copy; 2026 Kulkul Tech &middot; All rights reserved.</p>
+              <p className="text-xs text-slate-500">&copy; 2026 FellowHire &middot; All rights reserved.</p>
             </div>
           </div>
 

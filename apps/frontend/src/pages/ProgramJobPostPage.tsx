@@ -221,7 +221,7 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                   <div className="font-bold text-slate-900 text-sm mb-1">Assessment Technology</div>
-                  <p className="text-xs text-slate-600">FellowHire Assessment Engine by Kulkul Tech</p>
+                  <p className="text-xs text-slate-600">FellowHire Assessment Engine</p>
                 </div>
               </div>
             </div>
@@ -276,7 +276,7 @@ export const ProgramJobPostPage: React.FC = () => {
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm">Reviewer Panel Decision</h3>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      RSA and Kulkul reviewers inspect your unified scorecard, transcripts, and profile for final fellowship cohort admission.
+                      Program reviewers inspect your unified scorecard, transcripts, and profile for final fellowship cohort admission.
                     </p>
                   </div>
                 </div>

@@ -35,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-3">
               <Link to="/" className="flex items-center gap-3.5 group">
                 <div className="h-10 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-center transition group-hover:border-kulkul-orange/40">
-                  <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-7 w-auto object-contain" />
+                  <img src="/kulkul-logo.svg" alt="Logo" className="h-7 w-auto object-contain" />
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">

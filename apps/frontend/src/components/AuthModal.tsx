@@ -83,7 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div className="flex items-center gap-2 mb-3">
             <div className="h-8 px-2 py-0.5 rounded-lg bg-white shadow-xs flex items-center justify-center">
-              <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-5 w-auto object-contain" />
+              <img src="/kulkul-logo.svg" alt="Logo" className="h-5 w-auto object-contain" />
             </div>
             <span className="text-xs font-bold uppercase tracking-wider text-kulkul-orange bg-white/10 px-2.5 py-1 rounded-full border border-white/20">
               FellowHire
