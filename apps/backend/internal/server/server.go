@@ -104,8 +104,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			a.Post("/logout", authHandler.Logout)
 			a.Get("/oauth/google", oauthHandler.Start)
 			a.Get("/oauth/google/callback", oauthHandler.Callback)
+			a.Get("/google", oauthHandler.Start)
+			a.Get("/google/callback", oauthHandler.Callback)
 		})
-
 		// Candidate Funnel: Program & Registration Intake
 		api.Route("/programs", func(p chi.Router) {
 			p.Get("/{orgSlug}/{programSlug}", programHandler.GetProgram)
@@ -151,6 +152,15 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Post("/companies/{id}/reject", adminHandler.RejectCompany)
 			})
 		})
+	})
+
+	// Direct API prefix aliases for ingress / OAuth compatibility (/api/auth/...)
+	r.Route("/api/auth", func(a chi.Router) {
+		a.Use(httprate.LimitByIP(30, time.Minute))
+		a.Get("/oauth/google", oauthHandler.Start)
+		a.Get("/oauth/google/callback", oauthHandler.Callback)
+		a.Get("/google", oauthHandler.Start)
+		a.Get("/google/callback", oauthHandler.Callback)
 	})
 
 	return r
