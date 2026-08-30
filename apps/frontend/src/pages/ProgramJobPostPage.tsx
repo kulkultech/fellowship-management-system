@@ -88,7 +88,7 @@ export const ProgramJobPostPage: React.FC = () => {
         subtitle={`${org?.name || 'Remote Skills Academy'} &middot; Opportunity`}
       />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      <main className="flex-1 max-w-[90rem] w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* Cover Banner & Quick Actions */}
         <div className="stitch-card bg-white overflow-hidden">
           {/* Banner Cover Image */}

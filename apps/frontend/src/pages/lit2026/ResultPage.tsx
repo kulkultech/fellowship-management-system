@@ -59,7 +59,7 @@ export const ResultPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50/60 flex flex-col">
       <Navbar title="LIT 2026 Assessment" subtitle="Automated Scorecard Evaluation" />
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
         {/* Result Header Card */}
         <div className="stitch-card bg-white overflow-hidden mb-8">
           <div

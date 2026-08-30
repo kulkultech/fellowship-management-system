@@ -28,7 +28,7 @@ export const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-white flex flex-col text-slate-900 selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       {/* Header Navigation */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-18">
             {/* Brand Logo */}
             <div className="flex items-center gap-3.5">
@@ -82,7 +82,7 @@ export const LandingPage: React.FC = () => {
         {/* Background Decorative Blobs */}
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[900px] h-[450px] bg-gradient-to-r from-kulkul-purple/5 via-kulkul-orange/10 to-stitch-blue/5 blur-3xl -z-10 rounded-full pointer-events-none" />
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
           {/* Trust Badges */}
           <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-3 p-1.5 px-4 rounded-full bg-white border border-slate-200 shadow-sm text-xs font-semibold text-slate-700 mb-8">
             <span className="flex items-center gap-1.5 text-kulkul-purple">
@@ -102,7 +102,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15] max-w-4xl">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15] max-w-5xl">
             Automated Logic Tests & AI Screening for{' '}
             <span className="bg-gradient-to-r from-kulkul-purple via-[#6423b3] to-kulkul-orange bg-clip-text text-transparent">
               High-Velocity Fellowships
@@ -110,7 +110,7 @@ export const LandingPage: React.FC = () => {
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl leading-relaxed">
+          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl leading-relaxed">
             Fast-track candidate selection for organizations. Deliver timed logic MCQs, conversational AI technical screening, and configurable reviewer scorecards in one unified platform.
           </p>
 
@@ -138,7 +138,7 @@ export const LandingPage: React.FC = () => {
           </p>
 
           {/* Featured Hero Card Preview (Featured Fellowship Program) */}
-          <div className="mt-14 w-full max-w-4xl stitch-card p-6 sm:p-8 bg-white border border-slate-200">
+          <div className="mt-14 w-full max-w-5xl stitch-card p-6 sm:p-8 bg-white border border-slate-200">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-lg">
@@ -198,7 +198,7 @@ export const LandingPage: React.FC = () => {
 
       {/* Value Pillars Section */}
       <section id="features" className="py-20 bg-slate-50/70 border-y border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple text-xs font-bold uppercase tracking-wider mb-3">
               Comprehensive Platform Capabilities
@@ -268,7 +268,7 @@ export const LandingPage: React.FC = () => {
 
       {/* Featured Fellowship Program Section */}
       <section id="programs" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="stitch-card p-8 sm:p-12 bg-gradient-to-br from-kulkul-purple via-[#250b45] to-kulkul-purple text-white flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-kulkul-orange text-white text-xs font-bold uppercase tracking-wider mb-4">
@@ -321,7 +321,7 @@ export const LandingPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-slate-50 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3.5">
             <div className="h-9 px-2 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs flex items-center justify-center">
               <img src="/kulkul-logo.svg" alt="Logo" className="h-6 w-auto object-contain" />

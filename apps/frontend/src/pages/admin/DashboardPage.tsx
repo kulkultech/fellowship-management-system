@@ -245,7 +245,7 @@ export const DashboardPage: React.FC = () => {
         showAdminNav={true}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      <main className="flex-1 max-w-[96rem] w-full mx-auto px-3 sm:px-6 lg:px-8 space-y-8">
         {/* Top Header & Program Configuration Action Bar */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -814,7 +814,7 @@ export const DashboardPage: React.FC = () => {
       {/* Slide-out Candidate Inspection Drawer */}
       {selectedApplicantId && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-kulkul-purple/50 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
+          <div className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
               <div>

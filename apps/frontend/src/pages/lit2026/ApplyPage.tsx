@@ -101,7 +101,7 @@ export const ApplyPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50/60 flex flex-col">
       <Navbar title="LIT 2026 Fellowship" subtitle="Remote Skills Academy Selection Funnel" />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
         {/* Header Title Section */}
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 text-xs font-bold uppercase tracking-wider mb-3">
