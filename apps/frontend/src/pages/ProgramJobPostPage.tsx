@@ -57,7 +57,7 @@ export const ProgramJobPostPage: React.FC = () => {
   if (isError || !program) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Navbar title="The Sandbox" subtitle="Program Not Found" />
+        <Navbar title="FellowHire" subtitle="Program Not Found" />
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="max-w-md w-full stitch-card p-8 text-center bg-white">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -84,7 +84,7 @@ export const ProgramJobPostPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar
-        title="The Sandbox"
+        title="FellowHire"
         subtitle={`${org?.name || 'Remote Skills Academy'} &middot; Opportunity`}
       />
 
@@ -221,7 +221,7 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                   <div className="font-bold text-slate-900 text-sm mb-1">Assessment Technology</div>
-                  <p className="text-xs text-slate-600">The Sandbox Assessment Engine by Kulkul Tech</p>
+                  <p className="text-xs text-slate-600">FellowHire Assessment Engine by Kulkul Tech</p>
                 </div>
               </div>
             </div>

@@ -12,7 +12,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  title = 'The Sandbox',
+  title = 'FellowHire',
   subtitle = 'Assessment & Talent Platform',
   showAdminNav = false,
 }) => {

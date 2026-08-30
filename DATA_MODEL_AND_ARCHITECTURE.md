@@ -1,6 +1,6 @@
-# The Sandbox: Data Modelling, Architecture & CI/CD Deployment Guide
+# FellowHire: Data Modelling, Architecture & CI/CD Deployment Guide
 
-This document responds directly to the architectural guidance and feedback from Kulkul Tech for **The Sandbox / Assessment Platform**.
+This document responds directly to the architectural guidance and feedback from Kulkul Tech for **FellowHire / Assessment Platform**.
 
 ---
 
@@ -156,12 +156,12 @@ To connect the live services into Kulkul's cloud infrastructure without using pe
 - **Staging / Production (Kulkul Server)**:
   - Secrets injected directly from **Google Secret Manager** (GSM) via GCP Secret Environment variables or Cloud Run secret mounts:
     ```bash
-    gcloud run services update sandbox-backend \
-      --set-secrets=DATABASE_URL=sandbox-db-url:latest,\
-                    JWT_SECRET=sandbox-jwt-secret:latest,\
-                    GOOGLE_CLIENT_ID=sandbox-google-client-id:latest,\
-                    GOOGLE_CLIENT_SECRET=sandbox-google-client-secret:latest,\
-                    GEMINI_API_KEY=sandbox-gemini-key:latest
+    gcloud run services update fellowhire-backend \
+      --set-secrets=DATABASE_URL=fellowhire-db-url:latest,\
+                    JWT_SECRET=fellowhire-jwt-secret:latest,\
+                    GOOGLE_CLIENT_ID=fellowhire-google-client-id:latest,\
+                    GOOGLE_CLIENT_SECRET=fellowhire-google-client-secret:latest,\
+                    GEMINI_API_KEY=fellowhire-gemini-key:latest
     ```
 
 ---

@@ -1,22 +1,20 @@
-# KulKul Fellowship Management System (Sandbox)
+# FellowHire: Fellowship Management & Assessment Platform
 
-Welcome to the **KulKul Fellowship Management System** sandbox! This application serves as a dashboard to manage fellows: receiving new applications, tracking their progress through the 10-Step AI Challenge, and automatically issuing graduation certificates.
+Welcome to **FellowHire**! This application serves as a comprehensive multi-tenant platform to manage fellowship cohorts: publishing public job posts, receiving candidate applications, running automated timed logic tests and AI screening evaluations, and managing candidate pipelines.
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-*   **Frontend:** React 19 + Vite 8. Styled to match the Astro Starlight design theme in `src/index.css`.
-*   **Backend:** Netlify Functions v2 (running an ES Module serverless API router in `netlify/functions/api.js`).
-*   **Database (Repository Pattern):**
-    *   **Production (Netlify):** Implements **Netlify Blobs** (a serverless key-value store requiring zero database credentials).
-    *   **Development / Local:** Falls back to an **In-Memory Repository** (`InMemoryFellowRepository.js`), seeded with a mock fellow.
+*   **Frontend:** React 19 + TypeScript + Vite. Styled with modern design tokens, glassmorphism, and responsive layouts.
+*   **Backend:** Go (Golang) REST API with PostgreSQL repository layer and in-memory fallbacks.
+*   **Authentication:** Session cookies & Google OAuth 2.0.
 
 ---
 
 ## 🏃‍♂️ Setup & Commands
 
-To work on this sandbox, use the following terminal commands:
+To work on FellowHire, use the following terminal commands:
 
 ### 1. Install Dependencies
 ```bash

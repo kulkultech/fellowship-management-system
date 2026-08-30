@@ -39,7 +39,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar title="The Sandbox" subtitle="Remote Skills Academy Reviewer Portal" />
+      <Navbar title="FellowHire" subtitle="Remote Skills Academy Reviewer Portal" />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">

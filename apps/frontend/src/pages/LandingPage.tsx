@@ -37,7 +37,7 @@ export const LandingPage: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-kulkul-purple text-lg tracking-tight">The Sandbox</span>
+                  <span className="font-extrabold text-kulkul-purple text-lg tracking-tight">FellowHire</span>
                   <span className="px-2 py-0.5 rounded-full bg-kulkul-orange-light text-kulkul-orange border border-kulkul-orange/20 text-2xs font-bold uppercase">
                     Kulkul
                   </span>
@@ -153,7 +153,7 @@ export const LandingPage: React.FC = () => {
                     <span>Applications Open</span>
                   </div>
                   <h3 className="text-xl font-bold text-slate-900">LIT 2026 Fellowship & Assessment</h3>
-                  <p className="text-xs text-slate-500">Run by Remote Skills Academy (RSA) &middot; Powered by The Sandbox</p>
+                  <p className="text-xs text-slate-500">Run by Remote Skills Academy (RSA) &middot; Powered by FellowHire</p>
                 </div>
               </div>
 
@@ -330,7 +330,7 @@ export const LandingPage: React.FC = () => {
               <img src="/kulkul-logo.svg" alt="Kulkul Tech" className="h-6 w-auto object-contain" />
             </div>
             <div>
-              <span className="font-bold text-slate-900 text-sm">The Sandbox</span>
+              <span className="font-bold text-slate-900 text-sm">FellowHire</span>
               <p className="text-xs text-slate-500">&copy; 2026 Kulkul Tech &middot; All rights reserved.</p>
             </div>
           </div>

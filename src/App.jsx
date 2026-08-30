@@ -13,9 +13,9 @@ const STEPS = [
 	{ id: "step-2", label: "Step 2: OS Setup" },
 	{ id: "step-3", label: "Step 3: Setup Coding Agents" },
 	{ id: "step-4", label: "Step 4: Select AI Stack" },
-	{ id: "step-5", label: "Step 5: Fork & Clone Sandbox" },
-	{ id: "step-6", label: "Step 6: Sandbox Architecture" },
-	{ id: "step-7", label: "Step 7: Solve Sandbox Issue" },
+	{ id: "step-5", label: "Step 5: Fork & Clone FellowHire" },
+	{ id: "step-6", label: "Step 6: FellowHire Architecture" },
+	{ id: "step-7", label: "Step 7: Solve FellowHire Issue" },
 	{ id: "step-8", label: "Step 8: Prompt Test suite" },
 	{ id: "step-9", label: "Step 9: Deploy Application" },
 	{ id: "step-10", label: "Step 10: Submit & Review" }
@@ -212,7 +212,7 @@ function App() {
 			<header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '1rem' }}>
 				<div>
 					<h1 className="text-gradient" style={{ margin: 0, fontSize: '2rem' }}>KulKul Fellowship</h1>
-					<p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Portal Sandbox Management</p>
+					<p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Portal FellowHire Management</p>
 				</div>
 				{role && (
 					<button onClick={handleLogout} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
