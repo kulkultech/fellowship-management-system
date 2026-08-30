@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -150,8 +151,8 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		Name:           profile.Name,
 	})
 	if err != nil {
-		h.logger.Error("oauth user resolve failed", slog.Any("error", err))
-		httpx.Error(w, http.StatusInternalServerError, "could not resolve user account")
+		h.logger.Error("oauth user resolve failed", slog.Any("error", err), slog.String("email", profile.Email))
+		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("could not resolve user account: %v", err))
 		return
 	}
 

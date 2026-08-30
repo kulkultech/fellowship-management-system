@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -166,33 +167,44 @@ type OAuthIdentity struct {
 }
 
 func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdentity) (*model.User, error) {
+	email := strings.ToLower(strings.TrimSpace(id.Email))
+	name := strings.TrimSpace(id.Name)
+	if name == "" {
+		parts := strings.Split(email, "@")
+		if len(parts) > 0 {
+			name = parts[0]
+		} else {
+			name = "Google User"
+		}
+	}
+
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		if u, ok := r.memUsers[id.Email]; ok {
+		if u, ok := r.memUsers[email]; ok {
 			return u, nil
 		}
 		orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		u := &model.User{
 			ID:             uuid.New(),
 			OrganizationID: &orgID,
-			Email:          id.Email,
-			Name:           id.Name,
+			Email:          email,
+			Name:           name,
 			Role:           "org_admin",
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
-		r.memUsers[id.Email] = u
+		r.memUsers[email] = u
 		return u, nil
 	}
 
-	// In database mode: check if user with email exists
-	u, err := r.GetByEmail(ctx, id.Email)
+	// 1. Check if user already exists
+	u, err := r.GetByEmail(ctx, email)
 	if err == nil && u != nil {
 		return u, nil
 	}
 
-	// Look up valid organization in database (try 'rsa' slug first, then any existing org)
+	// 2. Ensure a valid organization exists in PostgreSQL (or auto-seed RSA)
 	var orgID *uuid.UUID
 	var foundID uuid.UUID
 	err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
@@ -202,15 +214,42 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
+		} else {
+			// Auto-seed default RSA organization so foreign key constraint never fails
+			err = r.pool.QueryRow(ctx, `
+				INSERT INTO organizations (slug, name, logo_url, status, contact_email, created_at, updated_at)
+				VALUES ('rsa', 'Remote Skills Academy', 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop', 'approved', 'contact@rsa.org', now(), now())
+				ON CONFLICT (slug) DO UPDATE SET updated_at = now()
+				RETURNING id
+			`).Scan(&foundID)
+			if err == nil {
+				orgID = &foundID
+			}
 		}
 	}
 
 	role := "org_admin"
-	if id.Email == "superadmin@fellowhire.com" {
+	if email == "superadmin@fellowhire.com" {
 		role = "superadmin"
 		orgID = nil
 	}
 
-	return r.Create(ctx, id.Email, "", id.Name, role, orgID)
+	// 3. Atomically upsert user
+	query := `
+		INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
+		VALUES ($1, $2, '', $3, $4, now(), now())
+		ON CONFLICT (email) DO UPDATE SET
+			name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END,
+			updated_at = now()
+		RETURNING id, organization_id, email, password_hash, name, role, created_at, updated_at
+	`
+	var user model.User
+	err = r.pool.QueryRow(ctx, query, orgID, email, name, role).Scan(
+		&user.ID, &user.OrganizationID, &user.Email, &user.PasswordHash, &user.Name, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("user_repo: oauth create/upsert: %w", err)
+	}
+	return &user, nil
 }
 
