@@ -192,8 +192,25 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		return u, nil
 	}
 
-	// Create user
-	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	return r.Create(ctx, id.Email, "", id.Name, "org_admin", &orgID)
+	// Look up valid organization in database (try 'rsa' slug first, then any existing org)
+	var orgID *uuid.UUID
+	var foundID uuid.UUID
+	err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
+	if err == nil {
+		orgID = &foundID
+	} else {
+		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1").Scan(&foundID)
+		if err == nil {
+			orgID = &foundID
+		}
+	}
+
+	role := "org_admin"
+	if id.Email == "superadmin@fellowhire.com" {
+		role = "superadmin"
+		orgID = nil
+	}
+
+	return r.Create(ctx, id.Email, "", id.Name, role, orgID)
 }
 

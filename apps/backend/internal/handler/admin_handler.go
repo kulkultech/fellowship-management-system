@@ -242,9 +242,15 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 
 func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetUser(r.Context())
-	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	var orgID uuid.UUID
 	if claims != nil && claims.OrganizationID != nil {
 		orgID = *claims.OrganizationID
+	} else {
+		// Fallback: look up 'rsa' organization or first organization
+		orgs, err := h.orgRepo.List(r.Context(), "")
+		if err == nil && len(orgs) > 0 {
+			orgID = orgs[0].ID
+		}
 	}
 
 	programs, err := h.programRepo.ListByOrg(r.Context(), orgID)
@@ -274,9 +280,14 @@ type CreateProgramRequest struct {
 
 func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetUser(r.Context())
-	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	var orgID uuid.UUID
 	if claims != nil && claims.OrganizationID != nil {
 		orgID = *claims.OrganizationID
+	} else {
+		orgs, err := h.orgRepo.List(r.Context(), "")
+		if err == nil && len(orgs) > 0 {
+			orgID = orgs[0].ID
+		}
 	}
 
 	var req CreateProgramRequest
