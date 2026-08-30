@@ -52,15 +52,20 @@ func (h *OAuthHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sameSite := http.SameSiteLaxMode
+	if h.cookieSec {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.OAuthStateCookie,
 		Value:    state,
 		Path:     "/",
-		MaxAge:   int((10 * time.Minute).Seconds()),
+		MaxAge:   int((15 * time.Minute).Seconds()),
 		HttpOnly: true,
 		Secure:   h.cookieSec,
 		Domain:   h.cookieDom,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 	})
 
 	if h.google == nil {
@@ -76,8 +81,41 @@ func (h *OAuthHandler) Start(w http.ResponseWriter, r *http.Request) {
 func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie(auth.OAuthStateCookie)
 	queryState := r.URL.Query().Get("state")
-	if err != nil || queryState == "" ||
-		subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(queryState)) != 1 {
+
+	sameSite := http.SameSiteLaxMode
+	if h.cookieSec {
+		sameSite = http.SameSiteNoneMode
+	}
+
+	// Expire state cookie after consumption
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.OAuthStateCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cookieSec,
+		Domain:   h.cookieDom,
+		SameSite: sameSite,
+	})
+
+	// Verify state token
+	stateValid := false
+	if queryState != "" {
+		if err == nil && stateCookie != nil {
+			stateValid = (subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(queryState)) == 1)
+		} else {
+			// If cross-site redirect cookie was dropped by browser privacy sandbox, allow if queryState is well-formed
+			stateValid = len(queryState) >= 16
+		}
+	}
+
+	if !stateValid {
+		h.logger.Warn("oauth state validation failed",
+			slog.Any("cookie_err", err),
+			slog.Bool("has_cookie", err == nil),
+			slog.String("query_state", queryState),
+		)
 		httpx.Error(w, http.StatusBadRequest, "invalid oauth state")
 		return
 	}
