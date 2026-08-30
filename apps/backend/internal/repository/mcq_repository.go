@@ -325,3 +325,81 @@ func (r *MCQRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.MCQQu
 	}
 	return &q, nil
 }
+
+func (r *MCQRepository) ReplaceProgramQuestions(ctx context.Context, programID uuid.UUID, questions []model.MCQQuestion) ([]model.MCQQuestion, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		var filtered []model.MCQQuestion
+		for _, q := range r.memMCQs {
+			if q.ProgramID != programID {
+				filtered = append(filtered, q)
+			}
+		}
+		var saved []model.MCQQuestion
+		for _, q := range questions {
+			if q.ID == uuid.Nil {
+				q.ID = uuid.New()
+			}
+			q.ProgramID = programID
+			q.CreatedAt = time.Now()
+			q.UpdatedAt = time.Now()
+			filtered = append(filtered, q)
+			saved = append(saved, q)
+		}
+		r.memMCQs = filtered
+		return saved, nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mcq_repo: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Delete existing questions
+	_, err = tx.Exec(ctx, `DELETE FROM mcq_questions WHERE program_id = $1`, programID)
+	if err != nil {
+		return nil, fmt.Errorf("mcq_repo: delete existing: %w", err)
+	}
+
+	var saved []model.MCQQuestion
+	for _, q := range questions {
+		if q.ID == uuid.Nil {
+			q.ID = uuid.New()
+		}
+		optionsJSON, err := json.Marshal(q.Options)
+		if err != nil {
+			return nil, fmt.Errorf("mcq_repo: marshal options: %w", err)
+		}
+		query := `
+			INSERT INTO mcq_questions (
+				id, program_id, category, question_text, options, correct_option_id,
+				explanation, points, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+			RETURNING id, program_id, category, question_text, options, correct_option_id,
+				explanation, points, created_at, updated_at
+		`
+		var res model.MCQQuestion
+		var rawOptions []byte
+		err = tx.QueryRow(ctx, query,
+			q.ID, programID, q.Category, q.QuestionText, optionsJSON, q.CorrectOptionID,
+			q.Explanation, q.Points,
+		).Scan(
+			&res.ID, &res.ProgramID, &res.Category, &res.QuestionText, &rawOptions,
+			&res.CorrectOptionID, &res.Explanation, &res.Points,
+			&res.CreatedAt, &res.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("mcq_repo: insert question: %w", err)
+		}
+		_ = json.Unmarshal(rawOptions, &res.Options)
+		saved = append(saved, res)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("mcq_repo: commit tx: %w", err)
+	}
+	return saved, nil
+}
+

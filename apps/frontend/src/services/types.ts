@@ -2,21 +2,31 @@ export interface Organization {
   id: string;
   slug: string;
   name: string;
+  contact_email?: string;
   logo_url?: string;
+  status: 'pending_approval' | 'approved' | 'rejected';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Program {
   id: string;
+  organization_id?: string;
   slug: string;
   name: string;
   description: string;
   image_url?: string;
   open_date: string;
   end_date: string;
+  enable_mcq: boolean;
   logic_test_duration_minutes: number;
   logic_test_passing_score: number;
   allow_retake: boolean;
-  is_open: boolean;
+  enable_ai_interview: boolean;
+  ai_interview_instructions?: string;
+  ai_interview_questions?: string[];
+  status?: string;
+  is_open?: boolean;
 }
 
 export interface ProgramPublicInfo {
@@ -37,13 +47,25 @@ export interface ApplyRequest {
 export interface ApplyResponse {
   applicant_id: string;
   stage: string;
-  test_token: string;
+  test_token?: string;
+  ai_interview_invite_token?: string;
   message: string;
 }
 
 export interface MCQOption {
   id: string;
   text: string;
+}
+
+export interface MCQQuestion {
+  id?: string;
+  program_id?: string;
+  category: string;
+  question_text: string;
+  options: MCQOption[];
+  correct_option_id: string;
+  explanation?: string;
+  points: number;
 }
 
 export interface ClientQuestion {
@@ -124,14 +146,35 @@ export interface AIInterviewSession {
 export interface User {
   id: string;
   organization_id?: string;
+  organization?: Organization;
   email: string;
   name: string;
-  role: string;
+  role: 'superadmin' | 'org_admin' | 'reviewer';
 }
 
 export interface AuthResponse {
   user: User;
   csrf_token: string;
+}
+
+export interface CompanyRegistrationPayload {
+  company_name: string;
+  company_slug: string;
+  contact_email: string;
+  logo_url?: string;
+  admin_name: string;
+  admin_email: string;
+  admin_password: string;
+}
+
+export interface PipelineConfigPayload {
+  enable_mcq: boolean;
+  logic_test_duration_minutes: number;
+  logic_test_passing_score: number;
+  allow_retake: boolean;
+  enable_ai_interview: boolean;
+  ai_interview_instructions?: string;
+  ai_interview_questions?: string[];
 }
 
 export interface ApplicantListItem {
@@ -160,7 +203,7 @@ export interface ItemizedQuestionAnswer {
   correct_option_id: string;
   is_correct: boolean;
   explanation: string;
-  points: number;
+  points_awarded: number;
 }
 
 export interface ApplicantDetailResponse {
@@ -186,7 +229,7 @@ export interface ApplicantDetailResponse {
     status: string;
     started_at: string;
     submitted_at: string;
+    answers: ItemizedQuestionAnswer[];
   };
-  itemized_answers?: ItemizedQuestionAnswer[];
   ai_interview?: AIInterviewSession;
 }

@@ -102,13 +102,24 @@ export const ProgramJobPostPage: React.FC = () => {
 
             {/* Badges on Image */}
             <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-900 shadow-md">
-                <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white text-slate-900 shadow-md">
+                {org?.logo_url ? (
+                  <img
+                    src={org.logo_url}
+                    alt={org.name}
+                    className="w-4 h-4 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
+                )}
                 <span>{org?.name || 'Remote Skills Academy (RSA)'}</span>
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-kulkul-orange text-white shadow-md uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Active Fellowship</span>
+                <span>Active Program</span>
               </span>
             </div>
 

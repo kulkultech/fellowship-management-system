@@ -9,6 +9,7 @@ import { ApplyPage } from '@/pages/lit2026/ApplyPage';
 import { TestPage } from '@/pages/lit2026/TestPage';
 import { ResultPage } from '@/pages/lit2026/ResultPage';
 import { InterviewPage } from '@/pages/lit2026/InterviewPage';
+import { CompanyRegisterPage } from '@/pages/CompanyRegisterPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { useUiStore } from '@/hooks/useUiStore';
@@ -49,6 +50,9 @@ export function App() {
         <Routes>
           {/* Landing Page */}
           <Route path="/" element={<LandingPage />} />
+
+          {/* Company Self-Registration */}
+          <Route path="/register-company" element={<CompanyRegisterPage />} />
 
           {/* Public Program Job Post / Fellowship Listing */}
           <Route path="/programs/:orgSlug/:programSlug" element={<ProgramJobPostPage />} />

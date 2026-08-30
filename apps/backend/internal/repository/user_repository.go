@@ -31,9 +31,23 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 		pool:     pool,
 		memUsers: make(map[string]*model.User),
 	}
-	// Pre-seed default Admin for in-memory mode (admin@rsa.org / admin123)
 	hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	// 1. Superadmin User
+	superadmin := &model.User{
+		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000099"),
+		OrganizationID: nil,
+		Email:          "superadmin@fellowhire.com",
+		PasswordHash:   string(hash),
+		Name:           "FellowHire Superadmin",
+		Role:           "superadmin",
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	repo.memUsers["superadmin@fellowhire.com"] = superadmin
+
+	// 2. Default RSA Org Admin (admin@rsa.org / admin123)
 	admin := &model.User{
 		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		OrganizationID: &orgID,

@@ -34,11 +34,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
-	authHandler := handler.NewAuthHandler(userRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
-	programHandler := handler.NewProgramHandler(orgRepo, programRepo, applicantRepo, submissionRepo)
+	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
+	programHandler := handler.NewProgramHandler(orgRepo, programRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, programRepo, applicantRepo, aiInterviewRepo)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo)
-	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, aiInterviewRepo, programRepo)
+	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, aiInterviewRepo, programRepo, orgRepo)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -95,9 +95,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			h.Get("/ready", healthHandler.Readiness)
 			h.Get("/readiness", healthHandler.Readiness)
 		})
-		// Public Auth
+
+		// Public Auth & Company Registration
 		api.Route("/auth", func(a chi.Router) {
-			a.Use(httprate.LimitByIP(20, time.Minute))
+			a.Use(httprate.LimitByIP(30, time.Minute))
+			a.Post("/register-company", authHandler.RegisterCompany)
 			a.Post("/login", authHandler.Login)
 			a.Post("/logout", authHandler.Logout)
 			a.Get("/oauth/google", oauthHandler.Start)
@@ -123,7 +125,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			ai.Post("/{inviteToken}/message", aiInterviewHandler.SendMessage)
 		})
 
-		// Protected Reviewer / Admin Routes
+		// Protected Reviewer / Admin / Superadmin Routes
 		api.Group(func(protected chi.Router) {
 			protected.Use(middleware.Authenticator(authSvc))
 			protected.Use(middleware.CSRF)
@@ -131,12 +133,22 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Get("/auth/me", authHandler.Me)
 
 			protected.Route("/admin", func(adm chi.Router) {
+				// Programs & Config
 				adm.Get("/programs", adminHandler.ListPrograms)
 				adm.Post("/programs", adminHandler.CreateProgram)
-				adm.Put("/programs/{id}", adminHandler.UpdateProgramConfig)
+				adm.Put("/programs/{id}/pipeline-config", adminHandler.UpdatePipelineConfig)
+				adm.Get("/programs/{id}/questions", adminHandler.ListProgramQuestions)
+				adm.Put("/programs/{id}/questions", adminHandler.SaveProgramQuestions)
+
+				// Applicants & Review
 				adm.Get("/applicants", adminHandler.ListApplicants)
-				adm.Get("/applicants/{id}", adminHandler.GetApplicantDetails)
-				adm.Post("/applicants/{id}/decision", adminHandler.MakeDecision)
+				adm.Get("/applicants/{id}", adminHandler.GetApplicantDetail)
+				adm.Post("/applicants/{id}/stage", adminHandler.UpdateApplicantStage)
+
+				// Superadmin Company Approvals
+				adm.Get("/companies", adminHandler.ListCompanies)
+				adm.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
+				adm.Post("/companies/{id}/reject", adminHandler.RejectCompany)
 			})
 		})
 	})

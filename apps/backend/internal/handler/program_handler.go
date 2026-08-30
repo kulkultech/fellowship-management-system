@@ -16,10 +16,11 @@ import (
 )
 
 type ProgramHandler struct {
-	orgRepo        *repository.OrgRepository
-	programRepo    *repository.ProgramRepository
-	applicantRepo  *repository.ApplicantRepository
-	submissionRepo *repository.SubmissionRepository
+	orgRepo         *repository.OrgRepository
+	programRepo     *repository.ProgramRepository
+	applicantRepo   *repository.ApplicantRepository
+	submissionRepo  *repository.SubmissionRepository
+	aiInterviewRepo *repository.AIInterviewRepository
 }
 
 func NewProgramHandler(
@@ -27,12 +28,14 @@ func NewProgramHandler(
 	programRepo *repository.ProgramRepository,
 	applicantRepo *repository.ApplicantRepository,
 	submissionRepo *repository.SubmissionRepository,
+	aiInterviewRepo *repository.AIInterviewRepository,
 ) *ProgramHandler {
 	return &ProgramHandler{
-		orgRepo:        orgRepo,
-		programRepo:    programRepo,
-		applicantRepo:  applicantRepo,
-		submissionRepo: submissionRepo,
+		orgRepo:         orgRepo,
+		programRepo:     programRepo,
+		applicantRepo:   applicantRepo,
+		submissionRepo:  submissionRepo,
+		aiInterviewRepo: aiInterviewRepo,
 	}
 }
 
@@ -50,9 +53,13 @@ type ProgramPublicResponse struct {
 		Description              string    `json:"description"`
 		OpenDate                 time.Time `json:"open_date"`
 		EndDate                  time.Time `json:"end_date"`
+		EnableMCQ                bool      `json:"enable_mcq"`
 		LogicTestDurationMinutes int       `json:"logic_test_duration_minutes"`
 		LogicTestPassingScore    int       `json:"logic_test_passing_score"`
 		AllowRetake              bool      `json:"allow_retake"`
+		EnableAIInterview        bool      `json:"enable_ai_interview"`
+		AIInterviewInstructions  string    `json:"ai_interview_instructions,omitempty"`
+		AIInterviewQuestions     []string  `json:"ai_interview_questions,omitempty"`
 		IsOpen                   bool      `json:"is_open"`
 	} `json:"program"`
 }
@@ -83,9 +90,13 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	resp.Program.Description = program.Description
 	resp.Program.OpenDate = program.OpenDate
 	resp.Program.EndDate = program.EndDate
+	resp.Program.EnableMCQ = program.EnableMCQ
 	resp.Program.LogicTestDurationMinutes = program.LogicTestDurationMinutes
 	resp.Program.LogicTestPassingScore = program.LogicTestPassingScore
 	resp.Program.AllowRetake = program.AllowRetake
+	resp.Program.EnableAIInterview = program.EnableAIInterview
+	resp.Program.AIInterviewInstructions = program.AIInterviewInstructions
+	resp.Program.AIInterviewQuestions = program.AIInterviewQuestions
 	resp.Program.IsOpen = program.IsOpen()
 
 	httpx.JSON(w, http.StatusOK, resp)
@@ -102,10 +113,11 @@ type ApplyRequest struct {
 }
 
 type ApplyResponse struct {
-	ApplicantID string               `json:"applicant_id"`
-	Stage       model.ApplicantStage `json:"stage"`
-	TestToken   string               `json:"test_token"`
-	Message     string               `json:"message"`
+	ApplicantID            string               `json:"applicant_id"`
+	Stage                  model.ApplicantStage `json:"stage"`
+	TestToken              string               `json:"test_token,omitempty"`
+	AIInterviewInviteToken string               `json:"ai_interview_invite_token,omitempty"`
+	Message                string               `json:"message"`
 }
 
 func generateToken(length int) string {
@@ -164,10 +176,26 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If MCQ stage is disabled and AI Interview is enabled, direct straight to AI interview
+	if !program.EnableMCQ && program.EnableAIInterview {
+		aiToken := generateToken(24)
+		expires := time.Now().Add(7 * 24 * time.Hour)
+		ai, err := h.aiInterviewRepo.CreateInvitation(r.Context(), applicant.ID, program.ID, aiToken, expires)
+		if err == nil && ai != nil {
+			_ = h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageAIInterviewInvited)
+			httpx.JSON(w, http.StatusCreated, ApplyResponse{
+				ApplicantID:            applicant.ID.String(),
+				Stage:                  model.StageAIInterviewInvited,
+				AIInterviewInviteToken: ai.InvitationToken,
+				Message:                "Application received. Proceed directly to the AI Technical Screening.",
+			})
+			return
+		}
+	}
+
 	// Check if there is an existing active submission
 	submission, err := h.submissionRepo.GetByApplicantID(r.Context(), applicant.ID)
 	if err == nil && submission != nil {
-		// Existing submission
 		if submission.Status == model.SubmissionCompleted {
 			if !program.AllowRetake {
 				httpx.JSON(w, http.StatusOK, ApplyResponse{
@@ -179,7 +207,6 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else if submission.Status == model.SubmissionInProgress {
-			// Reuse in-progress test token
 			httpx.JSON(w, http.StatusOK, ApplyResponse{
 				ApplicantID: applicant.ID.String(),
 				Stage:       applicant.CurrentStage,

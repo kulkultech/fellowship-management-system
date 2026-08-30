@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/repository"
 	"github.com/kulkul/backend/internal/server"
@@ -33,11 +34,15 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	dbPool, err := repository.NewPool(ctx, cfg.DatabaseURL)
-	if err != nil {
-		logger.Warn("database connection failed (proceeding for dev/testing)", "error", err)
-	} else {
-		defer dbPool.Close()
+	var dbPool *pgxpool.Pool
+	if cfg.DatabaseURL != "" {
+		pool, err := repository.NewPool(ctx, cfg.DatabaseURL)
+		if err != nil {
+			logger.Warn("database connection failed (falling back to in-memory store for dev)", "error", err)
+		} else {
+			dbPool = pool
+			defer dbPool.Close()
+		}
 	}
 
 	handler := server.New(cfg, dbPool, logger)

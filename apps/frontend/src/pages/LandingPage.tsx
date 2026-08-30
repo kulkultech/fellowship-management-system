@@ -83,24 +83,6 @@ export const LandingPage: React.FC = () => {
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[900px] h-[450px] bg-gradient-to-r from-kulkul-purple/5 via-kulkul-orange/10 to-stitch-blue/5 blur-3xl -z-10 rounded-full pointer-events-none" />
 
         <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
-          {/* Trust Badges */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-3 p-1.5 px-4 rounded-full bg-white border border-slate-200 shadow-sm text-xs font-semibold text-slate-700 mb-8">
-            <span className="flex items-center gap-1.5 text-kulkul-purple">
-              <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
-              <span>Multi-Tenant Architecture</span>
-            </span>
-            <span className="text-slate-300">&bull;</span>
-            <span className="flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-stitch-blue" />
-              <span>Remote-First Organizations</span>
-            </span>
-            <span className="text-slate-300">&bull;</span>
-            <span className="flex items-center gap-1.5 text-slate-600">
-              <img src="/kulkul-logo.svg" alt="Logo" className="h-3.5 w-auto object-contain" />
-              <span>Assessment Engine</span>
-            </span>
-          </div>
-
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15] max-w-5xl">
             Automated Logic Tests & AI Screening for{' '}
@@ -132,10 +114,6 @@ export const LandingPage: React.FC = () => {
               <span>Reviewer Dashboard</span>
             </button>
           </div>
-
-          <p className="mt-4 text-xs font-semibold text-slate-400">
-            Strict 1-attempt assessment enforcement &middot; Real-time AI technical scoring
-          </p>
 
           {/* Featured Hero Card Preview (Featured Fellowship Program) */}
           <div className="mt-14 w-full max-w-5xl stitch-card p-6 sm:p-8 bg-white border border-slate-200">

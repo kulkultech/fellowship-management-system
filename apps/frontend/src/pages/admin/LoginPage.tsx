@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navbar } from '@/components/Navbar';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
@@ -34,7 +34,8 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = 'http://localhost:8080/api/v1/auth/oauth/google';
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    window.location.href = `${apiBase}/auth/oauth/google`;
   };
 
   return (
@@ -148,6 +149,13 @@ export const LoginPage: React.FC = () => {
                   </>
                 )}
               </button>
+
+              <div className="text-center pt-2">
+                <span className="text-xs text-slate-500">Need an organization workspace? </span>
+                <Link to="/register-company" className="text-xs font-bold text-kulkul-purple hover:underline">
+                  Register Company
+                </Link>
+              </div>
             </form>
           </div>
         </div>

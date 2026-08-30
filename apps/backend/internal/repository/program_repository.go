@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -37,12 +38,20 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		ImageURL:                 "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80",
 		OpenDate:                 time.Now().Add(-24 * time.Hour),
 		EndDate:                  time.Now().Add(180 * 24 * time.Hour),
+		EnableMCQ:                true,
 		LogicTestDurationMinutes: 30,
 		LogicTestPassingScore:    70,
 		AllowRetake:              false,
-		Status:                   "published",
-		CreatedAt:                time.Now(),
-		UpdatedAt:                time.Now(),
+		EnableAIInterview:        true,
+		AIInterviewInstructions:  "Assess software architecture, system trade-offs, and concurrency understanding.",
+		AIInterviewQuestions: []string{
+			"Can you describe how you would design a scalable distributed job queue?",
+			"What are the pros and cons of using optimistic vs pessimistic locking in databases?",
+			"How do you handle graceful degradation when downstream APIs experience high latency?",
+		},
+		Status:    "published",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 	repo.memPrograms["rsa:lit2026"] = litProg
 	return repo
@@ -65,45 +74,60 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 		p.UpdatedAt = time.Now()
 		key := fmt.Sprintf("%s:%s", p.OrganizationID, p.Slug)
 		r.memPrograms[key] = p
-		// Also index by slug
 		r.memPrograms[p.Slug] = p
 		return p, nil
+	}
+
+	questionsJSON, _ := json.Marshal(p.AIInterviewQuestions)
+	if p.AIInterviewQuestions == nil {
+		questionsJSON = []byte("[]")
 	}
 
 	query := `
 		INSERT INTO programs (
 			organization_id, slug, name, description, image_url, open_date, end_date,
-			logic_test_duration_minutes, logic_test_passing_score, allow_retake, status,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now())
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, ai_interview_instructions, ai_interview_questions,
+			status, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now(), now())
 		ON CONFLICT (organization_id, slug) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			image_url = EXCLUDED.image_url,
 			open_date = EXCLUDED.open_date,
 			end_date = EXCLUDED.end_date,
+			enable_mcq = EXCLUDED.enable_mcq,
 			logic_test_duration_minutes = EXCLUDED.logic_test_duration_minutes,
 			logic_test_passing_score = EXCLUDED.logic_test_passing_score,
 			allow_retake = EXCLUDED.allow_retake,
+			enable_ai_interview = EXCLUDED.enable_ai_interview,
+			ai_interview_instructions = EXCLUDED.ai_interview_instructions,
+			ai_interview_questions = EXCLUDED.ai_interview_questions,
 			status = EXCLUDED.status,
 			updated_at = now()
-		RETURNING id, organization_id, slug, name, description, image_url, open_date, end_date,
-			logic_test_duration_minutes, logic_test_passing_score, allow_retake, status,
+		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
 			created_at, updated_at
 	`
 	var res model.Program
+	var rawQuestions []byte
 	err := r.pool.QueryRow(ctx, query,
 		p.OrganizationID, p.Slug, p.Name, p.Description, p.ImageURL, p.OpenDate, p.EndDate,
-		p.LogicTestDurationMinutes, p.LogicTestPassingScore, p.AllowRetake, p.Status,
+		p.EnableMCQ, p.LogicTestDurationMinutes, p.LogicTestPassingScore, p.AllowRetake,
+		p.EnableAIInterview, p.AIInterviewInstructions, questionsJSON,
+		p.Status,
 	).Scan(
 		&res.ID, &res.OrganizationID, &res.Slug, &res.Name, &res.Description, &res.ImageURL,
-		&res.OpenDate, &res.EndDate, &res.LogicTestDurationMinutes,
-		&res.LogicTestPassingScore, &res.AllowRetake, &res.Status,
+		&res.OpenDate, &res.EndDate,
+		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore, &res.AllowRetake,
+		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &res.Status,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: create: %w", err)
 	}
+	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
 	return &res, nil
 }
 
@@ -114,7 +138,6 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		key := fmt.Sprintf("%s:%s", orgSlug, programSlug)
 		p, ok := r.memPrograms[key]
 		if !ok {
-			// Try finding by program slug alone
 			for _, prog := range r.memPrograms {
 				if prog.Slug == programSlug {
 					p = prog
@@ -131,6 +154,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 			Slug:      orgSlug,
 			Name:      "Remote Skills Academy (RSA)",
 			LogoURL:   "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop",
+			Status:    model.OrgStatusApproved,
 			CreatedAt: p.CreatedAt,
 			UpdatedAt: p.UpdatedAt,
 		}
@@ -140,21 +164,24 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	query := `
 		SELECT 
 			p.id, p.organization_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
-			p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake, p.status,
+			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
+			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions, p.status,
 			p.created_at, p.updated_at,
-			o.id, o.slug, o.name, o.logo_url, o.created_at, o.updated_at
+			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at
 		FROM programs p
 		JOIN organizations o ON p.organization_id = o.id
 		WHERE o.slug = $1 AND p.slug = $2
 	`
 	var p model.Program
 	var o model.Organization
+	var rawQuestions []byte
 	err := r.pool.QueryRow(ctx, query, orgSlug, programSlug).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
-		&p.OpenDate, &p.EndDate, &p.LogicTestDurationMinutes,
-		&p.LogicTestPassingScore, &p.AllowRetake, &p.Status,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
-		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.CreatedAt, &o.UpdatedAt,
+		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, ErrProgramNotFound
@@ -162,6 +189,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	if err != nil {
 		return nil, nil, fmt.Errorf("program_repo: get by slugs: %w", err)
 	}
+	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	return &p, &o, nil
 }
 
@@ -179,16 +207,19 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 
 	query := `
 		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
-			logic_test_duration_minutes, logic_test_passing_score, allow_retake, status,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
 			created_at, updated_at
 		FROM programs
 		WHERE id = $1
 	`
 	var p model.Program
+	var rawQuestions []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
-		&p.OpenDate, &p.EndDate, &p.LogicTestDurationMinutes,
-		&p.LogicTestPassingScore, &p.AllowRetake, &p.Status,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -197,6 +228,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: get by id: %w", err)
 	}
+	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	return &p, nil
 }
 
@@ -224,14 +256,17 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 			updated_at = now()
 		WHERE id = $1
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
-			logic_test_duration_minutes, logic_test_passing_score, allow_retake, status,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
 			created_at, updated_at
 	`
 	var p model.Program
+	var rawQuestions []byte
 	err := r.pool.QueryRow(ctx, query, id, duration, passingScore, allowRetake).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
-		&p.OpenDate, &p.EndDate, &p.LogicTestDurationMinutes,
-		&p.LogicTestPassingScore, &p.AllowRetake, &p.Status,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -240,6 +275,61 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: update config: %w", err)
 	}
+	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	return &p, nil
+}
+
+func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string) (*model.Program, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, p := range r.memPrograms {
+			if p.ID == id {
+				p.EnableMCQ = enableMCQ
+				p.EnableAIInterview = enableAI
+				p.AIInterviewInstructions = instructions
+				p.AIInterviewQuestions = questions
+				p.UpdatedAt = time.Now()
+				return p, nil
+			}
+		}
+		return nil, ErrProgramNotFound
+	}
+
+	questionsJSON, _ := json.Marshal(questions)
+	if questions == nil {
+		questionsJSON = []byte("[]")
+	}
+
+	query := `
+		UPDATE programs
+		SET enable_mcq = $2,
+			enable_ai_interview = $3,
+			ai_interview_instructions = $4,
+			ai_interview_questions = $5,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
+			created_at, updated_at
+	`
+	var p model.Program
+	var rawQuestions []byte
+	err := r.pool.QueryRow(ctx, query, id, enableMCQ, enableAI, instructions, questionsJSON).Scan(
+		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
+		&p.CreatedAt, &p.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProgramNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: update pipeline: %w", err)
+	}
+	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	return &p, nil
 }
 
@@ -260,7 +350,8 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 
 	query := `
 		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
-			logic_test_duration_minutes, logic_test_passing_score, allow_retake, status,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
 			created_at, updated_at
 		FROM programs
 		WHERE organization_id = $1
@@ -275,14 +366,17 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 	var list []model.Program
 	for rows.Next() {
 		var p model.Program
+		var rawQuestions []byte
 		if err := rows.Scan(
 			&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
-			&p.OpenDate, &p.EndDate, &p.LogicTestDurationMinutes,
-			&p.LogicTestPassingScore, &p.AllowRetake, &p.Status,
+			&p.OpenDate, &p.EndDate,
+			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
 			&p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
 		}
+		_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 		list = append(list, p)
 	}
 	return list, rows.Err()

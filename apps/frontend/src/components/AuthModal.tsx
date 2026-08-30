@@ -132,7 +132,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = 'http://localhost:8080/api/v1/auth/oauth/google';
+                  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+                  window.location.href = `${apiBase}/auth/oauth/google`;
                 }}
                 className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 rounded-full text-xs font-bold text-slate-700 shadow-sm transition active:scale-[0.98]"
               >
@@ -224,6 +225,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </>
                   )}
                 </button>
+
+                <div className="text-center pt-2">
+                  <span className="text-xs text-slate-500">Need an organization workspace? </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate('/register-company');
+                    }}
+                    className="text-xs font-bold text-kulkul-purple hover:underline"
+                  >
+                    Register Company
+                  </button>
+                </div>
               </div>
             </form>
           ) : (

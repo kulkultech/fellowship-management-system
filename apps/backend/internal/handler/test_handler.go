@@ -226,17 +226,21 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 	var inviteExpires *time.Time
 
 	if passed {
-		_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageAIInterviewInvited)
+		if program.EnableAIInterview {
+			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageAIInterviewInvited)
 
-		// Create AI interview invitation valid for 48 hours
-		invitationToken := generateToken(24)
-		expires := now.Add(48 * time.Hour)
-		ai, err := h.aiInterviewRepo.CreateInvitation(r.Context(), submission.ApplicantID, program.ID, invitationToken, expires)
-		if err == nil && ai != nil {
-			tok := ai.InvitationToken
-			inviteToken = &tok
-			exp := ai.InvitationExpiresAt
-			inviteExpires = &exp
+			// Create AI interview invitation valid for 48 hours
+			invitationToken := generateToken(24)
+			expires := now.Add(48 * time.Hour)
+			ai, err := h.aiInterviewRepo.CreateInvitation(r.Context(), submission.ApplicantID, program.ID, invitationToken, expires)
+			if err == nil && ai != nil {
+				tok := ai.InvitationToken
+				inviteToken = &tok
+				exp := ai.InvitationExpiresAt
+				inviteExpires = &exp
+			}
+		} else {
+			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestCompleted)
 		}
 	} else {
 		_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestFailed)

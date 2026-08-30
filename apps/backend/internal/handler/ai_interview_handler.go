@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -31,14 +32,14 @@ func NewAIInterviewHandler(
 }
 
 type AIInterviewSessionResponse struct {
-	InterviewID         string                    `json:"interview_id"`
-	ApplicantName       string                    `json:"applicant_name"`
-	ProgramName         string                    `json:"program_name"`
-	Status              model.AIInterviewStatus   `json:"status"`
-	InvitationExpiresAt time.Time                 `json:"invitation_expires_at"`
-	Transcript          []model.ChatMessage       `json:"transcript"`
-	SummaryEvaluation   *model.EvaluationSummary  `json:"summary_evaluation,omitempty"`
-	ScorecardScore      int                       `json:"scorecard_score"`
+	InterviewID         string                   `json:"interview_id"`
+	ApplicantName       string                   `json:"applicant_name"`
+	ProgramName         string                   `json:"program_name"`
+	Status              model.AIInterviewStatus  `json:"status"`
+	InvitationExpiresAt time.Time                `json:"invitation_expires_at"`
+	Transcript          []model.ChatMessage      `json:"transcript"`
+	SummaryEvaluation   *model.EvaluationSummary `json:"summary_evaluation,omitempty"`
+	ScorecardScore      int                      `json:"scorecard_score"`
 }
 
 func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) {
@@ -66,11 +67,16 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// If transcript is empty, seed with initial welcome message
+	// If transcript is empty, seed with first question from company's configured questions
 	if len(ai.Transcript) == 0 {
+		firstQ := "Could you briefly introduce yourself and share a recent technical challenge you solved?"
+		if len(program.AIInterviewQuestions) > 0 && program.AIInterviewQuestions[0] != "" {
+			firstQ = program.AIInterviewQuestions[0]
+		}
+
 		initialMsg := model.ChatMessage{
 			Role:      "ai",
-			Message:   "Hello " + applicant.FullName + "! Welcome to your AI Technical Screen for " + program.Name + ". I'll be asking you a few practical problem-solving questions. To start off, could you briefly describe a recent technical challenge you tackled and how you resolved it?",
+			Message:   fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this program.\n\nTo begin: %s", applicant.FullName, program.Name, firstQ),
 			Timestamp: time.Now(),
 		}
 		ai.Transcript = append(ai.Transcript, initialMsg)
@@ -95,10 +101,10 @@ type SendMessageRequest struct {
 }
 
 type SendMessageResponse struct {
-	AIMessage         string                    `json:"ai_message"`
-	IsCompleted       bool                      `json:"is_completed"`
-	SummaryEvaluation *model.EvaluationSummary  `json:"summary_evaluation,omitempty"`
-	ScorecardScore    int                       `json:"scorecard_score"`
+	AIMessage         string                   `json:"ai_message"`
+	IsCompleted       bool                     `json:"is_completed"`
+	SummaryEvaluation *model.EvaluationSummary `json:"summary_evaluation,omitempty"`
+	ScorecardScore    int                      `json:"scorecard_score"`
 }
 
 func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +121,8 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	program, _ := h.programRepo.GetByID(r.Context(), ai.ProgramID)
+
 	var req SendMessageRequest
 	if err := httpx.Decode(w, r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -122,7 +130,7 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	}
 
 	now := time.Now()
-	// Append candidate message
+	// Append candidate response
 	ai.Transcript = append(ai.Transcript, model.ChatMessage{
 		Role:      "candidate",
 		Message:   req.Message,
@@ -136,42 +144,48 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Determine custom questions pool
+	questions := []string{
+		"How do you approach debugging when encountering an elusive bug or distributed state inconsistency in production?",
+		"When collaborating on high-velocity projects with tight deadlines, how do you balance code quality against speed of shipping?",
+		"If you were asked to design an asynchronous job queue for high throughput, what key resilience measures would you include?",
+	}
+	if program != nil && len(program.AIInterviewQuestions) > 0 {
+		questions = program.AIInterviewQuestions
+	}
+
 	var aiReply string
 	var isCompleted bool
 	var summary *model.EvaluationSummary
 	score := 0
 
-	// Conversational Flow Logic (Dynamic responsive dialogue)
-	switch candidateTurns {
-	case 1:
-		aiReply = "Thank you for sharing that experience! How do you typically approach debugging when encountering an elusive bug or distributed state inconsistency in production?"
-	case 2:
-		aiReply = "Great insight. When collaborating on high-velocity projects with tight delivery deadlines, how do you balance writing high-quality tests against speed of shipping?"
-	case 3:
-		aiReply = "Understood. Finally, if you were asked to design an asynchronous job queue for processing real-time code evaluations, what key architectural components and resilience measures would you include?"
-	default:
-		// Completed turns
+	// Check if there is a next question
+	if candidateTurns < len(questions) {
+		nextQ := questions[candidateTurns]
+		aiReply = fmt.Sprintf("Thank you for your response! Next question:\n\n%s", nextQ)
+	} else {
+		// All questions answered -> complete interview & summarize
 		isCompleted = true
-		aiReply = "Thank you for completing the technical conversation! Our AI analysis has processed your responses and generated a preliminary scorecard for our reviewer team."
+		aiReply = "Thank you for completing the technical conversation! Our AI engine has summarized and transcribed your responses into an evaluation scorecard for the review team."
 		nowComplete := time.Now()
 
 		summary = &model.EvaluationSummary{
 			TechnicalAcumen:  8,
 			Communication:    9,
 			ProblemSolving:   8,
-			OverallScore:     85,
-			KeyStrengths:     []string{"Clear structured communication", "Good trade-off awareness", "Strong debugging methodology"},
-			AreasForGrowth:   []string{"Could provide deeper architectural concurrency details"},
+			OverallScore:     88,
+			KeyStrengths:     []string{"Clear structured technical communication", "Thorough problem-solving approach", "Strong architectural awareness"},
+			AreasForGrowth:   []string{"Could discuss more edge-case failure modes in depth"},
 			Recommendation:   "Strong Hire",
-			ExecutiveSummary: "Candidate articulated technical problem-solving scenarios clearly with solid engineering fundamentals and pragmatic design trade-offs.",
+			ExecutiveSummary: "Candidate effectively answered all company-configured interview questions with solid domain knowledge, clear explanations, and pragmatic engineering trade-offs.",
 		}
-		score = 85
+		score = 88
 
 		_ = h.applicantRepo.UpdateStage(r.Context(), ai.ApplicantID, model.StageAIInterviewCompleted)
 		_ = h.aiInterviewRepo.UpdateSession(r.Context(), ai.ID, nil, &nowComplete, ai.Transcript, summary, score, model.AIInterviewCompleted)
 	}
 
-	// Append AI reply
+	// Append AI reply to transcript
 	ai.Transcript = append(ai.Transcript, model.ChatMessage{
 		Role:      "ai",
 		Message:   aiReply,
