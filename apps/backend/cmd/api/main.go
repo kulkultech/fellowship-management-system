@@ -42,6 +42,10 @@ func run() error {
 		} else {
 			dbPool = pool
 			defer dbPool.Close()
+
+			if err := repository.AutoMigrateAndSeed(ctx, dbPool, logger); err != nil {
+				logger.Error("database auto-migration failed", "error", err)
+			}
 		}
 	}
 
