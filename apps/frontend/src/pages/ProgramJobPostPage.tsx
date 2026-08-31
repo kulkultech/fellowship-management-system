@@ -132,57 +132,61 @@ export const ProgramJobPostPage: React.FC = () => {
           </div>
 
           {/* Quick Benchmark Bar */}
-          <div className="p-6 bg-white border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-auto">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
+          <div className="p-6 bg-white border-t border-slate-100 space-y-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+                <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 shadow-xs">
                   <Layers className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Tracks</div>
-                  <div className="text-sm font-extrabold text-slate-900">{tracks.length} Available</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">{tracks.length} Available</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center font-bold">
+              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+                <div className="w-10 h-10 rounded-xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0 shadow-xs">
                   <Clock className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Assessment</div>
-                  <div className="text-sm font-extrabold text-slate-900">Timed Logic MCQ</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">Timed Logic MCQ</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center font-bold">
+              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+                <div className="w-10 h-10 rounded-xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center shrink-0 shadow-xs">
                   <Bot className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Technical Screen</div>
-                  <div className="text-sm font-extrabold text-slate-900">Conversational AI</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">Conversational AI</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-xs">
                   <Award className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Evaluation</div>
-                  <div className="text-sm font-extrabold text-slate-900">Instant Scorecard</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">Instant Scorecard</div>
                 </div>
               </div>
             </div>
 
-            {/* Scroll down to tracks action */}
-            <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* CTA & Admissions Status Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 text-center sm:text-left">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                <span>Admissions open &middot; Select your specialization track below to start your application</span>
+              </div>
               <a
                 href="#available-tracks"
-                className="w-full md:w-auto stitch-pill stitch-pill-purple text-base px-8 py-3.5 justify-center shadow-lg hover:shadow-xl"
+                className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
               >
                 <span>Select Track & Apply</span>
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4" />
               </a>
             </div>
           </div>
