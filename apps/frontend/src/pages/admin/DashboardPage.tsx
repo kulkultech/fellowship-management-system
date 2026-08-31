@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
 import { programService } from '@/services/programService';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type { MCQQuestion, Track } from '@/services/types';
 import {
@@ -59,7 +60,6 @@ export const DashboardPage: React.FC = () => {
 
   // Current company slug
   const orgSlug = user?.organization?.slug || 'rsa';
-  const companyLogo = user?.organization?.logo_url;
   const companyName = user?.organization?.name || 'Remote Skills Academy';
 
   // Load Active Program Details
@@ -375,51 +375,14 @@ export const DashboardPage: React.FC = () => {
         {/* Top Header & Dynamic Company Workspace Card */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm space-y-6">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            {/* Left: Company & Active Program Branding */}
-            <div className="flex items-start sm:items-center gap-4">
-              {companyLogo ? (
-                <img
-                  src={companyLogo}
-                  alt={companyName}
-                  className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-sm p-1 bg-white"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center font-black text-xl shadow-md">
-                  {companyName.substring(0, 2).toUpperCase()}
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full bg-kulkul-purple text-white text-2xs font-bold uppercase tracking-wider">
-                    {companyName}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold flex items-center gap-1">
-                    <Layers className="w-3 h-3" />
-                    {programTracks.length} Specialization Tracks
-                  </span>
-                  {program?.enable_mcq && (
-                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-2xs font-bold">
-                      MCQ Engine On
-                    </span>
-                  )}
-                  {program?.enable_ai_interview && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-2xs font-bold flex items-center gap-1">
-                      <Bot className="w-3 h-3" />
-                      AI Screener On
-                    </span>
-                  )}
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  {program?.name || 'Fellowship Assessment Pipeline'}
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                  Host Organization: <strong className="text-slate-700">{companyName}</strong> &middot; Slug: <span className="font-mono text-kulkul-purple">{orgSlug}/{activeProgramSlug}</span>
-                </p>
-              </div>
+            {/* Left: Program Branding */}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {program?.name || 'Fellowship Assessment Pipeline'}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                Host Organization: <strong className="text-slate-700">{companyName}</strong> &middot; Slug: <span className="font-mono text-kulkul-purple">{orgSlug}/{activeProgramSlug}</span>
+              </p>
             </div>
 
             {/* Right: Quick Action Controls */}
@@ -1842,6 +1805,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 };

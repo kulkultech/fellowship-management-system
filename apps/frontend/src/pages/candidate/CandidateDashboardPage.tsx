@@ -14,6 +14,7 @@ import {
   Building2,
   Terminal,
 } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 import toast from 'react-hot-toast';
 
 interface CandidateApplicationItem {
@@ -390,6 +391,7 @@ export const CandidateDashboardPage: React.FC = () => {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import {
   ArrowRight,
   Clock,
@@ -466,6 +467,7 @@ export const ProgramJobPostPage: React.FC = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

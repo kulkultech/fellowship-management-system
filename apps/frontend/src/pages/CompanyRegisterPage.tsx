@@ -10,6 +10,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { Footer } from '../components/Footer';
 import { authService } from '../services/authService';
 
 export const CompanyRegisterPage: React.FC = () => {
@@ -371,13 +372,7 @@ export const CompanyRegisterPage: React.FC = () => {
           </div>
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-6">
-        <div className="max-w-[96rem] mx-auto px-4 text-center text-xs text-slate-500">
-          &copy; 2026 FellowHire &middot; Multi-Tenant Assessment & Screening Platform
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

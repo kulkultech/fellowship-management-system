@@ -9,6 +9,7 @@ import {
   ChevronDown,
   User,
 } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 
 export const LandingPage: React.FC = () => {
   const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
@@ -190,32 +191,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-slate-50 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3.5">
-            <img src="/kulkul-logo.svg" alt="Kulkul" className="h-7 w-auto object-contain" />
-            <p className="text-xs text-slate-500">&copy; 2026 Kulkul Tech &middot; All rights reserved.</p>
-          </div>
-
-          <div className="flex items-center gap-6 text-xs font-semibold text-slate-600">
-            <a href="#features" className="hover:text-kulkul-purple transition">
-              Features
-            </a>
-            <button
-              onClick={() => navigate('/register-company')}
-              className="hover:text-kulkul-purple transition"
-            >
-              Register Company
-            </button>
-            <button
-              onClick={() => navigate('/admin/login')}
-              className="text-kulkul-purple hover:underline font-semibold"
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

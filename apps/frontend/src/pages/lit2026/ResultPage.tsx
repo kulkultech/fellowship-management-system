@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { testService } from '@/services/testService';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import {
   CheckCircle2,
   XCircle,
@@ -158,6 +159,7 @@ export const ResultPage: React.FC = () => {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 };

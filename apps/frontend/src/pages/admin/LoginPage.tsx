@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -159,6 +160,7 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

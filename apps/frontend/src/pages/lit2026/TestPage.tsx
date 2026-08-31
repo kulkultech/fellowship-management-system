@@ -10,6 +10,7 @@ import {
   Send,
   CheckCircle2,
 } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 import toast from 'react-hot-toast';
 
 export const TestPage: React.FC = () => {
@@ -298,6 +299,7 @@ export const TestPage: React.FC = () => {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 };

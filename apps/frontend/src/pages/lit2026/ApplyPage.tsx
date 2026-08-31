@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import {
   ArrowRight,
   Clock,
@@ -420,6 +421,7 @@ export const ApplyPage: React.FC = () => {
           </form>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

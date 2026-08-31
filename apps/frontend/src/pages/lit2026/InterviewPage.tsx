@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiInterviewService } from '@/services/aiInterviewService';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import {
   User,
   Send,
@@ -260,6 +261,7 @@ export const InterviewPage: React.FC = () => {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 };
