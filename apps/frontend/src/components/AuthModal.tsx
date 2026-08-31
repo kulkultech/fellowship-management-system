@@ -45,7 +45,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       setIsLoading(true);
       await login({ email: companyEmail, password: companyPassword });
-      toast.success('Signed in as RSA Reviewer Admin');
+      toast.success('Signed in successfully');
       onClose();
       navigate('/admin/dashboard');
     } catch (err: any) {
@@ -213,7 +213,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <span>Authenticating...</span>
                   ) : (
                     <>
-                      <span>Enter Reviewer Dashboard</span>
+                      <span>Enter Company Portal</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

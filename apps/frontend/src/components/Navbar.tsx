@@ -47,7 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     />
                   ) : (
                     <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-kulkul-purple transition">
-                      {companyName || 'Reviewer Dashboard'}
+                      {companyName || 'Company Portal'}
                     </span>
                   )}
                 </Link>

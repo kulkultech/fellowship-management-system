@@ -491,7 +491,7 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar title="FellowHire Dashboard" subtitle="Reviewer & Talent Operations" showAdminNav={true} />
+      <Navbar title="FellowHire Dashboard" subtitle="Company & Talent Operations" showAdminNav={true} />
 
       <main className="flex-1 max-w-[96rem] w-full mx-auto px-3 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Top Header & Dynamic Company Workspace Card */}

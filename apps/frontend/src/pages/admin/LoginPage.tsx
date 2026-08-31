@@ -48,8 +48,8 @@ export const LoginPage: React.FC = () => {
           {/* Card Container */}
           <div className="stitch-card bg-white p-8">
             <div className="mb-6 text-center">
-              <h1 className="text-2xl font-extrabold text-kulkul-purple tracking-tight">Reviewer Portal</h1>
-              <p className="text-xs text-slate-500 mt-1">Sign in to manage fellowship applicants</p>
+              <h1 className="text-2xl font-extrabold text-kulkul-purple tracking-tight">Company Portal</h1>
+              <p className="text-xs text-slate-500 mt-1">Sign in to manage your programs & applicants</p>
             </div>
 
             {/* Google OAuth Button */}
@@ -93,7 +93,7 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Reviewer Email
+                  Company Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -104,7 +104,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="reviewer@organization.com"
+                    placeholder="name@company.com"
                     className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl shadow-sm focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-light outline-none transition"
                   />
                 </div>
