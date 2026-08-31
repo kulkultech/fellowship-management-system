@@ -30,17 +30,9 @@ export const LandingPage: React.FC = () => {
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-18">
-            {/* Brand Logo */}
-            <div className="flex items-center gap-3.5">
-              <div className="h-10 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-center">
-                <img src="/kulkul-logo.svg" alt="Logo" className="h-7 w-auto object-contain" />
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-kulkul-purple text-lg tracking-tight">FellowHire</span>
-                </div>
-                <span className="text-2xs text-slate-500 font-medium">Multi-Tenant Assessment Platform</span>
-              </div>
+            {/* Brand Logo - Only Kulkul logo */}
+            <div className="flex items-center">
+              <img src="/kulkul-logo.svg" alt="Kulkul" className="h-8 sm:h-9 w-auto object-contain" />
             </div>
 
             {/* Nav Links */}
@@ -56,21 +48,14 @@ export const LandingPage: React.FC = () => {
               </a>
             </nav>
 
-            {/* Header Actions */}
-            <div className="flex items-center gap-3">
+            {/* Single Clean Header Action */}
+            <div className="flex items-center">
               <button
-                onClick={() => openAuth('participant')}
-                className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-kulkul-purple hover:bg-kulkul-purple-light rounded-full transition"
+                onClick={() => navigate('/admin/login')}
+                className="px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-xs transition active:scale-[0.98] flex items-center gap-2"
               >
-                Candidate Entry
-              </button>
-
-              <button
-                onClick={() => openAuth('company')}
-                className="stitch-pill stitch-pill-purple"
-              >
-                <Building2 className="w-4 h-4 text-kulkul-orange" />
-                <span>Company Sign In</span>
+                <span>Sign In</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -301,13 +286,8 @@ export const LandingPage: React.FC = () => {
       <footer className="mt-auto border-t border-slate-200 bg-slate-50 py-12">
         <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3.5">
-            <div className="h-9 px-2 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs flex items-center justify-center">
-              <img src="/kulkul-logo.svg" alt="Logo" className="h-6 w-auto object-contain" />
-            </div>
-            <div>
-              <span className="font-bold text-slate-900 text-sm">FellowHire</span>
-              <p className="text-xs text-slate-500">&copy; 2026 FellowHire &middot; All rights reserved.</p>
-            </div>
+            <img src="/kulkul-logo.svg" alt="Kulkul" className="h-7 w-auto object-contain" />
+            <p className="text-xs text-slate-500">&copy; 2026 Kulkul Tech &middot; All rights reserved.</p>
           </div>
 
           <div className="flex items-center gap-6 text-xs font-semibold text-slate-600">
@@ -318,10 +298,10 @@ export const LandingPage: React.FC = () => {
               Programs
             </a>
             <button
-              onClick={() => openAuth('company')}
-              className="text-kulkul-purple hover:underline"
+              onClick={() => navigate('/admin/login')}
+              className="text-kulkul-purple hover:underline font-semibold"
             >
-              Organization Portal
+              Sign In
             </button>
           </div>
         </div>
