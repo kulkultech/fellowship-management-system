@@ -18,10 +18,7 @@ import {
   X,
   Layers,
   Award,
-  Calendar,
   GraduationCap,
-  BookOpen,
-  Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -33,7 +30,7 @@ const IT_MAJORS = [
   'Information Technology (Teknologi Informasi)',
   'Data Science / Artificial Intelligence (Sains Data / Kecerdasan Buatan)',
   'Cyber Security (Keamanan Siber)',
-  'Other IT / Computing Major',
+  'Other IT Major',
 ];
 
 const FINAL_YEAR_SEMESTERS = [
@@ -84,6 +81,7 @@ export const ApplyPage: React.FC = () => {
     notes: '',
   });
 
+  const [customMajor, setCustomMajor] = useState('');
   const [resumeFileName, setResumeFileName] = useState('');
   const [resumeFileSize, setResumeFileSize] = useState('');
 
@@ -155,6 +153,10 @@ export const ApplyPage: React.FC = () => {
   const applyMutation = useMutation({
     mutationFn: () => {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      const finalMajor = formData.major.includes('Other') && customMajor.trim()
+        ? `Other: ${customMajor.trim()}`
+        : formData.major;
+
       return programService.apply(orgSlug, programSlug, {
         track_slug: selectedTrackSlug,
         chosen_course: formData.chosenCourse,
@@ -166,7 +168,7 @@ export const ApplyPage: React.FC = () => {
         email: formData.email.trim(),
         linkedin_url: formData.linkedinUrl.trim(),
         university: formData.university.trim(),
-        major: formData.major,
+        major: finalMajor,
         semester: formData.semester,
         referral_source: formData.referralSource,
         resume_url: formData.resumeUrl,
@@ -230,6 +232,10 @@ export const ApplyPage: React.FC = () => {
     }
     if (!formData.major) {
       toast.error('Current Major is mandatory (IT majors only)');
+      return;
+    }
+    if (formData.major.includes('Other') && !customMajor.trim()) {
+      toast.error('Please specify your IT major');
       return;
     }
     if (!formData.semester) {
@@ -352,16 +358,13 @@ export const ApplyPage: React.FC = () => {
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                     Date of Birth <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <Calendar className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="date"
-                      required
-                      value={formData.dateOfBirth}
-                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
-                    />
-                  </div>
+                  <input
+                    type="date"
+                    required
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                  />
                 </div>
 
                 <div>
@@ -449,40 +452,51 @@ export const ApplyPage: React.FC = () => {
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                     Current Major <span className="text-red-500">*</span> <span className="text-2xs font-normal text-kulkul-purple lowercase">(IT majors only)</span>
                   </label>
-                  <div className="relative">
-                    <BookOpen className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
-                      required
-                      value={formData.major}
-                      onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                      className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
-                    >
-                      <option value="" disabled>Select your IT major</option>
-                      {IT_MAJORS.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    required
+                    value={formData.major}
+                    onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                  >
+                    <option value="" disabled>Select your IT major</option>
+                    {IT_MAJORS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+
+                  {/* Specific Major Input if Other is selected */}
+                  {formData.major.includes('Other') && (
+                    <div className="mt-3">
+                      <label className="block text-2xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Specific IT Major Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customMajor}
+                        onChange={(e) => setCustomMajor(e.target.value)}
+                        placeholder="e.g. Game Development / Bio-informatics / Network Security"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-slate-50/70"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                     Current Semester <span className="text-red-500">*</span> <span className="text-2xs font-normal text-kulkul-purple lowercase">(final year only)</span>
                   </label>
-                  <div className="relative">
-                    <GraduationCap className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
-                      required
-                      value={formData.semester}
-                      onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                      className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
-                    >
-                      <option value="" disabled>Select your semester status</option>
-                      {FINAL_YEAR_SEMESTERS.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    required
+                    value={formData.semester}
+                    onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                  >
+                    <option value="" disabled>Select your semester status</option>
+                    {FINAL_YEAR_SEMESTERS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -496,20 +510,17 @@ export const ApplyPage: React.FC = () => {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   Chosen Course for the Scholarship <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <Award className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select
-                    required
-                    value={formData.chosenCourse}
-                    onChange={(e) => handleCourseChange(e.target.value)}
-                    className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white font-semibold text-slate-900"
-                  >
-                    <option value="" disabled>Select scholarship course</option>
-                    {SCHOLARSHIP_COURSES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  required
+                  value={formData.chosenCourse}
+                  onChange={(e) => handleCourseChange(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white font-semibold text-slate-900"
+                >
+                  <option value="" disabled>Select scholarship course</option>
+                  {SCHOLARSHIP_COURSES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
                 <p className="text-2xs text-slate-400 mt-1 pl-1">
                   Your logic and technical questions will be calibrated for the chosen track.
                 </p>
@@ -520,20 +531,17 @@ export const ApplyPage: React.FC = () => {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   How did you hear about us? <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <Share2 className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select
-                    required
-                    value={formData.referralSource}
-                    onChange={(e) => setFormData({ ...formData, referralSource: e.target.value })}
-                    className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
-                  >
-                    <option value="" disabled>Choose one option</option>
-                    {REFERRAL_SOURCES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  required
+                  value={formData.referralSource}
+                  onChange={(e) => setFormData({ ...formData, referralSource: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                >
+                  <option value="" disabled>Choose one option</option>
+                  {REFERRAL_SOURCES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Resume File Upload (Optional) */}
