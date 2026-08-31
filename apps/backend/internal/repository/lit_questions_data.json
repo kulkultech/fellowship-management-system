@@ -1,0 +1,2983 @@
+{
+  "qa_assessment": [
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "What is the purpose of regression testing?",
+      "options": [
+        {
+          "id": "a",
+          "text": "To measure performance"
+        },
+        {
+          "id": "b",
+          "text": "To check unaffected functionality after change"
+        },
+        {
+          "id": "c",
+          "text": "To create new features"
+        },
+        {
+          "id": "d",
+          "text": "To validate project budget"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Which artifact best maps requirements to specific test cases?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Test plan"
+        },
+        {
+          "id": "b",
+          "text": "Traceability matrix"
+        },
+        {
+          "id": "c",
+          "text": "Defect report"
+        },
+        {
+          "id": "d",
+          "text": "User story"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Which testing activity validates that the right product was built?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Verification"
+        },
+        {
+          "id": "b",
+          "text": "Validation"
+        },
+        {
+          "id": "c",
+          "text": "Cost analysis"
+        },
+        {
+          "id": "d",
+          "text": "Estimation"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Who owns quality in Agile software development?",
+      "options": [
+        {
+          "id": "a",
+          "text": "QA only"
+        },
+        {
+          "id": "b",
+          "text": "Developers only"
+        },
+        {
+          "id": "c",
+          "text": "Whole team"
+        },
+        {
+          "id": "d",
+          "text": "Scrum Master"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "What type of testing focuses on the external behavior of the system?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Black-box"
+        },
+        {
+          "id": "b",
+          "text": "White-box"
+        },
+        {
+          "id": "c",
+          "text": "Mutation"
+        },
+        {
+          "id": "d",
+          "text": "Glass-box"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "QA Methodology",
+      "question_text": "Defect density is defined as...",
+      "options": [
+        {
+          "id": "a",
+          "text": "Defects per KLOC"
+        },
+        {
+          "id": "b",
+          "text": "Defects per test run"
+        },
+        {
+          "id": "c",
+          "text": "Defects per developer"
+        },
+        {
+          "id": "d",
+          "text": "Defects per user"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Which of the following is a non-functional test type?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Usability"
+        },
+        {
+          "id": "b",
+          "text": "Unit"
+        },
+        {
+          "id": "c",
+          "text": "Boundary value"
+        },
+        {
+          "id": "d",
+          "text": "Equivalence partitioning"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Which method is best to select edge case test data?",
+      "options": [
+        {
+          "id": "a",
+          "text": "State transition"
+        },
+        {
+          "id": "b",
+          "text": "Boundary value analysis"
+        },
+        {
+          "id": "c",
+          "text": "Random input"
+        },
+        {
+          "id": "d",
+          "text": "Decision table"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "QA Methodology",
+      "question_text": "Which Jira workflow status usually follows 'In QA'?",
+      "options": [
+        {
+          "id": "a",
+          "text": "To Do"
+        },
+        {
+          "id": "b",
+          "text": "In Progress"
+        },
+        {
+          "id": "c",
+          "text": "Done"
+        },
+        {
+          "id": "d",
+          "text": "Backlog"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "What document summarizes test cycle results?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Change request"
+        },
+        {
+          "id": "b",
+          "text": "Test summary report"
+        },
+        {
+          "id": "c",
+          "text": "Release notes"
+        },
+        {
+          "id": "d",
+          "text": "Defect log"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Postman is mainly used for...",
+      "options": [
+        {
+          "id": "a",
+          "text": "API test automation"
+        },
+        {
+          "id": "b",
+          "text": "Web UI scraping"
+        },
+        {
+          "id": "c",
+          "text": "Performance monitoring"
+        },
+        {
+          "id": "d",
+          "text": "Build packaging"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Cypress tests are typically written using...",
+      "options": [
+        {
+          "id": "a",
+          "text": "Python"
+        },
+        {
+          "id": "b",
+          "text": "Java"
+        },
+        {
+          "id": "c",
+          "text": "JavaScript"
+        },
+        {
+          "id": "d",
+          "text": "Ruby"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Which tool generates XML/JUnit results for CI integration?",
+      "options": [
+        {
+          "id": "a",
+          "text": "JMeter"
+        },
+        {
+          "id": "b",
+          "text": "Postman"
+        },
+        {
+          "id": "c",
+          "text": "Bruno"
+        },
+        {
+          "id": "d",
+          "text": "k6"
+        }
+      ],
+      "correct_option_id": "d",
+      "explanation": "Correct answer is (D).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Which command installs all Cypress dependencies with npm?",
+      "options": [
+        {
+          "id": "a",
+          "text": "npm fetch cypress"
+        },
+        {
+          "id": "b",
+          "text": "npm add cypress"
+        },
+        {
+          "id": "c",
+          "text": "npm install cypress"
+        },
+        {
+          "id": "d",
+          "text": "npm get cypress"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "What does Jenkins automate?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Android builds"
+        },
+        {
+          "id": "b",
+          "text": "Manual code review"
+        },
+        {
+          "id": "c",
+          "text": "Continuous integration and testing"
+        },
+        {
+          "id": "d",
+          "text": "Excel macros"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Which k6 hook is used to initialize data before VUs run?",
+      "options": [
+        {
+          "id": "a",
+          "text": "setup()"
+        },
+        {
+          "id": "b",
+          "text": "teardown()"
+        },
+        {
+          "id": "c",
+          "text": "beforeEach()"
+        },
+        {
+          "id": "d",
+          "text": "init()"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Which Postman feature supports running collections with variables?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Monitors"
+        },
+        {
+          "id": "b",
+          "text": "Runner"
+        },
+        {
+          "id": "c",
+          "text": "Console"
+        },
+        {
+          "id": "d",
+          "text": "Explorer"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Bruno is best for automating...",
+      "options": [
+        {
+          "id": "a",
+          "text": "Image regression"
+        },
+        {
+          "id": "b",
+          "text": "API testing"
+        },
+        {
+          "id": "c",
+          "text": "Android UI tests"
+        },
+        {
+          "id": "d",
+          "text": "Database performance"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Which ESLint rule category enforces code format in JavaScript?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Possible Errors"
+        },
+        {
+          "id": "b",
+          "text": "Best Practices"
+        },
+        {
+          "id": "c",
+          "text": "Stylistic Issues"
+        },
+        {
+          "id": "d",
+          "text": "Variables"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "CI/CD: What is a smoke test's main purpose?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Stress the system"
+        },
+        {
+          "id": "b",
+          "text": "Validate major functionality"
+        },
+        {
+          "id": "c",
+          "text": "Crash the app"
+        },
+        {
+          "id": "d",
+          "text": "Verify all features"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "JavaScript: What is the output? `typeof null`",
+      "options": [
+        {
+          "id": "a",
+          "text": "object"
+        },
+        {
+          "id": "b",
+          "text": "null"
+        },
+        {
+          "id": "c",
+          "text": "undefined"
+        },
+        {
+          "id": "d",
+          "text": "string"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "JavaScript: Which method removes the last element of an array?",
+      "options": [
+        {
+          "id": "a",
+          "text": "pop()"
+        },
+        {
+          "id": "b",
+          "text": "push()"
+        },
+        {
+          "id": "c",
+          "text": "shift()"
+        },
+        {
+          "id": "d",
+          "text": "unshift()"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "In Cypress, which command waits for a network call?",
+      "options": [
+        {
+          "id": "a",
+          "text": "cy.pause()"
+        },
+        {
+          "id": "b",
+          "text": "cy.sleep()"
+        },
+        {
+          "id": "c",
+          "text": "cy.wait()"
+        },
+        {
+          "id": "d",
+          "text": "cy.chain()"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: What is printed?\n\nint[] arr = {2,4,6};  \nSystem.out.println(arr[1]);",
+      "options": [
+        {
+          "id": "a",
+          "text": "2"
+        },
+        {
+          "id": "b",
+          "text": "4"
+        },
+        {
+          "id": "c",
+          "text": "6"
+        },
+        {
+          "id": "d",
+          "text": "0"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: What is the result?\n\nString s = null;  \nSystem.out.println(s + \"QA\");",
+      "options": [
+        {
+          "id": "a",
+          "text": "\"null\""
+        },
+        {
+          "id": "b",
+          "text": "\"QA\""
+        },
+        {
+          "id": "c",
+          "text": "\"nullQA\""
+        },
+        {
+          "id": "d",
+          "text": "\"Throws exception\""
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "Java: Fill in the blank to complete this method which returns true if the array contains zero:\n\npublic boolean hasZero(int[] arr) {  \n  for (int n : arr) {  \n    if (n == ___) return true;  \n  }  \n  return false;  \n}",
+      "options": [
+        {
+          "id": "a",
+          "text": "0"
+        },
+        {
+          "id": "b",
+          "text": "1"
+        },
+        {
+          "id": "c",
+          "text": "-1"
+        },
+        {
+          "id": "d",
+          "text": "Null"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: What is the output?\n\nint a = 3;  \nint b = a++;  \nSystem.out.println(a+\"\" \"\"+b);",
+      "options": [
+        {
+          "id": "a",
+          "text": "3 3"
+        },
+        {
+          "id": "b",
+          "text": "4 3"
+        },
+        {
+          "id": "c",
+          "text": "3 4"
+        },
+        {
+          "id": "d",
+          "text": "4 4"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "JavaScript: What does `Promise.resolve(2).then(x=>x*3)` produce?",
+      "options": [
+        {
+          "id": "a",
+          "text": "2"
+        },
+        {
+          "id": "b",
+          "text": "3"
+        },
+        {
+          "id": "c",
+          "text": "6"
+        },
+        {
+          "id": "d",
+          "text": "Error"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Testing Fundamentals",
+      "question_text": "Which operator checks both value and type equality?",
+      "options": [
+        {
+          "id": "a",
+          "text": "="
+        },
+        {
+          "id": "b",
+          "text": "=="
+        },
+        {
+          "id": "c",
+          "text": "==="
+        },
+        {
+          "id": "d",
+          "text": "!="
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "Given\n\nlet user = {id:1}, admin = user;  \nadmin.name = \"QA\";  \nconsole.log(user.name);",
+      "options": [
+        {
+          "id": "a",
+          "text": "undefined"
+        },
+        {
+          "id": "b",
+          "text": "QA"
+        },
+        {
+          "id": "c",
+          "text": "null"
+        },
+        {
+          "id": "d",
+          "text": "Error"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: What does this method return?\n\npublic boolean isEven(int n) { return n%2==0; }",
+      "options": [
+        {
+          "id": "a",
+          "text": "Parity"
+        },
+        {
+          "id": "b",
+          "text": "Boolean"
+        },
+        {
+          "id": "c",
+          "text": "true if even"
+        },
+        {
+          "id": "d",
+          "text": "false if even"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Tools & Automation",
+      "question_text": "Which Cypress assertion checks if a button is visible?",
+      "options": [
+        {
+          "id": "a",
+          "text": ".should('be.enabled')"
+        },
+        {
+          "id": "b",
+          "text": ".should('exist')"
+        },
+        {
+          "id": "c",
+          "text": ".should('be.visible')"
+        },
+        {
+          "id": "d",
+          "text": ".should('contain')"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: What is wrong with this code?\n\nList<String> items = Arrays.asList(\"A\",\"B\");  \nitems.add(\"C\");",
+      "options": [
+        {
+          "id": "a",
+          "text": "Cannot add (fixed-size)"
+        },
+        {
+          "id": "b",
+          "text": "OK"
+        },
+        {
+          "id": "c",
+          "text": "Null pointer"
+        },
+        {
+          "id": "d",
+          "text": "Syntax error"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "QA Methodology",
+      "question_text": "API: Which HTTP status code means \u201cToo Many Requests\u201d?",
+      "options": [
+        {
+          "id": "a",
+          "text": "200"
+        },
+        {
+          "id": "b",
+          "text": "201"
+        },
+        {
+          "id": "c",
+          "text": "404"
+        },
+        {
+          "id": "d",
+          "text": "429"
+        }
+      ],
+      "correct_option_id": "d",
+      "explanation": "Correct answer is (D).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "Which JavaScript feature is used in async test automation to wait for completion?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Callbacks"
+        },
+        {
+          "id": "b",
+          "text": "Events"
+        },
+        {
+          "id": "c",
+          "text": "Promises"
+        },
+        {
+          "id": "d",
+          "text": "Variables"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: Complete the swap implementation in\n\npublic void swap(int a, int b) { int t=a; a=b; b=___; }",
+      "options": [
+        {
+          "id": "a",
+          "text": "a"
+        },
+        {
+          "id": "b",
+          "text": "t"
+        },
+        {
+          "id": "c",
+          "text": "b"
+        },
+        {
+          "id": "d",
+          "text": "temp"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript & Web",
+      "question_text": "JavaScript: Identify the bug\n\nfunction test() {  \n let a;  \n console.log(a.length);  \n}",
+      "options": [
+        {
+          "id": "a",
+          "text": "No bug"
+        },
+        {
+          "id": "b",
+          "text": "`a` is undefined"
+        },
+        {
+          "id": "c",
+          "text": "`a` has no property `length`"
+        },
+        {
+          "id": "d",
+          "text": "Both B and C"
+        }
+      ],
+      "correct_option_id": "d",
+      "explanation": "Correct answer is (D).",
+      "points": 10
+    },
+    {
+      "category": "Java & Programming",
+      "question_text": "Java: What is printed?\n\nString s = \"abc\";  \nSystem.out.println(s.charAt(3));",
+      "options": [
+        {
+          "id": "a",
+          "text": "a"
+        },
+        {
+          "id": "b",
+          "text": "c"
+        },
+        {
+          "id": "c",
+          "text": "Exception"
+        },
+        {
+          "id": "d",
+          "text": ""
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    }
+  ],
+  "fullstack_assessment": [
+    {
+      "category": "Frontend Development",
+      "question_text": "Which HTML tag is used to define the main heading of a webpage?",
+      "options": [
+        {
+          "id": "a",
+          "text": "<h1>"
+        },
+        {
+          "id": "b",
+          "text": "<header>"
+        },
+        {
+          "id": "c",
+          "text": "<head>"
+        },
+        {
+          "id": "d",
+          "text": "<title>"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Frontend Development",
+      "question_text": "What CSS property controls the space between an element's content and its border?",
+      "options": [
+        {
+          "id": "a",
+          "text": "margin"
+        },
+        {
+          "id": "b",
+          "text": "padding"
+        },
+        {
+          "id": "c",
+          "text": "border-spacing"
+        },
+        {
+          "id": "d",
+          "text": "spacing"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Frontend Development",
+      "question_text": "How do you select an element with the ID 'nav' in CSS?",
+      "options": [
+        {
+          "id": "a",
+          "text": ".nav"
+        },
+        {
+          "id": "b",
+          "text": "#nav"
+        },
+        {
+          "id": "c",
+          "text": "nav"
+        },
+        {
+          "id": "d",
+          "text": "id=nav"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript Core",
+      "question_text": "Which JavaScript keyword is used to declare a variable that cannot be reassigned?",
+      "options": [
+        {
+          "id": "a",
+          "text": "var"
+        },
+        {
+          "id": "b",
+          "text": "let"
+        },
+        {
+          "id": "c",
+          "text": "const"
+        },
+        {
+          "id": "d",
+          "text": "static"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript Core",
+      "question_text": "What is the output of the expression `3 + '5'` in JavaScript?",
+      "options": [
+        {
+          "id": "a",
+          "text": "8"
+        },
+        {
+          "id": "b",
+          "text": "35"
+        },
+        {
+          "id": "c",
+          "text": "35'"
+        },
+        {
+          "id": "d",
+          "text": "undefined"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript Core",
+      "question_text": "Which method is used to add an element to the end of an array in JavaScript?",
+      "options": [
+        {
+          "id": "a",
+          "text": "push"
+        },
+        {
+          "id": "b",
+          "text": "pop"
+        },
+        {
+          "id": "c",
+          "text": "shift"
+        },
+        {
+          "id": "d",
+          "text": "unshift"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Frontend Development",
+      "question_text": "In JavaScript, what does DOM stand for?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Document Object Model"
+        },
+        {
+          "id": "b",
+          "text": "Data Object Model"
+        },
+        {
+          "id": "c",
+          "text": "Document Oriented Method"
+        },
+        {
+          "id": "d",
+          "text": "Dynamic Object Manager"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript Core",
+      "question_text": "Which symbol is used for single-line comments in JavaScript?",
+      "options": [
+        {
+          "id": "a",
+          "text": "//"
+        },
+        {
+          "id": "b",
+          "text": "/* */"
+        },
+        {
+          "id": "c",
+          "text": "#"
+        },
+        {
+          "id": "d",
+          "text": "<!--"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Frontend Development",
+      "question_text": "Given the following CSS snippet, what color will the text be?\n\np {\ncolor: red;\n}\n.special {\ncolor: blue;\n}\n<p class=\"\"special\"\">Hello</p>",
+      "options": [
+        {
+          "id": "a",
+          "text": "Red"
+        },
+        {
+          "id": "b",
+          "text": "Blue"
+        },
+        {
+          "id": "c",
+          "text": "Green"
+        },
+        {
+          "id": "d",
+          "text": "Black"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "JavaScript Core",
+      "question_text": "Which JavaScript function is used to parse a JSON string into an object?",
+      "options": [
+        {
+          "id": "a",
+          "text": "parseJSON()"
+        },
+        {
+          "id": "b",
+          "text": "JSON.parse()"
+        },
+        {
+          "id": "c",
+          "text": "stringify()"
+        },
+        {
+          "id": "d",
+          "text": "JSON.decode()"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Very easy to guest",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "Which keyword in Java defines a class?",
+      "options": [
+        {
+          "id": "a",
+          "text": "class"
+        },
+        {
+          "id": "b",
+          "text": "struct"
+        },
+        {
+          "id": "c",
+          "text": "define"
+        },
+        {
+          "id": "d",
+          "text": "object"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "What is the default value of an uninitialized boolean variable in Java?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1"
+        },
+        {
+          "id": "b",
+          "text": "1"
+        },
+        {
+          "id": "c",
+          "text": "0"
+        },
+        {
+          "id": "d",
+          "text": "0"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "Which of the following is NOT a Java primitive type?",
+      "options": [
+        {
+          "id": "a",
+          "text": "int"
+        },
+        {
+          "id": "b",
+          "text": "String"
+        },
+        {
+          "id": "c",
+          "text": "boolean"
+        },
+        {
+          "id": "d",
+          "text": "double"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "What OOP principle allows a subclass to provide a specific implementation of a method defined in its superclass?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Inheritance"
+        },
+        {
+          "id": "b",
+          "text": "Encapsulation"
+        },
+        {
+          "id": "c",
+          "text": "Polymorphism"
+        },
+        {
+          "id": "d",
+          "text": "Abstraction"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "Which data structure uses LIFO (Last In, First Out) ordering?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Queue"
+        },
+        {
+          "id": "b",
+          "text": "Stack"
+        },
+        {
+          "id": "c",
+          "text": "Array"
+        },
+        {
+          "id": "d",
+          "text": "List"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "In Java, which operator is used to compare two values for equality?",
+      "options": [
+        {
+          "id": "a",
+          "text": "="
+        },
+        {
+          "id": "b",
+          "text": "=="
+        },
+        {
+          "id": "c",
+          "text": "==="
+        },
+        {
+          "id": "d",
+          "text": "!="
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "What will be printed by this Java code?\n\nint x = 5;\nif (x > 3) {\nSystem.out.println(\"Yes\");\n}\nelse {\nSystem.out.println(\"No\");\n}",
+      "options": [
+        {
+          "id": "a",
+          "text": "Yes"
+        },
+        {
+          "id": "b",
+          "text": "No"
+        },
+        {
+          "id": "c",
+          "text": "5"
+        },
+        {
+          "id": "d",
+          "text": "Error"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "Which Java feature allows multiple methods with the same name but different parameters?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Inheritance"
+        },
+        {
+          "id": "b",
+          "text": "Overloading"
+        },
+        {
+          "id": "c",
+          "text": "Overriding"
+        },
+        {
+          "id": "d",
+          "text": "Abstraction"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "What is the purpose of the 'try-catch' block in Java?",
+      "options": [
+        {
+          "id": "a",
+          "text": "To handle exceptions and errors"
+        },
+        {
+          "id": "b",
+          "text": "To declare variables"
+        },
+        {
+          "id": "c",
+          "text": "To loop through code"
+        },
+        {
+          "id": "d",
+          "text": "To create objects"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Backend & Systems",
+      "question_text": "Which of the following is an example of an immutable object in Java?",
+      "options": [
+        {
+          "id": "a",
+          "text": "String"
+        },
+        {
+          "id": "b",
+          "text": "ArrayList"
+        },
+        {
+          "id": "c",
+          "text": "HashMap"
+        },
+        {
+          "id": "d",
+          "text": "StringBuilder"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "API & Architecture",
+      "question_text": "Which Spring Boot annotation is used to create a REST controller?",
+      "options": [
+        {
+          "id": "a",
+          "text": "@Controller"
+        },
+        {
+          "id": "b",
+          "text": "@RestController"
+        },
+        {
+          "id": "c",
+          "text": "@Service"
+        },
+        {
+          "id": "d",
+          "text": "@Repository"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "To specific to framework, check only general knowledge for java",
+      "points": 10
+    },
+    {
+      "category": "API & Architecture",
+      "question_text": "What HTTP method is generally used to update an existing resource?",
+      "options": [
+        {
+          "id": "a",
+          "text": "GET"
+        },
+        {
+          "id": "b",
+          "text": "POST"
+        },
+        {
+          "id": "c",
+          "text": "PUT"
+        },
+        {
+          "id": "d",
+          "text": "DELETE"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Not relevant to assess java knowledge",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "Which SQL statement is used to retrieve data from a database?",
+      "options": [
+        {
+          "id": "a",
+          "text": "SELECT"
+        },
+        {
+          "id": "b",
+          "text": "UPDATE"
+        },
+        {
+          "id": "c",
+          "text": "DELETE"
+        },
+        {
+          "id": "d",
+          "text": "INSERT"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "In JDBC, which interface is used to execute a SQL query?",
+      "options": [
+        {
+          "id": "a",
+          "text": "ResultSet"
+        },
+        {
+          "id": "b",
+          "text": "Statement"
+        },
+        {
+          "id": "c",
+          "text": "Connection"
+        },
+        {
+          "id": "d",
+          "text": "DriverManager"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "To specific on usage of specific lib",
+      "points": 10
+    },
+    {
+      "category": "API & Architecture",
+      "question_text": "Which HTTP status code indicates a successful GET request?",
+      "options": [
+        {
+          "id": "a",
+          "text": "200"
+        },
+        {
+          "id": "b",
+          "text": "201"
+        },
+        {
+          "id": "c",
+          "text": "400"
+        },
+        {
+          "id": "d",
+          "text": "404"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Not relevant to assess java knowledge",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "What is the purpose of OAuth and JWT in web applications?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Data storage"
+        },
+        {
+          "id": "b",
+          "text": "Authentication and authorization"
+        },
+        {
+          "id": "c",
+          "text": "Data encryption"
+        },
+        {
+          "id": "d",
+          "text": "API documentation"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "API & Architecture",
+      "question_text": "Which of the following best describes RESTful API principles?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Stateless communication"
+        },
+        {
+          "id": "b",
+          "text": "Stateful communication"
+        },
+        {
+          "id": "c",
+          "text": "Monolithic architecture"
+        },
+        {
+          "id": "d",
+          "text": "Tightly coupled services"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Frontend Development",
+      "question_text": "What is the main advantage of using ORM frameworks like Hibernate?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Manual SQL writing"
+        },
+        {
+          "id": "b",
+          "text": "Automatic database schema generation"
+        },
+        {
+          "id": "c",
+          "text": "Object-relational mapping"
+        },
+        {
+          "id": "d",
+          "text": "Faster network communication"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "To specific to framework, check only general knowledge for java",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "Which Angular decorator defines a component?",
+      "options": [
+        {
+          "id": "a",
+          "text": "@Component"
+        },
+        {
+          "id": "b",
+          "text": "@NgModule"
+        },
+        {
+          "id": "c",
+          "text": "@Injectable"
+        },
+        {
+          "id": "d",
+          "text": "@Directive"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "In Angular, which directive is used for two-way data binding?",
+      "options": [
+        {
+          "id": "a",
+          "text": "*ngIf"
+        },
+        {
+          "id": "b",
+          "text": "*ngFor"
+        },
+        {
+          "id": "c",
+          "text": "[(ngModel)]"
+        },
+        {
+          "id": "d",
+          "text": "[ngClass]"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "How do you navigate to a route in Angular programmatically?",
+      "options": [
+        {
+          "id": "a",
+          "text": "routerLink=\"path\""
+        },
+        {
+          "id": "b",
+          "text": "navigate(\"path\")"
+        },
+        {
+          "id": "c",
+          "text": "this.router.navigate([\"path\"])"
+        },
+        {
+          "id": "d",
+          "text": "<a> tag"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "API & Architecture",
+      "question_text": "Which Angular service is typically used for making HTTP requests?",
+      "options": [
+        {
+          "id": "a",
+          "text": "HttpClient"
+        },
+        {
+          "id": "b",
+          "text": "RequestsService"
+        },
+        {
+          "id": "c",
+          "text": "AjaxService"
+        },
+        {
+          "id": "d",
+          "text": "FetchService"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "What is the purpose of Angular modules?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Manage HTTP requests"
+        },
+        {
+          "id": "b",
+          "text": "Define application structure and dependencies"
+        },
+        {
+          "id": "c",
+          "text": "Style components"
+        },
+        {
+          "id": "d",
+          "text": "Handle routing"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "Which Angular lifecycle hook is called after the component\u2019s view has been fully initialized?",
+      "options": [
+        {
+          "id": "a",
+          "text": "ngOnInit"
+        },
+        {
+          "id": "b",
+          "text": "ngAfterViewInit"
+        },
+        {
+          "id": "c",
+          "text": "ngOnDestroy"
+        },
+        {
+          "id": "d",
+          "text": "ngDoCheck"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "What is view encapsulation in Angular?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A way to scope CSS to components"
+        },
+        {
+          "id": "b",
+          "text": "A routing technique"
+        },
+        {
+          "id": "c",
+          "text": "A data binding method"
+        },
+        {
+          "id": "d",
+          "text": "A testing strategy"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "Which of the following is a best practice when deploying Angular applications?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Minify and bundle code"
+        },
+        {
+          "id": "b",
+          "text": "Skip testing"
+        },
+        {
+          "id": "c",
+          "text": "Use inline styles only"
+        },
+        {
+          "id": "d",
+          "text": "Avoid lazy loading"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "What is the benefit of using meaningful variable names?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Increase code readability"
+        },
+        {
+          "id": "b",
+          "text": "Decrease compilation time"
+        },
+        {
+          "id": "c",
+          "text": "Reduce binary size"
+        },
+        {
+          "id": "d",
+          "text": "Improve network speed"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "Which command initializes a new Git repository?",
+      "options": [
+        {
+          "id": "a",
+          "text": "git start"
+        },
+        {
+          "id": "b",
+          "text": "git init"
+        },
+        {
+          "id": "c",
+          "text": "git new"
+        },
+        {
+          "id": "d",
+          "text": "git create"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "What is the first step in debugging code?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Refactor the entire module"
+        },
+        {
+          "id": "b",
+          "text": "Write tests"
+        },
+        {
+          "id": "c",
+          "text": "Identify and reproduce the issue"
+        },
+        {
+          "id": "d",
+          "text": "Optimize performance"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "Which of the following is a best practice for version control?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Commit large changes infrequently"
+        },
+        {
+          "id": "b",
+          "text": "Write descriptive commit messages"
+        },
+        {
+          "id": "c",
+          "text": "Merge directly into main without review"
+        },
+        {
+          "id": "d",
+          "text": "Ignore code reviews"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Fullstack",
+      "question_text": "What is view encapsulation in Angular?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A way to scope CSS to components"
+        },
+        {
+          "id": "b",
+          "text": "A routing technique"
+        },
+        {
+          "id": "c",
+          "text": "A data binding method"
+        },
+        {
+          "id": "d",
+          "text": "A testing strategy"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "To specific to framework, check only general knowledge for Javascript, vocus on asking Vanila javascript question",
+      "points": 10
+    }
+  ],
+  "sda_assessment": [
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What is the primary responsibility of a Service Desk Analyst?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Write software code"
+        },
+        {
+          "id": "b",
+          "text": "Provide timely technical support to customers"
+        },
+        {
+          "id": "c",
+          "text": "Manage marketing campaigns"
+        },
+        {
+          "id": "d",
+          "text": "Design network hardware"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Customer Service Excellence",
+      "question_text": "Why is empathy important in customer service?",
+      "options": [
+        {
+          "id": "a",
+          "text": "It shortens chat length"
+        },
+        {
+          "id": "b",
+          "text": "It helps agents understand and address customer feelings"
+        },
+        {
+          "id": "c",
+          "text": "It reduces the need for documentation"
+        },
+        {
+          "id": "d",
+          "text": "It replaces troubleshooting"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Support Metrics & KPIs",
+      "question_text": "Which KPI measures the percentage of issues resolved on the customer\u2019s first contact?",
+      "options": [
+        {
+          "id": "a",
+          "text": "NPS"
+        },
+        {
+          "id": "b",
+          "text": "FCR"
+        },
+        {
+          "id": "c",
+          "text": "CSAT"
+        },
+        {
+          "id": "d",
+          "text": "MTTR"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Support Metrics & KPIs",
+      "question_text": "What does CSAT stand for?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Customer Service Average Time"
+        },
+        {
+          "id": "b",
+          "text": "Customer Satisfaction Score"
+        },
+        {
+          "id": "c",
+          "text": "Client Solutions and Tactics"
+        },
+        {
+          "id": "d",
+          "text": "Customer Support Assistant"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Support Metrics & KPIs",
+      "question_text": "Which metric best reflects customer willingness to recommend a service?",
+      "options": [
+        {
+          "id": "a",
+          "text": "CSAT"
+        },
+        {
+          "id": "b",
+          "text": "First Response Time"
+        },
+        {
+          "id": "c",
+          "text": "FCR"
+        },
+        {
+          "id": "d",
+          "text": "NPS"
+        }
+      ],
+      "correct_option_id": "d",
+      "explanation": "Correct answer is (D).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "An SLA promises a 4-hour response for critical issues. A ticket has been open for 3 hours 45 minutes without a reply. What should the analyst do NEXT?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Close the ticket"
+        },
+        {
+          "id": "b",
+          "text": "Escalate or respond immediately"
+        },
+        {
+          "id": "c",
+          "text": "Wait 15 minutes"
+        },
+        {
+          "id": "d",
+          "text": "Delete the SLA"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "A user reports \u201cEmail down for entire department.\u201d A second user asks how to change a desktop wallpaper. Which should be prioritized?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Wallpaper request"
+        },
+        {
+          "id": "b",
+          "text": "Email outage"
+        },
+        {
+          "id": "c",
+          "text": "They are equal"
+        },
+        {
+          "id": "d",
+          "text": "Defer both"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "When should a ticket be escalated to Tier 2?",
+      "options": [
+        {
+          "id": "a",
+          "text": "After first contact fails to resolve an issue"
+        },
+        {
+          "id": "b",
+          "text": "Whenever the customer asks"
+        },
+        {
+          "id": "c",
+          "text": "At the end of every shift"
+        },
+        {
+          "id": "d",
+          "text": "Only for password resets"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Which ticket status indicates that an analyst is actively working on the issue?",
+      "options": [
+        {
+          "id": "a",
+          "text": "New"
+        },
+        {
+          "id": "b",
+          "text": "On-hold"
+        },
+        {
+          "id": "c",
+          "text": "In Progress"
+        },
+        {
+          "id": "d",
+          "text": "Resolved"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Why are clear internal notes valuable in a ticket?",
+      "options": [
+        {
+          "id": "a",
+          "text": "They inform customers about costs"
+        },
+        {
+          "id": "b",
+          "text": "They enable teammates to understand actions taken"
+        },
+        {
+          "id": "c",
+          "text": "They reduce CSAT scores"
+        },
+        {
+          "id": "d",
+          "text": "They auto-close tickets"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "During high call volume, which strategy helps maintain service quality?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Ignore low-priority tickets"
+        },
+        {
+          "id": "b",
+          "text": "Work on multiple tickets without updating notes"
+        },
+        {
+          "id": "c",
+          "text": "Follow predefined prioritization rules"
+        },
+        {
+          "id": "d",
+          "text": "Pause the queue until staff increases"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Customer Service Excellence",
+      "question_text": "Which of the following BEST exemplifies professional language in a customer reply?",
+      "options": [
+        {
+          "id": "a",
+          "text": "\u201cWhat you did was wrong.\u201d"
+        },
+        {
+          "id": "b",
+          "text": "\u201cI understand your concern and will assist you right away.\u201d"
+        },
+        {
+          "id": "c",
+          "text": "\u201cHang on.\u201d"
+        },
+        {
+          "id": "d",
+          "text": "\u201cNot my problem.\u201d"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "A user is furious about lost data. What is the FIRST step?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Blame the user"
+        },
+        {
+          "id": "b",
+          "text": "Stay silent"
+        },
+        {
+          "id": "c",
+          "text": "Show empathy and acknowledge the frustration"
+        },
+        {
+          "id": "d",
+          "text": "Close the ticket"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What is the main purpose of a shift handoff report?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Advertise new services"
+        },
+        {
+          "id": "b",
+          "text": "Share unresolved issues and key updates with the next shift"
+        },
+        {
+          "id": "c",
+          "text": "Provide customer surveys"
+        },
+        {
+          "id": "d",
+          "text": "Reset SLAs"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Which field in a ticketing system helps identify similar past issues?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Priority"
+        },
+        {
+          "id": "b",
+          "text": "Tag/Label"
+        },
+        {
+          "id": "c",
+          "text": "Attachment"
+        },
+        {
+          "id": "d",
+          "text": "SLA"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What does \u201cFirst Response Time\u201d measure?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Time to close a ticket"
+        },
+        {
+          "id": "b",
+          "text": "Time from ticket creation to first agent reply"
+        },
+        {
+          "id": "c",
+          "text": "Average call length"
+        },
+        {
+          "id": "d",
+          "text": "Total agent idle time"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Which tool is commonly used for tracking support tickets?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Photoshop"
+        },
+        {
+          "id": "b",
+          "text": "Slack"
+        },
+        {
+          "id": "c",
+          "text": "Jira"
+        },
+        {
+          "id": "d",
+          "text": "PowerPoint"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What is the primary benefit of using canned (template) responses?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Guarantee a resolution"
+        },
+        {
+          "id": "b",
+          "text": "Speed up consistent, professional replies"
+        },
+        {
+          "id": "c",
+          "text": "Remove need for empathy"
+        },
+        {
+          "id": "d",
+          "text": "Increase ticket backlog"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Which ITIL process focuses on preventing incidents from happening again?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Incident Management"
+        },
+        {
+          "id": "b",
+          "text": "Problem Management"
+        },
+        {
+          "id": "c",
+          "text": "Change Enablement"
+        },
+        {
+          "id": "d",
+          "text": "Release Management"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "What type of issue should generally receive the HIGHEST priority?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Single user password reset"
+        },
+        {
+          "id": "b",
+          "text": "Company-wide service outage"
+        },
+        {
+          "id": "c",
+          "text": "Low-impact feature request"
+        },
+        {
+          "id": "d",
+          "text": "Typo in knowledge-base article"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Why is documenting root cause analysis (RCA) important?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Helps blame individuals"
+        },
+        {
+          "id": "b",
+          "text": "Prevents recurrence of similar incidents"
+        },
+        {
+          "id": "c",
+          "text": "Decreases ticket count permanently"
+        },
+        {
+          "id": "d",
+          "text": "Replaces SLAs"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "Customer Service Excellence",
+      "question_text": "Which communication tool is often used for quick, cross-team updates?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Illustrator"
+        },
+        {
+          "id": "b",
+          "text": "Slack"
+        },
+        {
+          "id": "c",
+          "text": "Excel"
+        },
+        {
+          "id": "d",
+          "text": "MySQL"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What is the main advantage of using a knowledge-base (KB) article?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Stops users from opening tickets"
+        },
+        {
+          "id": "b",
+          "text": "Provides self-service solutions and reduces repeat inquiries"
+        },
+        {
+          "id": "c",
+          "text": "Eliminates need for SLAs"
+        },
+        {
+          "id": "d",
+          "text": "Replaces all documentation"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "When writing a KB article, which element is MOST helpful to users?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Long paragraphs"
+        },
+        {
+          "id": "b",
+          "text": "Technical jargon only"
+        },
+        {
+          "id": "c",
+          "text": "Screenshots and step-by-step instructions"
+        },
+        {
+          "id": "d",
+          "text": "Humor and memes"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "A customer submits three low-priority tickets. A high-priority outage arrives. What should you do?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Continue low-priority tickets first"
+        },
+        {
+          "id": "b",
+          "text": "Address the outage immediately per priority guidelines"
+        },
+        {
+          "id": "c",
+          "text": "Ignore all tickets"
+        },
+        {
+          "id": "d",
+          "text": "Reassign everything"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "Which statement about SLAs is TRUE?",
+      "options": [
+        {
+          "id": "a",
+          "text": "SLAs are suggestions without consequences"
+        },
+        {
+          "id": "b",
+          "text": "Meeting SLAs improves customer satisfaction and accountability"
+        },
+        {
+          "id": "c",
+          "text": "SLAs apply only to Tier 3"
+        },
+        {
+          "id": "d",
+          "text": "SLAs replace KPIs"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What is the FIRST action when receiving a new ticket?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Close it if it seems minor"
+        },
+        {
+          "id": "b",
+          "text": "Read and gather all relevant information"
+        },
+        {
+          "id": "c",
+          "text": "Ask for escalation immediately"
+        },
+        {
+          "id": "d",
+          "text": "Change its priority to high"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Which field is MOST important when categorizing a ticket for reporting?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Customer birthday"
+        },
+        {
+          "id": "b",
+          "text": "Issue category"
+        },
+        {
+          "id": "c",
+          "text": "Agent lunch preference"
+        },
+        {
+          "id": "d",
+          "text": "Font style"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "What does \u201cmulti-tasking under pressure\u201d require MOST?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Ignoring documentation"
+        },
+        {
+          "id": "b",
+          "text": "Switching tasks without tracking"
+        },
+        {
+          "id": "c",
+          "text": "Time-management and prioritization skills"
+        },
+        {
+          "id": "d",
+          "text": "Focusing on one ticket only"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Support Metrics & KPIs",
+      "question_text": "Which of the following BEST helps improve FCR?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Provide generic answers"
+        },
+        {
+          "id": "b",
+          "text": "Use detailed troubleshooting scripts and KB links"
+        },
+        {
+          "id": "c",
+          "text": "Delay first responses"
+        },
+        {
+          "id": "d",
+          "text": "Transfer calls quickly"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Why should agents regularly update ticket statuses?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Only for management metrics"
+        },
+        {
+          "id": "b",
+          "text": "To keep customers and teams informed of progress"
+        },
+        {
+          "id": "c",
+          "text": "To reduce system storage"
+        },
+        {
+          "id": "d",
+          "text": "It is optional"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "In which scenario is \u201cPending Customer\u201d status appropriate?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Agent is researching internally"
+        },
+        {
+          "id": "b",
+          "text": "Waiting for customer information needed to proceed"
+        },
+        {
+          "id": "c",
+          "text": "Ticket resolved"
+        },
+        {
+          "id": "d",
+          "text": "Hardware replacement ordered"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Basic command-line knowledge for SDA roles should focus on:",
+      "options": [
+        {
+          "id": "a",
+          "text": "Advanced kernel compilation"
+        },
+        {
+          "id": "b",
+          "text": "Basic navigation and diagnostic commands like `ping` or `ipconfig`"
+        },
+        {
+          "id": "c",
+          "text": "Writing shell scripts for deployment"
+        },
+        {
+          "id": "d",
+          "text": "Docker Swarm setup"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Which SQL keyword is MOST commonly used by SDAs for quick data look-ups?",
+      "options": [
+        {
+          "id": "a",
+          "text": "DROP"
+        },
+        {
+          "id": "b",
+          "text": "ALTER"
+        },
+        {
+          "id": "c",
+          "text": "SELECT"
+        },
+        {
+          "id": "d",
+          "text": "TRUNCATE"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "An analyst needs to search a 100-ticket queue quickly. Which feature helps MOST?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Ticket filters and sorting"
+        },
+        {
+          "id": "b",
+          "text": "Deleting closed tickets"
+        },
+        {
+          "id": "c",
+          "text": "Editing all tickets manually"
+        },
+        {
+          "id": "d",
+          "text": "Random selection"
+        }
+      ],
+      "correct_option_id": "a",
+      "explanation": "Correct answer is (A).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "What is the PRIMARY goal of a service desk escalation matrix?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Define marketing goals"
+        },
+        {
+          "id": "b",
+          "text": "Outline who handles issues at each severity level"
+        },
+        {
+          "id": "c",
+          "text": "Track holiday schedules"
+        },
+        {
+          "id": "d",
+          "text": "Assign payroll duties"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "A customer chats: \u201cMy screen is blank!\u201d The SLA for initial chat response is 60 seconds and 45 seconds have passed. What is the BEST action?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Finish current email and respond after"
+        },
+        {
+          "id": "b",
+          "text": "Send a prompt acknowledgment and begin troubleshooting"
+        },
+        {
+          "id": "c",
+          "text": "Escalate immediately"
+        },
+        {
+          "id": "d",
+          "text": "Ignore as likely hardware"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "Support Metrics & KPIs",
+      "question_text": "Which practice BEST maintains high CSAT during peak times?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Give brief, unclear replies"
+        },
+        {
+          "id": "b",
+          "text": "Rush through without documenting"
+        },
+        {
+          "id": "c",
+          "text": "Communicate realistic wait times and provide updates"
+        },
+        {
+          "id": "d",
+          "text": "Disable chat queue"
+        }
+      ],
+      "correct_option_id": "c",
+      "explanation": "Correct answer is (C).",
+      "points": 10
+    },
+    {
+      "category": "ITIL & Service Operations",
+      "question_text": "Why is tagging tickets with product names useful?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Increases ticket count"
+        },
+        {
+          "id": "b",
+          "text": "Enables trend analysis and targeted improvements"
+        },
+        {
+          "id": "c",
+          "text": "Decreases FCR"
+        },
+        {
+          "id": "d",
+          "text": "Eliminates need for KB articles"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    },
+    {
+      "category": "SLA & Incident Management",
+      "question_text": "What is the PRIMARY benefit of a well-defined priority matrix?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Makes every ticket high priority"
+        },
+        {
+          "id": "b",
+          "text": "Simplifies decision-making and ensures critical issues are addressed first"
+        },
+        {
+          "id": "c",
+          "text": "Removes need for SLAs"
+        },
+        {
+          "id": "d",
+          "text": "Stops escalation requests"
+        }
+      ],
+      "correct_option_id": "b",
+      "explanation": "Correct answer is (B).",
+      "points": 10
+    }
+  ]
+}

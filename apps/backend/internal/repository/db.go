@@ -186,35 +186,9 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		logger.Warn("automigrate: seed users error", slog.Any("error", err))
 	}
 
-	// Seed default Program LIT 2026
-	var litProgID string
-	seedProgQuery := `
-		INSERT INTO programs (organization_id, slug, name, description, open_date, end_date, logic_test_duration_minutes, logic_test_passing_score, allow_retake, status, enable_mcq, enable_ai_interview, created_at, updated_at)
-		VALUES ($1::uuid, 'lit2026', 'LIT 2026 Fellowship & Assessment', 'The flagship talent acceleration fellowship program by RSA and Kulkul Tech. Assessment tests include Timed Logic & MCQ followed by an interactive AI Technical Screen.', now() - INTERVAL '1 day', now() + INTERVAL '180 days', 30, 70, false, 'published', true, true, now(), now())
-		ON CONFLICT (organization_id, slug) DO UPDATE SET updated_at = now()
-		RETURNING id::text
-	`
-	if err := pool.QueryRow(ctx, seedProgQuery, rsaOrgID).Scan(&litProgID); err != nil {
-		logger.Warn("automigrate: seed program error", slog.Any("error", err))
-	}
-
-	// Seed MCQ Questions if empty
-	var mcqCount int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM mcq_questions WHERE program_id = $1::uuid", litProgID).Scan(&mcqCount); err == nil && mcqCount == 0 {
-		seedMCQQuery := `
-		INSERT INTO mcq_questions (program_id, category, question_text, options, correct_option_id, explanation, points)
-		VALUES 
-			($1::uuid, 'Logic & Problem Solving', 'In a microservice system, Service A sends requests to Service B. If Service B becomes sluggish or intermittently times out, which pattern prevents Service A thread pool from exhausting resources?', '[{"id":"a","text":"Saga Pattern"},{"id":"b","text":"Circuit Breaker Pattern"},{"id":"c","text":"Two-Phase Commit"},{"id":"d","text":"Event Sourcing"}]'::jsonb, 'b', 'The Circuit Breaker pattern prevents an application from repeatedly trying to execute an operation that is likely to fail, shielding upstream resources.', 10),
-			($1::uuid, 'Data Structures & Algorithms', 'What is the average time complexity of searching for an element in a balanced Binary Search Tree (AVL or Red-Black Tree) containing N elements?', '[{"id":"a","text":"O(1)"},{"id":"b","text":"O(log N)"},{"id":"c","text":"O(N)"},{"id":"d","text":"O(N log N)"}]'::jsonb, 'b', 'A balanced BST maintains height proportional to log2(N), guaranteeing O(log N) lookup, insertion, and deletion times.', 10),
-			($1::uuid, 'Concurrency & Systems', 'When two goroutines/threads read and write to the same memory address without synchronization, what race condition hazard occurs?', '[{"id":"a","text":"Data Race & Undefined Memory State"},{"id":"b","text":"Automatic Garbage Collection Pause"},{"id":"c","text":"Deterministic Deadlock"},{"id":"d","text":"Thread Starvation Only"}]'::jsonb, 'a', 'Concurrent unsynchronized read-write access to shared memory results in a data race leading to memory corruption and unpredictable behavior.', 10),
-			($1::uuid, 'Web Security', 'Which cookie attribute prevents client-side JavaScript (e.g. document.cookie) from accessing sensitive session tokens, mitigating XSS token theft?', '[{"id":"a","text":"SameSite=Strict"},{"id":"b","text":"HttpOnly"},{"id":"c","text":"Secure"},{"id":"d","text":"Domain"}]'::jsonb, 'b', 'The HttpOnly flag directs browsers to block JavaScript access to the cookie, neutralizing XSS credential theft.', 10),
-			($1::uuid, 'Database & Architecture', 'Which database isolation level prevents dirty reads, non-repeatable reads, and phantom reads?', '[{"id":"a","text":"Read Committed"},{"id":"b","text":"Repeatable Read"},{"id":"c","text":"Serializable"},{"id":"d","text":"Read Uncommitted"}]'::jsonb, 'c', 'Serializable isolation offers the highest level of consistency by simulating sequential transaction execution.', 10)
-		`
-		if _, err := pool.Exec(ctx, seedMCQQuery, litProgID); err != nil {
-			logger.Warn("automigrate: seed mcq error", slog.Any("error", err))
-		} else {
-			logger.Info("Seeded initial MCQ assessment bank")
-		}
+	// Seed all LIT 2025/2026 Assessment Programs & MCQ Question Banks into PostgreSQL
+	if err := SeedLITAssessmentPrograms(ctx, pool, rsaOrgID, logger); err != nil {
+		logger.Warn("automigrate: seed lit programs error", slog.Any("error", err))
 	}
 
 	logger.Info("Database auto-migration and initial seed completed")

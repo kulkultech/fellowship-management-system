@@ -29,178 +29,31 @@ func NewMCQRepository(pool *pgxpool.Pool) *MCQRepository {
 		memMCQs: make([]model.MCQQuestion, 0),
 	}
 	progID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
-	// Pre-seed 10 questions for in-memory mode
-	repo.memMCQs = []model.MCQQuestion{
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000001"),
-			ProgramID:    progID,
-			Category:     "Logic & Problem Solving",
-			QuestionText: "In a microservice system, Service A sends requests to Service B. If Service B becomes sluggish or intermittently times out, which pattern prevents Service A's thread pool from exhausting resources?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "Saga Pattern"},
-				{ID: "b", Text: "Circuit Breaker Pattern"},
-				{ID: "c", Text: "Two-Phase Commit"},
-				{ID: "d", Text: "Event Sourcing"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "The Circuit Breaker pattern prevents an application from repeatedly trying to execute an operation that's likely to fail, shielding upstream resources.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000002"),
-			ProgramID:    progID,
-			Category:     "Data Structures & Algorithms",
-			QuestionText: "What is the average time complexity of searching for an element in a balanced Binary Search Tree (AVL or Red-Black Tree) containing N elements?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "O(1)"},
-				{ID: "b", Text: "O(log N)"},
-				{ID: "c", Text: "O(N)"},
-				{ID: "d", Text: "O(N log N)"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "A balanced BST maintains height proportional to log2(N), guaranteeing O(log N) lookup, insertion, and deletion times.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000003"),
-			ProgramID:    progID,
-			Category:     "Concurrency & Systems",
-			QuestionText: "When two goroutines/threads read and write to the same memory address without synchronization, what race condition hazard occurs?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "Data Race & Undefined Memory State"},
-				{ID: "b", Text: "Automatic Garbage Collection Pause"},
-				{ID: "c", Text: "Deterministic Deadlock"},
-				{ID: "d", Text: "Thread Starvation Only"},
-			},
-			CorrectOptionID: "a",
-			Explanation:     "Concurrent unsynchronized read-write access to shared memory results in a data race leading to memory corruption and unpredictable behavior.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000004"),
-			ProgramID:    progID,
-			Category:     "Logic & Deductive Reasoning",
-			QuestionText: "If all asynchronous HTTP calls return Promises, and all database transactions in our repository return Promises, which of the following is logically valid?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "All Promises are database transactions"},
-				{ID: "b", Text: "Any non-Promise function is neither an async HTTP call nor a database transaction"},
-				{ID: "c", Text: "All HTTP calls are database transactions"},
-				{ID: "d", Text: "No HTTP calls can be chained"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "By contraposition (If P -> Q, then not Q -> not P), if a function does not return a Promise, it cannot be an async HTTP call or DB transaction.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000005"),
-			ProgramID:    progID,
-			Category:     "Database & Architecture",
-			QuestionText: "Which database isolation level prevents dirty reads, non-repeatable reads, and phantom reads?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "Read Committed"},
-				{ID: "b", Text: "Repeatable Read"},
-				{ID: "c", Text: "Serializable"},
-				{ID: "d", Text: "Read Uncommitted"},
-			},
-			CorrectOptionID: "c",
-			Explanation:     "Serializable isolation offers the highest level of consistency by simulating sequential transaction execution.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000006"),
-			ProgramID:    progID,
-			Category:     "Software Engineering Design",
-			QuestionText: "In the Dependency Inversion Principle (DIP) of SOLID, what should high-level modules depend upon?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "Low-level concrete implementations"},
-				{ID: "b", Text: "Abstractions / Interfaces"},
-				{ID: "c", Text: "Global Singleton instances"},
-				{ID: "d", Text: "Static helper functions"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "DIP states that high-level modules should not depend on low-level modules; both should depend on abstractions.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000007"),
-			ProgramID:    progID,
-			Category:     "Web Security",
-			QuestionText: "Which cookie attribute prevents client-side JavaScript (e.g. `document.cookie`) from accessing sensitive session tokens, mitigating XSS token theft?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "SameSite=Strict"},
-				{ID: "b", Text: "HttpOnly"},
-				{ID: "c", Text: "Secure"},
-				{ID: "d", Text: "Domain"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "The HttpOnly flag directs browsers to block JavaScript access to the cookie, neutralizing XSS credential theft.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000008"),
-			ProgramID:    progID,
-			Category:     "Logic & Problem Solving",
-			QuestionText: "You have an array of integers where every element appears twice except for one unique element. What bitwise operation can find the unique element in O(N) time and O(1) space?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "Bitwise AND (&)"},
-				{ID: "b", Text: "Bitwise XOR (^)"},
-				{ID: "c", Text: "Bitwise OR (|)"},
-				{ID: "d", Text: "Bitwise NOT (~)"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "XOR has the properties: X ^ X = 0 and X ^ 0 = X. XORing all elements cancels duplicate pairs, leaving only the unique integer.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000009"),
-			ProgramID:    progID,
-			Category:     "System Performance",
-			QuestionText: "Which HTTP header is utilized by web browsers to negotiate compressed transfer representations (e.g. gzip, br) from the origin server?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "Accept-Encoding"},
-				{ID: "b", Text: "Content-Type"},
-				{ID: "c", Text: "Cache-Control"},
-				{ID: "d", Text: "Transfer-Encoding"},
-			},
-			CorrectOptionID: "a",
-			Explanation:     "Browsers send `Accept-Encoding: gzip, br` to inform the server which compression algorithms they support.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
-		{
-			ID:           uuid.MustParse("10000000-0000-0000-0000-000000000010"),
-			ProgramID:    progID,
-			Category:     "Logic & Architecture",
-			QuestionText: "In an idempotent REST API design, which of the following HTTP methods MUST produce the same resource state regardless of how many times identical requests are executed?",
-			Options: []model.MCQOption{
-				{ID: "a", Text: "POST"},
-				{ID: "b", Text: "PUT and DELETE"},
-				{ID: "c", Text: "PATCH only"},
-				{ID: "d", Text: "No HTTP methods are guaranteed idempotent"},
-			},
-			CorrectOptionID: "b",
-			Explanation:     "PUT (replace state) and DELETE (remove resource) are idempotent by RFC specifications; repeating them leaves the system in the same final state.",
-			Points:          10,
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
-		},
+
+	var bank QuestionBankData
+	if err := json.Unmarshal(litQuestionsJSON, &bank); err == nil && len(bank.QAAssessment) > 0 {
+		for _, q := range bank.QAAssessment {
+			var opts []model.MCQOption
+			for _, o := range q.Options {
+				opts = append(opts, model.MCQOption{ID: o.ID, Text: o.Text})
+			}
+			points := q.Points
+			if points <= 0 {
+				points = 10
+			}
+			repo.memMCQs = append(repo.memMCQs, model.MCQQuestion{
+				ID:              uuid.New(),
+				ProgramID:       progID,
+				Category:        q.Category,
+				QuestionText:    q.QuestionText,
+				Options:         opts,
+				CorrectOptionID: q.CorrectOptionID,
+				Explanation:     q.Explanation,
+				Points:          points,
+				CreatedAt:       time.Now(),
+				UpdatedAt:       time.Now(),
+			})
+		}
 	}
 	return repo
 }
