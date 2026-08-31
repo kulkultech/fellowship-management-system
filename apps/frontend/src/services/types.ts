@@ -27,6 +27,12 @@ export interface Track {
   updated_at?: string;
 }
 
+export interface ApplicationStageItem {
+  step_number: number;
+  title: string;
+  description: string;
+}
+
 export interface Program {
   id: string;
   organization_id?: string;
@@ -43,6 +49,7 @@ export interface Program {
   enable_ai_interview: boolean;
   ai_interview_instructions?: string;
   ai_interview_questions?: string[];
+  application_stages?: ApplicationStageItem[];
   status?: string;
   is_open?: boolean;
   tracks?: Track[];

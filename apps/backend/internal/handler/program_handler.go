@@ -81,11 +81,12 @@ type ProgramPublicResponse struct {
 		LogicTestDurationMinutes int               `json:"logic_test_duration_minutes"`
 		LogicTestPassingScore    int               `json:"logic_test_passing_score"`
 		AllowRetake              bool              `json:"allow_retake"`
-		EnableAIInterview        bool              `json:"enable_ai_interview"`
-		AIInterviewInstructions  string            `json:"ai_interview_instructions,omitempty"`
-		AIInterviewQuestions     []string          `json:"ai_interview_questions,omitempty"`
-		IsOpen                   bool              `json:"is_open"`
-		Tracks                   []TrackPublicItem `json:"tracks"`
+		EnableAIInterview        bool                     `json:"enable_ai_interview"`
+		AIInterviewInstructions  string                   `json:"ai_interview_instructions,omitempty"`
+		AIInterviewQuestions     []string                 `json:"ai_interview_questions,omitempty"`
+		ApplicationStages        []model.ApplicationStageItem `json:"application_stages"`
+		IsOpen                   bool                     `json:"is_open"`
+		Tracks                   []TrackPublicItem        `json:"tracks"`
 	} `json:"program"`
 }
 
@@ -143,6 +144,10 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	resp.Program.EnableAIInterview = program.EnableAIInterview
 	resp.Program.AIInterviewInstructions = program.AIInterviewInstructions
 	resp.Program.AIInterviewQuestions = program.AIInterviewQuestions
+	resp.Program.ApplicationStages = program.ApplicationStages
+	if len(resp.Program.ApplicationStages) == 0 {
+		resp.Program.ApplicationStages = repository.DefaultApplicationStages()
+	}
 	resp.Program.IsOpen = program.IsOpen()
 
 	// Load tracks

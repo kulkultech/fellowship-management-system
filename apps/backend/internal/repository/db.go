@@ -88,6 +88,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS enable_ai_interview BOOLEAN NOT NULL DEFAULT true;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_instructions TEXT;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_questions JSONB NOT NULL DEFAULT '[]'::jsonb;
+	ALTER TABLE programs ADD COLUMN IF NOT EXISTS application_stages JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 	CREATE TABLE IF NOT EXISTS program_tracks (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

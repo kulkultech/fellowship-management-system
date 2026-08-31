@@ -462,6 +462,33 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 	httpx.JSON(w, http.StatusOK, updated)
 }
 
+type UpdateProgramStagesRequest struct {
+	Stages []model.ApplicationStageItem `json:"stages"`
+}
+
+func (h *AdminHandler) UpdateProgramStages(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req UpdateProgramStagesRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	updated, err := h.programRepo.UpdateStages(r.Context(), id, req.Stages)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update application stages")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
 // --------------------------------------------------------------------------------
 // Track Management Endpoints
 // --------------------------------------------------------------------------------

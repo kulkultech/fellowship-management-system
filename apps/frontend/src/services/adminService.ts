@@ -52,6 +52,11 @@ export const adminService = {
     return data;
   },
 
+  updateProgramStages: async (programId: string, stages: import('./types').ApplicationStageItem[]): Promise<Program> => {
+    const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/stages`, { stages });
+    return data;
+  },
+
   listProgramQuestions: async (programId: string): Promise<MCQQuestion[]> => {
     const { data } = await apiClient.get<{ questions: MCQQuestion[] }>(`/admin/programs/${programId}/questions`);
     return data.questions || [];

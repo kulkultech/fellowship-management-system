@@ -23,6 +23,41 @@ type ProgramRepository struct {
 	memPrograms map[string]*model.Program
 }
 
+func DefaultApplicationStages() []model.ApplicationStageItem {
+	return []model.ApplicationStageItem{
+		{
+			StepNumber:  1,
+			Title:       "Specialization Track & Intake Application",
+			Description: "Choose your target specialization track and submit your academic background, IT major, and contact details.",
+		},
+		{
+			StepNumber:  2,
+			Title:       "Track-Specific Timed Logic Assessment",
+			Description: "Solve timed logic and technical domain MCQs calibrated for your chosen specialization track.",
+		},
+		{
+			StepNumber:  3,
+			Title:       "Conversational AI Technical Screen",
+			Description: "Engage in an interactive conversational AI screening session evaluating technical depth and problem-solving.",
+		},
+		{
+			StepNumber:  4,
+			Title:       "Submission & Application Confirmation Email",
+			Description: "Candidate completes submission and receives an official application confirmation email.",
+		},
+		{
+			StepNumber:  5,
+			Title:       "Admissions Committee Review & Scoring",
+			Description: "The reviewer committee evaluates combined MCQ scores, AI transcripts, and candidate qualifications.",
+		},
+		{
+			StepNumber:  6,
+			Title:       "Approval & Final Interview Scheduling",
+			Description: "Approved candidates receive an official fellowship invitation and link to schedule their final interview with the host organization.",
+		},
+	}
+}
+
 func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 	repo := &ProgramRepository{
 		pool:        pool,
@@ -49,15 +84,19 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 			"What are the pros and cons of using optimistic vs pessimistic locking in databases?",
 			"How do you handle graceful degradation when downstream APIs experience high latency?",
 		},
-		Status:    "published",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ApplicationStages: DefaultApplicationStages(),
+		Status:            "published",
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 	repo.memPrograms["rsa:lit2026"] = litProg
 	return repo
 }
 
 func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*model.Program, error) {
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = DefaultApplicationStages()
+	}
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -82,14 +121,18 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	if p.AIInterviewQuestions == nil {
 		questionsJSON = []byte("[]")
 	}
+	stagesJSON, _ := json.Marshal(p.ApplicationStages)
+	if p.ApplicationStages == nil {
+		stagesJSON = []byte("[]")
+	}
 
 	query := `
 		INSERT INTO programs (
 			organization_id, slug, name, description, image_url, open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, ai_interview_instructions, ai_interview_questions,
+			enable_ai_interview, ai_interview_instructions, ai_interview_questions, application_stages,
 			status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now(), now())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, now(), now())
 		ON CONFLICT (organization_id, slug) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -103,31 +146,37 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 			enable_ai_interview = EXCLUDED.enable_ai_interview,
 			ai_interview_instructions = EXCLUDED.ai_interview_instructions,
 			ai_interview_questions = EXCLUDED.ai_interview_questions,
+			application_stages = EXCLUDED.application_stages,
 			status = EXCLUDED.status,
 			updated_at = now()
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
-			created_at, updated_at
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
 	`
 	var res model.Program
 	var rawQuestions []byte
+	var rawStages []byte
 	err := r.pool.QueryRow(ctx, query,
 		p.OrganizationID, p.Slug, p.Name, p.Description, p.ImageURL, p.OpenDate, p.EndDate,
 		p.EnableMCQ, p.LogicTestDurationMinutes, p.LogicTestPassingScore, p.AllowRetake,
-		p.EnableAIInterview, p.AIInterviewInstructions, questionsJSON,
+		p.EnableAIInterview, p.AIInterviewInstructions, questionsJSON, stagesJSON,
 		p.Status,
 	).Scan(
 		&res.ID, &res.OrganizationID, &res.Slug, &res.Name, &res.Description, &res.ImageURL,
 		&res.OpenDate, &res.EndDate,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore, &res.AllowRetake,
-		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &res.Status,
+		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &rawStages, &res.Status,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: create: %w", err)
 	}
 	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &res.ApplicationStages)
+	if len(res.ApplicationStages) == 0 {
+		res.ApplicationStages = DefaultApplicationStages()
+	}
 	return &res, nil
 }
 
@@ -149,6 +198,9 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		if !ok {
 			return nil, nil, ErrProgramNotFound
 		}
+		if len(p.ApplicationStages) == 0 {
+			p.ApplicationStages = DefaultApplicationStages()
+		}
 		org := &model.Organization{
 			ID:        p.OrganizationID,
 			Slug:      orgSlug,
@@ -165,8 +217,8 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		SELECT 
 			p.id, p.organization_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
 			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
-			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions, p.status,
-			p.created_at, p.updated_at,
+			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
+			COALESCE(p.application_stages, '[]'::jsonb), p.status, p.created_at, p.updated_at,
 			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at
 		FROM programs p
 		JOIN organizations o ON p.organization_id = o.id
@@ -175,11 +227,12 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	var p model.Program
 	var o model.Organization
 	var rawQuestions []byte
+	var rawStages []byte
 	err := r.pool.QueryRow(ctx, query, orgSlug, programSlug).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
 		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
 	)
@@ -190,6 +243,10 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		return nil, nil, fmt.Errorf("program_repo: get by slugs: %w", err)
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = DefaultApplicationStages()
+	}
 	return &p, &o, nil
 }
 
@@ -199,6 +256,9 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 		defer r.mu.RUnlock()
 		for _, p := range r.memPrograms {
 			if p.ID == id {
+				if len(p.ApplicationStages) == 0 {
+					p.ApplicationStages = DefaultApplicationStages()
+				}
 				return p, nil
 			}
 		}
@@ -208,18 +268,19 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 	query := `
 		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
-			created_at, updated_at
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
 		FROM programs
 		WHERE id = $1
 	`
 	var p model.Program
 	var rawQuestions []byte
+	var rawStages []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -229,6 +290,10 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 		return nil, fmt.Errorf("program_repo: get by id: %w", err)
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = DefaultApplicationStages()
+	}
 	return &p, nil
 }
 
@@ -257,16 +322,17 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 		WHERE id = $1
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
-			created_at, updated_at
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions []byte
+	var rawStages []byte
 	err := r.pool.QueryRow(ctx, query, id, duration, passingScore, allowRetake).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -276,6 +342,10 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 		return nil, fmt.Errorf("program_repo: update config: %w", err)
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = DefaultApplicationStages()
+	}
 	return &p, nil
 }
 
@@ -311,16 +381,17 @@ func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, en
 		WHERE id = $1
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
-			created_at, updated_at
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions []byte
+	var rawStages []byte
 	err := r.pool.QueryRow(ctx, query, id, enableMCQ, enableAI, instructions, questionsJSON).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -330,6 +401,64 @@ func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, en
 		return nil, fmt.Errorf("program_repo: update pipeline: %w", err)
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = DefaultApplicationStages()
+	}
+	return &p, nil
+}
+
+func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stages []model.ApplicationStageItem) (*model.Program, error) {
+	if len(stages) == 0 {
+		stages = DefaultApplicationStages()
+	}
+
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, p := range r.memPrograms {
+			if p.ID == id {
+				p.ApplicationStages = stages
+				p.UpdatedAt = time.Now()
+				return p, nil
+			}
+		}
+		return nil, ErrProgramNotFound
+	}
+
+	stagesJSON, _ := json.Marshal(stages)
+
+	query := `
+		UPDATE programs
+		SET application_stages = $2,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
+	`
+	var p model.Program
+	var rawQuestions []byte
+	var rawStages []byte
+	err := r.pool.QueryRow(ctx, query, id, stagesJSON).Scan(
+		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
+		&p.CreatedAt, &p.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProgramNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: update stages: %w", err)
+	}
+	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = DefaultApplicationStages()
+	}
 	return &p, nil
 }
 
@@ -342,6 +471,9 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 		for _, p := range r.memPrograms {
 			if !seen[p.Slug] {
 				seen[p.Slug] = true
+				if len(p.ApplicationStages) == 0 {
+					p.ApplicationStages = DefaultApplicationStages()
+				}
 				list = append(list, *p)
 			}
 		}
@@ -351,8 +483,8 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 	query := `
 		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions, status,
-			created_at, updated_at
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
 		FROM programs
 		WHERE organization_id = $1
 		ORDER BY created_at DESC
@@ -367,16 +499,21 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 	for rows.Next() {
 		var p model.Program
 		var rawQuestions []byte
+		var rawStages []byte
 		if err := rows.Scan(
 			&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 			&p.OpenDate, &p.EndDate,
 			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &p.Status,
+			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
 			&p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
 		}
 		_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+		_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+		if len(p.ApplicationStages) == 0 {
+			p.ApplicationStages = DefaultApplicationStages()
+		}
 		list = append(list, p)
 	}
 	return list, rows.Err()

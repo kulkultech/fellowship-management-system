@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
 import { programService } from '@/services/programService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import type { MCQQuestion, Track } from '@/services/types';
+import type { MCQQuestion, Track, ApplicationStageItem } from '@/services/types';
 import {
   Users,
   Search,
@@ -26,16 +26,54 @@ import {
   Award,
   Edit3,
   FileText,
+  Workflow,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
+  Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const DEFAULT_STAGES: ApplicationStageItem[] = [
+  {
+    step_number: 1,
+    title: 'Specialization Track & Intake Application',
+    description: 'Choose your target specialization track and submit your academic background, IT major, and contact details.',
+  },
+  {
+    step_number: 2,
+    title: 'Track-Specific Timed Logic Assessment',
+    description: 'Solve timed logic and technical domain MCQs calibrated for your chosen specialization track.',
+  },
+  {
+    step_number: 3,
+    title: 'Conversational AI Technical Screen',
+    description: 'Engage in an interactive conversational AI screening session evaluating technical depth and problem-solving.',
+  },
+  {
+    step_number: 4,
+    title: 'Submission & Application Confirmation Email',
+    description: 'Candidate completes submission and receives an official application confirmation email.',
+  },
+  {
+    step_number: 5,
+    title: 'Admissions Committee Review & Scoring',
+    description: 'The reviewer committee evaluates combined MCQ scores, AI transcripts, and candidate qualifications.',
+  },
+  {
+    step_number: 6,
+    title: 'Approval & Final Interview Scheduling',
+    description: 'Approved candidates receive an official fellowship invitation and link to schedule their final interview with the host organization.',
+  },
+];
 
 export const DashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const isSuperadmin = user?.role === 'superadmin';
 
-  // Navigation View: 'pipeline' | 'tracks' | 'companies' | 'questions'
-  const [currentView, setCurrentView] = useState<'pipeline' | 'tracks' | 'companies' | 'questions'>('pipeline');
+  // Navigation View: 'pipeline' | 'tracks' | 'stages' | 'companies' | 'questions'
+  const [currentView, setCurrentView] = useState<'pipeline' | 'tracks' | 'stages' | 'companies' | 'questions'>('pipeline');
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -219,6 +257,89 @@ export const DashboardPage: React.FC = () => {
       toast.error(err?.response?.data?.error || 'Failed to create track');
     },
   });
+
+  // Application Stages local state
+  const [editableStages, setEditableStages] = useState<ApplicationStageItem[]>(DEFAULT_STAGES);
+
+  useEffect(() => {
+    if (program?.application_stages && program.application_stages.length > 0) {
+      setEditableStages(program.application_stages);
+    } else {
+      setEditableStages(DEFAULT_STAGES);
+    }
+  }, [program]);
+
+  const updateStagesMutation = useMutation({
+    mutationFn: (stages: ApplicationStageItem[]) => {
+      if (!programId) throw new Error('No program selected');
+      return adminService.updateProgramStages(programId, stages);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['program', orgSlug, activeProgramSlug] });
+      toast.success('Application & assessment stages updated successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to save application stages');
+    },
+  });
+
+  const handleStageChange = (index: number, field: 'title' | 'description', value: string) => {
+    setEditableStages((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleMoveStageUp = (index: number) => {
+    if (index <= 0) return;
+    setEditableStages((prev) => {
+      const next = [...prev];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
+      return next.map((item, idx) => ({ ...item, step_number: idx + 1 }));
+    });
+  };
+
+  const handleMoveStageDown = (index: number) => {
+    if (index >= editableStages.length - 1) return;
+    setEditableStages((prev) => {
+      const next = [...prev];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next.map((item, idx) => ({ ...item, step_number: idx + 1 }));
+    });
+  };
+
+  const handleAddStage = () => {
+    setEditableStages((prev) => [
+      ...prev,
+      {
+        step_number: prev.length + 1,
+        title: 'New Fellowship Stage',
+        description: 'Provide instructions or details for candidates in this stage.',
+      },
+    ]);
+  };
+
+  const handleDeleteStage = (index: number) => {
+    if (editableStages.length <= 1) {
+      toast.error('Must have at least 1 stage in the program funnel.');
+      return;
+    }
+    setEditableStages((prev) =>
+      prev
+        .filter((_, idx) => idx !== index)
+        .map((item, idx) => ({ ...item, step_number: idx + 1 }))
+    );
+  };
+
+  const handleResetStages = () => {
+    setEditableStages(DEFAULT_STAGES);
+    toast.success('Reset stages to standard fellowship flow.');
+  };
 
   const updateTrackMutation = useMutation({
     mutationFn: ({ trackId, payload }: { trackId: string; payload: CreateTrackPayload }) =>
@@ -467,6 +588,18 @@ export const DashboardPage: React.FC = () => {
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>Program Tracks ({programTracks.length})</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentView('stages')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                  currentView === 'stages'
+                    ? 'bg-kulkul-purple text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Workflow className="w-3.5 h-3.5" />
+                <span>Application Stages ({editableStages.length})</span>
               </button>
 
               <button
@@ -784,6 +917,145 @@ export const DashboardPage: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* VIEW: PROGRAM APPLICATION & ASSESSMENT STAGES */}
+        {/* ================================================================================= */}
+        {currentView === 'stages' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+                <div>
+                  <h2 className="text-xl font-extrabold text-kulkul-purple flex items-center gap-2">
+                    <Workflow className="w-5 h-5 text-kulkul-orange" />
+                    Application & Assessment Stages
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                    Configure the sequential candidate journey for <span className="font-bold text-slate-700">{program?.name || activeProgramSlug}</span>. These stages are publicly showcased to candidates on the program overview page.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <button
+                    onClick={handleResetStages}
+                    className="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
+                    title="Reset to default 6-stage flow"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset Defaults</span>
+                  </button>
+
+                  <button
+                    onClick={handleAddStage}
+                    className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Stage</span>
+                  </button>
+
+                  <button
+                    onClick={() => updateStagesMutation.mutate(editableStages)}
+                    disabled={updateStagesMutation.isPending}
+                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{updateStagesMutation.isPending ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stage Items List */}
+              <div className="space-y-4">
+                {editableStages.map((stage, idx) => (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-kulkul-purple/30 transition space-y-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-full bg-kulkul-purple text-white font-extrabold flex items-center justify-center text-xs shadow-sm">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Step 0{idx + 1}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleMoveStageUp(idx)}
+                          disabled={idx === 0}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                          title="Move Up"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveStageDown(idx)}
+                          disabled={idx === editableStages.length - 1}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                          title="Move Down"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStage(idx)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                          title="Delete Stage"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Stage Title
+                        </label>
+                        <input
+                          type="text"
+                          value={stage.title}
+                          onChange={(e) => handleStageChange(idx, 'title', e.target.value)}
+                          placeholder="e.g. Specialization Track & Intake Application"
+                          className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-semibold text-slate-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Description & Instructions
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={stage.description}
+                          onChange={(e) => handleStageChange(idx, 'description', e.target.value)}
+                          placeholder="Explain what happens in this stage..."
+                          className="w-full px-3.5 py-2 rounded-xl text-xs bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-slate-700 leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom Save Action */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <span className="text-xs text-slate-400 font-medium">
+                  {editableStages.length} {editableStages.length === 1 ? 'stage' : 'stages'} configured for {program?.name || activeProgramSlug}
+                </span>
+                <button
+                  onClick={() => updateStagesMutation.mutate(editableStages)}
+                  disabled={updateStagesMutation.isPending}
+                  className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{updateStagesMutation.isPending ? 'Saving Stages...' : 'Save Application Stages'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
