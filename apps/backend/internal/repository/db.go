@@ -66,6 +66,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		slug VARCHAR(64) NOT NULL,
 		name VARCHAR(255) NOT NULL,
 		description TEXT,
+		image_url TEXT,
 		open_date TIMESTAMPTZ NOT NULL DEFAULT now(),
 		end_date TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '180 days'),
 		logic_test_duration_minutes INT NOT NULL DEFAULT 30,
@@ -82,6 +83,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	);
 	CREATE INDEX IF NOT EXISTS idx_programs_org ON programs(organization_id);
 
+	ALTER TABLE programs ADD COLUMN IF NOT EXISTS image_url TEXT;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS enable_mcq BOOLEAN NOT NULL DEFAULT true;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS enable_ai_interview BOOLEAN NOT NULL DEFAULT true;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_instructions TEXT;
@@ -115,9 +117,12 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		correct_option_id VARCHAR(16) NOT NULL,
 		explanation TEXT,
 		points INT NOT NULL DEFAULT 10,
-		created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
 	CREATE INDEX IF NOT EXISTS idx_mcq_program ON mcq_questions(program_id);
+
+	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 	CREATE TABLE IF NOT EXISTS test_submissions (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
