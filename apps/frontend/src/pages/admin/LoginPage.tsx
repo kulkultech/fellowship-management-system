@@ -7,8 +7,8 @@ import { Mail, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('admin@rsa.org');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
@@ -104,7 +104,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@rsa.org"
+                    placeholder="reviewer@organization.com"
                     className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl shadow-sm focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-light outline-none transition"
                   />
                 </div>
@@ -127,12 +127,6 @@ export const LoginPage: React.FC = () => {
                     className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl shadow-sm focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-light outline-none transition"
                   />
                 </div>
-              </div>
-
-              <div className="p-3.5 bg-kulkul-purple-light border border-kulkul-purple/20 rounded-xl text-xs text-kulkul-purple">
-                <span className="font-bold">Pre-seeded Demo:</span>{' '}
-                <span className="font-mono font-bold">admin@rsa.org</span> /{' '}
-                <span className="font-mono font-bold">admin123</span>
               </div>
 
               <button

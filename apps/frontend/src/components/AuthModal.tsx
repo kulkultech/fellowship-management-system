@@ -6,7 +6,6 @@ import {
   Building2,
   User,
   ArrowRight,
-  ShieldCheck,
   Sparkles,
   Lock,
   Mail,
@@ -25,8 +24,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   defaultRole = 'participant',
 }) => {
   const [activeTab, setActiveTab] = useState<'participant' | 'company'>(defaultRole);
-  const [companyEmail, setCompanyEmail] = useState('admin@rsa.org');
-  const [companyPassword, setCompanyPassword] = useState('admin123');
+  const [companyEmail, setCompanyEmail] = useState('');
+  const [companyPassword, setCompanyPassword] = useState('');
   const [candidateName, setCandidateName] = useState('');
   const [candidateEmail, setCandidateEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -166,13 +165,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </span>
               </div>
 
-              <div className="p-3.5 bg-kulkul-purple-light border border-kulkul-purple-subtle rounded-2xl text-xs text-kulkul-purple flex items-start gap-2.5">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-kulkul-purple mt-0.5" />
-                <div>
-                  <span className="font-bold">RSA Organization Demo:</span> Credentials pre-loaded for Remote Skills Academy Reviewer Portal.
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Company Email
@@ -186,7 +178,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={companyEmail}
                     onChange={(e) => setCompanyEmail(e.target.value)}
-                    placeholder="admin@rsa.org"
+                    placeholder="reviewer@organization.com"
                     className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-subtle outline-none transition"
                   />
                 </div>
