@@ -40,20 +40,15 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar title="FellowHire" subtitle="Remote Skills Academy Reviewer Portal" />
+      <Navbar />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">
           {/* Card Container */}
           <div className="stitch-card bg-white p-8">
-            <div className="flex items-center gap-3.5 mb-6">
-              <div className="h-11 px-2 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center">
-                <img src="/kulkul-logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-kulkul-purple">Reviewer Portal</h1>
-                <p className="text-xs text-slate-500">Sign in to manage fellowship applicants</p>
-              </div>
+            <div className="mb-6">
+              <h1 className="text-2xl font-extrabold text-kulkul-purple tracking-tight">Reviewer Portal</h1>
+              <p className="text-xs text-slate-500 mt-1">Sign in to manage fellowship applicants</p>
             </div>
 
             {/* Google OAuth Button */}
@@ -83,11 +78,15 @@ export const LoginPage: React.FC = () => {
               <span>Sign in with Google</span>
             </button>
 
-            <div className="relative flex items-center justify-center mb-5">
-              <div className="border-t border-slate-200 w-full" />
-              <span className="bg-white px-3 text-2xs font-bold uppercase tracking-wider text-slate-400">
-                Or password sign in
-              </span>
+            <div className="relative flex items-center justify-center my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-center">
+                <span className="bg-white px-3 text-2xs font-bold uppercase tracking-wider text-slate-400">
+                  Or password sign in
+                </span>
+              </div>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
