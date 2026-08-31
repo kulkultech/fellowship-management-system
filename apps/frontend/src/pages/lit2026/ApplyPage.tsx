@@ -30,7 +30,7 @@ export const ApplyPage: React.FC = () => {
 
   const queryParams = new URLSearchParams(location.search);
   const trackSlugFromQuery = queryParams.get('track') || '';
-  const initialTrackSlug = params.trackSlug || trackSlugFromQuery || 'qa-automation';
+  const initialTrackSlug = params.trackSlug || trackSlugFromQuery || 'fullstack';
 
   const [selectedTrackSlug, setSelectedTrackSlug] = useState<string>(initialTrackSlug);
 

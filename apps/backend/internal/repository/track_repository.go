@@ -32,25 +32,7 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		litProgID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
 		t1ID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
 		t2ID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
-		t3ID := uuid.MustParse("00000000-0000-0000-0000-000000000013")
-		repo.memTracks[t1ID] = &model.Track{
-			ID:                       t1ID,
-			ProgramID:                litProgID,
-			Slug:                     "qa-automation",
-			Name:                     "QA & Test Automation Track",
-			Description:              "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
-			EnableMCQ:                true,
-			LogicTestDurationMinutes: 35,
-			LogicTestPassingScore:    70,
-			AllowRetake:              false,
-			EnableAIInterview:        true,
-			AIInterviewQuestions: []string{
-				"How do you design an end-to-end regression test suite that minimizes flaky tests?",
-				"Explain how you would test an asynchronous event-driven payment webhook.",
-			},
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+
 		repo.memTracks[t2ID] = &model.Track{
 			ID:                       t2ID,
 			ProgramID:                litProgID,
@@ -69,20 +51,20 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		repo.memTracks[t3ID] = &model.Track{
-			ID:                       t3ID,
+		repo.memTracks[t1ID] = &model.Track{
+			ID:                       t1ID,
 			ProgramID:                litProgID,
-			Slug:                     "service-desk-analyst",
-			Name:                     "Service Desk Analyst (SDA) Track",
-			Description:              "ITIL Incident Management, Customer Empathy, SLAs, and support ticketing workflows.",
+			Slug:                     "qa-automation",
+			Name:                     "QA & Test Automation Track",
+			Description:              "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
 			EnableMCQ:                true,
-			LogicTestDurationMinutes: 30,
+			LogicTestDurationMinutes: 35,
 			LogicTestPassingScore:    70,
 			AllowRetake:              false,
 			EnableAIInterview:        true,
 			AIInterviewQuestions: []string{
-				"How do you prioritize and triage P1 critical incidents versus high-volume minor tickets?",
-				"Explain how you de-escalate an upset enterprise stakeholder during a production outage.",
+				"How do you design an end-to-end regression test suite that minimizes flaky tests?",
+				"Explain how you would test an asynchronous event-driven payment webhook.",
 			},
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),

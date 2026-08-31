@@ -66,58 +66,16 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 				Questions   []QuestionItem
 			}{
 				{
-					Slug:        "qa-automation",
-					Name:        "QA & Test Automation Track",
-					Description: "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
-					Questions:   data.QAAssessment,
-				},
-				{
 					Slug:        "fullstack",
 					Name:        "Fullstack Software Engineering Track",
 					Description: "Fullstack engineering assessment covering modern JS DOM, HTML/CSS, Java OOP, and REST APIs.",
 					Questions:   data.FullstackAssessment,
 				},
 				{
-					Slug:        "service-desk-analyst",
-					Name:        "Service Desk Analyst (SDA) Track",
-					Description: "ITIL Incident Management, Customer Empathy, SLAs, and support ticketing workflows.",
-					Questions:   data.SDAAssessment,
-				},
-			},
-		},
-		{
-			Slug:        "lit-fullstack",
-			Name:        "LIT Fullstack Software Engineering",
-			Description: "Comprehensive Fullstack Assessment covering Frontend (HTML/CSS/JS/DOM), Backend (Java/OOP/Systems), and REST API Architecture.",
-			Tracks: []struct {
-				Slug        string
-				Name        string
-				Description string
-				Questions   []QuestionItem
-			}{
-				{
-					Slug:        "fullstack",
-					Name:        "Fullstack Engineering Track",
-					Description: "Frontend, Backend, and REST API Architecture.",
-					Questions:   data.FullstackAssessment,
-				},
-			},
-		},
-		{
-			Slug:        "lit-sda",
-			Name:        "LIT Service Desk Analyst (SDA)",
-			Description: "Service Desk Analyst evaluation assessing ITIL Incident Management, Customer Empathy, SLA Prioritization, and Support KPIs.",
-			Tracks: []struct {
-				Slug        string
-				Name        string
-				Description string
-				Questions   []QuestionItem
-			}{
-				{
-					Slug:        "service-desk-analyst",
-					Name:        "Service Desk Analyst Track",
-					Description: "ITIL Incident Management and SLA Prioritization.",
-					Questions:   data.SDAAssessment,
+					Slug:        "qa-automation",
+					Name:        "QA & Test Automation Track",
+					Description: "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
+					Questions:   data.QAAssessment,
 				},
 			},
 		},
@@ -142,6 +100,15 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 		if err := pool.QueryRow(ctx, seedProgQuery, rsaOrgID, p.Slug, p.Name, p.Description).Scan(&progID); err != nil {
 			logger.Warn("seed_lit: error upserting program", slog.String("slug", p.Slug), slog.Any("error", err))
 			continue
+		}
+
+		// Clean up any stale tracks that are no longer in the track list for this program
+		var validSlugs []string
+		for _, tr := range p.Tracks {
+			validSlugs = append(validSlugs, tr.Slug)
+		}
+		if len(validSlugs) > 0 {
+			_, _ = pool.Exec(ctx, "DELETE FROM program_tracks WHERE program_id = $1::uuid AND slug != ALL($2)", progID, validSlugs)
 		}
 
 		for _, tr := range p.Tracks {
