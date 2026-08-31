@@ -72,18 +72,17 @@ export const LandingPage: React.FC = () => {
 
               {/* Dropdown Menu */}
               {signInDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-100 shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-100 shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   <button
                     onClick={() => openAuth('participant')}
-                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition group"
+                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
                       <User className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">Candidate Entry</div>
-                      <div className="text-2xs text-slate-500 font-medium">Take or resume assessment</div>
-                    </div>
+                    <span className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">
+                      Candidate Entry
+                    </span>
                   </button>
 
                   <div className="my-1 border-t border-slate-100" />
@@ -93,15 +92,14 @@ export const LandingPage: React.FC = () => {
                       setSignInDropdownOpen(false);
                       navigate('/admin/login');
                     }}
-                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition group"
+                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
                       <Building2 className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">Company Sign In</div>
-                      <div className="text-2xs text-slate-500 font-medium">Reviewer & Admin portal</div>
-                    </div>
+                    <span className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">
+                      Company Sign In
+                    </span>
                   </button>
                 </div>
               )}
