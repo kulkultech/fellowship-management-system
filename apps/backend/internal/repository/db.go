@@ -131,6 +131,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		test_token VARCHAR(128) UNIQUE NOT NULL,
 		status VARCHAR(32) NOT NULL DEFAULT 'in_progress',
 		started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		submitted_at TIMESTAMPTZ,
 		completed_at TIMESTAMPTZ,
 		answers JSONB NOT NULL DEFAULT '[]'::jsonb,
 		total_score INT NOT NULL DEFAULT 0,
@@ -142,23 +143,36 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_submissions_token ON test_submissions(test_token);
 	CREATE INDEX IF NOT EXISTS idx_submissions_applicant ON test_submissions(applicant_id);
 
+	ALTER TABLE test_submissions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;
+	ALTER TABLE test_submissions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+
 	CREATE TABLE IF NOT EXISTS ai_interviews (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		applicant_id UUID NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
 		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
-		invite_token VARCHAR(128) UNIQUE NOT NULL,
+		invite_token VARCHAR(128),
+		invitation_token VARCHAR(128),
 		status VARCHAR(32) NOT NULL DEFAULT 'invited',
 		expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '7 days'),
+		invitation_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '7 days'),
 		started_at TIMESTAMPTZ,
 		completed_at TIMESTAMPTZ,
 		transcript JSONB NOT NULL DEFAULT '[]'::jsonb,
 		summary_evaluation JSONB,
 		scorecard_score INT NOT NULL DEFAULT 0,
+		recording_status VARCHAR(32) NOT NULL DEFAULT 'pending',
+		recording_url TEXT,
 		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
 	CREATE INDEX IF NOT EXISTS idx_ai_interviews_token ON ai_interviews(invite_token);
 	CREATE INDEX IF NOT EXISTS idx_ai_interviews_applicant ON ai_interviews(applicant_id);
+
+	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS invitation_token VARCHAR(128);
+	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS invitation_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '7 days');
+	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS recording_status VARCHAR(32) NOT NULL DEFAULT 'pending';
+	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS recording_url TEXT;
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_interviews_invitation_token ON ai_interviews(invitation_token) WHERE invitation_token IS NOT NULL;
 	`
 
 	if _, err := pool.Exec(ctx, schema); err != nil {

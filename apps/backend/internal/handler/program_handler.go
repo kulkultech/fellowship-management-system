@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -221,7 +222,7 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	testToken := generateToken(24)
 	newSub, err := h.submissionRepo.Create(r.Context(), applicant.ID, program.ID, testToken)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to initialize test session")
+		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to initialize test session: %v", err))
 		return
 	}
 
