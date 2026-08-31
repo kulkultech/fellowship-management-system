@@ -1,28 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthModal } from '@/components/AuthModal';
 import {
   ArrowRight,
-  ShieldCheck,
   CheckCircle2,
-  Clock,
   Building2,
-  Award,
   Terminal,
-  Zap,
   Sliders,
-  ChevronRight,
+  ChevronDown,
+  User,
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalRole, setAuthModalRole] = useState<'participant' | 'company'>('participant');
+  const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const openAuth = (role: 'participant' | 'company') => {
     setAuthModalRole(role);
     setAuthModalOpen(true);
+    setSignInDropdownOpen(false);
   };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setSignInDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div className="min-h-screen bg-white flex flex-col text-slate-900 selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
@@ -40,132 +51,103 @@ export const LandingPage: React.FC = () => {
               <a href="#features" className="hover:text-kulkul-purple transition">
                 Platform Features
               </a>
-              <a href="#programs" className="hover:text-kulkul-purple transition">
-                Active Programs
-              </a>
-              <a href="#how-it-works" className="hover:text-kulkul-purple transition">
-                How It Works
-              </a>
+              <button
+                onClick={() => navigate('/register-company')}
+                className="hover:text-kulkul-purple transition font-semibold text-slate-600"
+              >
+                Register Company
+              </button>
             </nav>
 
-            {/* Single Clean Header Action */}
-            <div className="flex items-center">
+            {/* Sign In Dropdown Action */}
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => navigate('/admin/login')}
-                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2.5"
+                onClick={() => setSignInDropdownOpen((prev) => !prev)}
+                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2"
+                aria-expanded={signInDropdownOpen}
               >
                 <span>Sign In</span>
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${signInDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* Dropdown Menu */}
+              {signInDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-100 shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <button
+                    onClick={() => openAuth('participant')}
+                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">Candidate Entry</div>
+                      <div className="text-2xs text-slate-500 font-medium">Take or resume assessment</div>
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  <button
+                    onClick={() => {
+                      setSignInDropdownOpen(false);
+                      navigate('/admin/login');
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">Company Sign In</div>
+                      <div className="text-2xs text-slate-500 font-medium">Reviewer & Admin portal</div>
+                    </div>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-12 pb-20 sm:pt-16 sm:pb-28 overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white">
+      <section className="relative pt-16 pb-24 sm:pt-20 sm:pb-32 overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white">
         {/* Background Decorative Blobs */}
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[900px] h-[450px] bg-gradient-to-r from-kulkul-purple/5 via-kulkul-orange/10 to-stitch-blue/5 blur-3xl -z-10 rounded-full pointer-events-none" />
 
-        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
-          {/* Main Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15] max-w-5xl">
-            Automated Logic Tests & AI Screening for{' '}
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 text-center flex flex-col items-center">
+          {/* Main Headline - Exactly 2 rows */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.18] max-w-4xl">
+            Automated Logic Tests & AI Screening<br className="hidden sm:inline" /> for{' '}
             <span className="bg-gradient-to-r from-kulkul-purple via-[#6423b3] to-kulkul-orange bg-clip-text text-transparent">
               High-Velocity Fellowships
             </span>
           </h1>
 
-          {/* Subtitle */}
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl leading-relaxed">
-            Fast-track candidate selection for organizations. Deliver timed logic MCQs, conversational AI technical screening, and configurable reviewer scorecards in one unified platform.
+          {/* Subtitle - Exactly 2 rows */}
+          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl leading-relaxed">
+            Fast-track candidate selection with timed logic tests and conversational AI screening.<br className="hidden sm:inline" />
+            Deliver instant reviewer scorecards in one unified platform.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          {/* Single Focused CTA Button for Companies */}
+          <div className="mt-10 flex items-center justify-center">
             <button
-              onClick={() => openAuth('participant')}
-              className="px-8 py-4 rounded-full text-base font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center gap-2"
+              onClick={() => navigate('/register-company')}
+              className="px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center gap-2.5"
             >
-              <span>Take Assessment</span>
+              <Building2 className="w-5 h-5 text-kulkul-orange" />
+              <span>Create a Fellowship Program</span>
               <ArrowRight className="w-5 h-5" />
             </button>
-
-            <button
-              onClick={() => openAuth('company')}
-              className="px-8 py-4 rounded-full text-base font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition active:scale-[0.98] flex items-center gap-2"
-            >
-              <Building2 className="w-5 h-5 text-kulkul-purple" />
-              <span>Reviewer Dashboard</span>
-            </button>
-          </div>
-
-          {/* Featured Hero Card Preview (Featured Fellowship Program) */}
-          <div className="mt-14 w-full max-w-5xl stitch-card p-6 sm:p-8 bg-white border border-slate-200">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-lg">
-                  LIT
-                </div>
-                <div className="text-left">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-2xs font-bold uppercase tracking-wider mb-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Applications Open</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900">LIT 2026 Fellowship & Assessment</h3>
-                  <p className="text-xs text-slate-500">Run by Remote Skills Academy (RSA) &middot; Powered by FellowHire</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => navigate('/lit2026/apply')}
-                className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow transition flex items-center gap-2"
-              >
-                <span>Register & Begin</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 text-left">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase">
-                  <Clock className="w-4 h-4 text-kulkul-orange" />
-                  <span>Configured Duration</span>
-                </div>
-                <div className="text-2xl font-black text-slate-900 mt-1">30 Minutes</div>
-                <div className="text-xs text-slate-500 mt-0.5">Strict single-session timer</div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase">
-                  <Award className="w-4 h-4 text-stitch-green" />
-                  <span>Passing Benchmark</span>
-                </div>
-                <div className="text-2xl font-black text-slate-900 mt-1">70% Grade</div>
-                <div className="text-xs text-slate-500 mt-0.5">Instant auto-graded pass mark</div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase">
-                  <Terminal className="w-4 h-4 text-kulkul-purple" />
-                  <span>Next Step Gate</span>
-                </div>
-                <div className="text-2xl font-black text-kulkul-purple mt-1">AI Screening</div>
-                <div className="text-xs text-slate-500 mt-0.5">Conversational scorecard review</div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Value Pillars Section */}
+      {/* Value Pillars Section (2 Clean Features) */}
       <section id="features" className="py-20 bg-slate-50/70 border-y border-slate-100">
-        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple text-xs font-bold uppercase tracking-wider mb-3">
-              Comprehensive Platform Capabilities
-            </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               Designed for High-Volume Selection & Rigorous Evaluation
             </h2>
@@ -174,8 +156,8 @@ export const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Card 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Feature 1: Configurable Benchmarks */}
             <div className="stitch-card p-8 bg-white border border-slate-200/80 flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center font-bold mb-6">
@@ -192,24 +174,7 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Card 2 */}
-            <div className="stitch-card p-8 bg-white border border-slate-200/80 flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold mb-6">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">1-Attempt Strict Integrity</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  Participants are strictly restricted to 1 test attempt. Re-applying automatically displays their existing official scorecard, preventing duplicate attempts.
-                </p>
-              </div>
-              <div className="mt-6 pt-6 border-t border-slate-100 text-xs font-semibold text-kulkul-purple flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
-                <span>Server-enforced retake block</span>
-              </div>
-            </div>
-
-            {/* Card 3 */}
+            {/* Feature 2: AI Technical Interview */}
             <div className="stitch-card p-8 bg-white border border-slate-200/80 flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center font-bold mb-6">
@@ -229,62 +194,9 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Fellowship Program Section */}
-      <section id="programs" className="py-20 bg-white">
-        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="stitch-card p-8 sm:p-12 bg-gradient-to-br from-kulkul-purple via-[#250b45] to-kulkul-purple text-white flex flex-col lg:flex-row items-center justify-between gap-8">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-kulkul-orange text-white text-xs font-bold uppercase tracking-wider mb-4">
-                <Zap className="w-3.5 h-3.5" />
-                <span>Featured Fellowship Program</span>
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                LIT 2026 Fellowship & Assessment
-              </h2>
-              <p className="mt-3 text-white/80 text-base sm:text-lg leading-relaxed">
-                Accelerate your software engineering career with Remote Skills Academy and Kulkul Tech. Take the timed assessment now to qualify for technical screening and live reviewer selection.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-4 text-sm font-semibold text-white/90">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
-                  <span>30-min Logic Test</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
-                  <span>70% Passing Grade</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
-                  <span>Single Attempt Only</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto">
-              <button
-                onClick={() => navigate('/lit2026/apply')}
-                className="px-8 py-4 rounded-full bg-kulkul-orange hover:bg-kulkul-orange-hover text-white text-base font-bold shadow-lg transition flex items-center justify-center gap-2"
-              >
-                <span>Apply as Candidate</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-
-              <button
-                onClick={() => openAuth('company')}
-                className="px-8 py-4 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-base font-bold transition flex items-center justify-center gap-2"
-              >
-                <Building2 className="w-5 h-5" />
-                <span>Organization Sign In</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-slate-50 py-12">
-        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3.5">
             <img src="/kulkul-logo.svg" alt="Kulkul" className="h-7 w-auto object-contain" />
             <p className="text-xs text-slate-500">&copy; 2026 Kulkul Tech &middot; All rights reserved.</p>
@@ -294,9 +206,12 @@ export const LandingPage: React.FC = () => {
             <a href="#features" className="hover:text-kulkul-purple transition">
               Features
             </a>
-            <a href="#programs" className="hover:text-kulkul-purple transition">
-              Programs
-            </a>
+            <button
+              onClick={() => navigate('/register-company')}
+              className="hover:text-kulkul-purple transition"
+            >
+              Register Company
+            </button>
             <button
               onClick={() => navigate('/admin/login')}
               className="text-kulkul-purple hover:underline font-semibold"
