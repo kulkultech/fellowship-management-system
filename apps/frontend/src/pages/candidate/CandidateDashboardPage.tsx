@@ -354,49 +354,34 @@ export const CandidateDashboardPage: React.FC = () => {
 
             {/* Explore More Fellowship Programs */}
             <div className="pt-8 border-t border-slate-200">
-              <h2 className="text-xl font-extrabold text-slate-900 mb-4">Explore More Fellowship Tracks</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <h2 className="text-xl font-extrabold text-slate-900 mb-4">Explore Available Fellowship Tracks</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="stitch-card p-6 bg-white border border-slate-200/80 flex flex-col justify-between">
+                  <div>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">Open</span>
+                    <h3 className="text-base font-bold text-slate-900">Fullstack Software Engineering</h3>
+                    <p className="text-xs text-slate-600 mt-1">Modern JavaScript DOM, HTML5/CSS, Java OOP, and REST API systems.</p>
+                  </div>
+                  <Link
+                    to="/programs/rsa/lit2026/tracks/fullstack/apply"
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
+                  >
+                    <span>Apply to Fullstack Track</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
                 <div className="stitch-card p-6 bg-white border border-slate-200/80 flex flex-col justify-between">
                   <div>
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">Open</span>
                     <h3 className="text-base font-bold text-slate-900">QA & Test Automation</h3>
-                    <p className="text-xs text-slate-600 mt-1">Cypress, Postman, Systems, Regression testing and logic assessment.</p>
+                    <p className="text-xs text-slate-600 mt-1">Cypress, Postman, Systems, Regression testing, and problem solving.</p>
                   </div>
                   <Link
-                    to="/programs/rsa/lit2026/apply"
+                    to="/programs/rsa/lit2026/tracks/qa-automation/apply"
                     className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
                   >
-                    <span>Apply to Track</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-
-                <div className="stitch-card p-6 bg-white border border-slate-200/80 flex flex-col justify-between">
-                  <div>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">Open</span>
-                    <h3 className="text-base font-bold text-slate-900">Fullstack Engineering</h3>
-                    <p className="text-xs text-slate-600 mt-1">Modern JavaScript DOM, HTML5/CSS, Java OOP, and REST APIs.</p>
-                  </div>
-                  <Link
-                    to="/programs/rsa/lit-fullstack/apply"
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                  >
-                    <span>Apply to Track</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-
-                <div className="stitch-card p-6 bg-white border border-slate-200/80 flex flex-col justify-between">
-                  <div>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">Open</span>
-                    <h3 className="text-base font-bold text-slate-900">Service Desk Analyst</h3>
-                    <p className="text-xs text-slate-600 mt-1">ITIL Incident Management, SLAs, Customer Empathy, and Ticketing KPIs.</p>
-                  </div>
-                  <Link
-                    to="/programs/rsa/lit-sda/apply"
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                  >
-                    <span>Apply to Track</span>
+                    <span>Apply to QA Track</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>

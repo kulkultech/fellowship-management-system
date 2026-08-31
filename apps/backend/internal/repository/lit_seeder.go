@@ -16,7 +16,6 @@ var litQuestionsJSON []byte
 type QuestionBankData struct {
 	QAAssessment        []QuestionItem `json:"qa_assessment"`
 	FullstackAssessment []QuestionItem `json:"fullstack_assessment"`
-	SDAAssessment       []QuestionItem `json:"sda_assessment"`
 }
 
 type QuestionItem struct {
@@ -38,6 +37,9 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 	if pool == nil || rsaOrgID == "" {
 		return nil
 	}
+
+	// Clean up any stale programs (e.g. lit-sda)
+	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1::uuid AND slug NOT IN ('lit2026')", rsaOrgID)
 
 	var data QuestionBankData
 	if err := json.Unmarshal(litQuestionsJSON, &data); err != nil {
