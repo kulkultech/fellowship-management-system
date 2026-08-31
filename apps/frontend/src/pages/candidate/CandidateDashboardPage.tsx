@@ -5,7 +5,6 @@ import axios from 'axios';
 import {
   User,
   ArrowRight,
-  Sparkles,
   AlertCircle,
   ExternalLink,
   ChevronRight,
@@ -122,9 +121,6 @@ export const CandidateDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between h-20 sm:h-24">
             <Link to="/" className="flex items-center gap-3.5 group">
               <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
-              <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
-                Candidate Portal
-              </span>
             </Link>
 
             <div className="flex items-center gap-4">
@@ -203,10 +199,6 @@ export const CandidateDashboardPage: React.FC = () => {
               <div className="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none" />
               <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-kulkul-orange text-xs font-bold uppercase tracking-wider mb-3 border border-white/10">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Candidate Dashboard</span>
-                  </div>
                   <h1 className="text-3xl font-extrabold text-white tracking-tight">
                     Welcome back, {candidateName}!
                   </h1>
