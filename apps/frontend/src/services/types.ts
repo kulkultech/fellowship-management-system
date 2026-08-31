@@ -71,11 +71,19 @@ export interface TrackDetailPublicResponse {
 export interface ApplyRequest {
   track_slug?: string;
   track_id?: string;
-  full_name: string;
+  chosen_course?: string;
+  first_name: string;
+  last_name: string;
+  full_name?: string;
+  date_of_birth: string;
+  phone: string;
   email: string;
-  phone?: string;
-  github_url?: string;
   linkedin_url?: string;
+  university: string;
+  major: string;
+  semester: string;
+  referral_source: string;
+  github_url?: string;
   resume_url?: string;
   notes?: string;
 }
@@ -220,11 +228,18 @@ export interface PipelineConfigPayload {
 export interface ApplicantListItem {
   id: string;
   full_name: string;
+  first_name?: string;
+  last_name?: string;
+  date_of_birth?: string;
   email: string;
   phone: string;
-  github_url: string;
-  linkedin_url: string;
-  resume_url: string;
+  github_url?: string;
+  linkedin_url?: string;
+  resume_url?: string;
+  university?: string;
+  major?: string;
+  semester?: string;
+  referral_source?: string;
   track_id?: string;
   track_name?: string;
   current_stage: string;
@@ -251,14 +266,21 @@ export interface ItemizedQuestionAnswer {
 export interface ApplicantDetailResponse {
   applicant: {
     id: string;
-    organization_id: string;
-    program_id: string;
+    organization_id?: string;
+    program_id?: string;
     email: string;
     full_name: string;
+    first_name?: string;
+    last_name?: string;
+    date_of_birth?: string;
     phone?: string;
     github_url?: string;
     linkedin_url?: string;
     resume_url?: string;
+    university?: string;
+    major?: string;
+    semester?: string;
+    referral_source?: string;
     current_stage: string;
     notes?: string;
     created_at: string;

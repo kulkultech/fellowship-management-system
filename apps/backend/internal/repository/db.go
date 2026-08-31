@@ -126,6 +126,13 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		CONSTRAINT uq_program_applicant_email UNIQUE (program_id, email)
 	);
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS first_name TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS last_name TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS date_of_birth TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS university TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS major TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS semester TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS referral_source TEXT;
 	CREATE INDEX IF NOT EXISTS idx_applicants_program ON applicants(program_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_track ON applicants(track_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_stage ON applicants(current_stage);

@@ -9,7 +9,6 @@ import {
   Clock,
   AlertCircle,
   FileText,
-  Github,
   Linkedin,
   Mail,
   User as UserIcon,
@@ -19,8 +18,42 @@ import {
   X,
   Layers,
   Award,
+  Calendar,
+  GraduationCap,
+  BookOpen,
+  Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const IT_MAJORS = [
+  'Computer Science / Informatics (Ilmu Komputer / Teknik Informatika)',
+  'Information Systems (Sistem Informasi)',
+  'Software Engineering (Rekayasa Perangkat Lunak)',
+  'Computer Engineering (Teknik Komputer / Sistem Komputer)',
+  'Information Technology (Teknologi Informasi)',
+  'Data Science / Artificial Intelligence (Sains Data / Kecerdasan Buatan)',
+  'Cyber Security (Keamanan Siber)',
+  'Other IT / Computing Major',
+];
+
+const FINAL_YEAR_SEMESTERS = [
+  'Semester 7 (Final Year)',
+  'Semester 8 (Final Year)',
+  'Final Year / Thesis Project (Tugas Akhir / Skripsi)',
+  'Recent IT Graduate (Within 1 Year)',
+];
+
+const SCHOLARSHIP_COURSES = [
+  { label: 'Full Stack Developer', value: 'Full Stack Developer', trackSlug: 'fullstack' },
+  { label: 'QA Automation', value: 'QA Automation', trackSlug: 'qa-automation' },
+];
+
+const REFERRAL_SOURCES = [
+  'Referral',
+  'LIT Network Social Media',
+  'LIT Network Community',
+  'Other Community',
+];
 
 export const ApplyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,14 +69,21 @@ export const ApplyPage: React.FC = () => {
   const [selectedTrackSlug, setSelectedTrackSlug] = useState<string>(initialTrackSlug);
 
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
+    firstName: '',
+    lastName: '',
+    dateOfBirth: '',
     phone: '',
-    githubUrl: '',
+    email: '',
     linkedinUrl: '',
+    university: '',
+    major: '',
+    semester: '',
+    chosenCourse: initialTrackSlug === 'qa-automation' ? 'QA Automation' : 'Full Stack Developer',
+    referralSource: '',
     resumeUrl: '',
     notes: '',
   });
+
   const [resumeFileName, setResumeFileName] = useState('');
   const [resumeFileSize, setResumeFileSize] = useState('');
 
@@ -77,13 +117,26 @@ export const ApplyPage: React.FC = () => {
     const emailParam = queryParams.get('email');
     const nameParam = queryParams.get('name');
     if (emailParam || nameParam) {
+      const nameParts = (nameParam || '').trim().split(' ');
+      const fName = nameParts[0] || '';
+      const lName = nameParts.slice(1).join(' ') || '';
       setFormData((prev) => ({
         ...prev,
         email: emailParam || prev.email,
-        fullName: nameParam || prev.fullName,
+        firstName: fName || prev.firstName,
+        lastName: lName || prev.lastName,
       }));
     }
   }, [location.search]);
+
+  // Sync course selection with track
+  const handleCourseChange = (course: string) => {
+    const matched = SCHOLARSHIP_COURSES.find((c) => c.value === course);
+    setFormData((prev) => ({ ...prev, chosenCourse: course }));
+    if (matched) {
+      setSelectedTrackSlug(matched.trackSlug);
+    }
+  };
 
   const { data: programData } = useQuery({
     queryKey: ['program', orgSlug, programSlug],
@@ -94,33 +147,32 @@ export const ApplyPage: React.FC = () => {
   const org = programData?.organization;
   const tracks = program?.tracks || [];
 
-  // Update selectedTrackSlug if not set and tracks exist
-  useEffect(() => {
-    if (tracks.length > 0) {
-      const exists = tracks.some((t) => t.slug === selectedTrackSlug);
-      if (!exists) {
-        setSelectedTrackSlug(tracks[0].slug);
-      }
-    }
-  }, [tracks, selectedTrackSlug]);
-
   const currentTrack = tracks.find((t) => t.slug === selectedTrackSlug) || tracks[0];
 
   const durationMinutes = currentTrack?.logic_test_duration_minutes || program?.logic_test_duration_minutes || 35;
   const passingScore = currentTrack?.logic_test_passing_score || program?.logic_test_passing_score || 70;
 
   const applyMutation = useMutation({
-    mutationFn: () =>
-      programService.apply(orgSlug, programSlug, {
+    mutationFn: () => {
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      return programService.apply(orgSlug, programSlug, {
         track_slug: selectedTrackSlug,
-        full_name: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        github_url: formData.githubUrl,
-        linkedin_url: formData.linkedinUrl,
+        chosen_course: formData.chosenCourse,
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        full_name: fullName,
+        date_of_birth: formData.dateOfBirth,
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
+        linkedin_url: formData.linkedinUrl.trim(),
+        university: formData.university.trim(),
+        major: formData.major,
+        semester: formData.semester,
+        referral_source: formData.referralSource,
         resume_url: formData.resumeUrl,
         notes: formData.notes,
-      }),
+      });
+    },
     onSuccess: (res) => {
       if (res.message && res.message.includes('already completed')) {
         toast('You have already completed the assessment test for this program. Showing your result scorecard.', {
@@ -151,10 +203,48 @@ export const ApplyPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullName.trim() || !formData.email.trim()) {
-      toast.error('Please enter your full name and email address');
+
+    if (!formData.firstName.trim()) {
+      toast.error('First Name is mandatory');
       return;
     }
+    if (!formData.lastName.trim()) {
+      toast.error('Last Name is mandatory');
+      return;
+    }
+    if (!formData.dateOfBirth) {
+      toast.error('Date of Birth is mandatory');
+      return;
+    }
+    if (!formData.phone.trim()) {
+      toast.error('Phone Number is mandatory');
+      return;
+    }
+    if (!formData.email.trim()) {
+      toast.error('Email Address is mandatory');
+      return;
+    }
+    if (!formData.university.trim()) {
+      toast.error('University Name is mandatory');
+      return;
+    }
+    if (!formData.major) {
+      toast.error('Current Major is mandatory (IT majors only)');
+      return;
+    }
+    if (!formData.semester) {
+      toast.error('Current Semester is mandatory (Final year)');
+      return;
+    }
+    if (!formData.chosenCourse) {
+      toast.error('Chosen course for the scholarship is mandatory');
+      return;
+    }
+    if (!formData.referralSource) {
+      toast.error('Please select how you heard about us');
+      return;
+    }
+
     applyMutation.mutate();
   };
 
@@ -162,63 +252,33 @@ export const ApplyPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar
         title="FellowHire"
-        subtitle={`${org?.name || 'Remote Skills Academy'} &middot; Opportunity`}
+        subtitle={`${org?.name || 'Remote Skills Academy'} &middot; Scholarship Application`}
       />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-2xl w-full">
           {/* Header Card */}
-          <div className="stitch-card p-6 sm:p-8 mb-6 bg-white">
+          <div className="stitch-card p-6 sm:p-8 mb-6 bg-white shadow-sm border border-slate-100">
             <div className="flex items-center justify-between gap-4 mb-3">
               <span className="px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
-                {program?.name || 'Fellowship Program'}
+                {program?.name || 'LIT 2026 Fellowship'}
               </span>
 
               <Link
                 to={`/programs/${orgSlug}/${programSlug}`}
                 className="text-xs font-bold text-kulkul-purple hover:underline"
               >
-                &larr; Program Details
+                &larr; Program Overview
               </Link>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Candidate Application
+              Candidate Intake Form
             </h1>
             <p className="text-slate-600 text-sm mt-1">
-              Submit your candidate details to immediately begin the timed logic assessment.
+              Please complete all mandatory questions below to initiate your scholarship assessment.
             </p>
-
-            {/* Track Selector if multiple tracks exist */}
-            {tracks.length > 1 && (
-              <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Select Specialization Track:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {tracks.map((t) => (
-                    <button
-                      key={t.slug}
-                      type="button"
-                      onClick={() => setSelectedTrackSlug(t.slug)}
-                      className={`p-3 rounded-2xl border text-left transition ${
-                        selectedTrackSlug === t.slug
-                          ? 'border-kulkul-purple bg-kulkul-purple/5 ring-2 ring-kulkul-purple/20'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className={`text-xs font-bold ${selectedTrackSlug === t.slug ? 'text-kulkul-purple' : 'text-slate-800'}`}>
-                        {t.name}
-                      </div>
-                      <div className="text-2xs text-slate-400 mt-0.5">
-                        {t.logic_test_duration_minutes}m &middot; {t.logic_test_passing_score}% pass
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Quick Benchmark Box */}
             <div className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-kulkul-purple/5 to-kulkul-orange/5 border border-kulkul-purple/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700">
@@ -242,23 +302,83 @@ export const ApplyPage: React.FC = () => {
           </div>
 
           {/* Form Card */}
-          <form onSubmit={handleSubmit} className="stitch-card p-6 sm:p-8 bg-white space-y-6">
-            <div className="space-y-4">
-              {/* Full Name */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <UserIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    placeholder="e.g. Jane Doe"
-                    className="w-full pl-11 pr-4 py-3 rounded-full border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                  />
+          <form onSubmit={handleSubmit} className="stitch-card p-6 sm:p-8 bg-white space-y-6 shadow-sm border border-slate-100">
+            <div className="space-y-5">
+              {/* Section: Personal Info */}
+              <div className="border-b border-slate-100 pb-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Personal Details</h2>
+              </div>
+
+              {/* First Name & Last Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    First Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      placeholder="e.g. Jane"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Last Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      placeholder="e.g. Doe"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Date of Birth & Phone Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Date of Birth <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Calendar className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="date"
+                      required
+                      value={formData.dateOfBirth}
+                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="e.g. +62 812-3456-7890"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -274,74 +394,155 @@ export const ApplyPage: React.FC = () => {
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="e.g. jane.doe@example.com"
-                    className="w-full pl-11 pr-4 py-3 rounded-full border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                    placeholder="e.g. jane.doe@university.ac.id"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
                   />
                 </div>
-                <p className="text-2xs text-slate-400 mt-1 pl-4">
-                  Assessment results and stage updates will be linked to this email address.
+                <p className="text-2xs text-slate-400 mt-1 pl-1">
+                  Test link and evaluation updates will be dispatched to this email.
                 </p>
               </div>
 
-              {/* Phone / WhatsApp */}
+              {/* LinkedIn Profile URL (Optional) */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Phone / WhatsApp
+                  LinkedIn Profile URL <span className="text-xs font-normal text-slate-400 lowercase">(not mandatory)</span>
                 </label>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <Linkedin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="e.g. +62 812-3456-7890"
-                    className="w-full pl-11 pr-4 py-3 rounded-full border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                    type="url"
+                    value={formData.linkedinUrl}
+                    onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
+                    placeholder="https://linkedin.com/in/yourname"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
                   />
                 </div>
               </div>
 
-              {/* Professional Links */}
+              {/* Section: Academic Background */}
+              <div className="border-b border-slate-100 pb-2 pt-3">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Academic Background</h2>
+              </div>
+
+              {/* University Name */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  University Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <GraduationCap className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={formData.university}
+                    onChange={(e) => setFormData({ ...formData, university: e.target.value })}
+                    placeholder="e.g. Universitas Indonesia / ITB / Telkom University"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Current Major (Only IT majors) & Current Semester (Only final year) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    GitHub Profile
+                    Current Major <span className="text-red-500">*</span> <span className="text-2xs font-normal text-kulkul-purple lowercase">(IT majors only)</span>
                   </label>
                   <div className="relative">
-                    <Github className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="url"
-                      value={formData.githubUrl}
-                      onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
-                      placeholder="https://github.com/janedoe"
-                      className="w-full pl-11 pr-4 py-3 rounded-full border border-slate-200 text-xs focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                    />
+                    <BookOpen className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      required
+                      value={formData.major}
+                      onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+                      className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                    >
+                      <option value="" disabled>Select your IT major</option>
+                      {IT_MAJORS.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    LinkedIn Profile
+                    Current Semester <span className="text-red-500">*</span> <span className="text-2xs font-normal text-kulkul-purple lowercase">(final year only)</span>
                   </label>
                   <div className="relative">
-                    <Linkedin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="url"
-                      value={formData.linkedinUrl}
-                      onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
-                      placeholder="https://linkedin.com/in/janedoe"
-                      className="w-full pl-11 pr-4 py-3 rounded-full border border-slate-200 text-xs focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                    />
+                    <GraduationCap className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      required
+                      value={formData.semester}
+                      onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+                      className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                    >
+                      <option value="" disabled>Select your semester status</option>
+                      {FINAL_YEAR_SEMESTERS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
 
-              {/* Resume File Upload */}
+              {/* Section: Scholarship & Program Preferences */}
+              <div className="border-b border-slate-100 pb-2 pt-3">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Scholarship & Program Details</h2>
+              </div>
+
+              {/* Chosen course for the scholarship */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Resume / CV (File Upload)
+                  Chosen Course for the Scholarship <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Award className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    required
+                    value={formData.chosenCourse}
+                    onChange={(e) => handleCourseChange(e.target.value)}
+                    className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white font-semibold text-slate-900"
+                  >
+                    <option value="" disabled>Select scholarship course</option>
+                    {SCHOLARSHIP_COURSES.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-2xs text-slate-400 mt-1 pl-1">
+                  Your logic and technical questions will be calibrated for the chosen track.
+                </p>
+              </div>
+
+              {/* How do you hear about us? */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  How did you hear about us? <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Share2 className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    required
+                    value={formData.referralSource}
+                    onChange={(e) => setFormData({ ...formData, referralSource: e.target.value })}
+                    className="w-full pl-11 pr-8 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                  >
+                    <option value="" disabled>Choose one option</option>
+                    {REFERRAL_SOURCES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Resume File Upload (Optional) */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Resume / CV <span className="text-xs font-normal text-slate-400 lowercase">(file upload)</span>
                 </label>
                 {formData.resumeUrl ? (
-                  <div className="flex items-center justify-between p-3.5 px-4 rounded-2xl bg-kulkul-purple/5 border border-kulkul-purple/20">
+                  <div className="flex items-center justify-between p-3.5 px-4 rounded-xl bg-kulkul-purple/5 border border-kulkul-purple/20">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-kulkul-purple/10 flex items-center justify-center text-kulkul-purple font-bold">
                         <FileText className="w-5 h-5" />
@@ -361,7 +562,7 @@ export const ApplyPage: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
+                  <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
                     <Upload className="w-6 h-6 text-slate-400 group-hover:text-kulkul-purple transition mb-1.5" />
                     <span className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
                       Click to upload Resume / CV
@@ -376,27 +577,13 @@ export const ApplyPage: React.FC = () => {
                   </label>
                 )}
               </div>
-
-              {/* Notes / Background */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Brief Background / Notes (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Share any highlights about your experience or motivation for joining this track..."
-                  className="w-full p-4 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition resize-none"
-                />
-              </div>
             </div>
 
             {/* Terms / Notice */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-kulkul-orange shrink-0 mt-0.5" />
               <p className="text-2xs text-slate-600 leading-relaxed">
-                By submitting this form, you acknowledge that you will be redirected immediately into a timed {durationMinutes}-minute logic assessment. Make sure you are in a quiet environment.
+                By submitting this application, you will be redirected immediately into the timed {durationMinutes}-minute {formData.chosenCourse || 'logic'} test. Ensure a stable internet connection.
               </p>
             </div>
 
@@ -409,11 +596,11 @@ export const ApplyPage: React.FC = () => {
               {applyMutation.isPending ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Preparing Assessment...</span>
+                  <span>Submitting Application...</span>
                 </div>
               ) : (
                 <>
-                  <span>Begin {currentTrack?.name || 'Fellowship'} Assessment</span>
+                  <span>Begin {formData.chosenCourse || 'Fellowship'} Assessment</span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}

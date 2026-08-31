@@ -47,11 +47,18 @@ func NewAdminHandler(
 type ApplicantListItem struct {
 	ID               string               `json:"id"`
 	FullName         string               `json:"full_name"`
+	FirstName        string               `json:"first_name,omitempty"`
+	LastName         string               `json:"last_name,omitempty"`
+	DateOfBirth      string               `json:"date_of_birth,omitempty"`
 	Email            string               `json:"email"`
 	Phone            string               `json:"phone"`
-	GitHubURL        string               `json:"github_url"`
-	LinkedInURL      string               `json:"linkedin_url"`
-	ResumeURL        string               `json:"resume_url"`
+	GitHubURL        string               `json:"github_url,omitempty"`
+	LinkedInURL      string               `json:"linkedin_url,omitempty"`
+	ResumeURL        string               `json:"resume_url,omitempty"`
+	University       string               `json:"university,omitempty"`
+	Major            string               `json:"major,omitempty"`
+	Semester         string               `json:"semester,omitempty"`
+	ReferralSource   string               `json:"referral_source,omitempty"`
 	TrackID          string               `json:"track_id,omitempty"`
 	TrackName        string               `json:"track_name,omitempty"`
 	CurrentStage     model.ApplicantStage `json:"current_stage"`
@@ -99,17 +106,24 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 		}
 
 		item := ApplicantListItem{
-			ID:           a.ID.String(),
-			FullName:     a.FullName,
-			Email:        a.Email,
-			Phone:        a.Phone,
-			GitHubURL:    a.GitHubURL,
-			LinkedInURL:  a.LinkedInURL,
-			ResumeURL:    a.ResumeURL,
-			TrackID:      trackID,
-			TrackName:    trackName,
-			CurrentStage: a.CurrentStage,
-			CreatedAt:    a.CreatedAt.Format("2006-01-02 15:04"),
+			ID:             a.ID.String(),
+			FullName:       a.FullName,
+			FirstName:      a.FirstName,
+			LastName:       a.LastName,
+			DateOfBirth:    a.DateOfBirth,
+			Email:          a.Email,
+			Phone:          a.Phone,
+			GitHubURL:      a.GitHubURL,
+			LinkedInURL:    a.LinkedInURL,
+			ResumeURL:      a.ResumeURL,
+			University:     a.University,
+			Major:          a.Major,
+			Semester:       a.Semester,
+			ReferralSource: a.ReferralSource,
+			TrackID:        trackID,
+			TrackName:      trackName,
+			CurrentStage:   a.CurrentStage,
+			CreatedAt:      a.CreatedAt.Format("2006-01-02 15:04"),
 		}
 
 		if sub, err := h.submissionRepo.GetByApplicantID(r.Context(), a.ID); err == nil && sub != nil {
@@ -240,16 +254,23 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"applicant": map[string]any{
-			"id":            applicant.ID.String(),
-			"full_name":     applicant.FullName,
-			"email":         applicant.Email,
-			"phone":         applicant.Phone,
-			"github_url":    applicant.GitHubURL,
-			"linkedin_url":  applicant.LinkedInURL,
-			"resume_url":    applicant.ResumeURL,
-			"current_stage": applicant.CurrentStage,
-			"notes":         applicant.Notes,
-			"created_at":    applicant.CreatedAt.Format("2006-01-02 15:04:05"),
+			"id":              applicant.ID.String(),
+			"full_name":       applicant.FullName,
+			"first_name":      applicant.FirstName,
+			"last_name":       applicant.LastName,
+			"date_of_birth":   applicant.DateOfBirth,
+			"email":           applicant.Email,
+			"phone":           applicant.Phone,
+			"github_url":      applicant.GitHubURL,
+			"linkedin_url":    applicant.LinkedInURL,
+			"resume_url":      applicant.ResumeURL,
+			"university":      applicant.University,
+			"major":           applicant.Major,
+			"semester":        applicant.Semester,
+			"referral_source": applicant.ReferralSource,
+			"current_stage":   applicant.CurrentStage,
+			"notes":           applicant.Notes,
+			"created_at":      applicant.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 		"track":      trackDetail,
 		"submission": submissionDetail,

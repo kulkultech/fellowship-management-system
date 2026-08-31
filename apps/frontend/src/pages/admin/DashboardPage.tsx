@@ -25,6 +25,7 @@ import {
   Layers,
   Award,
   Edit3,
+  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -1731,40 +1732,127 @@ export const DashboardPage: React.FC = () => {
                   )
                 ) : (
                   <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
-                      <div>
-                        <span className="text-slate-400 block font-medium">Full Name</span>
-                        <span className="font-bold text-slate-900 text-sm">{applicantDetail?.applicant.full_name}</span>
+                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
+                      <div className="border-b border-slate-200 pb-2">
+                        <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider">
+                          Candidate Intake Profile
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-slate-400 block font-medium">Email Address</span>
-                        <span className="font-bold text-slate-900">{applicantDetail?.applicant.email}</span>
-                      </div>
-                      {applicantDetail?.track && (
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <span className="text-slate-400 block font-medium">Applied Track</span>
-                          <span className="font-bold text-kulkul-purple">{applicantDetail.track.name}</span>
+                          <span className="text-slate-400 block font-medium">Full Name</span>
+                          <span className="font-bold text-slate-900 text-sm">
+                            {applicantDetail?.applicant.full_name ||
+                              `${applicantDetail?.applicant.first_name || ''} ${applicantDetail?.applicant.last_name || ''}`}
+                          </span>
                         </div>
-                      )}
-                      {applicantDetail?.applicant.phone && (
+
                         <div>
-                          <span className="text-slate-400 block font-medium">Phone</span>
-                          <span className="font-bold text-slate-900">{applicantDetail.applicant.phone}</span>
+                          <span className="text-slate-400 block font-medium">Date of Birth</span>
+                          <span className="font-bold text-slate-900">
+                            {applicantDetail?.applicant.date_of_birth || '-'}
+                          </span>
                         </div>
-                      )}
-                      {applicantDetail?.applicant.github_url && (
+
                         <div>
-                          <span className="text-slate-400 block font-medium">GitHub</span>
+                          <span className="text-slate-400 block font-medium">Email Address</span>
                           <a
-                            href={applicantDetail.applicant.github_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-kulkul-purple hover:underline font-bold"
+                            href={`mailto:${applicantDetail?.applicant.email}`}
+                            className="font-bold text-kulkul-purple hover:underline"
                           >
-                            {applicantDetail.applicant.github_url}
+                            {applicantDetail?.applicant.email}
                           </a>
                         </div>
-                      )}
+
+                        <div>
+                          <span className="text-slate-400 block font-medium">Phone Number</span>
+                          <span className="font-bold text-slate-900">
+                            {applicantDetail?.applicant.phone || '-'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-3 space-y-3">
+                        <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
+                          Academic Background
+                        </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div className="sm:col-span-2">
+                            <span className="text-slate-400 block font-medium">University Name</span>
+                            <span className="font-bold text-slate-900">
+                              {applicantDetail?.applicant.university || '-'}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block font-medium">Current Major (IT)</span>
+                            <span className="font-bold text-slate-900">
+                              {applicantDetail?.applicant.major || '-'}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block font-medium">Current Semester</span>
+                            <span className="font-bold text-slate-900">
+                              {applicantDetail?.applicant.semester || '-'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-3 space-y-3">
+                        <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
+                          Program & Scholarship Details
+                        </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div>
+                            <span className="text-slate-400 block font-medium">Chosen Course / Track</span>
+                            <span className="font-extrabold text-kulkul-purple">
+                              {applicantDetail?.track?.name || 'Full Stack Developer'}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block font-medium">How did you hear about us?</span>
+                            <span className="font-bold text-slate-900">
+                              {applicantDetail?.applicant.referral_source || '-'}
+                            </span>
+                          </div>
+
+                          {applicantDetail?.applicant.linkedin_url && (
+                            <div className="sm:col-span-2">
+                              <span className="text-slate-400 block font-medium">LinkedIn Profile</span>
+                              <a
+                                href={applicantDetail.applicant.linkedin_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-kulkul-purple hover:underline font-bold"
+                              >
+                                {applicantDetail.applicant.linkedin_url}
+                              </a>
+                            </div>
+                          )}
+
+                          {applicantDetail?.applicant.resume_url && (
+                            <div className="sm:col-span-2">
+                              <span className="text-slate-400 block font-medium">Resume / CV</span>
+                              <a
+                                href={applicantDetail.applicant.resume_url}
+                                download="resume.pdf"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline mt-0.5"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Download / View Submitted Resume</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

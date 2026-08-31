@@ -26,10 +26,17 @@ type Applicant struct {
 	TrackID        *uuid.UUID     `json:"track_id,omitempty"`
 	Email          string         `json:"email"`
 	FullName       string         `json:"full_name"`
+	FirstName      string         `json:"first_name,omitempty"`
+	LastName       string         `json:"last_name,omitempty"`
+	DateOfBirth    string         `json:"date_of_birth,omitempty"`
 	Phone          string         `json:"phone,omitempty"`
 	GitHubURL      string         `json:"github_url,omitempty"`
 	LinkedInURL    string         `json:"linkedin_url,omitempty"`
 	ResumeURL      string         `json:"resume_url,omitempty"`
+	University     string         `json:"university,omitempty"`
+	Major          string         `json:"major,omitempty"`
+	Semester       string         `json:"semester,omitempty"`
+	ReferralSource string         `json:"referral_source,omitempty"`
 	CurrentStage   ApplicantStage `json:"current_stage"`
 	Notes          string         `json:"notes,omitempty"`
 	CreatedAt      time.Time      `json:"created_at"`

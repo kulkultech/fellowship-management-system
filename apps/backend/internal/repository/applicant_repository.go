@@ -37,6 +37,13 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		for _, app := range r.memApplicants {
 			if app.ProgramID == a.ProgramID && app.Email == a.Email {
 				app.FullName = a.FullName
+				app.FirstName = a.FirstName
+				app.LastName = a.LastName
+				app.DateOfBirth = a.DateOfBirth
+				app.University = a.University
+				app.Major = a.Major
+				app.Semester = a.Semester
+				app.ReferralSource = a.ReferralSource
 				if a.TrackID != nil {
 					app.TrackID = a.TrackID
 				}
@@ -67,30 +74,46 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 
 	query := `
 		INSERT INTO applicants (
-			organization_id, program_id, track_id, email, full_name, phone,
-			github_url, linkedin_url, resume_url, current_stage, notes,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now())
+			organization_id, program_id, track_id, email, full_name, first_name, last_name,
+			date_of_birth, phone, github_url, linkedin_url, resume_url, university, major,
+			semester, referral_source, current_stage, notes, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now(), now())
 		ON CONFLICT (program_id, email) DO UPDATE SET
 			full_name = EXCLUDED.full_name,
-			track_id = COALESCE(EXCLUDED.track_id, applicants.track_id),
+			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), applicants.first_name),
+			last_name = COALESCE(NULLIF(EXCLUDED.last_name, ''), applicants.last_name),
+			date_of_birth = COALESCE(NULLIF(EXCLUDED.date_of_birth, ''), applicants.date_of_birth),
 			phone = COALESCE(NULLIF(EXCLUDED.phone, ''), applicants.phone),
 			github_url = COALESCE(NULLIF(EXCLUDED.github_url, ''), applicants.github_url),
 			linkedin_url = COALESCE(NULLIF(EXCLUDED.linkedin_url, ''), applicants.linkedin_url),
 			resume_url = COALESCE(NULLIF(EXCLUDED.resume_url, ''), applicants.resume_url),
+			university = COALESCE(NULLIF(EXCLUDED.university, ''), applicants.university),
+			major = COALESCE(NULLIF(EXCLUDED.major, ''), applicants.major),
+			semester = COALESCE(NULLIF(EXCLUDED.semester, ''), applicants.semester),
+			referral_source = COALESCE(NULLIF(EXCLUDED.referral_source, ''), applicants.referral_source),
+			track_id = COALESCE(EXCLUDED.track_id, applicants.track_id),
 			updated_at = now()
-		RETURNING id, organization_id, program_id, track_id, email, full_name, phone,
-			github_url, linkedin_url, resume_url, current_stage, notes, created_at, updated_at,
+		RETURNING id, organization_id, program_id, track_id, email, full_name,
+			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
+			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
+			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(semester, ''), COALESCE(referral_source, ''),
+			current_stage, COALESCE(notes, ''), created_at, updated_at,
 			(xmax = 0) AS is_inserted
 	`
 	var res model.Applicant
 	var isInserted bool
 	err := r.pool.QueryRow(ctx, query,
-		a.OrganizationID, a.ProgramID, a.TrackID, a.Email, a.FullName, a.Phone,
-		a.GitHubURL, a.LinkedInURL, a.ResumeURL, a.CurrentStage, a.Notes,
+		a.OrganizationID, a.ProgramID, a.TrackID, a.Email, a.FullName, a.FirstName, a.LastName,
+		a.DateOfBirth, a.Phone, a.GitHubURL, a.LinkedInURL, a.ResumeURL, a.University, a.Major,
+		a.Semester, a.ReferralSource, a.CurrentStage, a.Notes,
 	).Scan(
-		&res.ID, &res.OrganizationID, &res.ProgramID, &res.TrackID, &res.Email, &res.FullName, &res.Phone,
-		&res.GitHubURL, &res.LinkedInURL, &res.ResumeURL, &res.CurrentStage, &res.Notes,
+		&res.ID, &res.OrganizationID, &res.ProgramID, &res.TrackID, &res.Email, &res.FullName,
+		&res.FirstName, &res.LastName, &res.DateOfBirth,
+		&res.Phone, &res.GitHubURL, &res.LinkedInURL,
+		&res.ResumeURL, &res.University, &res.Major,
+		&res.Semester, &res.ReferralSource,
+		&res.CurrentStage, &res.Notes,
 		&res.CreatedAt, &res.UpdatedAt, &isInserted,
 	)
 	if err != nil {
@@ -111,15 +134,23 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 	}
 
 	query := `
-		SELECT id, organization_id, program_id, track_id, email, full_name, phone,
-			github_url, linkedin_url, resume_url, current_stage, notes, created_at, updated_at
+		SELECT id, organization_id, program_id, track_id, email, full_name,
+			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
+			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
+			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(semester, ''), COALESCE(referral_source, ''),
+			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
 		WHERE id = $1
 	`
 	var a model.Applicant
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName, &a.Phone,
-		&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
+		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
+		&a.FirstName, &a.LastName, &a.DateOfBirth,
+		&a.Phone, &a.GitHubURL, &a.LinkedInURL,
+		&a.ResumeURL, &a.University, &a.Major,
+		&a.Semester, &a.ReferralSource,
+		&a.CurrentStage, &a.Notes,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -175,8 +206,12 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 	}
 
 	query := `
-		SELECT id, organization_id, program_id, track_id, email, full_name, phone,
-			github_url, linkedin_url, resume_url, current_stage, notes, created_at, updated_at
+		SELECT id, organization_id, program_id, track_id, email, full_name,
+			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
+			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
+			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(semester, ''), COALESCE(referral_source, ''),
+			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
 		WHERE program_id = $1 AND ($2 = '' OR current_stage = $2)
 		ORDER BY created_at DESC
@@ -191,8 +226,12 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 	for rows.Next() {
 		var a model.Applicant
 		if err := rows.Scan(
-			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName, &a.Phone,
-			&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
+			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
+			&a.FirstName, &a.LastName, &a.DateOfBirth,
+			&a.Phone, &a.GitHubURL, &a.LinkedInURL,
+			&a.ResumeURL, &a.University, &a.Major,
+			&a.Semester, &a.ReferralSource,
+			&a.CurrentStage, &a.Notes,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan: %w", err)
@@ -217,8 +256,11 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 	}
 
 	query := `
-		SELECT id, organization_id, program_id, track_id, email, full_name, COALESCE(phone, ''),
-			COALESCE(github_url, ''), COALESCE(linkedin_url, ''), COALESCE(resume_url, ''),
+		SELECT id, organization_id, program_id, track_id, email, full_name,
+			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
+			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
+			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
 		WHERE LOWER(email) = $1
@@ -234,8 +276,12 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 	for rows.Next() {
 		var a model.Applicant
 		if err := rows.Scan(
-			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName, &a.Phone,
-			&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
+			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
+			&a.FirstName, &a.LastName, &a.DateOfBirth,
+			&a.Phone, &a.GitHubURL, &a.LinkedInURL,
+			&a.ResumeURL, &a.University, &a.Major,
+			&a.Semester, &a.ReferralSource,
+			&a.CurrentStage, &a.Notes,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan by email: %w", err)

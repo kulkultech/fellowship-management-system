@@ -222,15 +222,23 @@ func (h *ProgramHandler) GetTrackDetail(w http.ResponseWriter, r *http.Request) 
 }
 
 type ApplyRequest struct {
-	TrackSlug   string `json:"track_slug,omitempty"`
-	TrackID     string `json:"track_id,omitempty"`
-	FullName    string `json:"full_name"`
-	Email       string `json:"email"`
-	Phone       string `json:"phone"`
-	GitHubURL   string `json:"github_url"`
-	LinkedInURL string `json:"linkedin_url"`
-	ResumeURL   string `json:"resume_url"`
-	Notes       string `json:"notes"`
+	TrackSlug      string `json:"track_slug,omitempty"`
+	TrackID        string `json:"track_id,omitempty"`
+	ChosenCourse   string `json:"chosen_course,omitempty"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	FullName       string `json:"full_name"`
+	DateOfBirth    string `json:"date_of_birth"`
+	Phone          string `json:"phone"`
+	Email          string `json:"email"`
+	LinkedInURL    string `json:"linkedin_url"`
+	University     string `json:"university"`
+	Major          string `json:"major"`
+	Semester       string `json:"semester"`
+	ReferralSource string `json:"referral_source"`
+	GitHubURL      string `json:"github_url"`
+	ResumeURL      string `json:"resume_url"`
+	Notes          string `json:"notes"`
 }
 
 type ApplyResponse struct {
@@ -273,11 +281,36 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
-	req.FullName = strings.TrimSpace(req.FullName)
+	req.Phone = strings.TrimSpace(req.Phone)
+	req.DateOfBirth = strings.TrimSpace(req.DateOfBirth)
+	req.University = strings.TrimSpace(req.University)
+	req.Major = strings.TrimSpace(req.Major)
+	req.Semester = strings.TrimSpace(req.Semester)
+	req.ReferralSource = strings.TrimSpace(req.ReferralSource)
+	req.ChosenCourse = strings.TrimSpace(req.ChosenCourse)
 
-	if req.Email == "" || req.FullName == "" {
-		httpx.Error(w, http.StatusBadRequest, "full name and email are required")
+	if req.FirstName == "" && req.FullName != "" {
+		parts := strings.Fields(req.FullName)
+		if len(parts) > 0 {
+			req.FirstName = parts[0]
+			if len(parts) > 1 {
+				req.LastName = strings.Join(parts[1:], " ")
+			}
+		}
+	}
+	if req.FullName == "" {
+		if req.FirstName != "" && req.LastName != "" {
+			req.FullName = req.FirstName + " " + req.LastName
+		} else if req.FirstName != "" {
+			req.FullName = req.FirstName
+		}
+	}
+
+	if req.FirstName == "" || req.LastName == "" || req.Email == "" || req.Phone == "" || req.DateOfBirth == "" || req.University == "" || req.Major == "" || req.Semester == "" || req.ReferralSource == "" {
+		httpx.Error(w, http.StatusBadRequest, "all mandatory fields (First Name, Last Name, Date of Birth, Phone, Email, University, Major, Semester, Referral Source) must be filled")
 		return
 	}
 
@@ -285,7 +318,13 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	var targetTrack *model.Track
 	activeTrackSlug := trackSlugURL
 	if activeTrackSlug == "" {
-		activeTrackSlug = req.TrackSlug
+		if strings.EqualFold(req.ChosenCourse, "Full Stack Developer") || strings.EqualFold(req.ChosenCourse, "Fullstack") {
+			activeTrackSlug = "fullstack"
+		} else if strings.EqualFold(req.ChosenCourse, "QA Automation") || strings.EqualFold(req.ChosenCourse, "QA") {
+			activeTrackSlug = "qa-automation"
+		} else {
+			activeTrackSlug = req.TrackSlug
+		}
 	}
 
 	if activeTrackSlug != "" {
@@ -321,10 +360,17 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		TrackID:        trackIDPtr,
 		Email:          req.Email,
 		FullName:       req.FullName,
+		FirstName:      req.FirstName,
+		LastName:       req.LastName,
+		DateOfBirth:    req.DateOfBirth,
 		Phone:          req.Phone,
 		GitHubURL:      req.GitHubURL,
 		LinkedInURL:    req.LinkedInURL,
 		ResumeURL:      req.ResumeURL,
+		University:     req.University,
+		Major:          req.Major,
+		Semester:       req.Semester,
+		ReferralSource: req.ReferralSource,
 		CurrentStage:   model.StageTestInProgress,
 		Notes:          req.Notes,
 	})
