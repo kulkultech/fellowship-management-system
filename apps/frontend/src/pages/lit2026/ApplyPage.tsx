@@ -14,7 +14,8 @@ import {
   User as UserIcon,
   Phone,
   CheckCircle2,
-  Sparkles,
+  Upload,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -34,6 +35,33 @@ export const ApplyPage: React.FC = () => {
     resumeUrl: '',
     notes: '',
   });
+  const [resumeFileName, setResumeFileName] = useState('');
+  const [resumeFileSize, setResumeFileSize] = useState('');
+
+  const handleResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Resume file size must be under 5MB');
+      return;
+    }
+
+    setResumeFileName(file.name);
+    setResumeFileSize((file.size / 1024).toFixed(1) + ' KB');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setFormData((prev) => ({ ...prev, resumeUrl: base64 }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveResume = () => {
+    setResumeFileName('');
+    setResumeFileSize('');
+    setFormData((prev) => ({ ...prev, resumeUrl: '' }));
+  };
 
   // Pre-fill from query params if passed from AuthModal
   useEffect(() => {
@@ -99,17 +127,13 @@ export const ApplyPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/60 flex flex-col">
-      <Navbar title="LIT 2026 Fellowship" subtitle="Remote Skills Academy Selection Funnel" />
+      <Navbar />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
         {/* Header Title Section */}
         <div className="mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 text-xs font-bold uppercase tracking-wider mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-            <span>Fast-Track Talent Intake</span>
-          </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-kulkul-purple tracking-tight">
-            LIT 2026 Fellowship Application
+            {program?.name || 'Fellowship Application'}
           </h1>
           <p className="mt-2 text-base text-slate-600">
             Submit your profile details below to immediately begin your timed logic & architecture assessment.
@@ -260,20 +284,52 @@ export const ApplyPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Resume / CV Link
+                  Resume / CV Document (Optional)
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <FileText className="w-4 h-4" />
+                {formData.resumeUrl ? (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="truncate">
+                        <div className="text-xs font-bold text-slate-900 truncate">{resumeFileName || 'Resume Document'}</div>
+                        <span className="text-2xs text-slate-500">{resumeFileSize ? `${resumeFileSize} • ` : ''}Ready to submit</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveResume}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-2xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 transition shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>Remove</span>
+                    </button>
                   </div>
-                  <input
-                    type="url"
-                    placeholder="https://drive.google.com/... or portfolio"
-                    value={formData.resumeUrl}
-                    onChange={(e) => setFormData({ ...formData, resumeUrl: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-light outline-none transition"
-                  />
-                </div>
+                ) : (
+                  <label className="flex items-center justify-between px-4 py-2 border border-dashed border-slate-300 hover:border-kulkul-purple rounded-xl cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition group">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-kulkul-purple shadow-2xs transition">
+                        <Upload className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 group-hover:text-kulkul-purple transition">
+                          Upload Resume / CV
+                        </div>
+                        <div className="text-2xs text-slate-400">PDF, DOC, DOCX up to 5MB</div>
+                      </div>
+                    </div>
+                    <span className="text-2xs font-bold text-kulkul-purple bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs group-hover:border-kulkul-purple/30 transition">
+                      Browse
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleResumeUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
             </div>
 

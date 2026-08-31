@@ -12,8 +12,6 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  title,
-  subtitle,
   showAdminNav = false,
 }) => {
   const { logout } = useAuth();
@@ -38,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-4">
               <Link to="/" className="flex items-center gap-3.5 group">
                 <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
-                {companyName ? (
+                {showAdminNav && companyName ? (
                   <span className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
                     {companyLogo && (
                       <img
@@ -52,11 +50,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                     <span>{companyName}</span>
                   </span>
-                ) : title ? (
-                  <div className="hidden sm:flex flex-col">
-                    <span className="font-extrabold text-kulkul-purple text-base leading-tight">{title}</span>
-                    {subtitle && <span className="text-2xs text-slate-500 font-medium">{subtitle}</span>}
-                  </div>
                 ) : null}
               </Link>
             </div>
