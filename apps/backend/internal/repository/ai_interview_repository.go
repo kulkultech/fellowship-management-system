@@ -36,6 +36,16 @@ func (r *AIInterviewRepository) CreateInvitation(
 	invitationToken string,
 	expiresAt time.Time,
 ) (*model.AIInterview, error) {
+	return r.CreateInvitationWithTrack(ctx, applicantID, programID, nil, invitationToken, expiresAt)
+}
+
+func (r *AIInterviewRepository) CreateInvitationWithTrack(
+	ctx context.Context,
+	applicantID, programID uuid.UUID,
+	trackID *uuid.UUID,
+	invitationToken string,
+	expiresAt time.Time,
+) (*model.AIInterview, error) {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -43,6 +53,7 @@ func (r *AIInterviewRepository) CreateInvitation(
 			ID:                  uuid.New(),
 			ApplicantID:         applicantID,
 			ProgramID:           programID,
+			TrackID:             trackID,
 			InvitationToken:     invitationToken,
 			InvitationExpiresAt: expiresAt,
 			Transcript:          []model.ChatMessage{},
@@ -58,22 +69,22 @@ func (r *AIInterviewRepository) CreateInvitation(
 
 	query := `
 		INSERT INTO ai_interviews (
-			applicant_id, program_id, invitation_token, invitation_expires_at,
+			applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
 			transcript, scorecard_score, recording_status, status,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, '[]'::jsonb, 0, 'pending', 'invited', now(), now())
+		) VALUES ($1, $2, $3, $4, $5, '[]'::jsonb, 0, 'pending', 'invited', now(), now())
 		ON CONFLICT (invitation_token) DO UPDATE SET
 			invitation_expires_at = EXCLUDED.invitation_expires_at,
 			updated_at = now()
-		RETURNING id, applicant_id, program_id, invitation_token, invitation_expires_at,
+		RETURNING id, applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
 			recording_status, recording_url, status, created_at, updated_at
 	`
 	var ai model.AIInterview
 	var rawTranscript []byte
 	var rawSummary []byte
-	err := r.pool.QueryRow(ctx, query, applicantID, programID, invitationToken, expiresAt).Scan(
-		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.InvitationToken, &ai.InvitationExpiresAt,
+	err := r.pool.QueryRow(ctx, query, applicantID, programID, trackID, invitationToken, expiresAt).Scan(
+		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID, &ai.InvitationToken, &ai.InvitationExpiresAt,
 		&ai.StartedAt, &ai.CompletedAt, &rawTranscript, &rawSummary, &ai.ScorecardScore,
 		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt,
 	)
@@ -96,7 +107,7 @@ func (r *AIInterviewRepository) GetByToken(ctx context.Context, token string) (*
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, invitation_token, invitation_expires_at,
+		SELECT id, applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
 			recording_status, recording_url, status, created_at, updated_at
 		FROM ai_interviews
@@ -106,7 +117,7 @@ func (r *AIInterviewRepository) GetByToken(ctx context.Context, token string) (*
 	var rawTranscript []byte
 	var rawSummary []byte
 	err := r.pool.QueryRow(ctx, query, token).Scan(
-		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.InvitationToken, &ai.InvitationExpiresAt,
+		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID, &ai.InvitationToken, &ai.InvitationExpiresAt,
 		&ai.StartedAt, &ai.CompletedAt, &rawTranscript, &rawSummary, &ai.ScorecardScore,
 		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt,
 	)
@@ -141,7 +152,7 @@ func (r *AIInterviewRepository) GetByApplicantID(ctx context.Context, applicantI
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, invitation_token, invitation_expires_at,
+		SELECT id, applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
 			recording_status, recording_url, status, created_at, updated_at
 		FROM ai_interviews
@@ -153,7 +164,7 @@ func (r *AIInterviewRepository) GetByApplicantID(ctx context.Context, applicantI
 	var rawTranscript []byte
 	var rawSummary []byte
 	err := r.pool.QueryRow(ctx, query, applicantID).Scan(
-		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.InvitationToken, &ai.InvitationExpiresAt,
+		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID, &ai.InvitationToken, &ai.InvitationExpiresAt,
 		&ai.StartedAt, &ai.CompletedAt, &rawTranscript, &rawSummary, &ai.ScorecardScore,
 		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt,
 	)

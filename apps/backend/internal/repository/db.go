@@ -89,10 +89,30 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_instructions TEXT;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_questions JSONB NOT NULL DEFAULT '[]'::jsonb;
 
+	CREATE TABLE IF NOT EXISTS program_tracks (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		slug VARCHAR(64) NOT NULL,
+		name VARCHAR(255) NOT NULL,
+		description TEXT,
+		enable_mcq BOOLEAN NOT NULL DEFAULT true,
+		logic_test_duration_minutes INT NOT NULL DEFAULT 35,
+		logic_test_passing_score INT NOT NULL DEFAULT 70,
+		allow_retake BOOLEAN NOT NULL DEFAULT false,
+		enable_ai_interview BOOLEAN NOT NULL DEFAULT true,
+		ai_interview_instructions TEXT,
+		ai_interview_questions JSONB NOT NULL DEFAULT '[]'::jsonb,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		CONSTRAINT uq_program_track_slug UNIQUE (program_id, slug)
+	);
+	CREATE INDEX IF NOT EXISTS idx_tracks_program ON program_tracks(program_id);
+
 	CREATE TABLE IF NOT EXISTS applicants (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL,
 		email VARCHAR(255) NOT NULL,
 		full_name VARCHAR(255) NOT NULL,
 		phone VARCHAR(64),
@@ -105,7 +125,9 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 		CONSTRAINT uq_program_applicant_email UNIQUE (program_id, email)
 	);
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL;
 	CREATE INDEX IF NOT EXISTS idx_applicants_program ON applicants(program_id);
+	CREATE INDEX IF NOT EXISTS idx_applicants_track ON applicants(track_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_stage ON applicants(current_stage);
 
 	CREATE TABLE IF NOT EXISTS mcq_questions (
@@ -122,12 +144,15 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	);
 	CREATE INDEX IF NOT EXISTS idx_mcq_program ON mcq_questions(program_id);
 
+	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE CASCADE;
 	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+	CREATE INDEX IF NOT EXISTS idx_mcq_track ON mcq_questions(track_id);
 
 	CREATE TABLE IF NOT EXISTS test_submissions (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		applicant_id UUID NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
 		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL,
 		test_token VARCHAR(128) UNIQUE NOT NULL,
 		status VARCHAR(32) NOT NULL DEFAULT 'in_progress',
 		started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -143,13 +168,16 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_submissions_token ON test_submissions(test_token);
 	CREATE INDEX IF NOT EXISTS idx_submissions_applicant ON test_submissions(applicant_id);
 
+	ALTER TABLE test_submissions ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL;
 	ALTER TABLE test_submissions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;
 	ALTER TABLE test_submissions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+	CREATE INDEX IF NOT EXISTS idx_submissions_track ON test_submissions(track_id);
 
 	CREATE TABLE IF NOT EXISTS ai_interviews (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		applicant_id UUID NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
 		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL,
 		invite_token VARCHAR(128),
 		invitation_token VARCHAR(128),
 		status VARCHAR(32) NOT NULL DEFAULT 'invited',
@@ -168,10 +196,12 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_ai_interviews_token ON ai_interviews(invite_token);
 	CREATE INDEX IF NOT EXISTS idx_ai_interviews_applicant ON ai_interviews(applicant_id);
 
+	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE SET NULL;
 	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS invitation_token VARCHAR(128);
 	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS invitation_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '7 days');
 	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS recording_status VARCHAR(32) NOT NULL DEFAULT 'pending';
 	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS recording_url TEXT;
+	CREATE INDEX IF NOT EXISTS idx_ai_interviews_track ON ai_interviews(track_id);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_interviews_invitation_token ON ai_interviews(invitation_token) WHERE invitation_token IS NOT NULL;
 	`
 

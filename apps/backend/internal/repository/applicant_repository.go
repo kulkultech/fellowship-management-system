@@ -37,6 +37,9 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		for _, app := range r.memApplicants {
 			if app.ProgramID == a.ProgramID && app.Email == a.Email {
 				app.FullName = a.FullName
+				if a.TrackID != nil {
+					app.TrackID = a.TrackID
+				}
 				if a.Phone != "" {
 					app.Phone = a.Phone
 				}
@@ -64,28 +67,29 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 
 	query := `
 		INSERT INTO applicants (
-			organization_id, program_id, email, full_name, phone,
+			organization_id, program_id, track_id, email, full_name, phone,
 			github_url, linkedin_url, resume_url, current_stage, notes,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now())
 		ON CONFLICT (program_id, email) DO UPDATE SET
 			full_name = EXCLUDED.full_name,
+			track_id = COALESCE(EXCLUDED.track_id, applicants.track_id),
 			phone = COALESCE(NULLIF(EXCLUDED.phone, ''), applicants.phone),
 			github_url = COALESCE(NULLIF(EXCLUDED.github_url, ''), applicants.github_url),
 			linkedin_url = COALESCE(NULLIF(EXCLUDED.linkedin_url, ''), applicants.linkedin_url),
 			resume_url = COALESCE(NULLIF(EXCLUDED.resume_url, ''), applicants.resume_url),
 			updated_at = now()
-		RETURNING id, organization_id, program_id, email, full_name, phone,
+		RETURNING id, organization_id, program_id, track_id, email, full_name, phone,
 			github_url, linkedin_url, resume_url, current_stage, notes, created_at, updated_at,
 			(xmax = 0) AS is_inserted
 	`
 	var res model.Applicant
 	var isInserted bool
 	err := r.pool.QueryRow(ctx, query,
-		a.OrganizationID, a.ProgramID, a.Email, a.FullName, a.Phone,
+		a.OrganizationID, a.ProgramID, a.TrackID, a.Email, a.FullName, a.Phone,
 		a.GitHubURL, a.LinkedInURL, a.ResumeURL, a.CurrentStage, a.Notes,
 	).Scan(
-		&res.ID, &res.OrganizationID, &res.ProgramID, &res.Email, &res.FullName, &res.Phone,
+		&res.ID, &res.OrganizationID, &res.ProgramID, &res.TrackID, &res.Email, &res.FullName, &res.Phone,
 		&res.GitHubURL, &res.LinkedInURL, &res.ResumeURL, &res.CurrentStage, &res.Notes,
 		&res.CreatedAt, &res.UpdatedAt, &isInserted,
 	)
@@ -107,14 +111,14 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 	}
 
 	query := `
-		SELECT id, organization_id, program_id, email, full_name, phone,
+		SELECT id, organization_id, program_id, track_id, email, full_name, phone,
 			github_url, linkedin_url, resume_url, current_stage, notes, created_at, updated_at
 		FROM applicants
 		WHERE id = $1
 	`
 	var a model.Applicant
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&a.ID, &a.OrganizationID, &a.ProgramID, &a.Email, &a.FullName, &a.Phone,
+		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName, &a.Phone,
 		&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
@@ -171,7 +175,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 	}
 
 	query := `
-		SELECT id, organization_id, program_id, email, full_name, phone,
+		SELECT id, organization_id, program_id, track_id, email, full_name, phone,
 			github_url, linkedin_url, resume_url, current_stage, notes, created_at, updated_at
 		FROM applicants
 		WHERE program_id = $1 AND ($2 = '' OR current_stage = $2)
@@ -187,7 +191,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 	for rows.Next() {
 		var a model.Applicant
 		if err := rows.Scan(
-			&a.ID, &a.OrganizationID, &a.ProgramID, &a.Email, &a.FullName, &a.Phone,
+			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName, &a.Phone,
 			&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
@@ -213,7 +217,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 	}
 
 	query := `
-		SELECT id, organization_id, program_id, email, full_name, COALESCE(phone, ''),
+		SELECT id, organization_id, program_id, track_id, email, full_name, COALESCE(phone, ''),
 			COALESCE(github_url, ''), COALESCE(linkedin_url, ''), COALESCE(resume_url, ''),
 			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
@@ -230,7 +234,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 	for rows.Next() {
 		var a model.Applicant
 		if err := rows.Scan(
-			&a.ID, &a.OrganizationID, &a.ProgramID, &a.Email, &a.FullName, &a.Phone,
+			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName, &a.Phone,
 			&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {

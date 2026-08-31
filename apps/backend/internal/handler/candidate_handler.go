@@ -17,6 +17,9 @@ type CandidateApplicationItem struct {
 	ProgramID        string               `json:"program_id"`
 	ProgramSlug      string               `json:"program_slug"`
 	ProgramName      string               `json:"program_name"`
+	TrackID          string               `json:"track_id,omitempty"`
+	TrackSlug        string               `json:"track_slug,omitempty"`
+	TrackName        string               `json:"track_name,omitempty"`
 	OrganizationID   string               `json:"organization_id"`
 	OrgSlug          string               `json:"org_slug"`
 	OrgName          string               `json:"org_name"`
@@ -35,6 +38,7 @@ type CandidateApplicationItem struct {
 type CandidateHandler struct {
 	orgRepo         *repository.OrgRepository
 	programRepo     *repository.ProgramRepository
+	trackRepo       *repository.TrackRepository
 	applicantRepo   *repository.ApplicantRepository
 	submissionRepo  *repository.SubmissionRepository
 	aiInterviewRepo *repository.AIInterviewRepository
@@ -43,6 +47,7 @@ type CandidateHandler struct {
 func NewCandidateHandler(
 	orgRepo *repository.OrgRepository,
 	programRepo *repository.ProgramRepository,
+	trackRepo *repository.TrackRepository,
 	applicantRepo *repository.ApplicantRepository,
 	submissionRepo *repository.SubmissionRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
@@ -50,6 +55,7 @@ func NewCandidateHandler(
 	return &CandidateHandler{
 		orgRepo:         orgRepo,
 		programRepo:     programRepo,
+		trackRepo:       trackRepo,
 		applicantRepo:   applicantRepo,
 		submissionRepo:  submissionRepo,
 		aiInterviewRepo: aiInterviewRepo,
@@ -85,6 +91,17 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 			orgLogo = org.LogoURL
 		}
 
+		trackID := ""
+		trackSlug := ""
+		trackName := ""
+		if app.TrackID != nil {
+			if tr, err := h.trackRepo.GetByID(r.Context(), *app.TrackID); err == nil && tr != nil {
+				trackID = tr.ID.String()
+				trackSlug = tr.Slug
+				trackName = tr.Name
+			}
+		}
+
 		item := CandidateApplicationItem{
 			ApplicantID:    app.ID.String(),
 			Email:          app.Email,
@@ -93,6 +110,9 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 			ProgramID:      program.ID.String(),
 			ProgramSlug:    program.Slug,
 			ProgramName:    program.Name,
+			TrackID:        trackID,
+			TrackSlug:      trackSlug,
+			TrackName:      trackName,
 			OrganizationID: app.OrganizationID.String(),
 			OrgSlug:        orgSlug,
 			OrgName:        orgName,

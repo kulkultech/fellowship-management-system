@@ -17,17 +17,20 @@ type AIInterviewHandler struct {
 	aiInterviewRepo *repository.AIInterviewRepository
 	applicantRepo   *repository.ApplicantRepository
 	programRepo     *repository.ProgramRepository
+	trackRepo       *repository.TrackRepository
 }
 
 func NewAIInterviewHandler(
 	aiInterviewRepo *repository.AIInterviewRepository,
 	applicantRepo *repository.ApplicantRepository,
 	programRepo *repository.ProgramRepository,
+	trackRepo *repository.TrackRepository,
 ) *AIInterviewHandler {
 	return &AIInterviewHandler{
 		aiInterviewRepo: aiInterviewRepo,
 		applicantRepo:   applicantRepo,
 		programRepo:     programRepo,
+		trackRepo:       trackRepo,
 	}
 }
 
@@ -35,6 +38,7 @@ type AIInterviewSessionResponse struct {
 	InterviewID         string                   `json:"interview_id"`
 	ApplicantName       string                   `json:"applicant_name"`
 	ProgramName         string                   `json:"program_name"`
+	TrackName           string                   `json:"track_name,omitempty"`
 	Status              model.AIInterviewStatus  `json:"status"`
 	InvitationExpiresAt time.Time                `json:"invitation_expires_at"`
 	Transcript          []model.ChatMessage      `json:"transcript"`
@@ -67,16 +71,31 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// If transcript is empty, seed with first question from company's configured questions
+	displayName := program.Name
+	trackName := ""
+	var trackQuestions []string
+
+	if ai.TrackID != nil {
+		track, err := h.trackRepo.GetByID(r.Context(), *ai.TrackID)
+		if err == nil && track != nil {
+			trackName = track.Name
+			displayName = fmt.Sprintf("%s - %s", program.Name, track.Name)
+			trackQuestions = track.AIInterviewQuestions
+		}
+	}
+
+	// If transcript is empty, seed with first question from track/program configured questions
 	if len(ai.Transcript) == 0 {
 		firstQ := "Could you briefly introduce yourself and share a recent technical challenge you solved?"
-		if len(program.AIInterviewQuestions) > 0 && program.AIInterviewQuestions[0] != "" {
+		if len(trackQuestions) > 0 && trackQuestions[0] != "" {
+			firstQ = trackQuestions[0]
+		} else if len(program.AIInterviewQuestions) > 0 && program.AIInterviewQuestions[0] != "" {
 			firstQ = program.AIInterviewQuestions[0]
 		}
 
 		initialMsg := model.ChatMessage{
 			Role:      "ai",
-			Message:   fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this program.\n\nTo begin: %s", applicant.FullName, program.Name, firstQ),
+			Message:   fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this specialization track.\n\nTo begin: %s", applicant.FullName, displayName, firstQ),
 			Timestamp: time.Now(),
 		}
 		ai.Transcript = append(ai.Transcript, initialMsg)
@@ -87,7 +106,8 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 	httpx.JSON(w, http.StatusOK, AIInterviewSessionResponse{
 		InterviewID:         ai.ID.String(),
 		ApplicantName:       applicant.FullName,
-		ProgramName:         program.Name,
+		ProgramName:         displayName,
+		TrackName:           trackName,
 		Status:              ai.Status,
 		InvitationExpiresAt: ai.InvitationExpiresAt,
 		Transcript:          ai.Transcript,
@@ -150,7 +170,12 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		"When collaborating on high-velocity projects with tight deadlines, how do you balance code quality against speed of shipping?",
 		"If you were asked to design an asynchronous job queue for high throughput, what key resilience measures would you include?",
 	}
-	if program != nil && len(program.AIInterviewQuestions) > 0 {
+
+	if ai.TrackID != nil {
+		if track, err := h.trackRepo.GetByID(r.Context(), *ai.TrackID); err == nil && track != nil && len(track.AIInterviewQuestions) > 0 {
+			questions = track.AIInterviewQuestions
+		}
+	} else if program != nil && len(program.AIInterviewQuestions) > 0 {
 		questions = program.AIInterviewQuestions
 	}
 
@@ -174,10 +199,10 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 			Communication:    9,
 			ProblemSolving:   8,
 			OverallScore:     88,
-			KeyStrengths:     []string{"Clear structured technical communication", "Thorough problem-solving approach", "Strong architectural awareness"},
+			KeyStrengths:     []string{"Clear structured technical communication", "Thorough problem-solving approach", "Strong domain knowledge"},
 			AreasForGrowth:   []string{"Could discuss more edge-case failure modes in depth"},
 			Recommendation:   "Strong Hire",
-			ExecutiveSummary: "Candidate effectively answered all company-configured interview questions with solid domain knowledge, clear explanations, and pragmatic engineering trade-offs.",
+			ExecutiveSummary: "Candidate effectively answered all track-configured interview questions with solid domain knowledge, clear explanations, and pragmatic engineering trade-offs.",
 		}
 		score = 88
 

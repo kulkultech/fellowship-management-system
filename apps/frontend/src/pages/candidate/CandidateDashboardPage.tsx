@@ -24,6 +24,9 @@ interface CandidateApplicationItem {
   program_id: string;
   program_slug: string;
   program_name: string;
+  track_id?: string;
+  track_slug?: string;
+  track_name?: string;
   organization_id: string;
   org_slug: string;
   org_name: string;
@@ -264,8 +267,13 @@ export const CandidateDashboardPage: React.FC = () => {
                             )}
                           </div>
                           <div>
-                            <div className="flex items-center gap-3 mb-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
                               <h3 className="text-xl font-bold text-slate-900">{app.program_name}</h3>
+                              {app.track_name && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                                  {app.track_name}
+                                </span>
+                              )}
                               {getStageBadge(app.current_stage, app.test_passed)}
                             </div>
                             <p className="text-xs text-slate-500">

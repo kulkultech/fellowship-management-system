@@ -9,6 +9,24 @@ export interface Organization {
   updated_at?: string;
 }
 
+export interface Track {
+  id: string;
+  program_id?: string;
+  slug: string;
+  name: string;
+  description?: string;
+  enable_mcq: boolean;
+  logic_test_duration_minutes: number;
+  logic_test_passing_score: number;
+  allow_retake: boolean;
+  enable_ai_interview: boolean;
+  ai_interview_instructions?: string;
+  ai_interview_questions?: string[];
+  question_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Program {
   id: string;
   organization_id?: string;
@@ -27,6 +45,7 @@ export interface Program {
   ai_interview_questions?: string[];
   status?: string;
   is_open?: boolean;
+  tracks?: Track[];
 }
 
 export interface ProgramPublicInfo {
@@ -34,7 +53,24 @@ export interface ProgramPublicInfo {
   program: Program;
 }
 
+export interface TrackDetailPublicResponse {
+  organization: Organization;
+  program: {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    image_url?: string;
+    open_date: string;
+    end_date: string;
+    is_open: boolean;
+  };
+  track: Track;
+}
+
 export interface ApplyRequest {
+  track_slug?: string;
+  track_id?: string;
   full_name: string;
   email: string;
   phone?: string;
@@ -60,6 +96,7 @@ export interface MCQOption {
 export interface MCQQuestion {
   id?: string;
   program_id?: string;
+  track_id?: string;
   category: string;
   question_text: string;
   options: MCQOption[];
@@ -79,6 +116,7 @@ export interface ClientQuestion {
 export interface TestSession {
   submission_id: string;
   program_name: string;
+  track_name?: string;
   duration_minutes: number;
   started_at: string;
   expires_at: string;
@@ -106,6 +144,7 @@ export interface TestResultResponse {
   submission_id: string;
   applicant_name: string;
   program_name: string;
+  track_name?: string;
   total_score: number;
   passing_score: number;
   passed: boolean;
@@ -136,6 +175,7 @@ export interface AIInterviewSession {
   interview_id: string;
   applicant_name: string;
   program_name: string;
+  track_name?: string;
   status: 'invited' | 'in_progress' | 'completed' | 'expired';
   invitation_expires_at: string;
   transcript: ChatMessage[];
@@ -185,6 +225,8 @@ export interface ApplicantListItem {
   github_url: string;
   linkedin_url: string;
   resume_url: string;
+  track_id?: string;
+  track_name?: string;
   current_stage: string;
   mcq_score?: number;
   mcq_passed?: boolean;
@@ -221,6 +263,12 @@ export interface ApplicantDetailResponse {
     notes?: string;
     created_at: string;
   };
+  track?: {
+    id: string;
+    slug: string;
+    name: string;
+    description?: string;
+  };
   submission?: {
     id: string;
     total_score: number;
@@ -231,5 +279,31 @@ export interface ApplicantDetailResponse {
     submitted_at: string;
     answers: ItemizedQuestionAnswer[];
   };
-  ai_interview?: AIInterviewSession;
+  ai_screen?: AIInterviewSession;
+}
+
+export interface CandidateApplicationItem {
+  applicant_id: string;
+  email: string;
+  full_name: string;
+  current_stage: string;
+  program_id: string;
+  program_slug: string;
+  program_name: string;
+  track_id?: string;
+  track_slug?: string;
+  track_name?: string;
+  organization_id: string;
+  org_slug: string;
+  org_name: string;
+  org_logo_url?: string;
+  test_token?: string;
+  test_score: number;
+  test_passed: boolean;
+  test_status?: string;
+  time_spent_seconds: number;
+  interview_token?: string;
+  interview_status?: string;
+  interview_score: number;
+  created_at: string;
 }

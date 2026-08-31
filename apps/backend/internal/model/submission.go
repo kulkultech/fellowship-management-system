@@ -24,6 +24,7 @@ type TestSubmission struct {
 	ID               uuid.UUID         `json:"id"`
 	ApplicantID      uuid.UUID         `json:"applicant_id"`
 	ProgramID        uuid.UUID         `json:"program_id"`
+	TrackID          *uuid.UUID        `json:"track_id,omitempty"`
 	TestToken        string            `json:"test_token"`
 	StartedAt        time.Time         `json:"started_at"`
 	SubmittedAt      *time.Time        `json:"submitted_at,omitempty"`

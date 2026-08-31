@@ -23,6 +23,7 @@ type Applicant struct {
 	ID             uuid.UUID      `json:"id"`
 	OrganizationID uuid.UUID      `json:"organization_id"`
 	ProgramID      uuid.UUID      `json:"program_id"`
+	TrackID        *uuid.UUID     `json:"track_id,omitempty"`
 	Email          string         `json:"email"`
 	FullName       string         `json:"full_name"`
 	Phone          string         `json:"phone,omitempty"`

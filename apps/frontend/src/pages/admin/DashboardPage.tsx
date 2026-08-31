@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminService, type CreateProgramPayload } from '@/services/adminService';
+import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
 import { programService } from '@/services/programService';
 import { Navbar } from '@/components/Navbar';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import type { MCQQuestion } from '@/services/types';
+import type { MCQQuestion, Track } from '@/services/types';
 import {
   Users,
   Search,
@@ -13,7 +13,6 @@ import {
   X,
   ExternalLink,
   Check,
-  Sliders,
   Plus,
   Clock,
   Copy,
@@ -22,6 +21,9 @@ import {
   Trash2,
   HelpCircle,
   Bot,
+  Layers,
+  Award,
+  Edit3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,18 +32,20 @@ export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const isSuperadmin = user?.role === 'superadmin';
 
-  // Navigation View: 'pipeline' (Reviewing candidates) | 'companies' (Superadmin Approvals) | 'questions' (Google Form Builder)
-  const [currentView, setCurrentView] = useState<'pipeline' | 'companies' | 'questions'>('pipeline');
+  // Navigation View: 'pipeline' | 'tracks' | 'companies' | 'questions'
+  const [currentView, setCurrentView] = useState<'pipeline' | 'tracks' | 'companies' | 'questions'>('pipeline');
 
   const [selectedStage, setSelectedStage] = useState<string>('');
+  const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile'>('answers');
 
   // Modals
-  const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isCreateProgramModalOpen, setIsCreateProgramModalOpen] = useState(false);
   const [isQuestionBuilderOpen, setIsQuestionBuilderOpen] = useState(false);
+  const [isCreateTrackModalOpen, setIsCreateTrackModalOpen] = useState(false);
+  const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   // Active Program selection
@@ -67,52 +71,46 @@ export const DashboardPage: React.FC = () => {
   const program = programData?.program;
   const programId = program?.id;
 
-  // Pipeline Config State
-  const [enableMCQ, setEnableMCQ] = useState(true);
-  const [enableAI, setEnableAI] = useState(true);
-  const [configDuration, setConfigDuration] = useState<number>(30);
-  const [configPassingScore, setConfigPassingScore] = useState<number>(70);
-  const [configAllowRetake, setConfigAllowRetake] = useState<boolean>(false);
-  const [aiInstructions, setAiInstructions] = useState('');
-  const [aiQuestions, setAiQuestions] = useState<string[]>([]);
-  const [newAiQuestionInput, setNewAiQuestionInput] = useState('');
-
-  // Sync pipeline config when program loads
-  React.useEffect(() => {
-    if (program) {
-      setEnableMCQ(program.enable_mcq ?? true);
-      setEnableAI(program.enable_ai_interview ?? true);
-      setConfigDuration(program.logic_test_duration_minutes || 30);
-      setConfigPassingScore(program.logic_test_passing_score || 70);
-      setConfigAllowRetake(program.allow_retake || false);
-      setAiInstructions(program.ai_interview_instructions || '');
-      setAiQuestions(
-        program.ai_interview_questions && program.ai_interview_questions.length > 0
-          ? program.ai_interview_questions
-          : [
-              'Can you describe how you would design a scalable distributed job queue?',
-              'What are the pros and cons of using optimistic vs pessimistic locking in databases?',
-              'How do you handle graceful degradation when downstream APIs experience high latency?',
-            ]
-      );
-    }
-  }, [program]);
-
-  // Load Program MCQ Question Bank
-  const { data: questionBank = [], refetch: refetchQuestions } = useQuery({
-    queryKey: ['admin-program-questions', programId],
-    queryFn: () => (programId ? adminService.listProgramQuestions(programId) : Promise.resolve([])),
+  // Load Program Tracks
+  const { data: programTracks = [], refetch: refetchTracks } = useQuery({
+    queryKey: ['admin-program-tracks', programId],
+    queryFn: () => (programId ? adminService.listProgramTracks(programId) : Promise.resolve([])),
     enabled: !!programId,
+  });
+
+  // Selected Track for Question Builder (defaults to first track if available)
+  const [selectedTrackIdForQuestions, setSelectedTrackIdForQuestions] = useState<string>('');
+
+  React.useEffect(() => {
+    if (programTracks.length > 0 && !selectedTrackIdForQuestions) {
+      setSelectedTrackIdForQuestions(programTracks[0].id);
+    }
+  }, [programTracks, selectedTrackIdForQuestions]);
+
+
+
+  // Load MCQ Question Bank (Track-specific or Program fallback)
+  const { data: trackQuestionBank = [], refetch: refetchTrackQuestions } = useQuery({
+    queryKey: ['admin-track-questions', selectedTrackIdForQuestions],
+    queryFn: () =>
+      selectedTrackIdForQuestions
+        ? adminService.listTrackQuestions(selectedTrackIdForQuestions)
+        : programId
+        ? adminService.listProgramQuestions(programId)
+        : Promise.resolve([]),
+    enabled: !!selectedTrackIdForQuestions || !!programId,
   });
 
   // Local Editable Question Bank State (Google Form Style)
   const [editingQuestions, setEditingQuestions] = useState<MCQQuestion[]>([]);
 
   React.useEffect(() => {
-    if (questionBank.length > 0) {
-      setEditingQuestions(JSON.parse(JSON.stringify(questionBank)));
+    if (trackQuestionBank.length > 0) {
+      setEditingQuestions(JSON.parse(JSON.stringify(trackQuestionBank)));
+    } else {
+      setEditingQuestions([]);
     }
-  }, [questionBank]);
+  }, [trackQuestionBank, selectedTrackIdForQuestions]);
 
   // Superadmin: Load Companies list
   const { data: companiesList = [], refetch: refetchCompanies } = useQuery({
@@ -132,6 +130,23 @@ export const DashboardPage: React.FC = () => {
   const [newProgEnableAI, setNewProgEnableAI] = useState(true);
   const [newProgDuration, setNewProgDuration] = useState(30);
   const [newProgPassingScore, setNewProgPassingScore] = useState(70);
+
+  // Track Form State (Create / Edit)
+  const [trackForm, setTrackForm] = useState<CreateTrackPayload>({
+    name: '',
+    slug: '',
+    description: '',
+    enable_mcq: true,
+    logic_test_duration_minutes: 35,
+    logic_test_passing_score: 70,
+    allow_retake: false,
+    enable_ai_interview: true,
+    ai_interview_instructions: '',
+    ai_interview_questions: [
+      'Describe a challenging project you built in this domain.',
+      'How do you approach debugging complex edge-cases and performance bottlenecks?',
+    ],
+  });
 
   const getPublicProgramUrl = (slug: string = activeProgramSlug) => {
     return `${window.location.origin}/programs/${orgSlug}/${slug}`;
@@ -159,32 +174,15 @@ export const DashboardPage: React.FC = () => {
     enabled: !!selectedApplicantId,
   });
 
-  // Mutations
-  const updatePipelineMutation = useMutation({
-    mutationFn: (payload: {
-      enable_mcq: boolean;
-      logic_test_duration_minutes: number;
-      logic_test_passing_score: number;
-      allow_retake: boolean;
-      enable_ai_interview: boolean;
-      ai_interview_instructions: string;
-      ai_interview_questions: string[];
-    }) => adminService.updatePipelineConfig(programId!, payload),
-    onSuccess: () => {
-      toast.success('Assessment pipeline configured successfully!');
-      queryClient.invalidateQueries({ queryKey: ['program', orgSlug, activeProgramSlug] });
-      setIsPipelineModalOpen(false);
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to save pipeline configuration');
-    },
-  });
-
   const saveQuestionsMutation = useMutation({
-    mutationFn: (questions: MCQQuestion[]) => adminService.saveProgramQuestions(programId!, questions),
+    mutationFn: (questions: MCQQuestion[]) =>
+      selectedTrackIdForQuestions
+        ? adminService.saveTrackQuestions(selectedTrackIdForQuestions, questions)
+        : adminService.saveProgramQuestions(programId!, questions),
     onSuccess: () => {
       toast.success('Question bank saved successfully!');
-      refetchQuestions();
+      refetchTrackQuestions();
+      refetchTracks();
       setIsQuestionBuilderOpen(false);
     },
     onError: (err: any) => {
@@ -199,7 +197,6 @@ export const DashboardPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       setActiveProgramSlug(newProg.slug);
       setIsCreateProgramModalOpen(false);
-      // Reset form
       setNewProgSlug('');
       setNewProgName('');
       setNewProgDesc('');
@@ -207,6 +204,41 @@ export const DashboardPage: React.FC = () => {
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || 'Failed to create program');
     },
+  });
+
+  // Track Mutations
+  const createTrackMutation = useMutation({
+    mutationFn: (payload: CreateTrackPayload) => adminService.createProgramTrack(programId!, payload),
+    onSuccess: (newTrack) => {
+      toast.success(`Track "${newTrack.name}" created successfully!`);
+      refetchTracks();
+      setIsCreateTrackModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to create track');
+    },
+  });
+
+  const updateTrackMutation = useMutation({
+    mutationFn: ({ trackId, payload }: { trackId: string; payload: CreateTrackPayload }) =>
+      adminService.updateTrack(trackId, payload),
+    onSuccess: (updated) => {
+      toast.success(`Track "${updated.name}" updated!`);
+      refetchTracks();
+      setEditingTrack(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to update track');
+    },
+  });
+
+  const deleteTrackMutation = useMutation({
+    mutationFn: (trackId: string) => adminService.deleteTrack(trackId),
+    onSuccess: () => {
+      toast.success('Track removed');
+      refetchTracks();
+    },
+    onError: () => toast.error('Failed to delete track'),
   });
 
   const updateStageMutation = useMutation({
@@ -241,14 +273,15 @@ export const DashboardPage: React.FC = () => {
   // Filtered applicants
   const filteredApplicants = applicants.filter((a) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       a.full_name.toLowerCase().includes(query) ||
       a.email.toLowerCase().includes(query) ||
-      a.current_stage.toLowerCase().includes(query)
-    );
+      a.current_stage.toLowerCase().includes(query);
+    const matchesTrack = selectedTrackFilter ? a.track_id === selectedTrackFilter : true;
+    return matchesSearch && matchesTrack;
   });
 
-  // Helper question management in Google Form builder
+  // Question manipulation in Google Form builder
   const handleAddQuestion = () => {
     const newQ: MCQQuestion = {
       category: 'Technical Problem Solving',
@@ -303,16 +336,7 @@ export const DashboardPage: React.FC = () => {
     setEditingQuestions(updated);
   };
 
-  const handleAddAiQuestion = () => {
-    if (newAiQuestionInput.trim()) {
-      setAiQuestions([...aiQuestions, newAiQuestionInput.trim()]);
-      setNewAiQuestionInput('');
-    }
-  };
 
-  const handleRemoveAiQuestion = (idx: number) => {
-    setAiQuestions(aiQuestions.filter((_, i) => i !== idx));
-  };
 
   const pendingCompaniesCount = companiesList.filter((c) => c.status === 'pending_approval').length;
 
@@ -340,6 +364,8 @@ export const DashboardPage: React.FC = () => {
         return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">{stage}</span>;
     }
   };
+
+  const activeTrackObj = programTracks.find((t) => t.id === selectedTrackIdForQuestions);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -371,15 +397,19 @@ export const DashboardPage: React.FC = () => {
                   <span className="px-2.5 py-0.5 rounded-full bg-kulkul-purple text-white text-2xs font-bold uppercase tracking-wider">
                     {companyName}
                   </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold flex items-center gap-1">
+                    <Layers className="w-3 h-3" />
+                    {programTracks.length} Specialization Tracks
+                  </span>
                   {program?.enable_mcq && (
                     <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-2xs font-bold">
-                      MCQ Stage On
+                      MCQ Engine On
                     </span>
                   )}
                   {program?.enable_ai_interview && (
                     <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-2xs font-bold flex items-center gap-1">
                       <Bot className="w-3 h-3" />
-                      AI Interviewer On
+                      AI Screener On
                     </span>
                   )}
                 </div>
@@ -423,27 +453,18 @@ export const DashboardPage: React.FC = () => {
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Copy Candidate Link</span>
+                    <span>Copy Program Link</span>
                   </>
                 )}
               </button>
 
-              {/* Configure Assessment Pipeline Button */}
+              {/* Manage Tracks Button */}
               <button
-                onClick={() => setIsPipelineModalOpen(true)}
-                className="px-4 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-2"
-              >
-                <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
-                <span>Configure Pipeline</span>
-              </button>
-
-              {/* Google Form Questions Builder Button */}
-              <button
-                onClick={() => setIsQuestionBuilderOpen(true)}
+                onClick={() => setCurrentView('tracks')}
                 className="px-4 py-2.5 rounded-full bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/30 text-kulkul-purple text-xs font-bold transition flex items-center gap-2"
               >
-                <ListOrdered className="w-3.5 h-3.5 text-kulkul-purple" />
-                <span>Question Bank ({questionBank.length})</span>
+                <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
+                <span>Manage Tracks ({programTracks.length})</span>
               </button>
 
               {/* Create New Program Button */}
@@ -459,7 +480,7 @@ export const DashboardPage: React.FC = () => {
 
           {/* Top Tabs Bar */}
           <div className="flex items-center justify-between border-t border-slate-100 pt-4 flex-wrap gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setCurrentView('pipeline')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
@@ -473,11 +494,25 @@ export const DashboardPage: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setIsQuestionBuilderOpen(true)}
+                onClick={() => setCurrentView('tracks')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                  currentView === 'tracks'
+                    ? 'bg-kulkul-purple text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Program Tracks ({programTracks.length})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsQuestionBuilderOpen(true);
+                }}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition flex items-center gap-2"
               >
                 <HelpCircle className="w-3.5 h-3.5" />
-                <span>MCQ Questions Builder</span>
+                <span>Track Question Banks</span>
               </button>
 
               {/* Superadmin Company Approvals Tab */}
@@ -487,17 +522,17 @@ export const DashboardPage: React.FC = () => {
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                     currentView === 'companies'
                       ? 'bg-kulkul-purple text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>Company Approvals</span>
-                  {pendingCompaniesCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-2xs font-extrabold animate-pulse">
-                      {pendingCompaniesCount} New
-                    </span>
-                  )}
-                </button>
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Company Approvals</span>
+                {pendingCompaniesCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-2xs font-extrabold animate-pulse">
+                    {pendingCompaniesCount} New
+                  </span>
+                )}
+              </button>
               )}
             </div>
 
@@ -625,13 +660,177 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* ================================================================================= */}
-        {/* VIEW 2: CANDIDATE PIPELINE & APPLICANTS LIST */}
+        {/* VIEW 2: PROGRAM TRACKS MANAGEMENT */}
+        {/* ================================================================================= */}
+        {currentView === 'tracks' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-kulkul-purple" />
+                  Fellowship Specialization Tracks for {program?.name}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Configure domain-specific tracks. Each track possesses customized logic tests, passing thresholds, question banks, and AI interview prompts.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setTrackForm({
+                    name: '',
+                    slug: '',
+                    description: '',
+                    enable_mcq: true,
+                    logic_test_duration_minutes: 35,
+                    logic_test_passing_score: 70,
+                    allow_retake: false,
+                    enable_ai_interview: true,
+                    ai_interview_instructions: '',
+                    ai_interview_questions: [
+                      'What is your architectural philosophy when designing production systems?',
+                      'How do you manage trade-offs between delivery speed and code reliability?',
+                    ],
+                  });
+                  setIsCreateTrackModalOpen(true);
+                }}
+                className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4 text-kulkul-orange" />
+                <span>Create New Track</span>
+              </button>
+            </div>
+
+            {programTracks.length === 0 ? (
+              <div className="stitch-card p-12 bg-white text-center">
+                <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="font-bold text-slate-700">No tracks added to this program yet</h3>
+                <p className="text-xs text-slate-500 mt-1 mb-4">
+                  Add specialization tracks (e.g., QA, Fullstack, Cloud, Security) to give candidates specific intake paths.
+                </p>
+                <button
+                  onClick={() => setIsCreateTrackModalOpen(true)}
+                  className="px-5 py-2 rounded-full bg-kulkul-purple text-white text-xs font-bold"
+                >
+                  Add First Track
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {programTracks.map((track) => (
+                  <div
+                    key={track.id}
+                    className="stitch-card bg-white p-6 border border-slate-200 flex flex-col justify-between space-y-5 hover:border-kulkul-purple/40 hover:shadow-md transition"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center font-black text-sm shadow-sm">
+                            <Layers className="w-5 h-5 text-kulkul-orange" />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-extrabold text-slate-900 leading-tight">{track.name}</h3>
+                            <span className="text-xs font-mono text-kulkul-purple">slug: {track.slug}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 line-clamp-2">
+                        {track.description || 'Specialized fellowship track with tailored technical evaluations.'}
+                      </p>
+
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-2 text-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500">
+                            <Clock className="w-3.5 h-3.5 text-kulkul-orange" />
+                            Timed MCQ:
+                          </span>
+                          <strong className="text-slate-900">{track.logic_test_duration_minutes} Mins</strong>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500">
+                            <Award className="w-3.5 h-3.5 text-emerald-600" />
+                            Passing Mark:
+                          </span>
+                          <strong className="text-slate-900">{track.logic_test_passing_score}% Score</strong>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-slate-500">
+                            <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
+                            AI Technical Screen:
+                          </span>
+                          <strong className="text-slate-900">
+                            {track.enable_ai_interview ? 'Enabled' : 'Disabled'}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Controls */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedTrackIdForQuestions(track.id);
+                          setIsQuestionBuilderOpen(true);
+                        }}
+                        className="px-3.5 py-1.5 rounded-full bg-kulkul-purple-light hover:bg-kulkul-purple-subtle text-kulkul-purple text-xs font-bold transition flex items-center gap-1.5"
+                        title="Edit MCQ questions for this track"
+                      >
+                        <ListOrdered className="w-3.5 h-3.5" />
+                        <span>Questions</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setEditingTrack(track);
+                            setTrackForm({
+                              name: track.name,
+                              slug: track.slug,
+                              description: track.description || '',
+                              enable_mcq: track.enable_mcq,
+                              logic_test_duration_minutes: track.logic_test_duration_minutes,
+                              logic_test_passing_score: track.logic_test_passing_score,
+                              allow_retake: track.allow_retake,
+                              enable_ai_interview: track.enable_ai_interview,
+                              ai_interview_instructions: track.ai_interview_instructions || '',
+                              ai_interview_questions: track.ai_interview_questions || [],
+                            });
+                          }}
+                          className="p-2 rounded-xl text-slate-500 hover:text-kulkul-purple hover:bg-slate-100 transition"
+                          title="Edit Track Settings"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete track "${track.name}"?`)) {
+                              deleteTrackMutation.mutate(track.id);
+                            }
+                          }}
+                          className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                          title="Delete Track"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* VIEW 3: CANDIDATE PIPELINE & APPLICANTS LIST */}
         {/* ================================================================================= */}
         {currentView === 'pipeline' && (
           <div className="space-y-6">
             {/* Filter and Search Bar */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="relative w-full sm:w-96">
+              <div className="relative w-full sm:w-80">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
@@ -642,8 +841,24 @@ export const DashboardPage: React.FC = () => {
                 />
               </div>
 
-              {/* Stage Filter Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+              {/* Track & Stage Filter Tabs */}
+              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 flex-wrap">
+                {/* Track Selector Dropdown */}
+                {programTracks.length > 0 && (
+                  <select
+                    value={selectedTrackFilter}
+                    onChange={(e) => setSelectedTrackFilter(e.target.value)}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  >
+                    <option value="">All Tracks ({programTracks.length})</option>
+                    {programTracks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        Track: {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 {[
                   { label: 'All Candidates', value: '' },
                   { label: 'MCQ Passed', value: 'test_completed' },
@@ -672,6 +887,7 @@ export const DashboardPage: React.FC = () => {
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
                       <th className="px-6 py-4">Candidate</th>
+                      <th className="px-6 py-4">Specialization Track</th>
                       <th className="px-6 py-4">Stage Status</th>
                       <th className="px-6 py-4">Logic MCQ Score</th>
                       <th className="px-6 py-4">AI Interview Score</th>
@@ -682,13 +898,13 @@ export const DashboardPage: React.FC = () => {
                   <tbody className="divide-y divide-slate-100">
                     {isListLoading ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                           Loading candidates...
                         </td>
                       </tr>
                     ) : filteredApplicants.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
+                        <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
                           <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                           <div className="text-base font-bold text-slate-700">No applicants yet</div>
                           <div className="text-xs text-slate-400 mt-1">
@@ -706,6 +922,15 @@ export const DashboardPage: React.FC = () => {
                           <td className="px-6 py-4">
                             <div className="font-extrabold text-slate-900">{app.full_name}</div>
                             <div className="text-xs text-slate-500">{app.email}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {app.track_name ? (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                                {app.track_name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">General</span>
+                            )}
                           </td>
                           <td className="px-6 py-4">{renderStageBadge(app.current_stage)}</td>
                           <td className="px-6 py-4">
@@ -779,10 +1004,10 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div>
                     <h2 className="text-lg font-extrabold text-slate-900">
-                      MCQ Questionnaire Builder (Google Form Style)
+                      MCQ Questionnaire Builder
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Configure custom questions, multiple choice options, correct answers, and points for {program?.name}
+                      Configure custom questions, multiple choice options, correct answers, and points
                     </p>
                   </div>
                 </div>
@@ -795,12 +1020,33 @@ export const DashboardPage: React.FC = () => {
                 </button>
               </div>
 
+              {/* Track Switcher in Question Builder */}
+              {programTracks.length > 0 && (
+                <div className="px-6 py-3 bg-kulkul-purple/5 border-b border-kulkul-purple/10 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-kulkul-purple" />
+                    <span className="text-xs font-bold text-slate-700">Editing Questions For Track:</span>
+                  </div>
+                  <select
+                    value={selectedTrackIdForQuestions}
+                    onChange={(e) => setSelectedTrackIdForQuestions(e.target.value)}
+                    className="px-3.5 py-1.5 text-xs font-extrabold rounded-full bg-white border border-kulkul-purple/30 text-kulkul-purple focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  >
+                    {programTracks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} Track ({t.logic_test_duration_minutes}m limit &middot; {t.logic_test_passing_score}% pass)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Body: Question List */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {editingQuestions.length === 0 ? (
                   <div className="text-center py-12 text-slate-400">
                     <HelpCircle className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                    <p className="text-sm font-bold text-slate-700">No questions in this test bank yet</p>
+                    <p className="text-sm font-bold text-slate-700">No questions in this track test bank yet</p>
                     <p className="text-xs text-slate-400 mt-1">Click the button below to add your first question.</p>
                   </div>
                 ) : (
@@ -810,9 +1056,18 @@ export const DashboardPage: React.FC = () => {
                       className="stitch-card bg-slate-50/50 p-6 border border-slate-200 space-y-4 relative group"
                     >
                       <div className="flex items-start justify-between gap-4">
-                        <span className="px-2.5 py-1 rounded-full bg-kulkul-purple text-white text-2xs font-extrabold uppercase tracking-wider">
-                          Question {qIdx + 1}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-full bg-kulkul-purple text-white text-2xs font-extrabold uppercase tracking-wider">
+                            Question {qIdx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={q.category || 'Problem Solving'}
+                            onChange={(e) => handleQuestionChange(qIdx, 'category', e.target.value)}
+                            placeholder="Category (e.g. Algorithms, QA, SQL)"
+                            className="px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-white border border-slate-200 text-slate-600 focus:outline-none focus:border-kulkul-purple"
+                          />
+                        </div>
 
                         <button
                           type="button"
@@ -933,7 +1188,7 @@ export const DashboardPage: React.FC = () => {
               {/* Footer Actions */}
               <div className="p-4 sm:p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
                 <span className="text-xs text-slate-500">
-                  Total Questions: <strong>{editingQuestions.length}</strong>
+                  Total Questions: <strong>{editingQuestions.length}</strong> {activeTrackObj ? `(for ${activeTrackObj.name})` : ''}
                 </span>
 
                 <div className="flex items-center gap-3">
@@ -959,185 +1214,178 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* ================================================================================= */}
-        {/* MODAL 2: PIPELINE & AI INTERVIEW CONFIGURATION */}
+        {/* MODAL 2: CREATE / EDIT TRACK MODAL */}
         {/* ================================================================================= */}
-        {isPipelineModalOpen && (
+        {(isCreateTrackModalOpen || editingTrack) && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <Sliders className="w-5 h-5 text-kulkul-purple" />
+                  <Layers className="w-5 h-5 text-kulkul-purple" />
                   <h2 className="text-lg font-extrabold text-slate-900">
-                    Configure Assessment Pipeline
+                    {editingTrack ? `Edit Track: ${editingTrack.name}` : 'Create Specialization Track'}
                   </h2>
                 </div>
                 <button
-                  onClick={() => setIsPipelineModalOpen(false)}
+                  onClick={() => {
+                    setIsCreateTrackModalOpen(false);
+                    setEditingTrack(null);
+                  }}
                   className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Stage 1: Logic MCQ Stage Toggle */}
-              <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ListOrdered className="w-5 h-5 text-kulkul-purple" />
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">Stage 1: Logic MCQ Test</h4>
-                      <p className="text-2xs text-slate-500">Timed multiple choice questionnaire</p>
-                    </div>
-                  </div>
-
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableMCQ}
-                      onChange={(e) => setEnableMCQ(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-kulkul-purple" />
-                  </label>
-                </div>
-
-                {enableMCQ && (
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-200">
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                        Test Duration (Minutes)
-                      </label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={180}
-                        value={configDuration}
-                        onChange={(e) => setConfigDuration(parseInt(e.target.value) || 30)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                        Passing Benchmark (%)
-                      </label>
-                      <input
-                        type="number"
-                        min={10}
-                        max={100}
-                        value={configPassingScore}
-                        onChange={(e) => setConfigPassingScore(parseInt(e.target.value) || 70)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Stage 2: AI Technical Screening Toggle */}
-              <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Bot className="w-5 h-5 text-kulkul-orange" />
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">Stage 2: AI Technical Interview Room</h4>
-                      <p className="text-2xs text-slate-500">Conversational AI questioning & scorecard evaluation</p>
-                    </div>
-                  </div>
-
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableAI}
-                      onChange={(e) => setEnableAI(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-kulkul-orange" />
-                  </label>
-                </div>
-
-                {enableAI && (
-                  <div className="space-y-3 pt-3 border-t border-slate-200">
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                        Company Questions for the AI Interviewer:
-                      </label>
-                      <div className="space-y-2 mb-2">
-                        {aiQuestions.map((q, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800"
-                          >
-                            <span className="font-medium">
-                              {idx + 1}. {q}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAiQuestion(idx)}
-                              className="text-slate-400 hover:text-red-500"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={newAiQuestionInput}
-                          onChange={(e) => setNewAiQuestionInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddAiQuestion();
-                            }
-                          }}
-                          placeholder="e.g. Ask why they chose Postgres over MongoDB..."
-                          className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddAiQuestion}
-                          className="px-3.5 py-2 rounded-xl bg-kulkul-purple text-white text-xs font-bold hover:bg-kulkul-purple-hover transition"
-                        >
-                          Add Question
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsPipelineModalOpen(false)}
-                  className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    updatePipelineMutation.mutate({
-                      enable_mcq: enableMCQ,
-                      logic_test_duration_minutes: configDuration,
-                      logic_test_passing_score: configPassingScore,
-                      allow_retake: configAllowRetake,
-                      enable_ai_interview: enableAI,
-                      ai_interview_instructions: aiInstructions,
-                      ai_interview_questions: aiQuestions,
-                    })
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (editingTrack) {
+                    updateTrackMutation.mutate({ trackId: editingTrack.id, payload: trackForm });
+                  } else {
+                    createTrackMutation.mutate(trackForm);
                   }
-                  disabled={updatePipelineMutation.isPending}
-                  className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
-                >
-                  {updatePipelineMutation.isPending ? <span>Saving...</span> : <span>Save Pipeline Settings</span>}
-                </button>
-              </div>
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Track Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Cloud & DevOps Engineering"
+                    value={trackForm.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setTrackForm((prev) => ({
+                        ...prev,
+                        name,
+                        slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                      }));
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Track URL Slug <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. devops"
+                    value={trackForm.slug}
+                    onChange={(e) => setTrackForm({ ...trackForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Track Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Focus areas, required skillsets, expectations..."
+                    value={trackForm.description}
+                    onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  />
+                </div>
+
+                {/* MCQ Duration & Passing Score */}
+                <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                      Logic Test Duration (Mins)
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={180}
+                      value={trackForm.logic_test_duration_minutes}
+                      onChange={(e) => setTrackForm({ ...trackForm, logic_test_duration_minutes: parseInt(e.target.value) || 35 })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                      Passing Score (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={100}
+                      value={trackForm.logic_test_passing_score}
+                      onChange={(e) => setTrackForm({ ...trackForm, logic_test_passing_score: parseInt(e.target.value) || 70 })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* AI Interview Settings */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Bot className="w-4 h-4 text-kulkul-purple" />
+                      Enable AI Technical Screen
+                    </label>
+                    <input
+                      type="checkbox"
+                      checked={trackForm.enable_ai_interview}
+                      onChange={(e) => setTrackForm({ ...trackForm, enable_ai_interview: e.target.checked })}
+                      className="w-4 h-4 text-kulkul-purple rounded"
+                    />
+                  </div>
+
+                  {trackForm.enable_ai_interview && (
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                        Track AI Interview Prompt / Questions (One per line)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={(trackForm.ai_interview_questions || []).join('\n')}
+                        onChange={(e) =>
+                          setTrackForm({
+                            ...trackForm,
+                            ai_interview_questions: e.target.value.split('\n').filter((q) => q.trim().length > 0),
+                          })
+                        }
+                        placeholder="Enter domain-specific questions for the AI interviewer..."
+                        className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreateTrackModalOpen(false);
+                      setEditingTrack(null);
+                    }}
+                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createTrackMutation.isPending || updateTrackMutation.isPending}
+                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
+                  >
+                    {createTrackMutation.isPending || updateTrackMutation.isPending ? (
+                      <span>Saving...</span>
+                    ) : (
+                      <span>{editingTrack ? 'Save Changes' : 'Create Track'}</span>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -1326,10 +1574,15 @@ export const DashboardPage: React.FC = () => {
               {/* Drawer Header */}
               <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
                 <div>
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <h2 className="text-xl font-extrabold text-slate-900">
                       {applicantDetail?.applicant.full_name || 'Candidate Details'}
                     </h2>
+                    {applicantDetail?.track && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                        {applicantDetail.track.name} Track
+                      </span>
+                    )}
                     {applicantDetail && renderStageBadge(applicantDetail.applicant.current_stage)}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">{applicantDetail?.applicant.email}</p>
@@ -1465,20 +1718,20 @@ export const DashboardPage: React.FC = () => {
                     <div className="text-center py-12 text-slate-400">No test submission recorded yet.</div>
                   )
                 ) : activeDrawerTab === 'ai' ? (
-                  applicantDetail?.ai_interview ? (
+                  applicantDetail?.ai_screen ? (
                     <div className="space-y-6">
-                      {applicantDetail.ai_interview.summary_evaluation && (
+                      {applicantDetail.ai_screen.summary_evaluation && (
                         <div className="stitch-card bg-purple-50/50 p-5 border border-purple-200 space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase text-purple-900 tracking-wider">
                               AI Screening Scorecard
                             </span>
                             <span className="text-sm font-extrabold text-purple-900 bg-purple-100 px-3 py-0.5 rounded-full">
-                              Score: {applicantDetail.ai_interview.summary_evaluation.overall_score}/100
+                              Score: {applicantDetail.ai_screen.summary_evaluation.overall_score}/100
                             </span>
                           </div>
                           <p className="text-xs text-purple-950 leading-relaxed font-medium">
-                            {applicantDetail.ai_interview.summary_evaluation.executive_summary}
+                            {applicantDetail.ai_screen.summary_evaluation.executive_summary}
                           </p>
                         </div>
                       )}
@@ -1487,7 +1740,7 @@ export const DashboardPage: React.FC = () => {
                         <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                           Dialogue Transcript
                         </h4>
-                        {applicantDetail.ai_interview.transcript?.map((msg, idx) => (
+                        {applicantDetail.ai_screen.transcript?.map((msg, idx) => (
                           <div
                             key={idx}
                             className={`p-3.5 rounded-2xl text-xs space-y-1 ${
@@ -1524,6 +1777,12 @@ export const DashboardPage: React.FC = () => {
                         <span className="text-slate-400 block font-medium">Email Address</span>
                         <span className="font-bold text-slate-900">{applicantDetail?.applicant.email}</span>
                       </div>
+                      {applicantDetail?.track && (
+                        <div>
+                          <span className="text-slate-400 block font-medium">Applied Track</span>
+                          <span className="font-bold text-kulkul-purple">{applicantDetail.track.name}</span>
+                        </div>
+                      )}
                       {applicantDetail?.applicant.phone && (
                         <div>
                           <span className="text-slate-400 block font-medium">Phone</span>

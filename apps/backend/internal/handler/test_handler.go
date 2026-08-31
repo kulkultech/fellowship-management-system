@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -17,6 +18,7 @@ type TestHandler struct {
 	submissionRepo  *repository.SubmissionRepository
 	mcqRepo         *repository.MCQRepository
 	programRepo     *repository.ProgramRepository
+	trackRepo       *repository.TrackRepository
 	applicantRepo   *repository.ApplicantRepository
 	aiInterviewRepo *repository.AIInterviewRepository
 }
@@ -25,6 +27,7 @@ func NewTestHandler(
 	submissionRepo *repository.SubmissionRepository,
 	mcqRepo *repository.MCQRepository,
 	programRepo *repository.ProgramRepository,
+	trackRepo *repository.TrackRepository,
 	applicantRepo *repository.ApplicantRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
 ) *TestHandler {
@@ -32,6 +35,7 @@ func NewTestHandler(
 		submissionRepo:  submissionRepo,
 		mcqRepo:         mcqRepo,
 		programRepo:     programRepo,
+		trackRepo:       trackRepo,
 		applicantRepo:   applicantRepo,
 		aiInterviewRepo: aiInterviewRepo,
 	}
@@ -40,6 +44,7 @@ func NewTestHandler(
 type TestSessionResponse struct {
 	SubmissionID     string                 `json:"submission_id"`
 	ProgramName      string                 `json:"program_name"`
+	TrackName        string                 `json:"track_name,omitempty"`
 	DurationMinutes  int                    `json:"duration_minutes"`
 	StartedAt        time.Time              `json:"started_at"`
 	ExpiresAt        time.Time              `json:"expires_at"`
@@ -67,8 +72,33 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	durationMinutes := program.LogicTestDurationMinutes
+	displayName := program.Name
+	trackName := ""
+
+	var questions []model.MCQQuestion
+	if submission.TrackID != nil {
+		track, err := h.trackRepo.GetByID(r.Context(), *submission.TrackID)
+		if err == nil && track != nil {
+			trackName = track.Name
+			displayName = fmt.Sprintf("%s - %s", program.Name, track.Name)
+			if track.LogicTestDurationMinutes > 0 {
+				durationMinutes = track.LogicTestDurationMinutes
+			}
+			questions, _ = h.mcqRepo.ListByTrack(r.Context(), track.ID)
+		}
+	}
+
+	if len(questions) == 0 {
+		questions, err = h.mcqRepo.ListByProgram(r.Context(), program.ID)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to load questions")
+			return
+		}
+	}
+
 	// Calculate expiration based on started_at + duration
-	duration := time.Duration(program.LogicTestDurationMinutes) * time.Minute
+	duration := time.Duration(durationMinutes) * time.Minute
 	expiresAt := submission.StartedAt.Add(duration)
 	remaining := int(time.Until(expiresAt).Seconds())
 	if remaining < 0 {
@@ -85,13 +115,6 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch questions and sanitize for client
-	questions, err := h.mcqRepo.ListByProgram(r.Context(), program.ID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load questions")
-		return
-	}
-
 	clientQuestions := make([]model.ClientQuestion, 0, len(questions))
 	for _, q := range questions {
 		clientQuestions = append(clientQuestions, q.ToClient())
@@ -99,8 +122,9 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusOK, TestSessionResponse{
 		SubmissionID:     submission.ID.String(),
-		ProgramName:      program.Name,
-		DurationMinutes:  program.LogicTestDurationMinutes,
+		ProgramName:      displayName,
+		TrackName:        trackName,
+		DurationMinutes:  durationMinutes,
 		StartedAt:        submission.StartedAt,
 		ExpiresAt:        expiresAt,
 		RemainingSeconds: remaining,
@@ -151,6 +175,29 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	passingScore := program.LogicTestPassingScore
+	enableAIInterview := program.EnableAIInterview
+
+	var questions []model.MCQQuestion
+	if submission.TrackID != nil {
+		track, err := h.trackRepo.GetByID(r.Context(), *submission.TrackID)
+		if err == nil && track != nil {
+			if track.LogicTestPassingScore > 0 {
+				passingScore = track.LogicTestPassingScore
+			}
+			enableAIInterview = track.EnableAIInterview
+			questions, _ = h.mcqRepo.ListByTrack(r.Context(), track.ID)
+		}
+	}
+
+	if len(questions) == 0 {
+		questions, err = h.mcqRepo.ListByProgram(r.Context(), program.ID)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to load questions for grading")
+			return
+		}
+	}
+
 	var req SubmitTestRequest
 	if err := httpx.Decode(w, r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -161,13 +208,6 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 	timeSpentSeconds := int(now.Sub(submission.StartedAt).Seconds())
 	if timeSpentSeconds < 0 {
 		timeSpentSeconds = 0
-	}
-
-	// Fetch all questions for scoring
-	questions, err := h.mcqRepo.ListByProgram(r.Context(), program.ID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load questions for grading")
-		return
 	}
 
 	answersMap := make(map[string]string)
@@ -203,7 +243,7 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 		scorePercentage = (totalPointsScored * 100) / totalPointsPossible
 	}
 
-	passed := scorePercentage >= program.LogicTestPassingScore
+	passed := scorePercentage >= passingScore
 
 	// Update test submission
 	err = h.submissionRepo.CompleteSubmission(
@@ -226,13 +266,13 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 	var inviteExpires *time.Time
 
 	if passed {
-		if program.EnableAIInterview {
+		if enableAIInterview {
 			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageAIInterviewInvited)
 
 			// Create AI interview invitation valid for 48 hours
 			invitationToken := generateToken(24)
 			expires := now.Add(48 * time.Hour)
-			ai, err := h.aiInterviewRepo.CreateInvitation(r.Context(), submission.ApplicantID, program.ID, invitationToken, expires)
+			ai, err := h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), submission.ApplicantID, program.ID, submission.TrackID, invitationToken, expires)
 			if err == nil && ai != nil {
 				tok := ai.InvitationToken
 				inviteToken = &tok
@@ -248,7 +288,7 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusOK, SubmitTestResponse{
 		TotalScore:             scorePercentage,
-		PassingScore:           program.LogicTestPassingScore,
+		PassingScore:           passingScore,
 		Passed:                 passed,
 		Status:                 "completed",
 		AIInterviewInviteToken: inviteToken,
@@ -260,6 +300,7 @@ type TestResultResponse struct {
 	SubmissionID           string     `json:"submission_id"`
 	ApplicantName          string     `json:"applicant_name"`
 	ProgramName            string     `json:"program_name"`
+	TrackName              string     `json:"track_name,omitempty"`
 	TotalScore             int        `json:"total_score"`
 	PassingScore           int        `json:"passing_score"`
 	Passed                 bool       `json:"passed"`
@@ -294,6 +335,21 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	passingScore := program.LogicTestPassingScore
+	displayName := program.Name
+	trackName := ""
+
+	if submission.TrackID != nil {
+		track, err := h.trackRepo.GetByID(r.Context(), *submission.TrackID)
+		if err == nil && track != nil {
+			trackName = track.Name
+			displayName = fmt.Sprintf("%s - %s", program.Name, track.Name)
+			if track.LogicTestPassingScore > 0 {
+				passingScore = track.LogicTestPassingScore
+			}
+		}
+	}
+
 	var inviteToken *string
 	var inviteExpires *time.Time
 
@@ -310,9 +366,10 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, TestResultResponse{
 		SubmissionID:           submission.ID.String(),
 		ApplicantName:          applicant.FullName,
-		ProgramName:            program.Name,
+		ProgramName:            displayName,
+		TrackName:              trackName,
 		TotalScore:             submission.TotalScore,
-		PassingScore:           program.LogicTestPassingScore,
+		PassingScore:           passingScore,
 		Passed:                 submission.Passed,
 		TimeSpentSeconds:       submission.TimeSpentSeconds,
 		Status:                 string(submission.Status),

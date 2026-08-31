@@ -58,6 +58,8 @@ export function App() {
           {/* Public Program Job Post / Fellowship Listing */}
           <Route path="/programs/:orgSlug/:programSlug" element={<ProgramJobPostPage />} />
           <Route path="/programs/:orgSlug/:programSlug/apply" element={<ApplyPage />} />
+          <Route path="/programs/:orgSlug/:programSlug/tracks/:trackSlug/apply" element={<ApplyPage />} />
+          <Route path="/programs/:orgSlug/:programSlug/:trackSlug/apply" element={<ApplyPage />} />
 
           {/* Candidate Dashboard & Portal */}
           <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />

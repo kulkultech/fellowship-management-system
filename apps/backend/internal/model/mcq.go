@@ -14,6 +14,7 @@ type MCQOption struct {
 type MCQQuestion struct {
 	ID              uuid.UUID   `json:"id"`
 	ProgramID       uuid.UUID   `json:"program_id"`
+	TrackID         *uuid.UUID  `json:"track_id,omitempty"`
 	Category        string      `json:"category"` // 'logic', 'problem_solving', 'coding'
 	QuestionText    string      `json:"question_text"`
 	Options         []MCQOption `json:"options"`

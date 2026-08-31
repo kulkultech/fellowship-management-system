@@ -36,6 +36,7 @@ type AIInterview struct {
 	ID                  uuid.UUID          `json:"id"`
 	ApplicantID         uuid.UUID          `json:"applicant_id"`
 	ProgramID           uuid.UUID          `json:"program_id"`
+	TrackID             *uuid.UUID         `json:"track_id,omitempty"`
 	InvitationToken     string             `json:"invitation_token"`
 	InvitationExpiresAt time.Time          `json:"invitation_expires_at"`
 	StartedAt           *time.Time         `json:"started_at,omitempty"`

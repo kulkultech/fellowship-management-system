@@ -18,6 +18,7 @@ type AdminHandler struct {
 	applicantRepo   *repository.ApplicantRepository
 	submissionRepo  *repository.SubmissionRepository
 	mcqRepo         *repository.MCQRepository
+	trackRepo       *repository.TrackRepository
 	aiInterviewRepo *repository.AIInterviewRepository
 	programRepo     *repository.ProgramRepository
 	orgRepo         *repository.OrgRepository
@@ -27,6 +28,7 @@ func NewAdminHandler(
 	applicantRepo *repository.ApplicantRepository,
 	submissionRepo *repository.SubmissionRepository,
 	mcqRepo *repository.MCQRepository,
+	trackRepo *repository.TrackRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
 	programRepo *repository.ProgramRepository,
 	orgRepo *repository.OrgRepository,
@@ -35,6 +37,7 @@ func NewAdminHandler(
 		applicantRepo:   applicantRepo,
 		submissionRepo:  submissionRepo,
 		mcqRepo:         mcqRepo,
+		trackRepo:       trackRepo,
 		aiInterviewRepo: aiInterviewRepo,
 		programRepo:     programRepo,
 		orgRepo:         orgRepo,
@@ -49,6 +52,8 @@ type ApplicantListItem struct {
 	GitHubURL        string               `json:"github_url"`
 	LinkedInURL      string               `json:"linkedin_url"`
 	ResumeURL        string               `json:"resume_url"`
+	TrackID          string               `json:"track_id,omitempty"`
+	TrackName        string               `json:"track_name,omitempty"`
 	CurrentStage     model.ApplicantStage `json:"current_stage"`
 	MCQScore         *int                 `json:"mcq_score,omitempty"`
 	MCQPassed        *bool                `json:"mcq_passed,omitempty"`
@@ -78,8 +83,21 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tracks, _ := h.trackRepo.ListByProgram(r.Context(), programID)
+	trackMap := make(map[string]string)
+	for _, t := range tracks {
+		trackMap[t.ID.String()] = t.Name
+	}
+
 	list := make([]ApplicantListItem, 0, len(applicants))
 	for _, a := range applicants {
+		trackName := ""
+		trackID := ""
+		if a.TrackID != nil {
+			trackID = a.TrackID.String()
+			trackName = trackMap[trackID]
+		}
+
 		item := ApplicantListItem{
 			ID:           a.ID.String(),
 			FullName:     a.FullName,
@@ -88,6 +106,8 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			GitHubURL:    a.GitHubURL,
 			LinkedInURL:  a.LinkedInURL,
 			ResumeURL:    a.ResumeURL,
+			TrackID:      trackID,
+			TrackName:    trackName,
 			CurrentStage: a.CurrentStage,
 			CreatedAt:    a.CreatedAt.Format("2006-01-02 15:04"),
 		}
@@ -137,9 +157,28 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var trackDetail map[string]any
+	if applicant.TrackID != nil {
+		if t, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && t != nil {
+			trackDetail = map[string]any{
+				"id":          t.ID.String(),
+				"slug":        t.Slug,
+				"name":        t.Name,
+				"description": t.Description,
+			}
+		}
+	}
+
 	var submissionDetail map[string]any
 	if sub, err := h.submissionRepo.GetByApplicantID(r.Context(), applicant.ID); err == nil && sub != nil {
-		allQuestions, _ := h.mcqRepo.ListByProgram(r.Context(), sub.ProgramID)
+		var allQuestions []model.MCQQuestion
+		if sub.TrackID != nil {
+			allQuestions, _ = h.mcqRepo.ListByTrack(r.Context(), *sub.TrackID)
+		}
+		if len(allQuestions) == 0 {
+			allQuestions, _ = h.mcqRepo.ListByProgram(r.Context(), sub.ProgramID)
+		}
+
 		qMap := make(map[string]model.MCQQuestion)
 		for _, q := range allQuestions {
 			qMap[q.ID.String()] = q
@@ -200,15 +239,26 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"applicant":    applicant,
-		"submission":   submissionDetail,
-		"ai_interview": aiDetail,
+		"applicant": map[string]any{
+			"id":            applicant.ID.String(),
+			"full_name":     applicant.FullName,
+			"email":         applicant.Email,
+			"phone":         applicant.Phone,
+			"github_url":    applicant.GitHubURL,
+			"linkedin_url":  applicant.LinkedInURL,
+			"resume_url":    applicant.ResumeURL,
+			"current_stage": applicant.CurrentStage,
+			"notes":         applicant.Notes,
+			"created_at":    applicant.CreatedAt.Format("2006-01-02 15:04:05"),
+		},
+		"track":      trackDetail,
+		"submission": submissionDetail,
+		"ai_screen":  aiDetail,
 	})
 }
 
 type UpdateStageRequest struct {
 	Stage model.ApplicantStage `json:"stage"`
-	Notes string               `json:"notes,omitempty"`
 }
 
 func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Request) {
@@ -225,42 +275,54 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if req.Stage == "" {
-		httpx.Error(w, http.StatusBadRequest, "stage is required")
-		return
-	}
-
-	err = h.applicantRepo.UpdateStage(r.Context(), applicantID, req.Stage)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to update stage")
-		return
-	}
-
-	updated, _ := h.applicantRepo.GetByID(r.Context(), applicantID)
-	httpx.JSON(w, http.StatusOK, updated)
-}
-
-func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
-	claims, _ := middleware.GetUser(r.Context())
-	var orgID uuid.UUID
-	if claims != nil && claims.OrganizationID != nil {
-		orgID = *claims.OrganizationID
-	} else {
-		// Fallback: look up 'rsa' organization or first organization
-		orgs, err := h.orgRepo.List(r.Context(), "")
-		if err == nil && len(orgs) > 0 {
-			orgID = orgs[0].ID
+	if err := h.applicantRepo.UpdateStage(r.Context(), applicantID, req.Stage); err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "applicant not found")
+			return
 		}
-	}
-
-	programs, err := h.programRepo.ListByOrg(r.Context(), orgID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to list programs")
+		httpx.Error(w, http.StatusInternalServerError, "failed to update applicant stage")
 		return
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"programs": programs,
+		"message": "Applicant stage updated successfully",
+		"stage":   req.Stage,
+	})
+}
+
+func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	var orgID uuid.UUID
+	if ok && claims.OrganizationID != nil {
+		orgID = *claims.OrganizationID
+	}
+	if orgID == uuid.Nil {
+		orgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	}
+
+	programs, err := h.programRepo.ListByOrg(r.Context(), orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load programs")
+		return
+	}
+
+	type ProgramWithTracks struct {
+		model.Program
+		Tracks []model.Track `json:"tracks"`
+	}
+
+	result := make([]ProgramWithTracks, 0, len(programs))
+	for _, p := range programs {
+		tracks, _ := h.trackRepo.ListByProgram(r.Context(), p.ID)
+		result = append(result, ProgramWithTracks{
+			Program: p,
+			Tracks:  tracks,
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"programs": result,
+		"total":    len(result),
 	})
 }
 
@@ -279,15 +341,13 @@ type CreateProgramRequest struct {
 }
 
 func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
-	claims, _ := middleware.GetUser(r.Context())
+	claims, ok := middleware.GetUser(r.Context())
 	var orgID uuid.UUID
-	if claims != nil && claims.OrganizationID != nil {
+	if ok && claims.OrganizationID != nil {
 		orgID = *claims.OrganizationID
-	} else {
-		orgs, err := h.orgRepo.List(r.Context(), "")
-		if err == nil && len(orgs) > 0 {
-			orgID = orgs[0].ID
-		}
+	}
+	if orgID == uuid.Nil {
+		orgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	}
 
 	var req CreateProgramRequest
@@ -296,7 +356,7 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Slug == "" || req.Name == "" {
+	if strings.TrimSpace(req.Slug) == "" || strings.TrimSpace(req.Name) == "" {
 		httpx.Error(w, http.StatusBadRequest, "slug and name are required")
 		return
 	}
@@ -379,6 +439,221 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 	}
 
 	httpx.JSON(w, http.StatusOK, updated)
+}
+
+// --------------------------------------------------------------------------------
+// Track Management Endpoints
+// --------------------------------------------------------------------------------
+
+func (h *AdminHandler) ListProgramTracks(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	programID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	tracks, err := h.trackRepo.ListByProgram(r.Context(), programID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load tracks")
+		return
+	}
+
+	type TrackWithCount struct {
+		model.Track
+		QuestionCount int `json:"question_count"`
+	}
+
+	res := make([]TrackWithCount, 0, len(tracks))
+	for _, t := range tracks {
+		questions, _ := h.mcqRepo.ListByTrack(r.Context(), t.ID)
+		res = append(res, TrackWithCount{
+			Track:         t,
+			QuestionCount: len(questions),
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"tracks": res,
+		"total":  len(res),
+	})
+}
+
+type CreateTrackRequest struct {
+	Slug                     string   `json:"slug"`
+	Name                     string   `json:"name"`
+	Description              string   `json:"description"`
+	EnableMCQ                bool     `json:"enable_mcq"`
+	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`
+	LogicTestPassingScore    int      `json:"logic_test_passing_score"`
+	AllowRetake              bool     `json:"allow_retake"`
+	EnableAIInterview        bool     `json:"enable_ai_interview"`
+	AIInterviewInstructions  string   `json:"ai_interview_instructions"`
+	AIInterviewQuestions     []string `json:"ai_interview_questions"`
+}
+
+func (h *AdminHandler) CreateProgramTrack(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	programID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req CreateTrackRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	slug := strings.ToLower(strings.TrimSpace(req.Slug))
+	name := strings.TrimSpace(req.Name)
+	if slug == "" || name == "" {
+		httpx.Error(w, http.StatusBadRequest, "track slug and name are required")
+		return
+	}
+
+	if req.LogicTestDurationMinutes <= 0 {
+		req.LogicTestDurationMinutes = 35
+	}
+	if req.LogicTestPassingScore <= 0 || req.LogicTestPassingScore > 100 {
+		req.LogicTestPassingScore = 70
+	}
+
+	track := &model.Track{
+		ID:                       uuid.New(),
+		ProgramID:                programID,
+		Slug:                     slug,
+		Name:                     name,
+		Description:              req.Description,
+		EnableMCQ:                req.EnableMCQ,
+		LogicTestDurationMinutes: req.LogicTestDurationMinutes,
+		LogicTestPassingScore:    req.LogicTestPassingScore,
+		AllowRetake:              req.AllowRetake,
+		EnableAIInterview:        req.EnableAIInterview,
+		AIInterviewInstructions:  req.AIInterviewInstructions,
+		AIInterviewQuestions:     req.AIInterviewQuestions,
+	}
+
+	created, err := h.trackRepo.Create(r.Context(), track)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to create track")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, created)
+}
+
+func (h *AdminHandler) UpdateTrack(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	trackID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid track id")
+		return
+	}
+
+	var req CreateTrackRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.LogicTestDurationMinutes <= 0 {
+		req.LogicTestDurationMinutes = 35
+	}
+	if req.LogicTestPassingScore <= 0 || req.LogicTestPassingScore > 100 {
+		req.LogicTestPassingScore = 70
+	}
+
+	track := &model.Track{
+		ID:                       trackID,
+		Name:                     req.Name,
+		Description:              req.Description,
+		EnableMCQ:                req.EnableMCQ,
+		LogicTestDurationMinutes: req.LogicTestDurationMinutes,
+		LogicTestPassingScore:    req.LogicTestPassingScore,
+		AllowRetake:              req.AllowRetake,
+		EnableAIInterview:        req.EnableAIInterview,
+		AIInterviewInstructions:  req.AIInterviewInstructions,
+		AIInterviewQuestions:     req.AIInterviewQuestions,
+	}
+
+	updated, err := h.trackRepo.Update(r.Context(), track)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update track")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+func (h *AdminHandler) DeleteTrack(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	trackID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid track id")
+		return
+	}
+
+	if err := h.trackRepo.Delete(r.Context(), trackID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to delete track")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{"message": "Track deleted successfully"})
+}
+
+func (h *AdminHandler) ListTrackQuestions(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	trackID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid track id")
+		return
+	}
+
+	questions, err := h.mcqRepo.ListByTrack(r.Context(), trackID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load track questions")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"questions": questions,
+		"total":     len(questions),
+	})
+}
+
+func (h *AdminHandler) SaveTrackQuestions(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	trackID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid track id")
+		return
+	}
+
+	track, err := h.trackRepo.GetByID(r.Context(), trackID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "track not found")
+		return
+	}
+
+	var req SaveQuestionsRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	saved, err := h.mcqRepo.ReplaceTrackQuestions(r.Context(), track.ProgramID, trackID, req.Questions)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to save track questions")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":   "Track question bank updated successfully",
+		"questions": saved,
+		"total":     len(saved),
+	})
 }
 
 // --------------------------------------------------------------------------------

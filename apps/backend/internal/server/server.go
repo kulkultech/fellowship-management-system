@@ -27,6 +27,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	userRepo := repository.NewUserRepository(pool)
 	orgRepo := repository.NewOrgRepository(pool)
 	programRepo := repository.NewProgramRepository(pool)
+	trackRepo := repository.NewTrackRepository(pool)
 	applicantRepo := repository.NewApplicantRepository(pool)
 	mcqRepo := repository.NewMCQRepository(pool)
 	submissionRepo := repository.NewSubmissionRepository(pool)
@@ -35,11 +36,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
-	programHandler := handler.NewProgramHandler(orgRepo, programRepo, applicantRepo, submissionRepo, aiInterviewRepo)
-	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, programRepo, applicantRepo, aiInterviewRepo)
-	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo)
-	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, aiInterviewRepo, programRepo, orgRepo)
-	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, applicantRepo, submissionRepo, aiInterviewRepo)
+	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo)
+	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo)
+	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo)
+	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo)
+	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -112,6 +113,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		api.Route("/programs", func(p chi.Router) {
 			p.Get("/{orgSlug}/{programSlug}", programHandler.GetProgram)
 			p.Post("/{orgSlug}/{programSlug}/apply", programHandler.Apply)
+			p.Get("/{orgSlug}/{programSlug}/tracks/{trackSlug}", programHandler.GetTrackDetail)
+			p.Post("/{orgSlug}/{programSlug}/tracks/{trackSlug}/apply", programHandler.Apply)
 		})
 
 		// Candidate Funnel: Timed Logic & MCQ Test
@@ -146,6 +149,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Put("/programs/{id}/pipeline-config", adminHandler.UpdatePipelineConfig)
 				adm.Get("/programs/{id}/questions", adminHandler.ListProgramQuestions)
 				adm.Put("/programs/{id}/questions", adminHandler.SaveProgramQuestions)
+
+				// Program Tracks
+				adm.Get("/programs/{id}/tracks", adminHandler.ListProgramTracks)
+				adm.Post("/programs/{id}/tracks", adminHandler.CreateProgramTrack)
+				adm.Put("/tracks/{id}", adminHandler.UpdateTrack)
+				adm.Delete("/tracks/{id}", adminHandler.DeleteTrack)
+				adm.Get("/tracks/{id}/questions", adminHandler.ListTrackQuestions)
+				adm.Put("/tracks/{id}/questions", adminHandler.SaveTrackQuestions)
 
 				// Applicants & Review
 				adm.Get("/applicants", adminHandler.ListApplicants)

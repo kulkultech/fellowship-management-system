@@ -7,14 +7,14 @@ import {
   ArrowRight,
   Clock,
   Award,
-  ShieldCheck,
   Share2,
   Copy,
   Check,
   Building2,
   Sparkles,
-  Terminal,
   AlertCircle,
+  Layers,
+  Bot,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,6 +30,7 @@ export const ProgramJobPostPage: React.FC = () => {
 
   const program = data?.program;
   const org = data?.organization;
+  const tracks = program?.tracks || [];
 
   const handleCopyLink = () => {
     const url = window.location.href;
@@ -39,8 +40,8 @@ export const ProgramJobPostPage: React.FC = () => {
     setTimeout(() => setIsCopied(false), 2500);
   };
 
-  const handleApply = () => {
-    navigate(`/programs/${orgSlug}/${programSlug}/apply`);
+  const handleApplyTrack = (trackSlug: string) => {
+    navigate(`/programs/${orgSlug}/${programSlug}/tracks/${trackSlug}/apply`);
   };
 
   if (isLoading) {
@@ -89,7 +90,7 @@ export const ProgramJobPostPage: React.FC = () => {
       />
 
       <main className="flex-1 max-w-[90rem] w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-        {/* Cover Banner & Quick Actions */}
+        {/* Cover Banner */}
         <div className="stitch-card bg-white overflow-hidden">
           {/* Banner Cover Image */}
           <div className="relative h-64 sm:h-80 md:h-96 w-full bg-slate-900 overflow-hidden">
@@ -119,7 +120,7 @@ export const ProgramJobPostPage: React.FC = () => {
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-kulkul-orange text-white shadow-md uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Active Program</span>
+                <span>Active Fellowship</span>
               </span>
             </div>
 
@@ -159,12 +160,32 @@ export const ProgramJobPostPage: React.FC = () => {
           <div className="p-6 bg-white border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-auto">
               <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Tracks</div>
+                  <div className="text-sm font-extrabold text-slate-900">{tracks.length} Available</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center font-bold">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Duration</div>
-                  <div className="text-sm font-extrabold text-slate-900">{program.logic_test_duration_minutes} Mins</div>
+                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Assessment</div>
+                  <div className="text-sm font-extrabold text-slate-900">Timed Logic MCQ</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center font-bold">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Technical Screen</div>
+                  <div className="text-sm font-extrabold text-slate-900">Conversational AI</div>
                 </div>
               </div>
 
@@ -173,51 +194,135 @@ export const ProgramJobPostPage: React.FC = () => {
                   <Award className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Pass Score</div>
-                  <div className="text-sm font-extrabold text-slate-900">{program.logic_test_passing_score}% Benchmark</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Attempts</div>
-                  <div className="text-sm font-extrabold text-slate-900">
-                    {program.allow_retake ? 'Retakes Allowed' : 'Strict 1-Time'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center font-bold">
-                  <Terminal className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Next Stage</div>
-                  <div className="text-sm font-extrabold text-slate-900">AI Screen</div>
+                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Evaluation</div>
+                  <div className="text-sm font-extrabold text-slate-900">Instant Scorecard</div>
                 </div>
               </div>
             </div>
 
-            {/* Apply Button Action */}
+            {/* Scroll down to tracks action */}
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <button
-                onClick={handleApply}
-                className="w-full md:w-auto stitch-pill stitch-pill-orange text-base px-8 py-3.5 justify-center shadow-lg hover:shadow-xl"
+              <a
+                href="#available-tracks"
+                className="w-full md:w-auto stitch-pill stitch-pill-purple text-base px-8 py-3.5 justify-center shadow-lg hover:shadow-xl"
               >
-                <span>Apply for this Program</span>
+                <span>Select Track & Apply</span>
                 <ArrowRight className="w-5 h-5" />
-              </button>
+              </a>
             </div>
           </div>
         </div>
 
-        {/* Content Layout: Main Details & Sidebar */}
+        {/* Content Layout: Available Tracks & Details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Column */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* Main Column: Available Tracks */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Tracks Section */}
+            <div id="available-tracks" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-extrabold text-kulkul-purple flex items-center gap-2">
+                    <Layers className="w-6 h-6 text-kulkul-orange" />
+                    Available Fellowship Tracks
+                  </h2>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Select a specialization track below. Each track features dedicated logic assessments and AI technical screenings.
+                  </p>
+                </div>
+                <span className="hidden sm:inline-block px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full">
+                  {tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open
+                </span>
+              </div>
+
+              {tracks.length === 0 ? (
+                <div className="stitch-card p-8 bg-white text-center">
+                  <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <h3 className="font-bold text-slate-700">No tracks currently configured</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Please check back soon or contact the program administrator.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-5">
+                  {tracks.map((track, idx) => (
+                    <div
+                      key={track.id || track.slug}
+                      className="stitch-card p-6 sm:p-7 bg-white hover:border-kulkul-purple/40 hover:shadow-xl transition duration-200 flex flex-col justify-between group"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-kulkul-purple to-kulkul-purple-hover text-white flex items-center justify-center font-extrabold text-sm shadow-md">
+                              0{idx + 1}
+                            </div>
+                            <div>
+                              <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-kulkul-purple transition">
+                                {track.name}
+                              </h3>
+                              <span className="text-xs font-semibold text-slate-400">
+                                Track ID: {track.slug}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+                            Open for Applications
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                          {track.description || 'Specialized fellowship track with tailored technical evaluations and candidate benchmark testing.'}
+                        </p>
+
+                        {/* Track Evaluation Specs */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+                          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <Clock className="w-4 h-4 text-kulkul-orange shrink-0" />
+                            <div className="text-xs">
+                              <span className="text-slate-400 block text-2xs uppercase font-bold">Logic Test</span>
+                              <span className="font-bold text-slate-800">{track.logic_test_duration_minutes} Mins</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <Award className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <div className="text-xs">
+                              <span className="text-slate-400 block text-2xs uppercase font-bold">Pass Score</span>
+                              <span className="font-bold text-slate-800">{track.logic_test_passing_score}% Score</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-1">
+                            <Bot className="w-4 h-4 text-kulkul-purple shrink-0" />
+                            <div className="text-xs">
+                              <span className="text-slate-400 block text-2xs uppercase font-bold">AI Screen</span>
+                              <span className="font-bold text-slate-800">
+                                {track.enable_ai_interview ? 'Enabled' : 'Not Required'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between gap-4">
+                        <span className="text-xs text-slate-500 font-medium">
+                          Takes ~{track.logic_test_duration_minutes + 15} mins total
+                        </span>
+                        <button
+                          onClick={() => handleApplyTrack(track.slug)}
+                          className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"
+                        >
+                          <span>Apply to {track.name}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Overview Card */}
             <div className="stitch-card p-6 sm:p-8 bg-white space-y-4">
               <h2 className="text-xl font-bold text-kulkul-purple">Program Overview</h2>
@@ -232,7 +337,7 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                   <div className="font-bold text-slate-900 text-sm mb-1">Assessment Technology</div>
-                  <p className="text-xs text-slate-600">FellowHire Assessment Engine</p>
+                  <p className="text-xs text-slate-600">FellowHire Multi-Track Assessment Engine</p>
                 </div>
               </div>
             </div>
@@ -247,9 +352,9 @@ export const ProgramJobPostPage: React.FC = () => {
                     1
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-sm">Online Intake Profile</h3>
+                    <h3 className="font-bold text-slate-900 text-sm">Choose Specialization Track & Profile Intake</h3>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      Submit your background, contact information, resume, GitHub, and LinkedIn profile.
+                      Select your target track, submit your background, contact information, resume file, and professional links.
                     </p>
                   </div>
                 </div>
@@ -260,10 +365,10 @@ export const ProgramJobPostPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm">
-                      Timed Logic Assessment ({program.logic_test_duration_minutes} Mins)
+                      Track-Specific Timed Logic Assessment
                     </h3>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      Solve logic, algorithmic thinking, and system comprehension MCQs. Instant scorecard evaluation with a {program.logic_test_passing_score}% pass benchmark.
+                      Solve logic, technical domain, and problem-solving MCQs customized to your chosen track.
                     </p>
                   </div>
                 </div>
@@ -275,7 +380,7 @@ export const ProgramJobPostPage: React.FC = () => {
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm">Conversational AI Technical Screen</h3>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      Candidates meeting the passing grade enter an interactive AI screening room for technical depth and architecture evaluation.
+                      Candidates meeting the passing grade enter an interactive AI room evaluated against questions set for the track.
                     </p>
                   </div>
                 </div>
@@ -297,46 +402,40 @@ export const ProgramJobPostPage: React.FC = () => {
 
           {/* Sidebar Column */}
           <div className="space-y-6">
-            {/* Sticky Application Card */}
+            {/* Sticky Application Guide */}
             <div className="stitch-card p-6 bg-white space-y-6 sticky top-24 border border-slate-200">
               <div>
-                <span className="text-2xs font-bold uppercase tracking-wider text-kulkul-orange bg-kulkul-orange-light px-2.5 py-1 rounded-full">
-                  Fast-Track Application
+                <span className="text-2xs font-bold uppercase tracking-wider text-kulkul-purple bg-kulkul-purple-light px-2.5 py-1 rounded-full">
+                  Multi-Track Program
                 </span>
-                <h3 className="text-lg font-extrabold text-slate-900 mt-2">Ready to Apply?</h3>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-2">How to Apply</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  The assessment starts immediately upon profile submission. Please ensure you have a stable connection.
+                  Applications are accepted directly through each track. Pick the track that aligns with your skillset.
                 </p>
               </div>
 
-              <div className="space-y-2.5 text-xs text-slate-600 border-t border-b border-slate-100 py-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Test Format:</span>
-                  <span className="font-bold text-slate-900">Online Timed MCQ</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Time Limit:</span>
-                  <span className="font-bold text-slate-900">{program.logic_test_duration_minutes} minutes</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Pass Threshold:</span>
-                  <span className="font-bold text-slate-900">{program.logic_test_passing_score}% score</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Retake Policy:</span>
-                  <span className="font-bold text-slate-900">
-                    {program.allow_retake ? 'Allowed' : '1-Time Only'}
-                  </span>
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">Quick Track Links</div>
+                <div className="space-y-2">
+                  {tracks.map((t) => (
+                    <button
+                      key={t.id || t.slug}
+                      onClick={() => handleApplyTrack(t.slug)}
+                      className="w-full p-3 rounded-2xl border border-slate-200 hover:border-kulkul-purple hover:bg-kulkul-purple/5 transition text-left flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">
+                          {t.name}
+                        </div>
+                        <div className="text-2xs text-slate-500 mt-0.5">
+                          {t.logic_test_duration_minutes} Mins &middot; {t.logic_test_passing_score}% Pass Score
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-kulkul-purple group-hover:translate-x-0.5 transition" />
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              <button
-                onClick={handleApply}
-                className="w-full stitch-pill stitch-pill-orange text-sm py-3.5 justify-center shadow-md hover:shadow-lg"
-              >
-                <span>Start Application</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
 
               <button
                 onClick={handleCopyLink}

@@ -6,6 +6,7 @@ import type {
   Organization,
   PipelineConfigPayload,
   Program,
+  Track,
 } from './types';
 
 export interface CreateProgramPayload {
@@ -13,6 +14,19 @@ export interface CreateProgramPayload {
   name: string;
   description?: string;
   image_url?: string;
+  enable_mcq?: boolean;
+  logic_test_duration_minutes?: number;
+  logic_test_passing_score?: number;
+  allow_retake?: boolean;
+  enable_ai_interview?: boolean;
+  ai_interview_instructions?: string;
+  ai_interview_questions?: string[];
+}
+
+export interface CreateTrackPayload {
+  slug: string;
+  name: string;
+  description?: string;
   enable_mcq?: boolean;
   logic_test_duration_minutes?: number;
   logic_test_passing_score?: number;
@@ -45,6 +59,36 @@ export const adminService = {
 
   saveProgramQuestions: async (programId: string, questions: MCQQuestion[]): Promise<MCQQuestion[]> => {
     const { data } = await apiClient.put<{ questions: MCQQuestion[] }>(`/admin/programs/${programId}/questions`, { questions });
+    return data.questions || [];
+  },
+
+  // Tracks Management
+  listProgramTracks: async (programId: string): Promise<Track[]> => {
+    const { data } = await apiClient.get<{ tracks: Track[] }>(`/admin/programs/${programId}/tracks`);
+    return data.tracks || [];
+  },
+
+  createProgramTrack: async (programId: string, payload: CreateTrackPayload): Promise<Track> => {
+    const { data } = await apiClient.post<Track>(`/admin/programs/${programId}/tracks`, payload);
+    return data;
+  },
+
+  updateTrack: async (trackId: string, payload: CreateTrackPayload): Promise<Track> => {
+    const { data } = await apiClient.put<Track>(`/admin/tracks/${trackId}`, payload);
+    return data;
+  },
+
+  deleteTrack: async (trackId: string): Promise<void> => {
+    await apiClient.delete(`/admin/tracks/${trackId}`);
+  },
+
+  listTrackQuestions: async (trackId: string): Promise<MCQQuestion[]> => {
+    const { data } = await apiClient.get<{ questions: MCQQuestion[] }>(`/admin/tracks/${trackId}/questions`);
+    return data.questions || [];
+  },
+
+  saveTrackQuestions: async (trackId: string, questions: MCQQuestion[]): Promise<MCQQuestion[]> => {
+    const { data } = await apiClient.put<{ questions: MCQQuestion[] }>(`/admin/tracks/${trackId}/questions`, { questions });
     return data.questions || [];
   },
 

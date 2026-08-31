@@ -48,25 +48,78 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 		Slug        string
 		Name        string
 		Description string
-		Questions   []QuestionItem
+		Tracks      []struct {
+			Slug        string
+			Name        string
+			Description string
+			Questions   []QuestionItem
+		}
 	}{
 		{
 			Slug:        "lit2026",
-			Name:        "LIT 2026 Fellowship & QA Assessment",
-			Description: "The flagship talent acceleration fellowship program by RSA and Kulkul Tech. Focuses on QA Automation, Cypress, Postman, Systems, and Problem Solving.",
-			Questions:   data.QAAssessment,
+			Name:        "LIT 2026 Fellowship Program",
+			Description: "The flagship talent acceleration fellowship program by Remote Skills Academy and Kulkul Tech. Choose your specialization track to begin evaluation.",
+			Tracks: []struct {
+				Slug        string
+				Name        string
+				Description string
+				Questions   []QuestionItem
+			}{
+				{
+					Slug:        "qa-automation",
+					Name:        "QA & Test Automation Track",
+					Description: "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
+					Questions:   data.QAAssessment,
+				},
+				{
+					Slug:        "fullstack",
+					Name:        "Fullstack Software Engineering Track",
+					Description: "Fullstack engineering assessment covering modern JS DOM, HTML/CSS, Java OOP, and REST APIs.",
+					Questions:   data.FullstackAssessment,
+				},
+				{
+					Slug:        "service-desk-analyst",
+					Name:        "Service Desk Analyst (SDA) Track",
+					Description: "ITIL Incident Management, Customer Empathy, SLAs, and support ticketing workflows.",
+					Questions:   data.SDAAssessment,
+				},
+			},
 		},
 		{
 			Slug:        "lit-fullstack",
 			Name:        "LIT Fullstack Software Engineering",
 			Description: "Comprehensive Fullstack Assessment covering Frontend (HTML/CSS/JS/DOM), Backend (Java/OOP/Systems), and REST API Architecture.",
-			Questions:   data.FullstackAssessment,
+			Tracks: []struct {
+				Slug        string
+				Name        string
+				Description string
+				Questions   []QuestionItem
+			}{
+				{
+					Slug:        "fullstack",
+					Name:        "Fullstack Engineering Track",
+					Description: "Frontend, Backend, and REST API Architecture.",
+					Questions:   data.FullstackAssessment,
+				},
+			},
 		},
 		{
 			Slug:        "lit-sda",
 			Name:        "LIT Service Desk Analyst (SDA)",
 			Description: "Service Desk Analyst evaluation assessing ITIL Incident Management, Customer Empathy, SLA Prioritization, and Support KPIs.",
-			Questions:   data.SDAAssessment,
+			Tracks: []struct {
+				Slug        string
+				Name        string
+				Description string
+				Questions   []QuestionItem
+			}{
+				{
+					Slug:        "service-desk-analyst",
+					Name:        "Service Desk Analyst Track",
+					Description: "ITIL Incident Management and SLA Prioritization.",
+					Questions:   data.SDAAssessment,
+				},
+			},
 		},
 	}
 
@@ -91,26 +144,46 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 			continue
 		}
 
-		// Replace or sync questions for this program
-		if len(p.Questions) > 0 {
-			// Remove previous questions for clean sync
-			_, _ = pool.Exec(ctx, "DELETE FROM mcq_questions WHERE program_id = $1::uuid", progID)
-
-			for _, q := range p.Questions {
-				optsJSON, _ := json.Marshal(q.Options)
-				insertQ := `
-					INSERT INTO mcq_questions (program_id, category, question_text, options, correct_option_id, explanation, points, created_at)
-					VALUES ($1::uuid, $2, $3, $4::jsonb, $5, $6, $7, now())
-				`
-				points := q.Points
-				if points <= 0 {
-					points = 10
-				}
-				if _, err := pool.Exec(ctx, insertQ, progID, q.Category, q.QuestionText, string(optsJSON), q.CorrectOptionID, q.Explanation, points); err != nil {
-					logger.Warn("seed_lit: error inserting question", slog.String("program", p.Slug), slog.Any("error", err))
-				}
+		for _, tr := range p.Tracks {
+			var trackID string
+			seedTrackQuery := `
+				INSERT INTO program_tracks (
+					program_id, slug, name, description,
+					enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
+					allow_retake, enable_ai_interview, created_at, updated_at
+				)
+				VALUES ($1::uuid, $2, $3, $4, true, 35, 70, false, true, now(), now())
+				ON CONFLICT (program_id, slug) DO UPDATE SET
+					name = EXCLUDED.name,
+					description = EXCLUDED.description,
+					updated_at = now()
+				RETURNING id::text
+			`
+			if err := pool.QueryRow(ctx, seedTrackQuery, progID, tr.Slug, tr.Name, tr.Description).Scan(&trackID); err != nil {
+				logger.Warn("seed_lit: error upserting track", slog.String("program", p.Slug), slog.String("track", tr.Slug), slog.Any("error", err))
+				continue
 			}
-			logger.Info("Seeded program questions to database", slog.String("slug", p.Slug), slog.Int("count", len(p.Questions)))
+
+			// Replace track questions
+			if len(tr.Questions) > 0 {
+				_, _ = pool.Exec(ctx, "DELETE FROM mcq_questions WHERE track_id = $1::uuid OR (program_id = $2::uuid AND track_id IS NULL)", trackID, progID)
+
+				for _, q := range tr.Questions {
+					optsJSON, _ := json.Marshal(q.Options)
+					insertQ := `
+						INSERT INTO mcq_questions (program_id, track_id, category, question_text, options, correct_option_id, explanation, points, created_at)
+						VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6, $7, $8, now())
+					`
+					points := q.Points
+					if points <= 0 {
+						points = 10
+					}
+					if _, err := pool.Exec(ctx, insertQ, progID, trackID, q.Category, q.QuestionText, string(optsJSON), q.CorrectOptionID, q.Explanation, points); err != nil {
+						logger.Warn("seed_lit: error inserting question", slog.String("program", p.Slug), slog.String("track", tr.Slug), slog.Any("error", err))
+					}
+				}
+				logger.Info("Seeded track questions to database", slog.String("program", p.Slug), slog.String("track", tr.Slug), slog.Int("count", len(tr.Questions)))
+			}
 		}
 	}
 

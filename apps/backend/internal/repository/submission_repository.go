@@ -31,6 +31,10 @@ func NewSubmissionRepository(pool *pgxpool.Pool) *SubmissionRepository {
 }
 
 func (r *SubmissionRepository) Create(ctx context.Context, applicantID, programID uuid.UUID, testToken string) (*model.TestSubmission, error) {
+	return r.CreateWithTrack(ctx, applicantID, programID, nil, testToken)
+}
+
+func (r *SubmissionRepository) CreateWithTrack(ctx context.Context, applicantID, programID uuid.UUID, trackID *uuid.UUID, testToken string) (*model.TestSubmission, error) {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -38,6 +42,7 @@ func (r *SubmissionRepository) Create(ctx context.Context, applicantID, programI
 			ID:               uuid.New(),
 			ApplicantID:      applicantID,
 			ProgramID:        programID,
+			TrackID:          trackID,
 			TestToken:        testToken,
 			StartedAt:        time.Now(),
 			TimeSpentSeconds: 0,
@@ -54,15 +59,15 @@ func (r *SubmissionRepository) Create(ctx context.Context, applicantID, programI
 
 	query := `
 		INSERT INTO test_submissions (
-			applicant_id, program_id, test_token, started_at, answers, status, created_at, updated_at
-		) VALUES ($1, $2, $3, now(), '[]'::jsonb, 'in_progress', now(), now())
-		RETURNING id, applicant_id, program_id, test_token, started_at, submitted_at,
+			applicant_id, program_id, track_id, test_token, started_at, answers, status, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, now(), '[]'::jsonb, 'in_progress', now(), now())
+		RETURNING id, applicant_id, program_id, track_id, test_token, started_at, submitted_at,
 			time_spent_seconds, total_score, passed, answers, status, created_at, updated_at
 	`
 	var s model.TestSubmission
 	var rawAnswers []byte
-	err := r.pool.QueryRow(ctx, query, applicantID, programID, testToken).Scan(
-		&s.ID, &s.ApplicantID, &s.ProgramID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
+	err := r.pool.QueryRow(ctx, query, applicantID, programID, trackID, testToken).Scan(
+		&s.ID, &s.ApplicantID, &s.ProgramID, &s.TrackID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
 		&s.TimeSpentSeconds, &s.TotalScore, &s.Passed, &rawAnswers, &s.Status,
 		&s.CreatedAt, &s.UpdatedAt,
 	)
@@ -85,7 +90,7 @@ func (r *SubmissionRepository) GetByToken(ctx context.Context, testToken string)
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, test_token, started_at, submitted_at,
+		SELECT id, applicant_id, program_id, track_id, test_token, started_at, submitted_at,
 			time_spent_seconds, total_score, passed, answers, status, created_at, updated_at
 		FROM test_submissions
 		WHERE test_token = $1
@@ -93,7 +98,7 @@ func (r *SubmissionRepository) GetByToken(ctx context.Context, testToken string)
 	var s model.TestSubmission
 	var rawAnswers []byte
 	err := r.pool.QueryRow(ctx, query, testToken).Scan(
-		&s.ID, &s.ApplicantID, &s.ProgramID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
+		&s.ID, &s.ApplicantID, &s.ProgramID, &s.TrackID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
 		&s.TimeSpentSeconds, &s.TotalScore, &s.Passed, &rawAnswers, &s.Status,
 		&s.CreatedAt, &s.UpdatedAt,
 	)
@@ -122,7 +127,7 @@ func (r *SubmissionRepository) GetByApplicantID(ctx context.Context, applicantID
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, test_token, started_at, submitted_at,
+		SELECT id, applicant_id, program_id, track_id, test_token, started_at, submitted_at,
 			time_spent_seconds, total_score, passed, answers, status, created_at, updated_at
 		FROM test_submissions
 		WHERE applicant_id = $1
@@ -132,7 +137,7 @@ func (r *SubmissionRepository) GetByApplicantID(ctx context.Context, applicantID
 	var s model.TestSubmission
 	var rawAnswers []byte
 	err := r.pool.QueryRow(ctx, query, applicantID).Scan(
-		&s.ID, &s.ApplicantID, &s.ProgramID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
+		&s.ID, &s.ApplicantID, &s.ProgramID, &s.TrackID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
 		&s.TimeSpentSeconds, &s.TotalScore, &s.Passed, &rawAnswers, &s.Status,
 		&s.CreatedAt, &s.UpdatedAt,
 	)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/model"
@@ -19,6 +20,8 @@ import (
 type ProgramHandler struct {
 	orgRepo         *repository.OrgRepository
 	programRepo     *repository.ProgramRepository
+	trackRepo       *repository.TrackRepository
+	mcqRepo         *repository.MCQRepository
 	applicantRepo   *repository.ApplicantRepository
 	submissionRepo  *repository.SubmissionRepository
 	aiInterviewRepo *repository.AIInterviewRepository
@@ -27,6 +30,8 @@ type ProgramHandler struct {
 func NewProgramHandler(
 	orgRepo *repository.OrgRepository,
 	programRepo *repository.ProgramRepository,
+	trackRepo *repository.TrackRepository,
+	mcqRepo *repository.MCQRepository,
 	applicantRepo *repository.ApplicantRepository,
 	submissionRepo *repository.SubmissionRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
@@ -34,10 +39,27 @@ func NewProgramHandler(
 	return &ProgramHandler{
 		orgRepo:         orgRepo,
 		programRepo:     programRepo,
+		trackRepo:       trackRepo,
+		mcqRepo:         mcqRepo,
 		applicantRepo:   applicantRepo,
 		submissionRepo:  submissionRepo,
 		aiInterviewRepo: aiInterviewRepo,
 	}
+}
+
+type TrackPublicItem struct {
+	ID                       string   `json:"id"`
+	Slug                     string   `json:"slug"`
+	Name                     string   `json:"name"`
+	Description              string   `json:"description"`
+	EnableMCQ                bool     `json:"enable_mcq"`
+	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`
+	LogicTestPassingScore    int      `json:"logic_test_passing_score"`
+	AllowRetake              bool     `json:"allow_retake"`
+	EnableAIInterview        bool     `json:"enable_ai_interview"`
+	AIInterviewInstructions  string   `json:"ai_interview_instructions,omitempty"`
+	AIInterviewQuestions     []string `json:"ai_interview_questions,omitempty"`
+	QuestionCount            int      `json:"question_count"`
 }
 
 type ProgramPublicResponse struct {
@@ -48,21 +70,43 @@ type ProgramPublicResponse struct {
 		LogoURL string `json:"logo_url,omitempty"`
 	} `json:"organization"`
 	Program struct {
-		ID                       string    `json:"id"`
-		Slug                     string    `json:"slug"`
-		Name                     string    `json:"name"`
-		Description              string    `json:"description"`
-		OpenDate                 time.Time `json:"open_date"`
-		EndDate                  time.Time `json:"end_date"`
-		EnableMCQ                bool      `json:"enable_mcq"`
-		LogicTestDurationMinutes int       `json:"logic_test_duration_minutes"`
-		LogicTestPassingScore    int       `json:"logic_test_passing_score"`
-		AllowRetake              bool      `json:"allow_retake"`
-		EnableAIInterview        bool      `json:"enable_ai_interview"`
-		AIInterviewInstructions  string    `json:"ai_interview_instructions,omitempty"`
-		AIInterviewQuestions     []string  `json:"ai_interview_questions,omitempty"`
-		IsOpen                   bool      `json:"is_open"`
+		ID                       string            `json:"id"`
+		Slug                     string            `json:"slug"`
+		Name                     string            `json:"name"`
+		Description              string            `json:"description"`
+		ImageURL                 string            `json:"image_url,omitempty"`
+		OpenDate                 time.Time         `json:"open_date"`
+		EndDate                  time.Time         `json:"end_date"`
+		EnableMCQ                bool              `json:"enable_mcq"`
+		LogicTestDurationMinutes int               `json:"logic_test_duration_minutes"`
+		LogicTestPassingScore    int               `json:"logic_test_passing_score"`
+		AllowRetake              bool              `json:"allow_retake"`
+		EnableAIInterview        bool              `json:"enable_ai_interview"`
+		AIInterviewInstructions  string            `json:"ai_interview_instructions,omitempty"`
+		AIInterviewQuestions     []string          `json:"ai_interview_questions,omitempty"`
+		IsOpen                   bool              `json:"is_open"`
+		Tracks                   []TrackPublicItem `json:"tracks"`
 	} `json:"program"`
+}
+
+type TrackDetailPublicResponse struct {
+	Organization struct {
+		ID      string `json:"id"`
+		Slug    string `json:"slug"`
+		Name    string `json:"name"`
+		LogoURL string `json:"logo_url,omitempty"`
+	} `json:"organization"`
+	Program struct {
+		ID          string    `json:"id"`
+		Slug        string    `json:"slug"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		ImageURL    string    `json:"image_url,omitempty"`
+		OpenDate    time.Time `json:"open_date"`
+		EndDate     time.Time `json:"end_date"`
+		IsOpen      bool      `json:"is_open"`
+	} `json:"program"`
+	Track TrackPublicItem `json:"track"`
 }
 
 func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +133,7 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	resp.Program.Slug = program.Slug
 	resp.Program.Name = program.Name
 	resp.Program.Description = program.Description
+	resp.Program.ImageURL = program.ImageURL
 	resp.Program.OpenDate = program.OpenDate
 	resp.Program.EndDate = program.EndDate
 	resp.Program.EnableMCQ = program.EnableMCQ
@@ -100,10 +145,85 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	resp.Program.AIInterviewQuestions = program.AIInterviewQuestions
 	resp.Program.IsOpen = program.IsOpen()
 
+	// Load tracks
+	tracks, _ := h.trackRepo.ListByProgram(r.Context(), program.ID)
+	resp.Program.Tracks = make([]TrackPublicItem, 0, len(tracks))
+	for _, t := range tracks {
+		questions, _ := h.mcqRepo.ListByTrack(r.Context(), t.ID)
+		resp.Program.Tracks = append(resp.Program.Tracks, TrackPublicItem{
+			ID:                       t.ID.String(),
+			Slug:                     t.Slug,
+			Name:                     t.Name,
+			Description:              t.Description,
+			EnableMCQ:                t.EnableMCQ,
+			LogicTestDurationMinutes: t.LogicTestDurationMinutes,
+			LogicTestPassingScore:    t.LogicTestPassingScore,
+			AllowRetake:              t.AllowRetake,
+			EnableAIInterview:        t.EnableAIInterview,
+			AIInterviewInstructions:  t.AIInterviewInstructions,
+			AIInterviewQuestions:     t.AIInterviewQuestions,
+			QuestionCount:            len(questions),
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
+func (h *ProgramHandler) GetTrackDetail(w http.ResponseWriter, r *http.Request) {
+	orgSlug := chi.URLParam(r, "orgSlug")
+	programSlug := chi.URLParam(r, "programSlug")
+	trackSlug := chi.URLParam(r, "trackSlug")
+
+	program, org, err := h.programRepo.GetByOrgSlugAndProgramSlug(r.Context(), orgSlug, programSlug)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "program or organization not found")
+		return
+	}
+
+	track, err := h.trackRepo.GetBySlug(r.Context(), program.ID, trackSlug)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "track not found")
+		return
+	}
+
+	questions, _ := h.mcqRepo.ListByTrack(r.Context(), track.ID)
+
+	var resp TrackDetailPublicResponse
+	resp.Organization.ID = org.ID.String()
+	resp.Organization.Slug = org.Slug
+	resp.Organization.Name = org.Name
+	resp.Organization.LogoURL = org.LogoURL
+
+	resp.Program.ID = program.ID.String()
+	resp.Program.Slug = program.Slug
+	resp.Program.Name = program.Name
+	resp.Program.Description = program.Description
+	resp.Program.ImageURL = program.ImageURL
+	resp.Program.OpenDate = program.OpenDate
+	resp.Program.EndDate = program.EndDate
+	resp.Program.IsOpen = program.IsOpen()
+
+	resp.Track = TrackPublicItem{
+		ID:                       track.ID.String(),
+		Slug:                     track.Slug,
+		Name:                     track.Name,
+		Description:              track.Description,
+		EnableMCQ:                track.EnableMCQ,
+		LogicTestDurationMinutes: track.LogicTestDurationMinutes,
+		LogicTestPassingScore:    track.LogicTestPassingScore,
+		AllowRetake:              track.AllowRetake,
+		EnableAIInterview:        track.EnableAIInterview,
+		AIInterviewInstructions:  track.AIInterviewInstructions,
+		AIInterviewQuestions:     track.AIInterviewQuestions,
+		QuestionCount:            len(questions),
+	}
+
 	httpx.JSON(w, http.StatusOK, resp)
 }
 
 type ApplyRequest struct {
+	TrackSlug   string `json:"track_slug,omitempty"`
+	TrackID     string `json:"track_id,omitempty"`
 	FullName    string `json:"full_name"`
 	Email       string `json:"email"`
 	Phone       string `json:"phone"`
@@ -130,6 +250,7 @@ func generateToken(length int) string {
 func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	orgSlug := chi.URLParam(r, "orgSlug")
 	programSlug := chi.URLParam(r, "programSlug")
+	trackSlugURL := chi.URLParam(r, "trackSlug")
 
 	program, org, err := h.programRepo.GetByOrgSlugAndProgramSlug(r.Context(), orgSlug, programSlug)
 	if err != nil {
@@ -160,9 +281,44 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolve Track
+	var targetTrack *model.Track
+	activeTrackSlug := trackSlugURL
+	if activeTrackSlug == "" {
+		activeTrackSlug = req.TrackSlug
+	}
+
+	if activeTrackSlug != "" {
+		targetTrack, _ = h.trackRepo.GetBySlug(r.Context(), program.ID, activeTrackSlug)
+	} else if req.TrackID != "" {
+		if tid, err := uuid.Parse(req.TrackID); err == nil {
+			targetTrack, _ = h.trackRepo.GetByID(r.Context(), tid)
+		}
+	}
+
+	// Fallback to first track if none matched
+	if targetTrack == nil {
+		if tracks, _ := h.trackRepo.ListByProgram(r.Context(), program.ID); len(tracks) > 0 {
+			targetTrack = &tracks[0]
+		}
+	}
+
+	var trackIDPtr *uuid.UUID
+	enableMCQ := program.EnableMCQ
+	enableAI := program.EnableAIInterview
+	allowRetake := program.AllowRetake
+
+	if targetTrack != nil {
+		trackIDPtr = &targetTrack.ID
+		enableMCQ = targetTrack.EnableMCQ
+		enableAI = targetTrack.EnableAIInterview
+		allowRetake = targetTrack.AllowRetake
+	}
+
 	applicant, _, err := h.applicantRepo.CreateOrGet(r.Context(), &model.Applicant{
 		OrganizationID: org.ID,
 		ProgramID:      program.ID,
+		TrackID:        trackIDPtr,
 		Email:          req.Email,
 		FullName:       req.FullName,
 		Phone:          req.Phone,
@@ -178,10 +334,10 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If MCQ stage is disabled and AI Interview is enabled, direct straight to AI interview
-	if !program.EnableMCQ && program.EnableAIInterview {
+	if !enableMCQ && enableAI {
 		aiToken := generateToken(24)
 		expires := time.Now().Add(7 * 24 * time.Hour)
-		ai, err := h.aiInterviewRepo.CreateInvitation(r.Context(), applicant.ID, program.ID, aiToken, expires)
+		ai, err := h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), applicant.ID, program.ID, trackIDPtr, aiToken, expires)
 		if err == nil && ai != nil {
 			_ = h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageAIInterviewInvited)
 			httpx.JSON(w, http.StatusCreated, ApplyResponse{
@@ -198,7 +354,7 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	submission, err := h.submissionRepo.GetByApplicantID(r.Context(), applicant.ID)
 	if err == nil && submission != nil {
 		if submission.Status == model.SubmissionCompleted {
-			if !program.AllowRetake {
+			if !allowRetake {
 				httpx.JSON(w, http.StatusOK, ApplyResponse{
 					ApplicantID: applicant.ID.String(),
 					Stage:       applicant.CurrentStage,
@@ -220,7 +376,7 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 
 	// Create new test token & submission record
 	testToken := generateToken(24)
-	newSub, err := h.submissionRepo.Create(r.Context(), applicant.ID, program.ID, testToken)
+	newSub, err := h.submissionRepo.CreateWithTrack(r.Context(), applicant.ID, program.ID, trackIDPtr, testToken)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to initialize test session: %v", err))
 		return
