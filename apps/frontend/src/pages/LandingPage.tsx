@@ -117,18 +117,21 @@ export const LandingPage: React.FC = () => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 text-center flex flex-col items-center">
           {/* Main Headline - Exactly 2 rows */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.18] max-w-4xl">
-            Automated Logic Tests & AI Screening<br className="hidden sm:inline" /> for{' '}
-            <span className="bg-gradient-to-r from-kulkul-purple via-[#6423b3] to-kulkul-orange bg-clip-text text-transparent">
-              High-Velocity Fellowships
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight max-w-5xl">
+            <span className="block">Automated Logic Tests & AI Screening</span>
+            <span className="block mt-2">
+              for{' '}
+              <span className="bg-gradient-to-r from-kulkul-purple via-[#6423b3] to-kulkul-orange bg-clip-text text-transparent">
+                High-Velocity Fellowships
+              </span>
             </span>
           </h1>
 
           {/* Subtitle - Exactly 2 rows */}
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl leading-relaxed">
-            Fast-track candidate selection with timed logic tests and conversational AI screening.<br className="hidden sm:inline" />
-            Deliver instant reviewer scorecards in one unified platform.
-          </p>
+          <div className="mt-6 text-base sm:text-lg lg:text-xl text-slate-600 max-w-4xl leading-relaxed">
+            <p className="block">Fast-track candidate selection with timed logic tests and conversational AI screening.</p>
+            <p className="block mt-1">Deliver instant reviewer scorecards in one unified platform.</p>
+          </div>
 
           {/* Single Focused CTA Button for Companies */}
           <div className="mt-10 flex items-center justify-center">
