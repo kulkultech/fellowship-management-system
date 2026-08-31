@@ -4,68 +4,81 @@ import {
   Building2,
   ArrowRight,
   Lock,
-  Image as ImageIcon,
   Clock,
   ChevronRight,
   ShieldCheck,
+  Upload,
+  X,
 } from 'lucide-react';
 import { authService } from '../services/authService';
 
-const LOGO_PRESETS = [
-  {
-    name: 'Tech & Cloud',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=128&h=128&fit=crop',
-    icon: '⚡',
-  },
-  {
-    name: 'AI Labs',
-    url: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=128&h=128&fit=crop',
-    icon: '🧠',
-  },
-  {
-    name: 'FinTech Group',
-    url: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=128&h=128&fit=crop',
-    icon: '💎',
-  },
-  {
-    name: 'Remote Skills Academy',
-    url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop',
-    icon: '🎓',
-  },
-];
-
 export const CompanyRegisterPage: React.FC = () => {
-
   const [companyName, setCompanyName] = useState('');
   const [companySlug, setCompanySlug] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [logoURL, setLogoURL] = useState('');
+  const [logoFileName, setLogoFileName] = useState('');
+
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleNameChange = (val: string) => {
-    setCompanyName(val);
+  // Auto-generate slug from name
+  const handleNameChange = (name: string) => {
+    setCompanyName(name);
     if (!companySlug || companySlug === companyName.toLowerCase().replace(/[^a-z0-9]/g, '')) {
-      setCompanySlug(val.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      setCompanySlug(name.toLowerCase().replace(/[^a-z0-9]/g, ''));
     }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Logo file size must be under 2MB');
+      return;
+    }
+
+    setError('');
+    setLogoFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setLogoURL(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoURL('');
+    setLogoFileName('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
+    setError('');
+
+    if (!companyName.trim() || !companySlug.trim()) {
+      setError('Please provide company name and slug');
+      return;
+    }
+    if (!adminEmail.trim() || !adminPassword || !adminName.trim()) {
+      setError('Please provide full administrator account credentials');
+      return;
+    }
 
     try {
+      setLoading(true);
       await authService.registerCompany({
         company_name: companyName.trim(),
         company_slug: companySlug.trim().toLowerCase(),
         contact_email: contactEmail.trim().toLowerCase(),
-        logo_url: logoURL.trim() || undefined,
+        logo_url: logoURL,
         admin_name: adminName.trim(),
         admin_email: adminEmail.trim().toLowerCase(),
         admin_password: adminPassword,
@@ -86,9 +99,6 @@ export const CompanyRegisterPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 h-20 sm:h-24 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-4 group">
             <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
-            <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
-              Company Registration
-            </span>
           </Link>
 
           <div className="flex items-center gap-4">
@@ -158,10 +168,6 @@ export const CompanyRegisterPage: React.FC = () => {
           <div className="space-y-8">
             {/* Headline */}
             <div className="text-center max-w-2xl mx-auto space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 text-xs font-bold uppercase tracking-wider">
-                <Building2 className="w-3.5 h-3.5 text-kulkul-orange" />
-                <span>Organization Onboarding</span>
-              </div>
               <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
                 Register Your Company on FellowHire
               </h1>
@@ -233,75 +239,55 @@ export const CompanyRegisterPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Section 2: Logo Branding (Optional) */}
+              {/* Section 2: Logo Upload */}
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-6">
                   <div className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-kulkul-orange" />
+                    <Upload className="w-5 h-5 text-kulkul-orange" />
                     <h3 className="text-base font-bold text-slate-900">2. Company Logo (Optional)</h3>
                   </div>
-                  <span className="text-2xs text-slate-400 font-medium">Used across your dashboard & job posts</span>
+                  <span className="text-2xs text-slate-400 font-medium">PNG, JPG, SVG, or WebP (max. 2MB)</span>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Logo Image URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://example.com/logo.png"
-                      value={logoURL}
-                      onChange={(e) => setLogoURL(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <span className="text-xs font-bold text-slate-600 block mb-2">Or choose a logo preset:</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {LOGO_PRESETS.map((preset) => (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => setLogoURL(preset.url)}
-                          className={`p-3 rounded-xl border text-left transition flex items-center gap-3 ${
-                            logoURL === preset.url
-                              ? 'border-kulkul-purple bg-kulkul-purple-light/40 ring-1 ring-kulkul-purple'
-                              : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
-                          }`}
-                        >
-                          <img
-                            src={preset.url}
-                            alt={preset.name}
-                            className="w-8 h-8 rounded-lg object-cover border border-slate-200"
-                          />
-                          <div className="truncate">
-                            <div className="text-xs font-bold text-slate-900 truncate">{preset.name}</div>
-                            <div className="text-2xs text-slate-400">Select</div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Live Branding Preview */}
-                  {logoURL && (
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-4">
-                      <img
-                        src={logoURL}
-                        alt="Logo preview"
-                        className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                      <div>
-                        <span className="text-2xs font-bold uppercase text-slate-400 tracking-wider">Dashboard Navbar Preview</span>
-                        <div className="text-sm font-extrabold text-kulkul-purple">{companyName || 'Company Name'}</div>
-                        <div className="text-2xs text-slate-500">Logo configured & visible to applicants</div>
+                <div>
+                  {logoURL ? (
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={logoURL}
+                          alt="Logo preview"
+                          className="w-14 h-14 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
+                        />
+                        <div>
+                          <div className="text-sm font-bold text-slate-900">{logoFileName || 'Uploaded Logo'}</div>
+                          <span className="text-2xs font-semibold text-emerald-600">Ready to upload</span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
                     </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-kulkul-purple rounded-2xl p-6 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition group">
+                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-kulkul-purple group-hover:border-kulkul-purple/40 shadow-2xs mb-3 transition">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <span className="text-sm font-bold text-slate-800 group-hover:text-kulkul-purple transition">
+                        Click to upload your company logo
+                      </span>
+                      <span className="text-xs text-slate-400 mt-1">SVG, PNG, JPG, or WebP up to 2MB</span>
+                      <input
+                        type="file"
+                        accept="image/png, image/jpeg, image/svg+xml, image/webp"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                    </label>
                   )}
                 </div>
               </div>
