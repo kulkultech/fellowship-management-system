@@ -10,6 +10,7 @@ import { TestPage } from '@/pages/lit2026/TestPage';
 import { ResultPage } from '@/pages/lit2026/ResultPage';
 import { InterviewPage } from '@/pages/lit2026/InterviewPage';
 import { CompanyRegisterPage } from '@/pages/CompanyRegisterPage';
+import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { useUiStore } from '@/hooks/useUiStore';
@@ -57,6 +58,10 @@ export function App() {
           {/* Public Program Job Post / Fellowship Listing */}
           <Route path="/programs/:orgSlug/:programSlug" element={<ProgramJobPostPage />} />
           <Route path="/programs/:orgSlug/:programSlug/apply" element={<ApplyPage />} />
+
+          {/* Candidate Dashboard & Portal */}
+          <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />
+          <Route path="/candidate/portal" element={<CandidateDashboardPage />} />
 
           {/* Candidate Funnel: RSA - LIT 2026 */}
           <Route path="/lit2026/apply" element={<ApplyPage />} />

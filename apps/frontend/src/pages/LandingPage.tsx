@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthModal } from '@/components/AuthModal';
 import {
   ArrowRight,
   CheckCircle2,
@@ -12,17 +11,9 @@ import {
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalRole, setAuthModalRole] = useState<'participant' | 'company'>('participant');
   const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  const openAuth = (role: 'participant' | 'company') => {
-    setAuthModalRole(role);
-    setAuthModalOpen(true);
-    setSignInDropdownOpen(false);
-  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -74,7 +65,10 @@ export const LandingPage: React.FC = () => {
               {signInDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-100 shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   <button
-                    onClick={() => openAuth('participant')}
+                    onClick={() => {
+                      setSignInDropdownOpen(false);
+                      navigate('/candidate/dashboard');
+                    }}
                     className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
                   >
                     <div className="w-8 h-8 rounded-lg bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
@@ -222,13 +216,6 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </footer>
-
-      {/* Pop-up Auth Modal */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        defaultRole={authModalRole}
-      />
     </div>
   );
 };

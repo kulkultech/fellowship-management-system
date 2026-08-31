@@ -39,6 +39,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, programRepo, applicantRepo, aiInterviewRepo)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo)
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, aiInterviewRepo, programRepo, orgRepo)
+	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -124,6 +125,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		api.Route("/interviews", func(ai chi.Router) {
 			ai.Get("/{inviteToken}", aiInterviewHandler.GetSession)
 			ai.Post("/{inviteToken}/message", aiInterviewHandler.SendMessage)
+		})
+
+		// Candidate Portal: Applications & Dashboard
+		api.Route("/candidate", func(c chi.Router) {
+			c.Get("/applications", candidateHandler.GetCandidateApplications)
 		})
 
 		// Protected Reviewer / Admin / Superadmin Routes

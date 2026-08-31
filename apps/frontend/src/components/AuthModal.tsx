@@ -63,9 +63,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       toast.error('Please enter your email to continue');
       return;
     }
+    const cleanEmail = candidateEmail.trim().toLowerCase();
+    localStorage.setItem('candidate_email', cleanEmail);
     onClose();
-    // Navigate to apply page with pre-filled params or start assessment
-    navigate(`/lit2026/apply?email=${encodeURIComponent(candidateEmail)}&name=${encodeURIComponent(candidateName)}`);
+    navigate(`/candidate/dashboard?email=${encodeURIComponent(cleanEmail)}`);
   };
 
   return (

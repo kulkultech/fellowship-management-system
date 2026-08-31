@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -191,6 +192,49 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan: %w", err)
+		}
+		list = append(list, a)
+	}
+	return list, rows.Err()
+}
+
+func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]model.Applicant, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var list []model.Applicant
+		for _, app := range r.memApplicants {
+			if strings.ToLower(app.Email) == email {
+				list = append(list, *app)
+			}
+		}
+		return list, nil
+	}
+
+	query := `
+		SELECT id, organization_id, program_id, email, full_name, COALESCE(phone, ''),
+			COALESCE(github_url, ''), COALESCE(linkedin_url, ''), COALESCE(resume_url, ''),
+			current_stage, COALESCE(notes, ''), created_at, updated_at
+		FROM applicants
+		WHERE LOWER(email) = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, email)
+	if err != nil {
+		return nil, fmt.Errorf("applicant_repo: list by email: %w", err)
+	}
+	defer rows.Close()
+
+	var list []model.Applicant
+	for rows.Next() {
+		var a model.Applicant
+		if err := rows.Scan(
+			&a.ID, &a.OrganizationID, &a.ProgramID, &a.Email, &a.FullName, &a.Phone,
+			&a.GitHubURL, &a.LinkedInURL, &a.ResumeURL, &a.CurrentStage, &a.Notes,
+			&a.CreatedAt, &a.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("applicant_repo: scan by email: %w", err)
 		}
 		list = append(list, a)
 	}
