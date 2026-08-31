@@ -46,7 +46,7 @@ export const LoginPage: React.FC = () => {
         <div className="max-w-md w-full">
           {/* Card Container */}
           <div className="stitch-card bg-white p-8">
-            <div className="mb-6">
+            <div className="mb-6 text-center">
               <h1 className="text-2xl font-extrabold text-kulkul-purple tracking-tight">Reviewer Portal</h1>
               <p className="text-xs text-slate-500 mt-1">Sign in to manage fellowship applicants</p>
             </div>
