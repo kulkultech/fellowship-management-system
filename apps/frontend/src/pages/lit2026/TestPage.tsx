@@ -136,29 +136,27 @@ export const TestPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50/60 flex flex-col">
       {/* Sticky Top Assessment Header */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
-        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-black text-sm">
-                FH
-              </div>
-              <div>
-                <span className="font-extrabold text-kulkul-purple text-sm sm:text-base">{testSession.program_name}</span>
-                <div className="text-2xs text-slate-500 font-medium">Timed Logic Assessment &middot; 1 Attempt Only</div>
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="flex items-center justify-between h-20 sm:h-24">
+            <div className="flex items-center gap-4">
+              <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain" />
+              <div className="hidden sm:flex flex-col">
+                <span className="font-extrabold text-kulkul-purple text-base">{testSession.program_name}</span>
+                <div className="text-xs text-slate-500 font-medium">Timed Logic Assessment &middot; 1 Attempt Only</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 sm:gap-6">
               {/* Countdown Clock */}
               <div
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border font-mono font-bold text-sm sm:text-base ${
+                className={`flex items-center gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border font-mono font-bold text-sm sm:text-base shadow-xs ${
                   isUrgent
                     ? 'bg-red-50 text-red-700 border-red-300 animate-pulse'
                     : 'bg-kulkul-orange-light text-kulkul-orange border-kulkul-orange/30'
                 }`}
               >
-                <Clock className="w-4 h-4" />
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>{secondsRemaining !== null ? formatTimer(secondsRemaining) : '--:--'}</span>
               </div>
 
@@ -166,7 +164,7 @@ export const TestPage: React.FC = () => {
               <button
                 onClick={handleSubmit}
                 disabled={submitMutation.isPending}
-                className="stitch-pill stitch-pill-purple"
+                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2.5"
               >
                 <Send className="w-4 h-4 text-kulkul-orange" />
                 <span className="hidden sm:inline">Finish & Submit</span>

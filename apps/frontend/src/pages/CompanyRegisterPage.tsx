@@ -82,25 +82,22 @@ export const CompanyRegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       {/* Top Simple Header */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="h-10 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center">
-              <img src="/kulkul-logo.svg" alt="Logo" className="h-7 w-auto object-contain" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold text-kulkul-purple text-lg tracking-tight">FellowHire</span>
-              <span className="text-2xs text-slate-500 font-medium">Company Registration Portal</span>
-            </div>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 h-20 sm:h-24 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-4 group">
+            <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
+            <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+              Company Registration
+            </span>
           </Link>
 
           <div className="flex items-center gap-4">
-            <span className="text-xs text-slate-500 hidden sm:inline">Already have an approved account?</span>
+            <span className="text-sm text-slate-500 hidden md:inline">Already have an approved account?</span>
             <Link
               to="/admin/login"
-              className="px-4 py-2 rounded-full text-xs font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition"
+              className="px-5 py-2.5 rounded-full text-sm font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition"
             >
-              Company Sign In
+              Sign In
             </Link>
           </div>
         </div>

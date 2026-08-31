@@ -12,8 +12,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  title = 'FellowHire',
-  subtitle = 'Assessment & Talent Platform',
+  title,
+  subtitle,
   showAdminNav = false,
 }) => {
   const { logout } = useAuth();
@@ -31,40 +31,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
-        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="flex items-center justify-between h-20 sm:h-24">
             {/* Logo & Platform / Company Details */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <Link to="/" className="flex items-center gap-3.5 group">
-                <div className="h-10 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-center transition group-hover:border-kulkul-orange/40">
-                  <img src="/kulkul-logo.svg" alt="Logo" className="h-7 w-auto object-contain" />
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-kulkul-purple text-base tracking-tight">{title}</span>
-                    {companyName ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
-                        {companyLogo && (
-                          <img
-                            src={companyLogo}
-                            alt={companyName}
-                            className="w-3.5 h-3.5 rounded-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        )}
-                        <span>{companyName}</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold bg-kulkul-orange-light text-kulkul-orange border border-kulkul-orange/20">
-                        Multi-Tenant
-                      </span>
+                <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
+                {companyName ? (
+                  <span className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                    {companyLogo && (
+                      <img
+                        src={companyLogo}
+                        alt={companyName}
+                        className="w-4 h-4 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
                     )}
+                    <span>{companyName}</span>
+                  </span>
+                ) : title ? (
+                  <div className="hidden sm:flex flex-col">
+                    <span className="font-extrabold text-kulkul-purple text-base leading-tight">{title}</span>
+                    {subtitle && <span className="text-2xs text-slate-500 font-medium">{subtitle}</span>}
                   </div>
-                  <span className="text-2xs text-slate-500 font-medium">{subtitle}</span>
-                </div>
+                ) : null}
               </Link>
             </div>
 
