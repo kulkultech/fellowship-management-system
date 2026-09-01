@@ -40,6 +40,9 @@ export default {
           'sans-serif',
         ],
       },
+      fontSize: {
+        '2xs': ['0.6875rem', { lineHeight: '0.875rem' }],
+      },
       borderRadius: {
         '3xl': '1.5rem',
         '4xl': '2rem',

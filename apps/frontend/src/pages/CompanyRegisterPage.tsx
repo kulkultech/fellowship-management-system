@@ -220,7 +220,7 @@ export const CompanyRegisterPage: React.FC = () => {
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-mono"
                       />
                     </div>
-                    <span className="text-2xs text-slate-400 mt-1 block">
+                    <span className="text-[11px] text-slate-400 mt-1.5 block font-mono">
                       Public URL: /programs/{companySlug || 'your-company'}/:program_slug
                     </span>
                   </div>
