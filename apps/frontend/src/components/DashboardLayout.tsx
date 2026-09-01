@@ -68,32 +68,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   };
 
-  const getPortalBadge = () => {
-    switch (portalType) {
-      case 'superadmin':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-extrabold bg-purple-100 text-kulkul-purple border border-purple-200">
-            <ShieldCheck className="w-3 h-3 text-kulkul-orange" />
-            <span>KulKul Superadmin</span>
-          </span>
-        );
-      case 'company_admin':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-            <Building2 className="w-3 h-3 text-kulkul-purple" />
-            <span>Company Portal</span>
-          </span>
-        );
-      case 'candidate':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <UserIcon className="w-3 h-3 text-emerald-600" />
-            <span>Candidate Portal</span>
-          </span>
-        );
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       {/* ========================================================================= */}
@@ -101,7 +75,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* ========================================================================= */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs h-16 sm:h-20 flex items-center shrink-0">
         <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          {/* Left: Hamburger (Mobile) + Logo + Portal Badge */}
+          {/* Left: Hamburger (Mobile) + Logo */}
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
@@ -118,10 +92,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 className="h-8 sm:h-9 w-auto object-contain transition group-hover:opacity-90"
               />
             </Link>
-
-            <div className="hidden sm:flex items-center gap-2">
-              {getPortalBadge()}
-            </div>
           </div>
 
           {/* Center: Breadcrumbs (if provided) */}
