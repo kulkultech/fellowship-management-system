@@ -715,11 +715,11 @@ export const DashboardPage: React.FC = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
                       <colgroup>
-                        <col className="w-[32%]" />
+                        <col className="w-[28%]" />
                         <col className="w-[24%]" />
-                        <col className="w-[16%]" />
                         <col className="w-[14%]" />
                         <col className="w-[14%]" />
+                        <col className="w-[20%]" />
                       </colgroup>
                       <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                         <tr>
