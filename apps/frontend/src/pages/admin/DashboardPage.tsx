@@ -17,6 +17,7 @@ import {
   Check,
   Plus,
   Clock,
+  Calendar,
   Copy,
   Building2,
   ListOrdered,
@@ -710,16 +711,23 @@ export const DashboardPage: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-700">
-                      <thead className="bg-slate-50/90 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
+                      <colgroup>
+                        <col className="w-[42%]" />
+                        <col className="w-[20%]" />
+                        <col className="w-[14%]" />
+                        <col className="w-[11%]" />
+                        <col className="w-[13%]" />
+                      </colgroup>
+                      <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                         <tr>
-                          <th className="px-6 py-4 font-bold">Program Details</th>
-                          <th className="px-6 py-4 font-bold whitespace-nowrap">Cohort Window</th>
-                          <th className="px-6 py-4 font-bold whitespace-nowrap">Specialization Tracks</th>
-                          <th className="px-6 py-4 font-bold whitespace-nowrap">Status</th>
-                          <th className="px-6 py-4 font-bold text-right whitespace-nowrap">Actions</th>
+                          <th className="py-3 px-5 font-bold">Program Details</th>
+                          <th className="py-3 px-4 font-bold">Cohort Window</th>
+                          <th className="py-3 px-4 font-bold">Tracks</th>
+                          <th className="py-3 px-4 font-bold">Status</th>
+                          <th className="py-3 px-5 font-bold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
@@ -734,70 +742,69 @@ export const DashboardPage: React.FC = () => {
                                 setCurrentView('pipeline');
                               }}
                             >
-                              <td className="px-6 py-4.5 align-middle">
+                              <td className="py-4 px-5 align-middle">
                                 <div className="flex items-center gap-3.5">
-                                  <div className="w-11 h-11 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden">
+                                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                     {prog.image_url ? (
                                       <img src={prog.image_url} alt={prog.name} className="w-full h-full object-cover" />
                                     ) : (
                                       <Layers className="w-5 h-5 text-kulkul-orange" />
                                     )}
                                   </div>
-                                  <div className="min-w-0">
-                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                                  <div className="min-w-0 pr-2">
+                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate flex items-center gap-2">
                                       <span className="truncate">{prog.name}</span>
                                       {isSelected && (
-                                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 shrink-0">
                                           Selected
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-2xs font-mono text-slate-400 mt-0.5">
-                                      slug: {prog.slug}
-                                    </div>
-                                    {prog.description && (
-                                      <div className="text-xs text-slate-500 line-clamp-1 mt-1 max-w-md">
-                                        {prog.description}
-                                      </div>
-                                    )}
+                                    <p className="text-2xs text-slate-500 truncate mt-0.5 max-w-sm">
+                                      <span className="font-mono font-semibold text-kulkul-purple">/{prog.slug}</span>
+                                      {prog.description && <span> &middot; {prog.description}</span>}
+                                    </p>
                                   </div>
                                 </div>
                               </td>
 
-                              <td className="px-6 py-4.5 align-middle whitespace-nowrap text-xs text-slate-600">
-                                <div className="font-bold text-slate-900">
-                                  {new Date(prog.open_date).toLocaleDateString()} &ndash; {new Date(prog.end_date).toLocaleDateString()}
+                              <td className="py-4 px-4 align-middle whitespace-nowrap text-xs text-slate-600">
+                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span>
+                                    {new Date(prog.open_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} &ndash; {new Date(prog.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
                                 </div>
-                                <div className="text-2xs text-slate-400 mt-0.5 flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5 text-kulkul-orange" />
-                                  <span>Logic Test: {prog.logic_test_duration_minutes} Mins ({prog.logic_test_passing_score}% Pass)</span>
+                                <div className="text-2xs text-slate-400 mt-1 flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-kulkul-orange shrink-0" />
+                                  <span>Logic Test: {prog.logic_test_duration_minutes}m ({prog.logic_test_passing_score}% Pass)</span>
                                 </div>
                               </td>
 
-                              <td className="px-6 py-4.5 align-middle whitespace-nowrap text-left">
+                              <td className="py-4 px-4 align-middle whitespace-nowrap text-left">
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
                                   <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
                                   <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '2')} Tracks</span>
                                 </span>
                               </td>
 
-                              <td className="px-6 py-4.5 align-middle whitespace-nowrap text-left">
+                              <td className="py-4 px-4 align-middle whitespace-nowrap text-left">
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                   <span>Admissions Open</span>
                                 </span>
                               </td>
 
-                              <td className="px-6 py-4.5 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              <td className="py-4 px-5 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2">
                                   <button
                                     onClick={() => {
                                       setActiveProgramSlug(prog.slug);
                                       setCurrentView('pipeline');
                                     }}
-                                    className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                                    className="px-3.5 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
                                   >
-                                    <span>Open Program</span>
+                                    <span>Manage</span>
                                     <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
                                   </button>
 
@@ -805,7 +812,7 @@ export const DashboardPage: React.FC = () => {
                                     href={getPublicProgramUrl(prog.slug)}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
+                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
                                     title="Open public overview page"
                                   >
                                     <ExternalLink className="w-3.5 h-3.5" />
