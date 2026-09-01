@@ -100,7 +100,6 @@ export const DashboardPage: React.FC = () => {
 
   // Current company slug
   const orgSlug = user?.organization?.slug || 'rsa';
-  const companyName = user?.organization?.name || 'Remote Skills Academy';
 
   // Load Active Program Details
   const { data: programData } = useQuery({
@@ -504,9 +503,6 @@ export const DashboardPage: React.FC = () => {
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Fellowship & Scholarship Programs
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  Host Organization: <strong className="text-slate-700">{companyName}</strong> &middot; Organization Workspace: <span className="font-mono text-kulkul-purple">/{orgSlug}</span>
-                </p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -540,9 +536,6 @@ export const DashboardPage: React.FC = () => {
                   <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                     {program?.name || 'Fellowship Assessment Pipeline'}
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    Host Organization: <strong className="text-slate-700">{companyName}</strong> &middot; Program Slug: <span className="font-mono text-kulkul-purple">{orgSlug}/{activeProgramSlug}</span>
-                  </p>
                 </div>
 
                 {/* Right: Quick Action Controls */}
