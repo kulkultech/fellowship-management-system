@@ -85,7 +85,6 @@ export const DashboardPage: React.FC = () => {
 
   // Modals
   const [isCreateProgramModalOpen, setIsCreateProgramModalOpen] = useState(false);
-  const [isQuestionBuilderOpen, setIsQuestionBuilderOpen] = useState(false);
   const [isCreateTrackModalOpen, setIsCreateTrackModalOpen] = useState(false);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
@@ -223,7 +222,6 @@ export const DashboardPage: React.FC = () => {
       toast.success('Question bank saved successfully!');
       refetchTrackQuestions();
       refetchTracks();
-      setIsQuestionBuilderOpen(false);
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || 'Failed to save questions');
@@ -513,7 +511,7 @@ export const DashboardPage: React.FC = () => {
       id: 'questions',
       label: 'Track Question Banks',
       icon: HelpCircle,
-      onClick: () => setIsQuestionBuilderOpen(true),
+      badge: editingQuestions.length > 0 ? editingQuestions.length : undefined,
     },
     ...(isSuperadmin
       ? [
@@ -532,6 +530,18 @@ export const DashboardPage: React.FC = () => {
   const breadcrumbs =
     currentView === 'programs'
       ? [{ label: 'Fellowship Programs' }]
+      : currentView === 'questions'
+      ? [
+          { label: 'All Programs', onClick: () => setCurrentView('programs') },
+          { label: program?.name || activeProgramSlug, onClick: () => setCurrentView('pipeline') },
+          { label: `Question Banks${activeTrackObj ? ` · ${activeTrackObj.name}` : ''}` },
+        ]
+      : currentView === 'stages'
+      ? [
+          { label: 'All Programs', onClick: () => setCurrentView('programs') },
+          { label: program?.name || activeProgramSlug, onClick: () => setCurrentView('pipeline') },
+          { label: 'Application Stages' },
+        ]
       : [
           { label: 'All Programs', onClick: () => setCurrentView('programs') },
           { label: program?.name || activeProgramSlug },
@@ -601,11 +611,19 @@ export const DashboardPage: React.FC = () => {
       title={
         currentView === 'programs'
           ? 'Fellowship & Scholarship Programs'
+          : currentView === 'questions'
+          ? `${activeTrackObj?.name || 'Track'} Question Bank`
+          : currentView === 'stages'
+          ? 'Application & Assessment Stages'
           : program?.name || 'Fellowship Assessment Pipeline'
       }
       subtitle={
         currentView === 'programs'
           ? 'Centralized directory of all company fellowship cohorts and candidate admissions.'
+          : currentView === 'questions'
+          ? 'Configure timed domain multiple choice questions, passing score benchmarks, and scorecard explanations.'
+          : currentView === 'stages'
+          ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
           : `Program Slug: /${orgSlug}/${activeProgramSlug}`
       }
       companyName={user?.organization?.name || 'Remote Skills Academy'}
@@ -1131,13 +1149,13 @@ export const DashboardPage: React.FC = () => {
                         <button
                           onClick={() => {
                             setSelectedTrackIdForQuestions(track.id);
-                            setIsQuestionBuilderOpen(true);
+                            setCurrentView('questions');
                           }}
                           className="px-3.5 py-1.5 rounded-full bg-kulkul-purple-light hover:bg-kulkul-purple-subtle text-kulkul-purple text-xs font-bold transition flex items-center gap-1.5"
-                          title="Edit MCQ questions for this track"
+                          title="View and edit MCQ question bank for this track"
                         >
                           <ListOrdered className="w-3.5 h-3.5" />
-                          <span>Questions</span>
+                          <span>Question Bank</span>
                         </button>
 
                         <div className="flex items-center gap-1.5">
@@ -1355,221 +1373,302 @@ export const DashboardPage: React.FC = () => {
       )}
 
         {/* ================================================================================= */}
-        {/* MODAL 1: GOOGLE FORM STYLE MCQ QUESTION BANK BUILDER */}
+        {/* VIEW 4: DEDICATED TRACK MCQ QUESTION BANK PAGE */}
         {/* ================================================================================= */}
-        {isQuestionBuilderOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              {/* Header */}
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold">
-                    <ListOrdered className="w-5 h-5 text-kulkul-orange" />
+        {currentView === 'questions' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Top Card: Track Selector & Assessment Metrics */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-200">
+                      Assessment Question Bank
+                    </span>
+                    {activeTrackObj && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        {activeTrackObj.name}
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900">
-                      MCQ Questionnaire Builder
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Configure custom questions, multiple choice options, correct answers, and points
-                    </p>
-                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    {activeTrackObj?.name || 'Track'} Logic Assessment Questions
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Configure timed domain questions, multiple choice options, passing benchmarks, and scorecard explanations.
+                  </p>
                 </div>
 
-                <button
-                  onClick={() => setIsQuestionBuilderOpen(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4 text-kulkul-purple" />
+                    <span>Add Question</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => saveQuestionsMutation.mutate(editingQuestions)}
+                    disabled={saveQuestionsMutation.isPending}
+                    className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-kulkul-orange" />
+                    {saveQuestionsMutation.isPending ? <span>Saving Questions...</span> : <span>Save Question Bank</span>}
+                  </button>
+                </div>
               </div>
 
-              {/* Track Switcher in Question Builder */}
+              {/* Specialization Track Switcher Tabs */}
               {programTracks.length > 0 && (
-                <div className="px-6 py-3 bg-kulkul-purple/5 border-b border-kulkul-purple/10 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-kulkul-purple" />
-                    <span className="text-xs font-bold text-slate-700">Editing Questions For Track:</span>
-                  </div>
-                  <select
-                    value={selectedTrackIdForQuestions}
-                    onChange={(e) => setSelectedTrackIdForQuestions(e.target.value)}
-                    className="px-3.5 py-1.5 text-xs font-extrabold rounded-full bg-white border border-kulkul-purple/30 text-kulkul-purple focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  >
-                    {programTracks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} Track ({t.logic_test_duration_minutes}m limit &middot; {t.logic_test_passing_score}% pass)
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xs font-bold text-slate-500">Specialization Track:</span>
+                  {programTracks.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTrackIdForQuestions(t.id)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        selectedTrackIdForQuestions === t.id
+                          ? 'bg-kulkul-purple text-white shadow-sm'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>{t.name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-2xs font-extrabold ${
+                        selectedTrackIdForQuestions === t.id ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
+                      }`}>
+                        {t.logic_test_duration_minutes}m &middot; {t.logic_test_passing_score}%
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
 
-              {/* Body: Question List */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {editingQuestions.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400">
-                    <HelpCircle className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                    <p className="text-sm font-bold text-slate-700">No questions in this track test bank yet</p>
-                    <p className="text-xs text-slate-400 mt-1">Click the button below to add your first question.</p>
+              {/* Track Metrics Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Total Questions</div>
+                  <div className="text-2xl font-black text-slate-900 mt-1">{editingQuestions.length}</div>
+                  <div className="text-2xs text-slate-500 mt-0.5">MCQ test bank</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Time Limit</div>
+                  <div className="text-2xl font-black text-kulkul-purple mt-1">
+                    {activeTrackObj?.logic_test_duration_minutes || 30} mins
                   </div>
-                ) : (
-                  editingQuestions.map((q, qIdx) => (
-                    <div
-                      key={qIdx}
-                      className="stitch-card bg-slate-50/50 p-6 border border-slate-200 space-y-4 relative group"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-full bg-kulkul-purple text-white text-2xs font-extrabold uppercase tracking-wider">
-                            Question {qIdx + 1}
-                          </span>
-                          <input
-                            type="text"
-                            value={q.category || 'Problem Solving'}
-                            onChange={(e) => handleQuestionChange(qIdx, 'category', e.target.value)}
-                            placeholder="Category (e.g. Algorithms, QA, SQL)"
-                            className="px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-white border border-slate-200 text-slate-600 focus:outline-none focus:border-kulkul-purple"
-                          />
-                        </div>
+                  <div className="text-2xs text-slate-500 mt-0.5">Candidate countdown timer</div>
+                </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveQuestion(qIdx)}
-                          className="text-slate-400 hover:text-red-600 p-1 rounded-lg transition"
-                          title="Delete question"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Passing Benchmark</div>
+                  <div className="text-2xl font-black text-emerald-600 mt-1">
+                    {activeTrackObj?.logic_test_passing_score || 70}%
+                  </div>
+                  <div className="text-2xs text-slate-500 mt-0.5">Automated pass threshold</div>
+                </div>
 
-                      {/* Question Text */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                          Question Prompt <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={q.question_text}
-                          onChange={(e) => handleQuestionChange(qIdx, 'question_text', e.target.value)}
-                          placeholder="e.g. What is the time complexity of searching in a balanced BST?"
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Total Points</div>
+                  <div className="text-2xl font-black text-slate-900 mt-1">
+                    {editingQuestions.reduce((acc, q) => acc + (q.points || 10), 0)} pts
+                  </div>
+                  <div className="text-2xs text-slate-500 mt-0.5">Sum of all question weights</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Questions List */}
+            <div className="space-y-6">
+              {editingQuestions.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+                  <HelpCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <h3 className="text-base font-bold text-slate-800">No questions in this track test bank yet</h3>
+                  <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto">
+                    Add multiple choice logic and domain questions to evaluate candidate problem solving.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-xs"
+                  >
+                    Add First Question
+                  </button>
+                </div>
+              ) : (
+                editingQuestions.map((q, qIdx) => (
+                  <div
+                    key={qIdx}
+                    className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-5"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="px-3 py-1 rounded-full bg-kulkul-purple text-white text-xs font-extrabold tracking-wide">
+                          Question {qIdx + 1}
+                        </span>
+                        <input
+                          type="text"
+                          value={q.category || 'Problem Solving'}
+                          onChange={(e) => handleQuestionChange(qIdx, 'category', e.target.value)}
+                          placeholder="Category (e.g. Logic, Algorithms, QA)"
+                          className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-kulkul-purple"
                         />
                       </div>
 
-                      {/* Options with Correct Answer Selector */}
-                      <div className="space-y-2">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                          Options & Correct Answer Selection:
-                        </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQuestion(qIdx)}
+                        className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition"
+                        title="Delete question"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
 
+                    {/* Question Prompt */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Question Prompt <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={q.question_text}
+                        onChange={(e) => handleQuestionChange(qIdx, 'question_text', e.target.value)}
+                        placeholder="Enter the question text or problem description..."
+                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple focus:bg-white transition"
+                      />
+                    </div>
+
+                    {/* Multiple Choice Options & Correct Selection */}
+                    <div className="space-y-3">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Options & Answer Key (Select radio button for the correct answer):
+                      </label>
+
+                      <div className="space-y-2.5">
                         {q.options.map((opt, optIdx) => (
-                          <div key={opt.id} className="flex items-center gap-3">
+                          <div
+                            key={opt.id}
+                            className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                              q.correct_option_id === opt.id
+                                ? 'bg-purple-50/60 border-kulkul-purple/30'
+                                : 'bg-slate-50/50 border-slate-200'
+                            }`}
+                          >
                             <input
                               type="radio"
                               name={`correct_${qIdx}`}
                               checked={q.correct_option_id === opt.id}
                               onChange={() => handleQuestionChange(qIdx, 'correct_option_id', opt.id)}
                               className="w-4 h-4 text-kulkul-purple focus:ring-kulkul-purple cursor-pointer"
-                              title="Select as correct answer"
+                              title="Set as correct answer"
                             />
-                            <span className="text-xs font-bold font-mono text-slate-500 uppercase w-4">
+                            <span className="text-xs font-mono font-extrabold text-slate-600 w-5">
                               {opt.id}.
                             </span>
                             <input
                               type="text"
                               value={opt.text}
                               onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                              placeholder={`Option ${optIdx + 1}`}
-                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                              placeholder={`Option ${optIdx + 1} text`}
+                              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                             />
+                            {q.correct_option_id === opt.id && (
+                              <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                Correct Answer
+                              </span>
+                            )}
                             {q.options.length > 2 && (
                               <button
                                 type="button"
                                 onClick={() => handleRemoveOption(qIdx, optIdx)}
-                                className="text-slate-400 hover:text-red-500 p-1"
+                                className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-slate-100"
+                                title="Remove option"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-4 h-4" />
                               </button>
                             )}
                           </div>
                         ))}
-
-                        <button
-                          type="button"
-                          onClick={() => handleAddOption(qIdx)}
-                          className="text-xs font-bold text-kulkul-purple hover:underline pt-1 flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Option</span>
-                        </button>
                       </div>
 
-                      {/* Explanation & Points */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-200">
-                        <div className="sm:col-span-2">
-                          <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
-                            Explanation (Shown in Scorecard Review)
-                          </label>
-                          <input
-                            type="text"
-                            value={q.explanation || ''}
-                            onChange={(e) => handleQuestionChange(qIdx, 'explanation', e.target.value)}
-                            placeholder="Why is this the correct answer?"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                          />
-                        </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAddOption(qIdx)}
+                        className="text-xs font-bold text-kulkul-purple hover:text-kulkul-orange transition flex items-center gap-1.5 pt-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Option Choice</span>
+                      </button>
+                    </div>
 
-                        <div>
-                          <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
-                            Points
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={100}
-                            value={q.points || 10}
-                            onChange={(e) => handleQuestionChange(qIdx, 'points', parseInt(e.target.value) || 10)}
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                          />
-                        </div>
+                    {/* Explanation & Points */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+                      <div className="sm:col-span-3">
+                        <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Scorecard Explanation (Displayed to candidates after submission)
+                        </label>
+                        <input
+                          type="text"
+                          value={q.explanation || ''}
+                          onChange={(e) => handleQuestionChange(qIdx, 'explanation', e.target.value)}
+                          placeholder="Provide the rationale or proof for the correct option..."
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Points
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={q.points || 10}
+                          onChange={(e) => handleQuestionChange(qIdx, 'points', parseInt(e.target.value) || 10)}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-bold"
+                        />
                       </div>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))
+              )}
 
-                {/* Add Question Button */}
-                <button
-                  type="button"
-                  onClick={handleAddQuestion}
-                  className="w-full py-3.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-kulkul-purple text-slate-600 hover:text-kulkul-purple text-xs font-bold transition flex items-center justify-center gap-2 bg-white"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New MCQ Question</span>
-                </button>
-              </div>
+              {/* Big Bottom Add Question Card */}
+              <button
+                type="button"
+                onClick={handleAddQuestion}
+                className="w-full py-5 rounded-3xl border-2 border-dashed border-slate-300 hover:border-kulkul-purple text-slate-600 hover:text-kulkul-purple text-sm font-bold transition flex items-center justify-center gap-2 bg-white/80 hover:bg-white shadow-2xs"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Add New MCQ Question</span>
+              </button>
 
-              {/* Footer Actions */}
-              <div className="p-4 sm:p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-                <span className="text-xs text-slate-500">
-                  Total Questions: <strong>{editingQuestions.length}</strong> {activeTrackObj ? `(for ${activeTrackObj.name})` : ''}
-                </span>
-
+              {/* Sticky Bottom Save Bar */}
+              <div className="sticky bottom-4 z-20 p-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between gap-4">
+                <div className="text-xs text-slate-600">
+                  Editing <strong>{editingQuestions.length} questions</strong> for <strong>{activeTrackObj?.name || 'this track'}</strong>.
+                </div>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setIsQuestionBuilderOpen(false)}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-200 transition"
+                    onClick={() => setCurrentView('pipeline')}
+                    className="px-4 py-2 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
                   >
-                    Cancel
+                    Back to Pipeline
                   </button>
                   <button
                     type="button"
                     onClick={() => saveQuestionsMutation.mutate(editingQuestions)}
                     disabled={saveQuestionsMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2"
+                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
                   >
-                    {saveQuestionsMutation.isPending ? <span>Saving...</span> : <span>Save Question Bank</span>}
+                    <Save className="w-4 h-4 text-kulkul-orange" />
+                    {saveQuestionsMutation.isPending ? <span>Saving Changes...</span> : <span>Save Question Bank</span>}
                   </button>
                 </div>
               </div>
