@@ -715,19 +715,19 @@ export const DashboardPage: React.FC = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
                       <colgroup>
-                        <col className="w-[42%]" />
-                        <col className="w-[20%]" />
+                        <col className="w-[32%]" />
+                        <col className="w-[24%]" />
+                        <col className="w-[16%]" />
                         <col className="w-[14%]" />
-                        <col className="w-[11%]" />
-                        <col className="w-[13%]" />
+                        <col className="w-[14%]" />
                       </colgroup>
                       <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                         <tr>
-                          <th className="py-3 px-5 font-bold">Program Details</th>
-                          <th className="py-3 px-4 font-bold">Cohort Window</th>
-                          <th className="py-3 px-4 font-bold">Tracks</th>
-                          <th className="py-3 px-4 font-bold">Status</th>
-                          <th className="py-3 px-5 font-bold text-right">Actions</th>
+                          <th className="py-3.5 px-6 font-bold">Program Details</th>
+                          <th className="py-3.5 px-6 font-bold">Cohort Window</th>
+                          <th className="py-3.5 px-6 font-bold">Tracks</th>
+                          <th className="py-3.5 px-6 font-bold">Status</th>
+                          <th className="py-3.5 px-6 font-bold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
@@ -742,7 +742,7 @@ export const DashboardPage: React.FC = () => {
                                 setCurrentView('pipeline');
                               }}
                             >
-                              <td className="py-4 px-5 align-middle">
+                              <td className="py-4 px-6 align-middle">
                                 <div className="flex items-center gap-3.5">
                                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                     {prog.image_url ? (
@@ -751,7 +751,7 @@ export const DashboardPage: React.FC = () => {
                                       <Layers className="w-5 h-5 text-kulkul-orange" />
                                     )}
                                   </div>
-                                  <div className="min-w-0 pr-2">
+                                  <div className="min-w-0">
                                     <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate flex items-center gap-2">
                                       <span className="truncate">{prog.name}</span>
                                       {isSelected && (
@@ -760,49 +760,44 @@ export const DashboardPage: React.FC = () => {
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-2xs text-slate-500 truncate mt-0.5 max-w-sm">
-                                      <span className="font-mono font-semibold text-kulkul-purple">/{prog.slug}</span>
-                                      {prog.description && <span> &middot; {prog.description}</span>}
-                                    </p>
+                                    <div className="text-2xs font-mono text-slate-400 mt-0.5">
+                                      /{prog.slug}
+                                    </div>
                                   </div>
                                 </div>
                               </td>
 
-                              <td className="py-4 px-4 align-middle whitespace-nowrap text-xs text-slate-600">
-                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <td className="py-4 px-6 align-middle whitespace-nowrap text-xs text-slate-600">
+                                <div className="font-semibold text-slate-800 flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                                   <span>
                                     {new Date(prog.open_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} &ndash; {new Date(prog.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                   </span>
                                 </div>
-                                <div className="text-2xs text-slate-400 mt-1 flex items-center gap-1">
-                                  <Clock className="w-3 h-3 text-kulkul-orange shrink-0" />
-                                  <span>Logic Test: {prog.logic_test_duration_minutes}m ({prog.logic_test_passing_score}% Pass)</span>
-                                </div>
                               </td>
 
-                              <td className="py-4 px-4 align-middle whitespace-nowrap text-left">
+                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
                                   <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
                                   <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '2')} Tracks</span>
                                 </span>
                               </td>
 
-                              <td className="py-4 px-4 align-middle whitespace-nowrap text-left">
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                   <span>Admissions Open</span>
                                 </span>
                               </td>
 
-                              <td className="py-4 px-5 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2">
                                   <button
                                     onClick={() => {
                                       setActiveProgramSlug(prog.slug);
                                       setCurrentView('pipeline');
                                     }}
-                                    className="px-3.5 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
+                                    className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
                                   >
                                     <span>Manage</span>
                                     <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
