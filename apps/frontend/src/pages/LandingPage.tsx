@@ -1,106 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle2,
-  Building2,
   Terminal,
   Sliders,
-  ChevronDown,
-  User,
 } from 'lucide-react';
+import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 
 export const LandingPage: React.FC = () => {
-  const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setSignInDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   return (
     <div className="min-h-screen bg-white flex flex-col text-slate-900 selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       {/* Header Navigation */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
-          <div className="flex items-center justify-between h-20 sm:h-24">
-            {/* Brand Logo - Prominent Kulkul logo */}
-            <div className="flex items-center">
-              <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain" />
-            </div>
-
-            {/* Nav Links */}
-            <nav className="hidden md:flex items-center gap-10 text-base font-semibold text-slate-600">
-              <a href="#features" className="hover:text-kulkul-purple transition">
-                Platform Features
-              </a>
-              <button
-                onClick={() => navigate('/register-company')}
-                className="hover:text-kulkul-purple transition font-semibold text-slate-600"
-              >
-                Register Company
-              </button>
-            </nav>
-
-            {/* Sign In Dropdown Action */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setSignInDropdownOpen((prev) => !prev)}
-                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2"
-                aria-expanded={signInDropdownOpen}
-              >
-                <span>Sign In</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${signInDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {signInDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-100 shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <button
-                    onClick={() => {
-                      setSignInDropdownOpen(false);
-                      navigate('/candidate/dashboard');
-                    }}
-                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <span className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">
-                      Candidate Entry
-                    </span>
-                  </button>
-
-                  <div className="my-1 border-t border-slate-100" />
-
-                  <button
-                    onClick={() => {
-                      setSignInDropdownOpen(false);
-                      navigate('/admin/login');
-                    }}
-                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <span className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">
-                      Company Sign In
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative pt-16 pb-24 sm:pt-20 sm:pb-32 overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white">

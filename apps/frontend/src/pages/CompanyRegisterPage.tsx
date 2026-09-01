@@ -10,6 +10,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { authService } from '../services/authService';
 
@@ -95,24 +96,8 @@ export const CompanyRegisterPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
-      {/* Top Simple Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 h-20 sm:h-24 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-4 group">
-            <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-500 hidden md:inline">Already have an approved account?</span>
-            <Link
-              to="/admin/login"
-              className="px-5 py-2.5 rounded-full text-sm font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition"
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Header Navigation */}
+      <Navbar />
 
       {/* Main Registration Form Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">

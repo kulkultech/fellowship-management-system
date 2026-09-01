@@ -56,7 +56,7 @@ export const ProgramJobPostPage: React.FC = () => {
   if (isError || !program) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Navbar title="FellowHire" subtitle="Program Not Found" />
+        <Navbar />
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="max-w-md w-full stitch-card p-8 text-center bg-white">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -82,10 +82,7 @@ export const ProgramJobPostPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar
-        title="FellowHire"
-        subtitle={`${org?.name || 'Remote Skills Academy'} &middot; Opportunity`}
-      />
+      <Navbar />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* Cover Banner */}
