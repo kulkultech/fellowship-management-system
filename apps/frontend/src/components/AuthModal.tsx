@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import {
   X,
   Building2,
   User,
   ArrowRight,
   Sparkles,
-  Lock,
   Mail,
+  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,36 +23,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   defaultRole = 'participant',
 }) => {
   const [activeTab, setActiveTab] = useState<'participant' | 'company'>(defaultRole);
-  const [companyEmail, setCompanyEmail] = useState('');
-  const [companyPassword, setCompanyPassword] = useState('');
   const [candidateName, setCandidateName] = useState('');
   const [candidateEmail, setCandidateEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   if (!isOpen) return null;
 
-  const handleCompanyLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!companyEmail || !companyPassword) {
-      toast.error('Please enter your company email and password');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      await login({ email: companyEmail, password: companyPassword });
-      toast.success('Signed in successfully');
-      onClose();
-      navigate('/admin/dashboard');
-    } catch (err: any) {
-      const msg = err.response?.data?.error || err.message || 'Login failed';
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleGoogleSignIn = () => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    window.location.href = `${apiBase}/auth/oauth/google`;
   };
 
   const handleParticipantContinue = (e: React.FormEvent) => {
@@ -128,16 +107,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Tab Content */}
         <div className="p-6 sm:p-7">
           {activeTab === 'company' ? (
-            <form onSubmit={handleCompanyLogin} className="space-y-4">
+            <div className="space-y-5">
+              <div className="text-center space-y-1.5 pb-1">
+                <h3 className="text-lg font-bold text-slate-900">Company Reviewer Portal</h3>
+                <p className="text-xs text-slate-500">
+                  Authenticate securely with your organization's Google Workspace account to access fellowship cohorts and candidate pipelines.
+                </p>
+              </div>
+
+              {/* Google OAuth Single Sign-On Button */}
               <button
                 type="button"
-                onClick={() => {
-                  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-                  window.location.href = `${apiBase}/auth/oauth/google`;
-                }}
-                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 rounded-full text-xs font-bold text-slate-700 shadow-sm transition active:scale-[0.98]"
+                onClick={handleGoogleSignIn}
+                className="w-full flex items-center justify-center gap-3 py-3.5 px-5 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -155,85 +139,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                   />
                 </svg>
-                <span>Continue with Google</span>
+                <span>Continue with Google Workspace</span>
               </button>
 
-              <div className="relative flex items-center justify-center">
-                <div className="border-t border-slate-200 w-full" />
-                <span className="bg-white px-2.5 text-2xs font-bold uppercase tracking-wider text-slate-400">
-                  Or company password
+              <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl flex items-start gap-2.5 text-2xs text-slate-600">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  Single Sign-On (SSO) active. Only whitelisted company emails and verified administrators are granted workspace access.
                 </span>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Company Email
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    value={companyEmail}
-                    onChange={(e) => setCompanyEmail(e.target.value)}
-                    placeholder="reviewer@organization.com"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-subtle outline-none transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={companyPassword}
-                    onChange={(e) => setCompanyPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple-subtle outline-none transition"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2">
+              <div className="text-center pt-2 border-t border-slate-100">
+                <span className="text-xs text-slate-500">Need an organization workspace? </span>
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full text-sm font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md hover:shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate('/register-company');
+                  }}
+                  className="text-xs font-bold text-kulkul-purple hover:underline"
                 >
-                  {isLoading ? (
-                    <span>Authenticating...</span>
-                  ) : (
-                    <>
-                      <span>Enter Company Portal</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                  Register Company
                 </button>
-
-                <div className="text-center pt-2">
-                  <span className="text-xs text-slate-500">Need an organization workspace? </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      navigate('/register-company');
-                    }}
-                    className="text-xs font-bold text-kulkul-purple hover:underline"
-                  >
-                    Register Company
-                  </button>
-                </div>
               </div>
-            </form>
+            </div>
           ) : (
             <form onSubmit={handleParticipantContinue} className="space-y-4">
               <div className="p-3.5 bg-kulkul-orange-light border border-kulkul-orange/20 rounded-2xl text-xs text-slate-800 flex items-start gap-2.5">
