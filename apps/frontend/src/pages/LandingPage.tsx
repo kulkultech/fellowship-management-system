@@ -129,9 +129,8 @@ export const LandingPage: React.FC = () => {
           <div className="mt-10 flex items-center justify-center">
             <button
               onClick={() => navigate('/register-company')}
-              className="px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center gap-2.5"
+              className="px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center justify-center"
             >
-              <Building2 className="w-5 h-5 text-kulkul-orange" />
               <span>Create Fellowship Program</span>
             </button>
           </div>
