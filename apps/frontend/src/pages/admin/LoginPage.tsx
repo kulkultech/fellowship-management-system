@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { ShieldCheck, Building2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const handleGoogleSignIn = () => {
@@ -16,22 +15,15 @@ export const LoginPage: React.FC = () => {
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">
-          {/* Main SSO Card */}
+          {/* Main Card */}
           <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-kulkul-purple-light text-kulkul-purple mx-auto flex items-center justify-center shadow-2xs">
-              <Building2 className="w-8 h-8" />
-            </div>
-
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Company Portal
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1.5">
-                Single Sign-On (SSO) for authorized organization reviewers and program administrators.
-              </p>
             </div>
 
-            {/* Google OAuth Direct Action */}
+            {/* Google OAuth Action */}
             <div className="pt-2">
               <button
                 type="button"
@@ -56,21 +48,8 @@ export const LoginPage: React.FC = () => {
                     d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                   />
                 </svg>
-                <span>Continue with Google Workspace</span>
+                <span>Continue with Google</span>
               </button>
-            </div>
-
-            {/* Security Badge / Information Banner */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Secure OAuth 2.0 Single Sign-On</span>
-              </div>
-              <ul className="text-2xs text-slate-600 space-y-1 pl-6 list-disc">
-                <li>Automatic organization workspace routing</li>
-                <li>Zero password retention on platform</li>
-                <li>Direct access for whitelisted company reviewers</li>
-              </ul>
             </div>
 
             {/* Footer Links inside Card */}
