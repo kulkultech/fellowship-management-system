@@ -90,9 +90,25 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_questions JSONB NOT NULL DEFAULT '[]'::jsonb;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS application_stages JSONB NOT NULL DEFAULT '[]'::jsonb;
 
+	CREATE TABLE IF NOT EXISTS question_sets (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+		program_id UUID REFERENCES programs(id) ON DELETE SET NULL,
+		name VARCHAR(255) NOT NULL,
+		description TEXT,
+		category VARCHAR(64) NOT NULL DEFAULT 'General Logic',
+		duration_minutes INT NOT NULL DEFAULT 30,
+		passing_score INT NOT NULL DEFAULT 70,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	);
+	CREATE INDEX IF NOT EXISTS idx_question_sets_org ON question_sets(organization_id);
+	CREATE INDEX IF NOT EXISTS idx_question_sets_program ON question_sets(program_id);
+
 	CREATE TABLE IF NOT EXISTS program_tracks (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		question_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL,
 		slug VARCHAR(64) NOT NULL,
 		name VARCHAR(255) NOT NULL,
 		description TEXT,
@@ -107,7 +123,9 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 		CONSTRAINT uq_program_track_slug UNIQUE (program_id, slug)
 	);
+	ALTER TABLE program_tracks ADD COLUMN IF NOT EXISTS question_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL;
 	CREATE INDEX IF NOT EXISTS idx_tracks_program ON program_tracks(program_id);
+	CREATE INDEX IF NOT EXISTS idx_tracks_question_set ON program_tracks(question_set_id);
 
 	CREATE TABLE IF NOT EXISTS applicants (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -153,8 +171,10 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_mcq_program ON mcq_questions(program_id);
 
 	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE CASCADE;
+	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS question_set_id UUID REFERENCES question_sets(id) ON DELETE CASCADE;
 	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 	CREATE INDEX IF NOT EXISTS idx_mcq_track ON mcq_questions(track_id);
+	CREATE INDEX IF NOT EXISTS idx_mcq_question_set ON mcq_questions(question_set_id);
 
 	CREATE TABLE IF NOT EXISTS test_submissions (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -5,7 +5,7 @@ import { adminService, type CreateProgramPayload, type CreateTrackPayload } from
 import { programService } from '@/services/programService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import type { MCQQuestion, Track, ApplicationStageItem } from '@/services/types';
+import type { MCQQuestion, Track, ApplicationStageItem, CreateQuestionSetPayload } from '@/services/types';
 import {
   Users,
   Search,
@@ -86,6 +86,7 @@ export const DashboardPage: React.FC = () => {
   // Modals
   const [isCreateProgramModalOpen, setIsCreateProgramModalOpen] = useState(false);
   const [isCreateTrackModalOpen, setIsCreateTrackModalOpen] = useState(false);
+  const [isCreateQuestionSetModalOpen, setIsCreateQuestionSetModalOpen] = useState(false);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
 
@@ -117,39 +118,59 @@ export const DashboardPage: React.FC = () => {
     enabled: !!programId,
   });
 
-  // Selected Track for Question Builder (defaults to first track if available)
-  const [selectedTrackIdForQuestions, setSelectedTrackIdForQuestions] = useState<string>('');
+  // Load All Question Sets (Question Banks)
+  const { data: allQuestionSets = [], refetch: refetchQuestionSets } = useQuery({
+    queryKey: ['admin-question-sets', programId],
+    queryFn: () => adminService.listQuestionSets(programId),
+  });
+
+  // Selected Question Set ID for Question Bank Editor
+  const [selectedQuestionSetId, setSelectedQuestionSetId] = useState<string>('');
 
   React.useEffect(() => {
-    if (programTracks.length > 0 && !selectedTrackIdForQuestions) {
-      setSelectedTrackIdForQuestions(programTracks[0].id);
+    if (allQuestionSets.length > 0) {
+      if (!selectedQuestionSetId || !allQuestionSets.some((s) => s.id === selectedQuestionSetId)) {
+        setSelectedQuestionSetId(allQuestionSets[0].id);
+      }
     }
-  }, [programTracks, selectedTrackIdForQuestions]);
+  }, [allQuestionSets, selectedQuestionSetId]);
 
-
-
-  // Load MCQ Question Bank (Track-specific or Program fallback)
-  const { data: trackQuestionBank = [], refetch: refetchTrackQuestions } = useQuery({
-    queryKey: ['admin-track-questions', selectedTrackIdForQuestions],
-    queryFn: () =>
-      selectedTrackIdForQuestions
-        ? adminService.listTrackQuestions(selectedTrackIdForQuestions)
-        : programId
-        ? adminService.listProgramQuestions(programId)
-        : Promise.resolve([]),
-    enabled: !!selectedTrackIdForQuestions || !!programId,
-  });
+  const activeQuestionSet = allQuestionSets.find((s) => s.id === selectedQuestionSetId);
 
   // Local Editable Question Bank State (Google Form Style)
   const [editingQuestions, setEditingQuestions] = useState<MCQQuestion[]>([]);
+  const [editingSetName, setEditingSetName] = useState<string>('');
+  const [editingSetCategory, setEditingSetCategory] = useState<string>('');
+  const [editingSetDuration, setEditingSetDuration] = useState<number>(30);
+  const [editingSetPassingScore, setEditingSetPassingScore] = useState<number>(70);
+  const [editingSetDescription, setEditingSetDescription] = useState<string>('');
 
   React.useEffect(() => {
-    if (trackQuestionBank.length > 0) {
-      setEditingQuestions(JSON.parse(JSON.stringify(trackQuestionBank)));
+    if (activeQuestionSet) {
+      setEditingQuestions(JSON.parse(JSON.stringify(activeQuestionSet.questions || [])));
+      setEditingSetName(activeQuestionSet.name || '');
+      setEditingSetCategory(activeQuestionSet.category || 'General Logic');
+      setEditingSetDuration(activeQuestionSet.duration_minutes || 30);
+      setEditingSetPassingScore(activeQuestionSet.passing_score || 70);
+      setEditingSetDescription(activeQuestionSet.description || '');
     } else {
       setEditingQuestions([]);
+      setEditingSetName('');
+      setEditingSetCategory('General Logic');
+      setEditingSetDuration(30);
+      setEditingSetPassingScore(70);
+      setEditingSetDescription('');
     }
-  }, [trackQuestionBank, selectedTrackIdForQuestions]);
+  }, [activeQuestionSet, selectedQuestionSetId]);
+
+  // Create Question Set Form State
+  const [newQuestionSetForm, setNewQuestionSetForm] = useState<CreateQuestionSetPayload>({
+    name: '',
+    description: '',
+    category: 'Software Engineering',
+    duration_minutes: 35,
+    passing_score: 70,
+  });
 
   // Superadmin: Load Companies list
   const { data: companiesList = [], refetch: refetchCompanies } = useQuery({
@@ -172,6 +193,7 @@ export const DashboardPage: React.FC = () => {
 
   // Track Form State (Create / Edit)
   const [trackForm, setTrackForm] = useState<CreateTrackPayload>({
+    question_set_id: '',
     name: '',
     slug: '',
     description: '',
@@ -213,18 +235,70 @@ export const DashboardPage: React.FC = () => {
     enabled: !!selectedApplicantId,
   });
 
-  const saveQuestionsMutation = useMutation({
-    mutationFn: (questions: MCQQuestion[]) =>
-      selectedTrackIdForQuestions
-        ? adminService.saveTrackQuestions(selectedTrackIdForQuestions, questions)
-        : adminService.saveProgramQuestions(programId!, questions),
-    onSuccess: () => {
-      toast.success('Question bank saved successfully!');
-      refetchTrackQuestions();
+  // Question Sets Mutations
+  const createQuestionSetMutation = useMutation({
+    mutationFn: (payload: CreateQuestionSetPayload) => adminService.createQuestionSet(payload),
+    onSuccess: (newSet) => {
+      toast.success(`Question set "${newSet.name}" created!`);
+      refetchQuestionSets();
+      setSelectedQuestionSetId(newSet.id);
+      setIsCreateQuestionSetModalOpen(false);
+      setNewQuestionSetForm({
+        name: '',
+        description: '',
+        category: 'Software Engineering',
+        duration_minutes: 35,
+        passing_score: 70,
+      });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to create question set');
+    },
+  });
+
+  const saveActiveQuestionSetMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedQuestionSetId) throw new Error('No question set selected');
+      return adminService.updateQuestionSet(selectedQuestionSetId, {
+        name: editingSetName || activeQuestionSet?.name || 'Question Set',
+        description: editingSetDescription,
+        category: editingSetCategory || 'General Logic',
+        duration_minutes: editingSetDuration || 30,
+        passing_score: editingSetPassingScore || 70,
+        questions: editingQuestions,
+      });
+    },
+    onSuccess: (updated) => {
+      toast.success(`Question set "${updated.name}" saved! (${editingQuestions.length} questions)`);
+      refetchQuestionSets();
       refetchTracks();
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to save questions');
+      toast.error(err?.response?.data?.error || 'Failed to save question set');
+    },
+  });
+
+  const duplicateQuestionSetMutation = useMutation({
+    mutationFn: (id: string) => adminService.duplicateQuestionSet(id),
+    onSuccess: (dup) => {
+      toast.success(`Duplicated "${dup.name}" successfully!`);
+      refetchQuestionSets();
+      setSelectedQuestionSetId(dup.id);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to duplicate question set');
+    },
+  });
+
+  const deleteQuestionSetMutation = useMutation({
+    mutationFn: (id: string) => adminService.deleteQuestionSet(id),
+    onSuccess: () => {
+      toast.success('Question set deleted');
+      refetchQuestionSets();
+      refetchTracks();
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to delete question set');
     },
   });
 
@@ -486,8 +560,6 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const activeTrackObj = programTracks.find((t) => t.id === selectedTrackIdForQuestions);
-
   const navItems: NavItem[] = [
     {
       id: 'programs',
@@ -509,9 +581,9 @@ export const DashboardPage: React.FC = () => {
     },
     {
       id: 'questions',
-      label: 'Track Question Banks',
+      label: 'Question Banks',
       icon: HelpCircle,
-      badge: editingQuestions.length > 0 ? editingQuestions.length : undefined,
+      badge: allQuestionSets.length > 0 ? allQuestionSets.length : undefined,
     },
     ...(isSuperadmin
       ? [
@@ -534,7 +606,7 @@ export const DashboardPage: React.FC = () => {
       ? [
           { label: 'All Programs', onClick: () => setCurrentView('programs') },
           { label: program?.name || activeProgramSlug, onClick: () => setCurrentView('pipeline') },
-          { label: `Question Banks${activeTrackObj ? ` · ${activeTrackObj.name}` : ''}` },
+          { label: `Question Banks${activeQuestionSet ? ` · ${activeQuestionSet.name}` : ''}` },
         ]
       : currentView === 'stages'
       ? [
@@ -612,7 +684,7 @@ export const DashboardPage: React.FC = () => {
         currentView === 'programs'
           ? 'Fellowship & Scholarship Programs'
           : currentView === 'questions'
-          ? `${activeTrackObj?.name || 'Track'} Question Bank`
+          ? `${activeQuestionSet?.name || 'Assessment'} Question Bank`
           : currentView === 'stages'
           ? 'Application & Assessment Stages'
           : program?.name || 'Fellowship Assessment Pipeline'
@@ -1120,6 +1192,15 @@ export const DashboardPage: React.FC = () => {
                         <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-2 text-slate-700">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-slate-500">
+                              <HelpCircle className="w-3.5 h-3.5 text-kulkul-purple" />
+                              Question Set:
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 truncate max-w-[130px]" title={track.question_set_name || 'Standard Assessment'}>
+                              {track.question_set_name || 'Standard Assessment'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 text-slate-500">
                               <Clock className="w-3.5 h-3.5 text-kulkul-orange" />
                               Timed MCQ:
                             </span>
@@ -1148,11 +1229,13 @@ export const DashboardPage: React.FC = () => {
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                         <button
                           onClick={() => {
-                            setSelectedTrackIdForQuestions(track.id);
+                            if (track.question_set_id) {
+                              setSelectedQuestionSetId(track.question_set_id);
+                            }
                             setCurrentView('questions');
                           }}
                           className="px-3.5 py-1.5 rounded-full bg-kulkul-purple-light hover:bg-kulkul-purple-subtle text-kulkul-purple text-xs font-bold transition flex items-center gap-1.5"
-                          title="View and edit MCQ question bank for this track"
+                          title="View and edit MCQ question bank"
                         >
                           <ListOrdered className="w-3.5 h-3.5" />
                           <span>Question Bank</span>
@@ -1163,6 +1246,7 @@ export const DashboardPage: React.FC = () => {
                             onClick={() => {
                               setEditingTrack(track);
                               setTrackForm({
+                                question_set_id: track.question_set_id || '',
                                 name: track.name,
                                 slug: track.slug,
                                 description: track.description || '',
@@ -1373,112 +1457,251 @@ export const DashboardPage: React.FC = () => {
       )}
 
         {/* ================================================================================= */}
-        {/* VIEW 4: DEDICATED TRACK MCQ QUESTION BANK PAGE */}
+        {/* VIEW 4: DEDICATED REUSABLE QUESTION BANKS WORKSPACE */}
         {/* ================================================================================= */}
         {currentView === 'questions' && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Top Card: Track Selector & Assessment Metrics */}
+            {/* Top Card: Library Header & Actions */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-200">
-                      Assessment Question Bank
+                      Assessment Question Banks
                     </span>
-                    {activeTrackObj && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                        {activeTrackObj.name}
-                      </span>
-                    )}
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                      {allQuestionSets.length} Question Sets Available
+                    </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    {activeTrackObj?.name || 'Track'} Logic Assessment Questions
+                    Assessment Question Banks & Test Sets
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Configure timed domain questions, multiple choice options, passing benchmarks, and scorecard explanations.
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                    Create and manage reusable sets of MCQ test questions. When configuring tracks in your fellowship program, choose which test set candidates will receive.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleAddQuestion}
+                    onClick={() => setIsCreateQuestionSetModalOpen(true)}
                     className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4 text-kulkul-purple" />
-                    <span>Add Question</span>
+                    <span>Create Question Set</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => saveQuestionsMutation.mutate(editingQuestions)}
-                    disabled={saveQuestionsMutation.isPending}
+                    onClick={handleAddQuestion}
+                    className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4 text-kulkul-orange" />
+                    <span>Add Question to Active Set</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => saveActiveQuestionSetMutation.mutate()}
+                    disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
                     className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
                   >
                     <Save className="w-4 h-4 text-kulkul-orange" />
-                    {saveQuestionsMutation.isPending ? <span>Saving Questions...</span> : <span>Save Question Bank</span>}
+                    {saveActiveQuestionSetMutation.isPending ? <span>Saving Set...</span> : <span>Save Question Set</span>}
                   </button>
                 </div>
               </div>
 
-              {/* Specialization Track Switcher Tabs */}
-              {programTracks.length > 0 && (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs font-bold text-slate-500">Specialization Track:</span>
-                  {programTracks.map((t) => (
+              {/* Question Sets Library Selector Grid */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Question Sets in Your Bank ({allQuestionSets.length})
+                  </span>
+                  <span className="text-2xs text-slate-400">Click any set below to edit its questions</span>
+                </div>
+
+                {allQuestionSets.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                    <p className="text-xs font-medium">No question sets found.</p>
                     <button
-                      key={t.id}
-                      onClick={() => setSelectedTrackIdForQuestions(t.id)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                        selectedTrackIdForQuestions === t.id
-                          ? 'bg-kulkul-purple text-white shadow-sm'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
+                      onClick={() => setIsCreateQuestionSetModalOpen(true)}
+                      className="mt-2 text-xs font-bold text-kulkul-purple hover:underline"
                     >
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>{t.name}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-2xs font-extrabold ${
-                        selectedTrackIdForQuestions === t.id ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
-                      }`}>
-                        {t.logic_test_duration_minutes}m &middot; {t.logic_test_passing_score}%
-                      </span>
+                      + Create Your First Question Set
                     </button>
-                  ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allQuestionSets.map((qs) => {
+                      const isSelected = selectedQuestionSetId === qs.id;
+                      const assignedTracks = programTracks.filter((t) => t.question_set_id === qs.id);
+
+                      return (
+                        <div
+                          key={qs.id}
+                          onClick={() => setSelectedQuestionSetId(qs.id)}
+                          className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-3 ${
+                            isSelected
+                              ? 'bg-purple-50/50 border-kulkul-purple ring-2 ring-kulkul-purple/20 shadow-sm'
+                              : 'bg-slate-50/50 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="px-2 py-0.5 rounded-full text-2xs font-extrabold bg-white border border-slate-200 text-slate-600">
+                                {qs.category || 'Logic Assessment'}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    duplicateQuestionSetMutation.mutate(qs.id);
+                                  }}
+                                  className="p-1 rounded-md text-slate-400 hover:text-kulkul-purple hover:bg-white"
+                                  title="Duplicate this question set"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                {allQuestionSets.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm(`Delete question set "${qs.name}"?`)) {
+                                        deleteQuestionSetMutation.mutate(qs.id);
+                                      }
+                                    }}
+                                    className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-white"
+                                    title="Delete this question set"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <h4 className="font-black text-slate-900 text-sm mt-2 leading-snug">
+                              {qs.name}
+                            </h4>
+                            {qs.description && (
+                              <p className="text-2xs text-slate-500 mt-1 line-clamp-2">{qs.description}</p>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-200/60 space-y-2">
+                            <div className="flex items-center justify-between text-2xs font-bold text-slate-600">
+                              <span>{qs.questions?.length || qs.total_questions || 0} Questions</span>
+                              <span>{qs.duration_minutes}m &middot; {qs.passing_score}% pass</span>
+                            </div>
+
+                            <div className="text-2xs text-slate-500 flex items-center gap-1 flex-wrap">
+                              <span className="font-semibold text-slate-400">Assigned:</span>
+                              {assignedTracks.length > 0 ? (
+                                assignedTracks.map((tr) => (
+                                  <span
+                                    key={tr.id}
+                                    className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-bold"
+                                  >
+                                    {tr.name}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-400 italic">Not assigned to tracks yet</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Active Set Metrics & Inline Meta Settings */}
+              {activeQuestionSet && (
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      Active Set Settings: {activeQuestionSet.name}
+                    </span>
+                    <span className="text-2xs font-mono text-slate-400">ID: {activeQuestionSet.id.substring(0, 8)}...</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Set Name</label>
+                      <input
+                        type="text"
+                        value={editingSetName}
+                        onChange={(e) => setEditingSetName(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Category</label>
+                      <input
+                        type="text"
+                        value={editingSetCategory}
+                        onChange={(e) => setEditingSetCategory(e.target.value)}
+                        placeholder="e.g. Software Engineering, QA"
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Default Duration (Mins)</label>
+                      <input
+                        type="number"
+                        min={5}
+                        max={180}
+                        value={editingSetDuration}
+                        onChange={(e) => setEditingSetDuration(parseInt(e.target.value) || 30)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Benchmark Passing Score (%)</label>
+                      <input
+                        type="number"
+                        min={10}
+                        max={100}
+                        value={editingSetPassingScore}
+                        onChange={(e) => setEditingSetPassingScore(parseInt(e.target.value) || 70)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Metrics Bar */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-200/80">
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <div className="text-2xs font-extrabold uppercase text-slate-400">Total Questions</div>
+                      <div className="text-xl font-black text-slate-900 mt-0.5">{editingQuestions.length}</div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <div className="text-2xs font-extrabold uppercase text-slate-400">Time Allowed</div>
+                      <div className="text-xl font-black text-kulkul-purple mt-0.5">{editingSetDuration} mins</div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <div className="text-2xs font-extrabold uppercase text-slate-400">Passing Score</div>
+                      <div className="text-xl font-black text-emerald-600 mt-0.5">{editingSetPassingScore}%</div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <div className="text-2xs font-extrabold uppercase text-slate-400">Total Points</div>
+                      <div className="text-xl font-black text-slate-900 mt-0.5">
+                        {editingQuestions.reduce((acc, q) => acc + (q.points || 10), 0)} pts
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
-
-              {/* Track Metrics Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Total Questions</div>
-                  <div className="text-2xl font-black text-slate-900 mt-1">{editingQuestions.length}</div>
-                  <div className="text-2xs text-slate-500 mt-0.5">MCQ test bank</div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Time Limit</div>
-                  <div className="text-2xl font-black text-kulkul-purple mt-1">
-                    {activeTrackObj?.logic_test_duration_minutes || 30} mins
-                  </div>
-                  <div className="text-2xs text-slate-500 mt-0.5">Candidate countdown timer</div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Passing Benchmark</div>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">
-                    {activeTrackObj?.logic_test_passing_score || 70}%
-                  </div>
-                  <div className="text-2xs text-slate-500 mt-0.5">Automated pass threshold</div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">Total Points</div>
-                  <div className="text-2xl font-black text-slate-900 mt-1">
-                    {editingQuestions.reduce((acc, q) => acc + (q.points || 10), 0)} pts
-                  </div>
-                  <div className="text-2xs text-slate-500 mt-0.5">Sum of all question weights</div>
-                </div>
-              </div>
             </div>
 
             {/* Questions List */}
@@ -1486,9 +1709,9 @@ export const DashboardPage: React.FC = () => {
               {editingQuestions.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
                   <HelpCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <h3 className="text-base font-bold text-slate-800">No questions in this track test bank yet</h3>
+                  <h3 className="text-base font-bold text-slate-800">No questions in this set yet</h3>
                   <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto">
-                    Add multiple choice logic and domain questions to evaluate candidate problem solving.
+                    Add multiple choice logic and domain questions to build this assessment set.
                   </p>
                   <button
                     type="button"
@@ -1645,13 +1868,13 @@ export const DashboardPage: React.FC = () => {
                 className="w-full py-5 rounded-3xl border-2 border-dashed border-slate-300 hover:border-kulkul-purple text-slate-600 hover:text-kulkul-purple text-sm font-bold transition flex items-center justify-center gap-2 bg-white/80 hover:bg-white shadow-2xs"
               >
                 <Plus className="w-5 h-5" />
-                <span>Add New MCQ Question</span>
+                <span>Add New MCQ Question to Set</span>
               </button>
 
               {/* Sticky Bottom Save Bar */}
               <div className="sticky bottom-4 z-20 p-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between gap-4">
                 <div className="text-xs text-slate-600">
-                  Editing <strong>{editingQuestions.length} questions</strong> for <strong>{activeTrackObj?.name || 'this track'}</strong>.
+                  Editing <strong>{editingQuestions.length} questions</strong> in set <strong>{editingSetName || activeQuestionSet?.name}</strong>.
                 </div>
                 <div className="flex items-center gap-3">
                   <button
@@ -1663,12 +1886,12 @@ export const DashboardPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => saveQuestionsMutation.mutate(editingQuestions)}
-                    disabled={saveQuestionsMutation.isPending}
+                    onClick={() => saveActiveQuestionSetMutation.mutate()}
+                    disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
                     className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
                   >
                     <Save className="w-4 h-4 text-kulkul-orange" />
-                    {saveQuestionsMutation.isPending ? <span>Saving Changes...</span> : <span>Save Question Bank</span>}
+                    {saveActiveQuestionSetMutation.isPending ? <span>Saving Changes...</span> : <span>Save Question Set</span>}
                   </button>
                 </div>
               </div>
@@ -1677,7 +1900,7 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* ================================================================================= */}
-        {/* MODAL 2: CREATE / EDIT TRACK MODAL */}
+        {/* MODAL 2: CREATE / EDIT TRACK MODAL (WITH QUESTION SET SELECTION) */}
         {/* ================================================================================= */}
         {(isCreateTrackModalOpen || editingTrack) && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1757,6 +1980,51 @@ export const DashboardPage: React.FC = () => {
                     onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                   />
+                </div>
+
+                {/* Question Set Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5 text-kulkul-purple" />
+                      Assessment Question Bank / Test Set
+                    </span>
+                    <span className="text-2xs font-semibold text-slate-400">Reusable Set</span>
+                  </label>
+                  <select
+                    value={trackForm.question_set_id || ''}
+                    onChange={(e) => {
+                      const qSetId = e.target.value;
+                      const selectedSet = allQuestionSets.find((s) => s.id === qSetId);
+                      if (selectedSet) {
+                        setTrackForm((prev) => ({
+                          ...prev,
+                          question_set_id: qSetId,
+                          logic_test_duration_minutes: selectedSet.duration_minutes || prev.logic_test_duration_minutes,
+                          logic_test_passing_score: selectedSet.passing_score || prev.logic_test_passing_score,
+                        }));
+                      } else {
+                        setTrackForm((prev) => ({
+                          ...prev,
+                          question_set_id: '',
+                        }));
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                  >
+                    <option value="">-- Choose Question Set from Bank --</option>
+                    {allQuestionSets.map((qs) => (
+                      <option key={qs.id} value={qs.id}>
+                        {qs.name} ({qs.category} · {qs.questions?.length || qs.total_questions || 0} Qs · {qs.duration_minutes}m · {qs.passing_score}%)
+                      </option>
+                    ))}
+                  </select>
+                  {trackForm.question_set_id && (
+                    <p className="text-2xs text-emerald-700 mt-1 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      Linked question bank will automatically supply questions and timing for this track.
+                    </p>
+                  )}
                 </div>
 
                 {/* MCQ Duration & Passing Score */}
@@ -1844,8 +2112,130 @@ export const DashboardPage: React.FC = () => {
                     {createTrackMutation.isPending || updateTrackMutation.isPending ? (
                       <span>Saving...</span>
                     ) : (
-                      <span>{editingTrack ? 'Save Changes' : 'Create Track'}</span>
+                      <span>{editingTrack ? 'Update Track' : 'Create Track'}</span>
                     )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* MODAL 3: CREATE NEW QUESTION SET MODAL */}
+        {/* ================================================================================= */}
+        {isCreateQuestionSetModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <HelpCircle className="w-5 h-5 text-kulkul-purple" />
+                  <h2 className="text-lg font-extrabold text-slate-900">
+                    Create New Question Set
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setIsCreateQuestionSetModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createQuestionSetMutation.mutate({
+                    ...newQuestionSetForm,
+                    program_id: programId,
+                  });
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Question Set Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Data Engineering & Python Screening"
+                    value={newQuestionSetForm.name}
+                    onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Software Engineering, QA, AI / ML, General Logic"
+                    value={newQuestionSetForm.category}
+                    onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, category: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Assessment scope, topics covered, target skill level..."
+                    value={newQuestionSetForm.description}
+                    onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                      Duration (Mins)
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={180}
+                      value={newQuestionSetForm.duration_minutes}
+                      onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, duration_minutes: parseInt(e.target.value) || 35 })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                      Passing Score (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={100}
+                      value={newQuestionSetForm.passing_score}
+                      onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, passing_score: parseInt(e.target.value) || 70 })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateQuestionSetModalOpen(false)}
+                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createQuestionSetMutation.isPending}
+                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
+                  >
+                    {createQuestionSetMutation.isPending ? 'Creating Set...' : 'Create Question Set'}
                   </button>
                 </div>
               </form>

@@ -28,48 +28,55 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		pool:      pool,
 		memTracks: make(map[uuid.UUID]*model.Track),
 	}
-	if pool == nil {
-		litProgID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
-		t1ID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
-		t2ID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
+	litProgID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	t1ID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
+	t2ID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
+	set1ID := uuid.MustParse("00000000-0000-0000-0000-000000000021") // Fullstack
+	set2ID := uuid.MustParse("00000000-0000-0000-0000-000000000022") // QA
 
-		repo.memTracks[t2ID] = &model.Track{
-			ID:                       t2ID,
-			ProgramID:                litProgID,
-			Slug:                     "fullstack",
-			Name:                     "Fullstack Software Engineering Track",
-			Description:              "Fullstack engineering assessment covering modern JS DOM, HTML/CSS, Java OOP, and REST APIs.",
-			EnableMCQ:                true,
-			LogicTestDurationMinutes: 35,
-			LogicTestPassingScore:    70,
-			AllowRetake:              false,
-			EnableAIInterview:        true,
-			AIInterviewQuestions: []string{
-				"Describe how you handle state synchronization between client and server in real-time apps.",
-				"How do you optimize slow SQL queries and resolve N+1 problems in ORMs?",
-			},
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		repo.memTracks[t1ID] = &model.Track{
-			ID:                       t1ID,
-			ProgramID:                litProgID,
-			Slug:                     "qa-automation",
-			Name:                     "QA & Test Automation Track",
-			Description:              "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
-			EnableMCQ:                true,
-			LogicTestDurationMinutes: 35,
-			LogicTestPassingScore:    70,
-			AllowRetake:              false,
-			EnableAIInterview:        true,
-			AIInterviewQuestions: []string{
-				"How do you design an end-to-end regression test suite that minimizes flaky tests?",
-				"Explain how you would test an asynchronous event-driven payment webhook.",
-			},
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+	repo.memTracks[t2ID] = &model.Track{
+		ID:                       t2ID,
+		ProgramID:                litProgID,
+		QuestionSetID:            &set1ID,
+		QuestionSetName:          "Fullstack Software Engineering Assessment",
+		QuestionCount:            41,
+		Slug:                     "fullstack",
+		Name:                     "Fullstack Software Engineering Track",
+		Description:              "Fullstack engineering assessment covering modern JS DOM, HTML/CSS, Java OOP, and REST APIs.",
+		EnableMCQ:                true,
+		LogicTestDurationMinutes: 35,
+		LogicTestPassingScore:    70,
+		AllowRetake:              false,
+		EnableAIInterview:        true,
+		AIInterviewQuestions: []string{
+			"Describe how you handle state synchronization between client and server in real-time apps.",
+			"How do you optimize slow SQL queries and resolve N+1 problems in ORMs?",
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
+	repo.memTracks[t1ID] = &model.Track{
+		ID:                       t1ID,
+		ProgramID:                litProgID,
+		QuestionSetID:            &set2ID,
+		QuestionSetName:          "QA & Test Automation Screening",
+		QuestionCount:            38,
+		Slug:                     "qa-automation",
+		Name:                     "QA & Test Automation Track",
+		Description:              "Hands-on assessment covering Cypress, Postman, Systems, Regression testing, and problem solving.",
+		EnableMCQ:                true,
+		LogicTestDurationMinutes: 35,
+		LogicTestPassingScore:    70,
+		AllowRetake:              false,
+		EnableAIInterview:        true,
+		AIInterviewQuestions: []string{
+			"How do you design an end-to-end regression test suite that minimizes flaky tests?",
+			"Explain how you would test an asynchronous event-driven payment webhook.",
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
 	return repo
 }
 
@@ -93,12 +100,13 @@ func (r *TrackRepository) Create(ctx context.Context, t *model.Track) (*model.Tr
 
 	query := `
 		INSERT INTO program_tracks (
-			program_id, slug, name, description,
+			program_id, question_set_id, slug, name, description,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
 			allow_retake, enable_ai_interview, ai_interview_instructions,
 			ai_interview_questions, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
 		ON CONFLICT (program_id, slug) DO UPDATE SET
+			question_set_id = EXCLUDED.question_set_id,
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			enable_mcq = EXCLUDED.enable_mcq,
@@ -109,7 +117,7 @@ func (r *TrackRepository) Create(ctx context.Context, t *model.Track) (*model.Tr
 			ai_interview_instructions = EXCLUDED.ai_interview_instructions,
 			ai_interview_questions = EXCLUDED.ai_interview_questions,
 			updated_at = now()
-		RETURNING id, program_id, slug, name, COALESCE(description, ''),
+		RETURNING id, program_id, question_set_id, slug, name, COALESCE(description, ''),
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
 			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
 			ai_interview_questions, created_at, updated_at
@@ -118,12 +126,12 @@ func (r *TrackRepository) Create(ctx context.Context, t *model.Track) (*model.Tr
 	var res model.Track
 	var rawQuestions []byte
 	err = r.pool.QueryRow(ctx, query,
-		t.ProgramID, t.Slug, t.Name, t.Description,
+		t.ProgramID, t.QuestionSetID, t.Slug, t.Name, t.Description,
 		t.EnableMCQ, t.LogicTestDurationMinutes, t.LogicTestPassingScore,
 		t.AllowRetake, t.EnableAIInterview, t.AIInterviewInstructions,
 		questionsJSON,
 	).Scan(
-		&res.ID, &res.ProgramID, &res.Slug, &res.Name, &res.Description,
+		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
 		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
@@ -144,6 +152,7 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 		if !ok {
 			return nil, ErrTrackNotFound
 		}
+		track.QuestionSetID = t.QuestionSetID
 		track.Name = t.Name
 		track.Description = t.Description
 		track.EnableMCQ = t.EnableMCQ
@@ -164,18 +173,19 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 
 	query := `
 		UPDATE program_tracks SET
-			name = $2,
-			description = $3,
-			enable_mcq = $4,
-			logic_test_duration_minutes = $5,
-			logic_test_passing_score = $6,
-			allow_retake = $7,
-			enable_ai_interview = $8,
-			ai_interview_instructions = $9,
-			ai_interview_questions = $10,
+			question_set_id = $2,
+			name = $3,
+			description = $4,
+			enable_mcq = $5,
+			logic_test_duration_minutes = $6,
+			logic_test_passing_score = $7,
+			allow_retake = $8,
+			enable_ai_interview = $9,
+			ai_interview_instructions = $10,
+			ai_interview_questions = $11,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, program_id, slug, name, COALESCE(description, ''),
+		RETURNING id, program_id, question_set_id, slug, name, COALESCE(description, ''),
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
 			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
 			ai_interview_questions, created_at, updated_at
@@ -184,12 +194,12 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 	var res model.Track
 	var rawQuestions []byte
 	err = r.pool.QueryRow(ctx, query,
-		t.ID, t.Name, t.Description,
+		t.ID, t.QuestionSetID, t.Name, t.Description,
 		t.EnableMCQ, t.LogicTestDurationMinutes, t.LogicTestPassingScore,
 		t.AllowRetake, t.EnableAIInterview, t.AIInterviewInstructions,
 		questionsJSON,
 	).Scan(
-		&res.ID, &res.ProgramID, &res.Slug, &res.Name, &res.Description,
+		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
 		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
@@ -217,21 +227,26 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 	}
 
 	query := `
-		SELECT id, program_id, slug, name, COALESCE(description, ''),
-			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
-			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
-			ai_interview_questions, created_at, updated_at
-		FROM program_tracks
-		WHERE id = $1
+		SELECT
+			t.id, t.program_id, t.question_set_id, t.slug, t.name, COALESCE(t.description, ''),
+			t.enable_mcq, t.logic_test_duration_minutes, t.logic_test_passing_score,
+			t.allow_retake, t.enable_ai_interview, COALESCE(t.ai_interview_instructions, ''),
+			t.ai_interview_questions, t.created_at, t.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = t.question_set_id OR (t.question_set_id IS NULL AND mq.track_id = t.id)) as question_count
+		FROM program_tracks t
+		LEFT JOIN question_sets qs ON qs.id = t.question_set_id
+		WHERE t.id = $1
 	`
 
 	var res model.Track
 	var rawQuestions []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&res.ID, &res.ProgramID, &res.Slug, &res.Name, &res.Description,
+		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
 		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+		&res.QuestionSetName, &res.QuestionCount,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTrackNotFound
@@ -257,21 +272,26 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 	}
 
 	query := `
-		SELECT id, program_id, slug, name, COALESCE(description, ''),
-			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
-			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
-			ai_interview_questions, created_at, updated_at
-		FROM program_tracks
-		WHERE program_id = $1 AND slug = $2
+		SELECT
+			t.id, t.program_id, t.question_set_id, t.slug, t.name, COALESCE(t.description, ''),
+			t.enable_mcq, t.logic_test_duration_minutes, t.logic_test_passing_score,
+			t.allow_retake, t.enable_ai_interview, COALESCE(t.ai_interview_instructions, ''),
+			t.ai_interview_questions, t.created_at, t.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = t.question_set_id OR (t.question_set_id IS NULL AND mq.track_id = t.id)) as question_count
+		FROM program_tracks t
+		LEFT JOIN question_sets qs ON qs.id = t.question_set_id
+		WHERE t.program_id = $1 AND t.slug = $2
 	`
 
 	var res model.Track
 	var rawQuestions []byte
 	err := r.pool.QueryRow(ctx, query, programID, slug).Scan(
-		&res.ID, &res.ProgramID, &res.Slug, &res.Name, &res.Description,
+		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
 		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+		&res.QuestionSetName, &res.QuestionCount,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTrackNotFound
@@ -298,13 +318,17 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 	}
 
 	query := `
-		SELECT id, program_id, slug, name, COALESCE(description, ''),
-			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
-			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
-			ai_interview_questions, created_at, updated_at
-		FROM program_tracks
-		WHERE program_id = $1
-		ORDER BY created_at ASC
+		SELECT
+			t.id, t.program_id, t.question_set_id, t.slug, t.name, COALESCE(t.description, ''),
+			t.enable_mcq, t.logic_test_duration_minutes, t.logic_test_passing_score,
+			t.allow_retake, t.enable_ai_interview, COALESCE(t.ai_interview_instructions, ''),
+			t.ai_interview_questions, t.created_at, t.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = t.question_set_id OR (t.question_set_id IS NULL AND mq.track_id = t.id)) as question_count
+		FROM program_tracks t
+		LEFT JOIN question_sets qs ON qs.id = t.question_set_id
+		WHERE t.program_id = $1
+		ORDER BY t.created_at ASC
 	`
 
 	rows, err := r.pool.Query(ctx, query, programID)
@@ -318,10 +342,11 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 		var res model.Track
 		var rawQuestions []byte
 		if err := rows.Scan(
-			&res.ID, &res.ProgramID, &res.Slug, &res.Name, &res.Description,
+			&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 			&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 			&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
 			&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+			&res.QuestionSetName, &res.QuestionCount,
 		); err != nil {
 			return nil, fmt.Errorf("track_repo: scan: %w", err)
 		}

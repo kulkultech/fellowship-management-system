@@ -7,6 +7,9 @@ import type {
   PipelineConfigPayload,
   Program,
   Track,
+  QuestionSet,
+  CreateQuestionSetPayload,
+  UpdateQuestionSetPayload,
 } from './types';
 
 export interface CreateProgramPayload {
@@ -24,6 +27,7 @@ export interface CreateProgramPayload {
 }
 
 export interface CreateTrackPayload {
+  question_set_id?: string;
   slug: string;
   name: string;
   description?: string;
@@ -95,6 +99,38 @@ export const adminService = {
   saveTrackQuestions: async (trackId: string, questions: MCQQuestion[]): Promise<MCQQuestion[]> => {
     const { data } = await apiClient.put<{ questions: MCQQuestion[] }>(`/admin/tracks/${trackId}/questions`, { questions });
     return data.questions || [];
+  },
+
+  // Question Sets / Question Banks Management
+  listQuestionSets: async (programId?: string): Promise<QuestionSet[]> => {
+    const { data } = await apiClient.get<{ question_sets: QuestionSet[] }>('/admin/question-sets', {
+      params: { program_id: programId || '' },
+    });
+    return data.question_sets || [];
+  },
+
+  getQuestionSet: async (id: string): Promise<QuestionSet> => {
+    const { data } = await apiClient.get<QuestionSet>(`/admin/question-sets/${id}`);
+    return data;
+  },
+
+  createQuestionSet: async (payload: CreateQuestionSetPayload): Promise<QuestionSet> => {
+    const { data } = await apiClient.post<QuestionSet>('/admin/question-sets', payload);
+    return data;
+  },
+
+  updateQuestionSet: async (id: string, payload: UpdateQuestionSetPayload): Promise<QuestionSet> => {
+    const { data } = await apiClient.put<QuestionSet>(`/admin/question-sets/${id}`, payload);
+    return data;
+  },
+
+  deleteQuestionSet: async (id: string): Promise<void> => {
+    await apiClient.delete(`/admin/question-sets/${id}`);
+  },
+
+  duplicateQuestionSet: async (id: string): Promise<QuestionSet> => {
+    const { data } = await apiClient.post<QuestionSet>(`/admin/question-sets/${id}/duplicate`);
+    return data;
   },
 
   listApplicants: async (programId: string, stageFilter?: string): Promise<ApplicantListItem[]> => {

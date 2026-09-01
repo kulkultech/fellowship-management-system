@@ -12,6 +12,8 @@ export interface Organization {
 export interface Track {
   id: string;
   program_id?: string;
+  question_set_id?: string;
+  question_set_name?: string;
   slug: string;
   name: string;
   description?: string;
@@ -25,6 +27,42 @@ export interface Track {
   question_count?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface QuestionSet {
+  id: string;
+  organization_id?: string;
+  program_id?: string;
+  name: string;
+  description?: string;
+  category: string;
+  duration_minutes: number;
+  passing_score: number;
+  questions: MCQQuestion[];
+  total_questions?: number;
+  tracks_count?: number;
+  assigned_tracks?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateQuestionSetPayload {
+  program_id?: string;
+  name: string;
+  description?: string;
+  category?: string;
+  duration_minutes?: number;
+  passing_score?: number;
+  questions?: MCQQuestion[];
+}
+
+export interface UpdateQuestionSetPayload {
+  name: string;
+  description?: string;
+  category?: string;
+  duration_minutes?: number;
+  passing_score?: number;
+  questions?: MCQQuestion[];
 }
 
 export interface ApplicationStageItem {

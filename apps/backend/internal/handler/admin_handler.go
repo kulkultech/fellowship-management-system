@@ -18,6 +18,7 @@ type AdminHandler struct {
 	applicantRepo   *repository.ApplicantRepository
 	submissionRepo  *repository.SubmissionRepository
 	mcqRepo         *repository.MCQRepository
+	questionSetRepo *repository.QuestionSetRepository
 	trackRepo       *repository.TrackRepository
 	aiInterviewRepo *repository.AIInterviewRepository
 	programRepo     *repository.ProgramRepository
@@ -28,6 +29,7 @@ func NewAdminHandler(
 	applicantRepo *repository.ApplicantRepository,
 	submissionRepo *repository.SubmissionRepository,
 	mcqRepo *repository.MCQRepository,
+	questionSetRepo *repository.QuestionSetRepository,
 	trackRepo *repository.TrackRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
 	programRepo *repository.ProgramRepository,
@@ -37,6 +39,7 @@ func NewAdminHandler(
 		applicantRepo:   applicantRepo,
 		submissionRepo:  submissionRepo,
 		mcqRepo:         mcqRepo,
+		questionSetRepo: questionSetRepo,
 		trackRepo:       trackRepo,
 		aiInterviewRepo: aiInterviewRepo,
 		programRepo:     programRepo,
@@ -528,6 +531,7 @@ func (h *AdminHandler) ListProgramTracks(w http.ResponseWriter, r *http.Request)
 }
 
 type CreateTrackRequest struct {
+	QuestionSetID            *string  `json:"question_set_id,omitempty"`
 	Slug                     string   `json:"slug"`
 	Name                     string   `json:"name"`
 	Description              string   `json:"description"`
@@ -568,9 +572,17 @@ func (h *AdminHandler) CreateProgramTrack(w http.ResponseWriter, r *http.Request
 		req.LogicTestPassingScore = 70
 	}
 
+	var qSetUUID *uuid.UUID
+	if req.QuestionSetID != nil && *req.QuestionSetID != "" {
+		if parsed, err := uuid.Parse(*req.QuestionSetID); err == nil && parsed != uuid.Nil {
+			qSetUUID = &parsed
+		}
+	}
+
 	track := &model.Track{
 		ID:                       uuid.New(),
 		ProgramID:                programID,
+		QuestionSetID:            qSetUUID,
 		Slug:                     slug,
 		Name:                     name,
 		Description:              req.Description,
@@ -613,8 +625,16 @@ func (h *AdminHandler) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 		req.LogicTestPassingScore = 70
 	}
 
+	var qSetUUID *uuid.UUID
+	if req.QuestionSetID != nil && *req.QuestionSetID != "" {
+		if parsed, err := uuid.Parse(*req.QuestionSetID); err == nil && parsed != uuid.Nil {
+			qSetUUID = &parsed
+		}
+	}
+
 	track := &model.Track{
 		ID:                       trackID,
+		QuestionSetID:            qSetUUID,
 		Name:                     req.Name,
 		Description:              req.Description,
 		EnableMCQ:                req.EnableMCQ,
@@ -815,4 +835,229 @@ func (h *AdminHandler) RejectCompany(w http.ResponseWriter, r *http.Request) {
 		"message": "Company application rejected",
 		"company": updated,
 	})
+}
+
+// --------------------------------------------------------------------------------
+// Question Sets / Question Banks Multi-Set System
+// --------------------------------------------------------------------------------
+
+type CreateQuestionSetRequest struct {
+	ProgramID       *string             `json:"program_id,omitempty"`
+	Name            string              `json:"name"`
+	Description     string              `json:"description,omitempty"`
+	Category        string              `json:"category"`
+	DurationMinutes int                 `json:"duration_minutes"`
+	PassingScore    int                 `json:"passing_score"`
+	Questions       []model.MCQQuestion `json:"questions,omitempty"`
+}
+
+type UpdateQuestionSetRequest struct {
+	Name            string              `json:"name"`
+	Description     string              `json:"description,omitempty"`
+	Category        string              `json:"category"`
+	DurationMinutes int                 `json:"duration_minutes"`
+	PassingScore    int                 `json:"passing_score"`
+	Questions       []model.MCQQuestion `json:"questions,omitempty"`
+}
+
+func (h *AdminHandler) ListQuestionSets(w http.ResponseWriter, r *http.Request) {
+	var progUUID *uuid.UUID
+	if progIDStr := r.URL.Query().Get("program_id"); progIDStr != "" {
+		if parsed, err := uuid.Parse(progIDStr); err == nil {
+			progUUID = &parsed
+		}
+	}
+
+	claims, ok := middleware.GetUser(r.Context())
+	var orgUUID *uuid.UUID
+	if ok && claims != nil && claims.OrganizationID != nil {
+		orgUUID = claims.OrganizationID
+	}
+
+	sets, err := h.questionSetRepo.List(r.Context(), progUUID, orgUUID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list question sets")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"question_sets": sets,
+		"total":         len(sets),
+	})
+}
+
+func (h *AdminHandler) GetQuestionSet(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	setID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid question set id")
+		return
+	}
+
+	set, err := h.questionSetRepo.GetByID(r.Context(), setID)
+	if err != nil {
+		if errors.Is(err, repository.ErrQuestionSetNotFound) {
+			httpx.Error(w, http.StatusNotFound, "question set not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to fetch question set")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, set)
+}
+
+func (h *AdminHandler) CreateQuestionSet(w http.ResponseWriter, r *http.Request) {
+	var req CreateQuestionSetRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		httpx.Error(w, http.StatusBadRequest, "question set name is required")
+		return
+	}
+
+	var progUUID *uuid.UUID
+	if req.ProgramID != nil && *req.ProgramID != "" {
+		if parsed, err := uuid.Parse(*req.ProgramID); err == nil {
+			progUUID = &parsed
+		}
+	}
+
+	claims, ok := middleware.GetUser(r.Context())
+	var orgUUID *uuid.UUID
+	if ok && claims != nil && claims.OrganizationID != nil {
+		orgUUID = claims.OrganizationID
+	}
+
+	cat := strings.TrimSpace(req.Category)
+	if cat == "" {
+		cat = "General Logic"
+	}
+	dur := req.DurationMinutes
+	if dur <= 0 {
+		dur = 30
+	}
+	pass := req.PassingScore
+	if pass <= 0 || pass > 100 {
+		pass = 70
+	}
+
+	qs := &model.QuestionSet{
+		ID:              uuid.New(),
+		OrganizationID:  orgUUID,
+		ProgramID:       progUUID,
+		Name:            name,
+		Description:     req.Description,
+		Category:        cat,
+		DurationMinutes: dur,
+		PassingScore:    pass,
+		Questions:       req.Questions,
+	}
+
+	created, err := h.questionSetRepo.Create(r.Context(), qs)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to create question set")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, created)
+}
+
+func (h *AdminHandler) UpdateQuestionSet(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	setID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid question set id")
+		return
+	}
+
+	var req UpdateQuestionSetRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		httpx.Error(w, http.StatusBadRequest, "question set name is required")
+		return
+	}
+
+	cat := strings.TrimSpace(req.Category)
+	if cat == "" {
+		cat = "General Logic"
+	}
+	dur := req.DurationMinutes
+	if dur <= 0 {
+		dur = 30
+	}
+	pass := req.PassingScore
+	if pass <= 0 || pass > 100 {
+		pass = 70
+	}
+
+	qs := &model.QuestionSet{
+		ID:              setID,
+		Name:            name,
+		Description:     req.Description,
+		Category:        cat,
+		DurationMinutes: dur,
+		PassingScore:    pass,
+		Questions:       req.Questions,
+	}
+
+	updated, err := h.questionSetRepo.Update(r.Context(), qs)
+	if err != nil {
+		if errors.Is(err, repository.ErrQuestionSetNotFound) {
+			httpx.Error(w, http.StatusNotFound, "question set not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to update question set")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+func (h *AdminHandler) DeleteQuestionSet(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	setID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid question set id")
+		return
+	}
+
+	if err := h.questionSetRepo.Delete(r.Context(), setID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to delete question set")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Question set deleted successfully",
+	})
+}
+
+func (h *AdminHandler) DuplicateQuestionSet(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	setID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid question set id")
+		return
+	}
+
+	dup, err := h.questionSetRepo.Duplicate(r.Context(), setID)
+	if err != nil {
+		if errors.Is(err, repository.ErrQuestionSetNotFound) {
+			httpx.Error(w, http.StatusNotFound, "question set not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to duplicate question set")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, dup)
 }

@@ -30,6 +30,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	trackRepo := repository.NewTrackRepository(pool)
 	applicantRepo := repository.NewApplicantRepository(pool)
 	mcqRepo := repository.NewMCQRepository(pool)
+	questionSetRepo := repository.NewQuestionSetRepository(pool)
 	submissionRepo := repository.NewSubmissionRepository(pool)
 	aiInterviewRepo := repository.NewAIInterviewRepository(pool)
 
@@ -37,9 +38,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo)
-	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo)
+	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo)
-	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo)
+	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
 	var googleOAuth *auth.GoogleOAuth
@@ -158,6 +159,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Delete("/tracks/{id}", adminHandler.DeleteTrack)
 				adm.Get("/tracks/{id}/questions", adminHandler.ListTrackQuestions)
 				adm.Put("/tracks/{id}/questions", adminHandler.SaveTrackQuestions)
+
+				// Question Sets / Question Banks
+				adm.Get("/question-sets", adminHandler.ListQuestionSets)
+				adm.Post("/question-sets", adminHandler.CreateQuestionSet)
+				adm.Get("/question-sets/{id}", adminHandler.GetQuestionSet)
+				adm.Put("/question-sets/{id}", adminHandler.UpdateQuestionSet)
+				adm.Delete("/question-sets/{id}", adminHandler.DeleteQuestionSet)
+				adm.Post("/question-sets/{id}/duplicate", adminHandler.DuplicateQuestionSet)
 
 				// Applicants & Review
 				adm.Get("/applicants", adminHandler.ListApplicants)
