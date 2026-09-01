@@ -240,6 +240,15 @@ func (r *QuestionSetRepository) List(ctx context.Context, programID *uuid.UUID, 
 		sets = append(sets, s)
 	}
 
+	// If database question_sets table is empty, auto-seed with pre-configured default question sets
+	if len(sets) == 0 {
+		for _, memSet := range r.memSets {
+			_, _ = r.Create(ctx, memSet)
+		}
+		// Re-fetch after seeding
+		return r.List(ctx, programID, orgID)
+	}
+
 	// Also fetch questions for each set
 	for i := range sets {
 		qs, _ := r.ListQuestionsBySetID(ctx, sets[i].ID)
