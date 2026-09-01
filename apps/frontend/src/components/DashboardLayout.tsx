@@ -25,7 +25,6 @@ interface DashboardLayoutProps {
   subtitle?: string;
   companyName?: string;
   companyLogoUrl?: string;
-  breadcrumbs?: { label: string; onClick?: () => void }[];
   navItems: NavItem[];
   activeNavId: string;
   onNavChange: (id: string) => void;
@@ -41,7 +40,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   subtitle,
   companyName,
   companyLogoUrl,
-  breadcrumbs = [],
   navItems,
   activeNavId,
   onNavChange,
@@ -93,27 +91,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               />
             </Link>
           </div>
-
-          {/* Center: Breadcrumbs (if provided) */}
-          {breadcrumbs.length > 0 && (
-            <nav className="hidden md:flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-              {breadcrumbs.map((crumb, idx) => (
-                <React.Fragment key={idx}>
-                  {idx > 0 && <span className="text-slate-300">/</span>}
-                  {crumb.onClick ? (
-                    <button
-                      onClick={crumb.onClick}
-                      className="hover:text-kulkul-purple transition text-slate-600 font-bold"
-                    >
-                      {crumb.label}
-                    </button>
-                  ) : (
-                    <span className="text-slate-900 font-extrabold">{crumb.label}</span>
-                  )}
-                </React.Fragment>
-              ))}
-            </nav>
-          )}
 
           {/* Right: Company Logo / Name + User Pill + Sign Out */}
           <div className="flex items-center gap-3 shrink-0">

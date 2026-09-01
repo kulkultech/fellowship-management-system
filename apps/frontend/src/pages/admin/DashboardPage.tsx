@@ -599,26 +599,6 @@ export const DashboardPage: React.FC = () => {
       : []),
   ];
 
-  const breadcrumbs =
-    currentView === 'programs'
-      ? [{ label: 'Fellowship Programs' }]
-      : currentView === 'questions'
-      ? [
-          { label: 'All Programs', onClick: () => setCurrentView('programs') },
-          { label: program?.name || activeProgramSlug, onClick: () => setCurrentView('pipeline') },
-          { label: `Question Banks${activeQuestionSet ? ` · ${activeQuestionSet.name}` : ''}` },
-        ]
-      : currentView === 'stages'
-      ? [
-          { label: 'All Programs', onClick: () => setCurrentView('programs') },
-          { label: program?.name || activeProgramSlug, onClick: () => setCurrentView('pipeline') },
-          { label: 'Application Stages' },
-        ]
-      : [
-          { label: 'All Programs', onClick: () => setCurrentView('programs') },
-          { label: program?.name || activeProgramSlug },
-        ];
-
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2.5">
       {/* Program Switcher */}
@@ -700,7 +680,6 @@ export const DashboardPage: React.FC = () => {
       }
       companyName={user?.organization?.name || 'Remote Skills Academy'}
       companyLogoUrl={user?.organization?.logo_url}
-      breadcrumbs={breadcrumbs}
       navItems={navItems}
       activeNavId={currentView}
       onNavChange={(id) => setCurrentView(id as any)}
@@ -1120,9 +1099,6 @@ export const DashboardPage: React.FC = () => {
                     <Layers className="w-5 h-5 text-kulkul-purple" />
                     <span>Specialization Tracks for {program?.name}</span>
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Domain-specific specialization paths with calibrated logic MCQ benchmarks, question banks, and conversational AI screening.
-                  </p>
                 </div>
 
                 <button
@@ -1465,14 +1441,6 @@ export const DashboardPage: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-200">
-                      Assessment Question Banks
-                    </span>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                      {allQuestionSets.length} Question Sets Available
-                    </span>
-                  </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                     Assessment Question Banks & Test Sets
                   </h2>
