@@ -70,6 +70,23 @@ func (h *OAuthHandler) Start(w http.ResponseWriter, r *http.Request) {
 		SameSite: sameSite,
 	})
 
+	returnTo := r.URL.Query().Get("return_to")
+	if returnTo == "" {
+		returnTo = r.URL.Query().Get("redirect")
+	}
+	if returnTo != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "oauth_return_to",
+			Value:    returnTo,
+			Path:     "/",
+			MaxAge:   int((15 * time.Minute).Seconds()),
+			HttpOnly: true,
+			Secure:   h.cookieSec,
+			Domain:   h.cookieDom,
+			SameSite: sameSite,
+		})
+	}
+
 	if h.google == nil {
 		// If Google OAuth credentials are not set in environment, mock direct callback for development
 		http.Redirect(w, r, "/api/v1/auth/oauth/google/callback?state="+state+"&code=mock_dev_code", http.StatusTemporaryRedirect)
@@ -101,6 +118,22 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		SameSite: sameSite,
 	})
 
+	returnTo := ""
+	if retCookie, err := r.Cookie("oauth_return_to"); err == nil && retCookie != nil {
+		returnTo = retCookie.Value
+		// Clear return_to cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     "oauth_return_to",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   h.cookieSec,
+			Domain:   h.cookieDom,
+			SameSite: sameSite,
+		})
+	}
+
 	// Verify state token
 	stateValid := false
 	if queryState != "" {
@@ -131,10 +164,16 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	var profile auth.GoogleProfile
 	if code == "mock_dev_code" || h.google == nil {
 		// Mock profile for local development without active GCP OAuth Client secret
+		mockEmail := "admin@rsa.org"
+		mockName := "RSA Reviewer Admin"
+		if strings.Contains(returnTo, "candidate") {
+			mockEmail = "candidate@example.com"
+			mockName = "Sample Candidate"
+		}
 		profile = auth.GoogleProfile{
 			Sub:   "1092837465928374",
-			Email: "admin@rsa.org",
-			Name:  "RSA Reviewer Admin",
+			Email: mockEmail,
+			Name:  mockName,
 		}
 	} else {
 		profile, err = h.google.Exchange(r.Context(), code)
@@ -176,7 +215,9 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	redirectURL := h.successURL
-	if user.Role == "superadmin" && strings.Contains(h.successURL, "/admin/dashboard") {
+	if returnTo != "" {
+		redirectURL = returnTo
+	} else if user.Role == "superadmin" && strings.Contains(h.successURL, "/admin/dashboard") {
 		redirectURL = strings.Replace(h.successURL, "/admin/dashboard", "/superadmin/dashboard", 1)
 	}
 	http.Redirect(w, r, redirectURL, http.StatusFound)

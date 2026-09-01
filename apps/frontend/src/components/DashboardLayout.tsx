@@ -149,15 +149,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </div>
             )}
 
-            {/* Sign Out Button */}
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-full transition shadow-2xs"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
+            {/* Sign Out Button (Only shown when logged in) */}
+            {((portalType === 'candidate' && Boolean(candidateEmail)) || (portalType !== 'candidate' && Boolean(user))) && (
+              <button
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-full transition shadow-2xs"
+                title="Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

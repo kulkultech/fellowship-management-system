@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
+import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
+import { useAuth } from '@/hooks/useAuth';
 import {
   FileText,
   Clock,
@@ -44,13 +47,23 @@ interface CandidateApplicationItem {
 }
 
 export const CandidateDashboardPage: React.FC = () => {
+  const { user: authUser, logout: authLogout } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const emailParam = searchParams.get('email') || localStorage.getItem('candidate_email') || '';
+  const storedEmail = localStorage.getItem('candidate_email') || '';
+  const emailParam = searchParams.get('email') || (authUser?.email || storedEmail);
   const [emailInput, setEmailInput] = useState(emailParam);
   const [activeEmail, setActiveEmail] = useState(emailParam);
   const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'explore'>('applications');
+
+  // Auto-sync if authUser becomes available from Google OAuth
+  useEffect(() => {
+    if (authUser?.email && !activeEmail) {
+      setActiveEmail(authUser.email);
+      setEmailInput(authUser.email);
+    }
+  }, [authUser, activeEmail]);
 
   useEffect(() => {
     if (activeEmail) {
@@ -69,7 +82,12 @@ export const CandidateDashboardPage: React.FC = () => {
   });
 
   const applications: CandidateApplicationItem[] = data?.applications || [];
-  const candidateName = applications[0]?.full_name || activeEmail.split('@')[0];
+  const candidateName = applications[0]?.full_name || (activeEmail ? activeEmail.split('@')[0] : 'Candidate');
+
+  const handleGoogleSignIn = () => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    window.location.href = `${apiBase}/auth/oauth/google?return_to=/candidate/dashboard`;
+  };
 
   const handleLookup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,12 +100,16 @@ export const CandidateDashboardPage: React.FC = () => {
     setSearchParams({ email: cleanEmail });
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     localStorage.removeItem('candidate_email');
     setActiveEmail('');
     setEmailInput('');
     setSearchParams({});
-    navigate('/');
+    try {
+      await authLogout();
+    } catch {
+      // ignore
+    }
   };
 
   const getStageBadge = (stage: string, passed: boolean) => {
@@ -115,24 +137,124 @@ export const CandidateDashboardPage: React.FC = () => {
     }
   };
 
+  // If candidate is not authenticated / no email selected, show dedicated clean Sign In screen
+  if (!activeEmail) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <Navbar />
+
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-md w-full">
+            {/* Main Card */}
+            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  Candidate Portal
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 mt-2">
+                  Sign in to track your fellowship applications, view MCQ test scorecards, and launch conversational AI screening.
+                </p>
+              </div>
+
+              {/* Google OAuth Action */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-800 shadow-sm hover:shadow-md transition duration-150"
+                >
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                    />
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+              </div>
+
+              {/* Or Divider */}
+              <div className="flex items-center gap-3 my-2">
+                <div className="flex-1 border-t border-slate-200" />
+                <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">Or lookup by email</span>
+                <div className="flex-1 border-t border-slate-200" />
+              </div>
+
+              {/* Email Lookup Form */}
+              <form onSubmit={handleLookup} className="space-y-4 text-left">
+                <div>
+                  <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Application Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      placeholder="candidate@example.com"
+                      className="w-full pl-10 pr-4 py-3 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover transition shadow-md flex items-center justify-center gap-2"
+                >
+                  <span>View My Applications</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </form>
+
+              {/* Footer Links inside Card */}
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2 text-center">
+                <div>
+                  <span className="text-xs text-slate-500">Are you a fellowship administrator? </span>
+                  <Link to="/admin/login" className="text-xs font-bold text-kulkul-purple hover:underline">
+                    Company Sign In
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   const navItems: NavItem[] = [
     {
       id: 'applications',
       label: 'My Applications',
       icon: FileText,
-      badge: activeEmail ? applications.length : undefined,
+      badge: applications.length,
     },
     {
       id: 'assessments',
       label: 'Logic MCQ Tests',
       icon: Clock,
-      badge: activeEmail ? applications.filter((a) => a.test_token).length : undefined,
+      badge: applications.filter((a) => a.test_token).length || undefined,
     },
     {
       id: 'ai_interview',
       label: 'AI Technical Screen',
       icon: Terminal,
-      badge: activeEmail ? applications.filter((a) => a.interview_token).length : undefined,
+      badge: applications.filter((a) => a.interview_token).length || undefined,
       badgeColor: 'bg-purple-100 text-kulkul-purple',
     },
     {
@@ -145,67 +267,22 @@ export const CandidateDashboardPage: React.FC = () => {
   return (
     <DashboardLayout
       portalType="candidate"
-      title={activeEmail ? `Welcome back, ${candidateName}!` : 'Candidate Portal'}
-      subtitle={
-        activeEmail
-          ? 'Track your evaluation journey, launch timed assessments, and inspect AI screening feedback.'
-          : 'Sign in with your application email to check test results and candidate scorecards.'
-      }
+      title={`Welcome back, ${candidateName}!`}
+      subtitle="Track your evaluation journey, launch timed assessments, and inspect AI screening feedback."
       candidateEmail={activeEmail}
       onCandidateSignOut={handleSignOut}
       navItems={navItems}
       activeNavId={activeTab}
       onNavChange={(id) => setActiveTab(id as any)}
       headerActions={
-        activeEmail ? (
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {applications.filter((a) => a.test_passed).length} Passed Assessments
-            </span>
-          </div>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            {applications.filter((a) => a.test_passed).length} Passed Assessments
+          </span>
+        </div>
       }
     >
-      {!activeEmail ? (
-        /* Email Prompt Screen */
-        <div className="max-w-md mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 text-center shadow-lg">
-          <div className="w-14 h-14 rounded-2xl bg-kulkul-purple-light text-kulkul-purple mx-auto flex items-center justify-center mb-5 shadow-2xs">
-            <Mail className="w-7 h-7" />
-          </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Access Candidate Portal</h2>
-          <p className="text-sm text-slate-600 mt-2 mb-6">
-            Enter the email address you used when applying to view your test scorecards, AI interview invitations, and track progress.
-          </p>
-
-          <form onSubmit={handleLookup} className="space-y-4 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                Application Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="candidate@example.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3.5 rounded-xl font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover transition shadow-md flex items-center justify-center gap-2"
-            >
-              <span>View My Applications</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      ) : (
-        <div className="space-y-8">
+      <div className="space-y-8">
           {/* ========================================================================= */}
           {/* TAB 1: MY APPLICATIONS */}
           {/* ========================================================================= */}
@@ -476,7 +553,6 @@ export const CandidateDashboardPage: React.FC = () => {
             </div>
           )}
         </div>
-      )}
     </DashboardLayout>
   );
 };
