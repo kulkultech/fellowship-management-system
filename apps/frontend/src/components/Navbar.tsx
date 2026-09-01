@@ -42,10 +42,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 w-full">
         <div className="flex items-center justify-between h-20 sm:h-24">
           {/* Brand Logo - Prominent Kulkul logo */}
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <Link to={showAdminNav ? "/admin/dashboard" : "/"} className="flex items-center group">
               <img src="/kulkul-logo.svg" alt="KulKul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
             </Link>
@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Actions / Auth / Sign In Dropdown */}
           {showAdminNav && isAuthenticated && user ? (
-            <div className="flex items-center gap-3.5 sm:gap-4">
+            <div className="flex items-center gap-3.5 sm:gap-4 shrink-0">
               {/* Client Company Logo or Name on Right */}
               {companyLogo ? (
                 <img
@@ -97,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : (
             /* Sign In Dropdown Action */
-            <div className="relative" ref={dropdownRef}>
+            <div className="relative shrink-0" ref={dropdownRef}>
               <button
                 onClick={() => setSignInDropdownOpen((prev) => !prev)}
                 className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2"

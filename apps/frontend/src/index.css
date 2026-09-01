@@ -3,9 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+
   body {
     @apply bg-white text-slate-900 antialiased font-sans selection:bg-kulkul-orange/20 selection:text-kulkul-purple;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    min-height: 100vh;
   }
 
   input, select, textarea {
