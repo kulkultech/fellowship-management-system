@@ -218,8 +218,8 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			// Auto-seed default RSA organization so foreign key constraint never fails
 			err = r.pool.QueryRow(ctx, `
 				INSERT INTO organizations (slug, name, logo_url, status, contact_email, created_at, updated_at)
-				VALUES ('rsa', 'Remote Skills Academy', 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop', 'approved', 'contact@rsa.org', now(), now())
-				ON CONFLICT (slug) DO UPDATE SET updated_at = now()
+				VALUES ('rsa', 'Remote Skills Academy', '', 'approved', 'contact@rsa.org', now(), now())
+				ON CONFLICT (slug) DO UPDATE SET logo_url = '', updated_at = now()
 				RETURNING id
 			`).Scan(&foundID)
 			if err == nil {

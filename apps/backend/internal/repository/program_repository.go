@@ -205,7 +205,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 			ID:        p.OrganizationID,
 			Slug:      orgSlug,
 			Name:      "Remote Skills Academy (RSA)",
-			LogoURL:   "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop",
+			LogoURL:   "",
 			Status:    model.OrgStatusApproved,
 			CreatedAt: p.CreatedAt,
 			UpdatedAt: p.UpdatedAt,
