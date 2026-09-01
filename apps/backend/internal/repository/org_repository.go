@@ -33,7 +33,7 @@ func NewOrgRepository(pool *pgxpool.Pool) *OrgRepository {
 		Slug:         "rsa",
 		Name:         "Remote Skills Academy (RSA)",
 		ContactEmail: "contact@rsa.org",
-		LogoURL:      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop",
+		LogoURL:      "",
 		Status:       model.OrgStatusApproved,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),

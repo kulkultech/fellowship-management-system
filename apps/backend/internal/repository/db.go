@@ -218,17 +218,18 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	}
 	logger.Info("Database schema verified and migrated successfully")
 
-	// Seed default RSA organization
+	// Seed default RSA organization (without logo)
 	var rsaOrgID string
 	seedOrgQuery := `
 		INSERT INTO organizations (slug, name, logo_url, status, contact_email, created_at, updated_at)
-		VALUES ('rsa', 'Remote Skills Academy (RSA)', 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop', 'approved', 'contact@rsa.org', now(), now())
-		ON CONFLICT (slug) DO UPDATE SET updated_at = now()
+		VALUES ('rsa', 'Remote Skills Academy (RSA)', '', 'approved', 'contact@rsa.org', now(), now())
+		ON CONFLICT (slug) DO UPDATE SET logo_url = '', updated_at = now()
 		RETURNING id::text
 	`
 	if err := pool.QueryRow(ctx, seedOrgQuery).Scan(&rsaOrgID); err != nil {
 		logger.Warn("automigrate: seed org error", slog.Any("error", err))
 	}
+	_, _ = pool.Exec(ctx, "UPDATE organizations SET logo_url = '' WHERE slug = 'rsa'")
 
 	// Seed default Admin & Superadmin
 	passHash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
