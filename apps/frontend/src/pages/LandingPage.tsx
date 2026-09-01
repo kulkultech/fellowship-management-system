@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowRight,
   CheckCircle2,
   Building2,
   Terminal,
@@ -133,8 +132,7 @@ export const LandingPage: React.FC = () => {
               className="px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center gap-2.5"
             >
               <Building2 className="w-5 h-5 text-kulkul-orange" />
-              <span>Create a Fellowship Program</span>
-              <ArrowRight className="w-5 h-5" />
+              <span>Create Fellowship Program</span>
             </button>
           </div>
         </div>
