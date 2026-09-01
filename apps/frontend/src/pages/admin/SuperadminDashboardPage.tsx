@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '@/services/adminService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
@@ -442,15 +443,24 @@ export const SuperadminDashboardPage: React.FC = () => {
                           </td>
 
                           <td className="py-4 px-6 align-middle text-right whitespace-nowrap">
-                            <a
-                              href={`/programs/rsa/${prog.slug}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition text-xs font-bold"
-                            >
-                              <span>Public Link</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                            <div className="flex items-center justify-end gap-2">
+                              <Link
+                                to="/admin/dashboard"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition text-xs font-bold shadow-2xs"
+                              >
+                                <Building2 className="w-3 h-3" />
+                                <span>Review Workspace</span>
+                              </Link>
+                              <a
+                                href={`/programs/rsa/${prog.slug}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition text-xs font-bold"
+                              >
+                                <span>Public Link</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
                           </td>
                         </tr>
                       ))
