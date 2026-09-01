@@ -14,7 +14,7 @@ export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col text-slate-900 selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       {/* Header Navigation */}
-      <Navbar />
+      <Navbar showNavLinks={true} />
 
       {/* Hero Section */}
       <section className="relative pt-16 pb-24 sm:pt-20 sm:pb-32 overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white">

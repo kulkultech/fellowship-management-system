@@ -8,10 +8,12 @@ interface NavbarProps {
   title?: string;
   subtitle?: string;
   showAdminNav?: boolean;
+  showNavLinks?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   showAdminNav = false,
+  showNavLinks = false,
 }) => {
   const { logout } = useAuth();
   const { user, isAuthenticated } = useAuthStore();
@@ -49,8 +51,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </Link>
           </div>
 
-          {/* Center: Nav Links (Platform Features & Register Company) */}
-          {!showAdminNav && (
+          {/* Center: Nav Links (Platform Features & Register Company) - Shown on Main Landing Page only */}
+          {showNavLinks && !showAdminNav && (
             <nav className="hidden md:flex items-center gap-10 text-base font-semibold text-slate-600">
               <a href="/#features" className="hover:text-kulkul-purple transition">
                 Platform Features
