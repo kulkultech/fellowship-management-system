@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
 import { programService } from '@/services/programService';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type { MCQQuestion, Track, ApplicationStageItem } from '@/services/types';
 import {
@@ -11,7 +11,6 @@ import {
   Search,
   CheckCircle2,
   ChevronRight,
-  ChevronLeft,
   X,
   ExternalLink,
   Check,
@@ -19,7 +18,6 @@ import {
   Clock,
   Calendar,
   Copy,
-  Building2,
   ListOrdered,
   Trash2,
   HelpCircle,
@@ -33,43 +31,45 @@ import {
   ArrowDown,
   RotateCcw,
   Save,
+  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const DEFAULT_STAGES: ApplicationStageItem[] = [
   {
     step_number: 1,
-    title: 'Specialization Track & Intake Application',
-    description: 'Choose your target specialization track and submit your academic background, IT major, and contact details.',
+    title: 'Profile Registration',
+    description: 'Candidate registers their contact details, academic major, and LinkedIn/GitHub links.',
   },
   {
     step_number: 2,
-    title: 'Track-Specific Timed Logic Assessment',
-    description: 'Solve timed logic and technical domain MCQs calibrated for your chosen specialization track.',
+    title: 'Timed Logic & Problem Solving MCQ',
+    description: '30-minute timed multiple choice logic and critical problem-solving assessment.',
   },
   {
     step_number: 3,
-    title: 'Conversational AI Technical Screen',
-    description: 'Engage in an interactive conversational AI screening session evaluating technical depth and problem-solving.',
+    title: 'Submission & Automated Verification',
+    description: 'Test results are scored immediately against calibrated benchmark passing criteria.',
   },
   {
     step_number: 4,
-    title: 'Submission & Application Confirmation Email',
-    description: 'Candidate completes submission and receives an official application confirmation email.',
+    title: 'Application Confirmation Email',
+    description: 'Candidate submits application and receives an official confirmation email.',
   },
   {
     step_number: 5,
-    title: 'Admissions Committee Review & Scoring',
-    description: 'The reviewer committee evaluates combined MCQ scores, AI transcripts, and candidate qualifications.',
+    title: 'Talent & Technical Review',
+    description: 'Recruitment team reviews itemized answer sheets and AI technical screen evaluation.',
   },
   {
     step_number: 6,
-    title: 'Approval & Final Interview Scheduling',
+    title: 'Final Interview Scheduling',
     description: 'Approved candidates receive an official fellowship invitation and link to schedule their final interview with the host organization.',
   },
 ];
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const isSuperadmin = user?.role === 'superadmin';
@@ -490,189 +490,132 @@ export const DashboardPage: React.FC = () => {
 
   const activeTrackObj = programTracks.find((t) => t.id === selectedTrackIdForQuestions);
 
+  const navItems: NavItem[] = [
+    {
+      id: 'programs',
+      label: 'Programs Directory',
+      icon: Layers,
+      badge: allPrograms.length,
+    },
+    {
+      id: 'pipeline',
+      label: 'Candidate Pipeline',
+      icon: Users,
+      badge: applicants.length,
+    },
+    {
+      id: 'stages',
+      label: 'Application Stages',
+      icon: Workflow,
+      badge: editableStages.length,
+    },
+    {
+      id: 'questions',
+      label: 'Track Question Banks',
+      icon: HelpCircle,
+      onClick: () => setIsQuestionBuilderOpen(true),
+    },
+    ...(isSuperadmin
+      ? [
+          {
+            id: 'superadmin_portal',
+            label: 'Superadmin Console',
+            icon: ShieldCheck,
+            badge: pendingCompaniesCount > 0 ? pendingCompaniesCount : undefined,
+            badgeColor: 'bg-amber-500 text-white',
+            onClick: () => navigate('/superadmin/dashboard'),
+          },
+        ]
+      : []),
+  ];
+
+  const breadcrumbs =
+    currentView === 'programs'
+      ? [{ label: 'Fellowship Programs' }]
+      : [
+          { label: 'All Programs', onClick: () => setCurrentView('programs') },
+          { label: program?.name || activeProgramSlug },
+        ];
+
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2.5">
+      {/* Program Switcher */}
+      {allPrograms.length > 1 && (
+        <select
+          value={activeProgramSlug}
+          onChange={(e) => setActiveProgramSlug(e.target.value)}
+          className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
+        >
+          {allPrograms.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Copy Public Link Button */}
+      <button
+        onClick={() => handleCopyProgramLink(activeProgramSlug)}
+        className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+        title="Copy shareable applicant link"
+      >
+        {isLinkCopied ? (
+          <>
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="text-emerald-700">Link Copied!</span>
+          </>
+        ) : (
+          <>
+            <Copy className="w-3.5 h-3.5 text-slate-500" />
+            <span>Copy Link</span>
+          </>
+        )}
+      </button>
+
+      {/* Public Page Icon */}
+      <a
+        href={getPublicProgramUrl(activeProgramSlug)}
+        target="_blank"
+        rel="noreferrer"
+        className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 bg-white transition shadow-2xs"
+        title="Open public overview page"
+      >
+        <ExternalLink className="w-3.5 h-3.5" />
+      </a>
+
+      {/* Create New Program Button */}
+      <button
+        onClick={() => setIsCreateProgramModalOpen(true)}
+        className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+      >
+        <Plus className="w-4 h-4 text-kulkul-orange" />
+        <span>New Program</span>
+      </button>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar title="FellowHire Dashboard" subtitle="Company & Talent Operations" showAdminNav={true} />
-
-      <main className="flex-1 max-w-[96rem] w-full mx-auto px-3 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Top Header & Dynamic Company Workspace Card */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm space-y-6">
-          {currentView === 'programs' ? (
-            /* Header for All Programs Directory */
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Fellowship & Scholarship Programs
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsCreateProgramModalOpen(true)}
-                  className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4 text-kulkul-orange" />
-                  <span>Create New Program</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Header for Selected Program Detail View */
-            <div className="space-y-3">
-              {/* Breadcrumb Bar */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentView('programs')}
-                  className="text-xs font-bold text-kulkul-purple hover:text-kulkul-orange transition flex items-center gap-1 group"
-                >
-                  <ChevronLeft className="w-4 h-4 transition group-hover:-translate-x-0.5" />
-                  <span>All Programs</span>
-                </button>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-slate-800">{program?.name || activeProgramSlug}</span>
-              </div>
-
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                <div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    {program?.name || 'Fellowship Assessment Pipeline'}
-                  </h1>
-                </div>
-
-                {/* Right: Quick Action Controls */}
-                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                  {/* Program Switcher */}
-                  {allPrograms.length > 1 && (
-                    <select
-                      value={activeProgramSlug}
-                      onChange={(e) => setActiveProgramSlug(e.target.value)}
-                      className="px-4 py-2.5 text-xs font-bold rounded-full bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                    >
-                      {allPrograms.map((p) => (
-                        <option key={p.slug} value={p.slug}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {/* Copy Public Link Button */}
-                  <button
-                    onClick={() => handleCopyProgramLink(activeProgramSlug)}
-                    className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-2"
-                    title="Copy shareable applicant link"
-                  >
-                    {isLinkCopied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-700">Link Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Copy Program Link</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Create New Program Button */}
-                  <button
-                    onClick={() => setIsCreateProgramModalOpen(true)}
-                    className="px-4 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4 text-kulkul-orange" />
-                    <span>New Program</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Top Tabs Bar */}
-          <div className="flex items-center justify-between border-t border-slate-100 pt-4 flex-wrap gap-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setCurrentView('programs')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                  currentView === 'programs'
-                    ? 'bg-kulkul-purple text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>All Programs ({allPrograms.length})</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentView('pipeline')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                  currentView === 'pipeline'
-                    ? 'bg-kulkul-purple text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Candidate Pipeline ({applicants.length})</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentView('stages')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                  currentView === 'stages'
-                    ? 'bg-kulkul-purple text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Workflow className="w-3.5 h-3.5" />
-                <span>Application Stages ({editableStages.length})</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsQuestionBuilderOpen(true);
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition flex items-center gap-2"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>Track Question Banks</span>
-              </button>
-
-              {/* Superadmin Company Approvals Tab */}
-              {isSuperadmin && (
-                <button
-                  onClick={() => setCurrentView('companies')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                    currentView === 'companies'
-                      ? 'bg-kulkul-purple text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Company Approvals</span>
-                {pendingCompaniesCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 text-2xs font-extrabold animate-pulse">
-                    {pendingCompaniesCount} New
-                  </span>
-                )}
-              </button>
-              )}
-            </div>
-
-            {/* Public Link Preview */}
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span>Public Opportunity:</span>
-              <a
-                href={getPublicProgramUrl(activeProgramSlug)}
-                target="_blank"
-                rel="noreferrer"
-                className="font-mono text-kulkul-purple hover:underline flex items-center gap-1 font-semibold"
-              >
-                <span>/programs/{orgSlug}/{activeProgramSlug}</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          </div>
-        </div>
+    <DashboardLayout
+      portalType="company_admin"
+      title={
+        currentView === 'programs'
+          ? 'Fellowship & Scholarship Programs'
+          : program?.name || 'Fellowship Assessment Pipeline'
+      }
+      subtitle={
+        currentView === 'programs'
+          ? 'Centralized directory of all company fellowship cohorts and candidate admissions.'
+          : `Program Slug: /${orgSlug}/${activeProgramSlug}`
+      }
+      companyName={user?.organization?.name || 'Remote Skills Academy'}
+      companyLogoUrl={user?.organization?.logo_url}
+      breadcrumbs={breadcrumbs}
+      navItems={navItems}
+      activeNavId={currentView}
+      onNavChange={(id) => setCurrentView(id as any)}
+      headerActions={headerActions}
+    >
 
         {/* ================================================================================= */}
         {/* VIEW 0: ALL PROGRAMS TABULAR DIRECTORY */}
@@ -2349,8 +2292,6 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
         )}
-      </main>
-      <Footer />
-    </div>
+    </DashboardLayout>
   );
 };

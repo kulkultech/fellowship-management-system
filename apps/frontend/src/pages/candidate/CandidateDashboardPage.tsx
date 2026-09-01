@@ -2,18 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import {
-  User,
+  FileText,
+  Clock,
+  Terminal,
+  Compass,
   ArrowRight,
   AlertCircle,
   ExternalLink,
   ChevronRight,
-  LogOut,
   Mail,
   Building2,
-  Terminal,
 } from 'lucide-react';
-import { Footer } from '@/components/Footer';
 import toast from 'react-hot-toast';
 
 interface CandidateApplicationItem {
@@ -49,6 +50,7 @@ export const CandidateDashboardPage: React.FC = () => {
   const emailParam = searchParams.get('email') || localStorage.getItem('candidate_email') || '';
   const [emailInput, setEmailInput] = useState(emailParam);
   const [activeEmail, setActiveEmail] = useState(emailParam);
+  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'explore'>('applications');
 
   useEffect(() => {
     if (activeEmail) {
@@ -113,146 +115,133 @@ export const CandidateDashboardPage: React.FC = () => {
     }
   };
 
+  const navItems: NavItem[] = [
+    {
+      id: 'applications',
+      label: 'My Applications',
+      icon: FileText,
+      badge: activeEmail ? applications.length : undefined,
+    },
+    {
+      id: 'assessments',
+      label: 'Logic MCQ Tests',
+      icon: Clock,
+      badge: activeEmail ? applications.filter((a) => a.test_token).length : undefined,
+    },
+    {
+      id: 'ai_interview',
+      label: 'AI Technical Screen',
+      icon: Terminal,
+      badge: activeEmail ? applications.filter((a) => a.interview_token).length : undefined,
+      badgeColor: 'bg-purple-100 text-kulkul-purple',
+    },
+    {
+      id: 'explore',
+      label: 'Explore Programs',
+      icon: Compass,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
-          <div className="flex items-center justify-between h-20 sm:h-24">
-            <Link to="/" className="flex items-center gap-3.5 group">
-              <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
-            </Link>
-
-            <div className="flex items-center gap-4">
-              {activeEmail ? (
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
-                    <User className="w-3.5 h-3.5 text-kulkul-purple" />
-                    <span>{activeEmail}</span>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-full transition shadow-xs"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  to="/"
-                  className="px-5 py-2.5 rounded-full text-sm font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-xs transition"
-                >
-                  Back to Home
-                </Link>
-              )}
-            </div>
+    <DashboardLayout
+      portalType="candidate"
+      title={activeEmail ? `Welcome back, ${candidateName}!` : 'Candidate Portal'}
+      subtitle={
+        activeEmail
+          ? 'Track your evaluation journey, launch timed assessments, and inspect AI screening feedback.'
+          : 'Sign in with your application email to check test results and candidate scorecards.'
+      }
+      candidateEmail={activeEmail}
+      onCandidateSignOut={handleSignOut}
+      navItems={navItems}
+      activeNavId={activeTab}
+      onNavChange={(id) => setActiveTab(id as any)}
+      headerActions={
+        activeEmail ? (
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              {applications.filter((a) => a.test_passed).length} Passed Assessments
+            </span>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 lg:px-12 py-10">
-        {!activeEmail ? (
-          /* Email Prompt Screen */
-          <div className="max-w-md mx-auto my-12 stitch-card p-8 bg-white border border-slate-200 text-center shadow-lg">
-            <div className="w-14 h-14 rounded-2xl bg-kulkul-purple-light text-kulkul-purple mx-auto flex items-center justify-center mb-5">
-              <Mail className="w-7 h-7" />
-            </div>
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Access Candidate Dashboard</h2>
-            <p className="text-sm text-slate-600 mt-2 mb-6">
-              Enter the email address you used when applying to view your test scorecards, AI interview invitations, and track status.
-            </p>
-
-            <form onSubmit={handleLookup} className="space-y-4 text-left">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                    placeholder="candidate@example.com"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3.5 rounded-xl font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover transition shadow-md flex items-center justify-center gap-2"
-              >
-                <span>View My Applications</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
+        ) : undefined
+      }
+    >
+      {!activeEmail ? (
+        /* Email Prompt Screen */
+        <div className="max-w-md mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 text-center shadow-lg">
+          <div className="w-14 h-14 rounded-2xl bg-kulkul-purple-light text-kulkul-purple mx-auto flex items-center justify-center mb-5 shadow-2xs">
+            <Mail className="w-7 h-7" />
           </div>
-        ) : (
-          /* Logged In Candidate Dashboard */
-          <div className="space-y-8">
-            {/* Header Banner */}
-            <div className="stitch-card p-8 bg-gradient-to-r from-kulkul-purple via-[#250b45] to-kulkul-purple text-white relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none" />
-              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div>
-                  <h1 className="text-3xl font-extrabold text-white tracking-tight">
-                    Welcome back, {candidateName}!
-                  </h1>
-                  <p className="text-white/80 text-sm mt-1">
-                    Track your assessment progress, launch screening tests, and inspect evaluations across your applications.
-                  </p>
-                </div>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Access Candidate Portal</h2>
+          <p className="text-sm text-slate-600 mt-2 mb-6">
+            Enter the email address you used when applying to view your test scorecards, AI interview invitations, and track progress.
+          </p>
 
-                <div className="flex gap-4">
-                  <div className="px-5 py-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 text-center">
-                    <div className="text-2xl font-extrabold text-white">{applications.length}</div>
-                    <div className="text-2xs uppercase tracking-wider text-white/70 font-semibold mt-0.5">Applied Programs</div>
-                  </div>
-                  <div className="px-5 py-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 text-center">
-                    <div className="text-2xl font-extrabold text-kulkul-orange">
-                      {applications.filter((a) => a.test_passed).length}
-                    </div>
-                    <div className="text-2xs uppercase tracking-wider text-white/70 font-semibold mt-0.5">Tests Passed</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Applications List */}
+          <form onSubmit={handleLookup} className="space-y-4 text-left">
             <div>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">My Program Applications</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Real-time status updates and action links for your submissions</p>
-                </div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Application Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="email"
+                  required
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="candidate@example.com"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
+                />
               </div>
+            </div>
 
+            <button
+              type="submit"
+              className="w-full py-3.5 rounded-xl font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover transition shadow-md flex items-center justify-center gap-2"
+            >
+              <span>View My Applications</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* ========================================================================= */}
+          {/* TAB 1: MY APPLICATIONS */}
+          {/* ========================================================================= */}
+          {activeTab === 'applications' && (
+            <div className="space-y-6">
               {isLoading ? (
-                <div className="stitch-card p-12 bg-white border border-slate-200 text-center">
+                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center">
                   <div className="w-10 h-10 border-4 border-kulkul-purple border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                   <p className="text-sm text-slate-500 font-medium">Loading your applications...</p>
                 </div>
               ) : applications.length === 0 ? (
-                <div className="stitch-card p-12 bg-white border border-slate-200 text-center">
+                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-4">
                     <AlertCircle className="w-7 h-7" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900">No applications found</h3>
                   <p className="text-sm text-slate-500 mt-1 mb-6 max-w-md mx-auto">
-                    We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{activeEmail}</span>. Apply to an active program below to get started!
+                    We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{activeEmail}</span>. Apply to an active track below to get started!
                   </p>
+                  <button
+                    onClick={() => setActiveTab('explore')}
+                    className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-xs"
+                  >
+                    Browse Open Tracks
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6">
                   {applications.map((app) => (
-                    <div key={app.applicant_id} className="stitch-card p-6 sm:p-8 bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition">
+                    <div
+                      key={app.applicant_id}
+                      className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs hover:shadow-md transition"
+                    >
                       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
                         <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 font-bold text-lg">
+                          <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 font-bold text-lg shadow-2xs">
                             {app.org_logo_url ? (
                               <img src={app.org_logo_url} alt={app.org_name} className="w-8 h-8 rounded-xl object-cover" />
                             ) : (
@@ -344,46 +333,150 @@ export const CandidateDashboardPage: React.FC = () => {
                 </div>
               )}
             </div>
+          )}
 
-            {/* Explore More Fellowship Programs */}
-            <div className="pt-8 border-t border-slate-200">
-              <h2 className="text-xl font-extrabold text-slate-900 mb-4">Explore Available Fellowship Tracks</h2>
+          {/* ========================================================================= */}
+          {/* TAB 2: ASSESSMENTS & TESTS */}
+          {/* ========================================================================= */}
+          {activeTab === 'assessments' && (
+            <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="stitch-card p-6 bg-white border border-slate-200/80 flex flex-col justify-between">
-                  <div>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">Open</span>
-                    <h3 className="text-base font-bold text-slate-900">Fullstack Software Engineering</h3>
-                    <p className="text-xs text-slate-600 mt-1">Modern JavaScript DOM, HTML5/CSS, Java OOP, and REST API systems.</p>
-                  </div>
-                  <Link
-                    to="/programs/rsa/lit2026/tracks/fullstack/apply"
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                  >
-                    <span>Apply to Fullstack Track</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
+                {applications.map((app) => (
+                  <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                        {app.track_name || 'General'}
+                      </span>
+                      {getStageBadge(app.current_stage, app.test_passed)}
+                    </div>
 
-                <div className="stitch-card p-6 bg-white border border-slate-200/80 flex flex-col justify-between">
-                  <div>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">Open</span>
-                    <h3 className="text-base font-bold text-slate-900">QA & Test Automation</h3>
-                    <p className="text-xs text-slate-600 mt-1">Cypress, Postman, Systems, Regression testing, and problem solving.</p>
+                    <div>
+                      <h3 className="font-extrabold text-slate-900 text-lg">{app.program_name}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">30-Minute Timed Logic & Technical Evaluation</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-500 font-semibold">Your Score:</span>
+                      <span className={`text-base font-extrabold ${app.test_passed ? 'text-emerald-600' : 'text-slate-700'}`}>
+                        {app.test_status === 'completed' ? `${app.test_score}%` : 'Not Completed'}
+                      </span>
+                    </div>
+
+                    {app.test_token && (
+                      <button
+                        onClick={() => navigate(app.test_status === 'completed' ? `/lit2026/result/${app.test_token}` : `/lit2026/test/${app.test_token}`)}
+                        className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
+                      >
+                        <span>{app.test_status === 'completed' ? 'View Itemized Scorecard' : 'Start Logic Assessment'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <Link
-                    to="/programs/rsa/lit2026/tracks/qa-automation/apply"
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                  >
-                    <span>Apply to QA Track</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
+                ))}
               </div>
             </div>
-          </div>
-        )}
-      </main>
-      <Footer />
-    </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3: AI TECHNICAL SCREENING */}
+          {/* ========================================================================= */}
+          {activeTab === 'ai_interview' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {applications.map((app) => (
+                  <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                        {app.track_name || 'AI Screen'}
+                      </span>
+                      {app.interview_status === 'completed' ? (
+                        <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700">
+                          Interview Completed
+                        </span>
+                      ) : app.interview_token ? (
+                        <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 animate-pulse">
+                          Invite Ready
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-slate-100 text-slate-500">
+                          Pending MCQ Clearance
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="font-extrabold text-slate-900 text-lg">{app.program_name}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Conversational AI Technical Evaluation Session</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-500 font-semibold">AI Evaluation Score:</span>
+                      <span className="text-base font-extrabold text-kulkul-purple">
+                        {app.interview_status === 'completed' ? `${app.interview_score}/100` : 'Pending'}
+                      </span>
+                    </div>
+
+                    {app.interview_token && (
+                      <button
+                        onClick={() => navigate(`/lit2026/interview/${app.interview_token}`)}
+                        className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
+                      >
+                        <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
+                        <span>{app.interview_status === 'completed' ? 'Review AI Transcript' : 'Enter AI Interview Room'}</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: EXPLORE PROGRAMS */}
+          {/* ========================================================================= */}
+          {activeTab === 'explore' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
+                <div>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">
+                    Open for Admissions
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900">Fullstack Software Engineering Track</h3>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Master modern JavaScript DOM, HTML5/CSS, Java OOP, and scalable REST API architectures.
+                  </p>
+                </div>
+                <Link
+                  to="/programs/rsa/lit2026/tracks/fullstack/apply"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
+                >
+                  <span>Apply to Fullstack Track</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
+                <div>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">
+                    Open for Admissions
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900">QA & Test Automation Track</h3>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Automated testing pipelines with Cypress, Postman API suites, and regression testing workflows.
+                  </p>
+                </div>
+                <Link
+                  to="/programs/rsa/lit2026/tracks/qa-automation/apply"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
+                >
+                  <span>Apply to QA Track</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </DashboardLayout>
   );
 };

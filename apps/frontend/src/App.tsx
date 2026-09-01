@@ -13,6 +13,7 @@ import { CompanyRegisterPage } from '@/pages/CompanyRegisterPage';
 import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
+import { SuperadminDashboardPage } from '@/pages/admin/SuperadminDashboardPage';
 import { useUiStore } from '@/hooks/useUiStore';
 
 const queryClient = new QueryClient({
@@ -75,6 +76,7 @@ export function App() {
           <Route path="/admin/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/admin/dashboard" element={<DashboardPage />} />
+            <Route path="/superadmin/dashboard" element={<SuperadminDashboardPage />} />
           </Route>
 
           {/* Fallback Root */}
