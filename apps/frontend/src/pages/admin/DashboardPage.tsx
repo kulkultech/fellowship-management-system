@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
@@ -476,22 +476,33 @@ export const DashboardPage: React.FC = () => {
     return matchesSearch && matchesTrack;
   });
 
+  const questionsEndRef = useRef<HTMLDivElement | null>(null);
+
   // Question manipulation in Google Form builder
   const handleAddQuestion = () => {
     const newQ: MCQQuestion = {
-      category: 'Technical Problem Solving',
-      question_text: 'Enter your question prompt here...',
+      category: editingSetCategory || 'Technical Problem Solving',
+      question_text: '',
       options: [
-        { id: 'a', text: 'Option 1' },
-        { id: 'b', text: 'Option 2' },
-        { id: 'c', text: 'Option 3' },
-        { id: 'd', text: 'Option 4' },
+        { id: 'a', text: '' },
+        { id: 'b', text: '' },
+        { id: 'c', text: '' },
+        { id: 'd', text: '' },
       ],
       correct_option_id: 'a',
-      explanation: 'Explanation for why Option 1 is correct.',
+      explanation: '',
       points: 10,
     };
-    setEditingQuestions([...editingQuestions, newQ]);
+    setEditingQuestions((prev) => [...prev, newQ]);
+
+    // Smooth scroll down immediately to fill the new question and focus its prompt
+    setTimeout(() => {
+      questionsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-question-prompt="true"]');
+      if (textareas.length > 0) {
+        textareas[textareas.length - 1]?.focus();
+      }
+    }, 80);
   };
 
   const handleRemoveQuestion = (idx: number) => {
@@ -1726,6 +1737,7 @@ export const DashboardPage: React.FC = () => {
                       </label>
                       <textarea
                         rows={3}
+                        data-question-prompt="true"
                         value={q.question_text}
                         onChange={(e) => handleQuestionChange(qIdx, 'question_text', e.target.value)}
                         placeholder="Enter the question text or problem description..."
@@ -1828,6 +1840,9 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 ))
               )}
+
+              {/* Anchor for Auto-Scrolling to newly added question */}
+              <div ref={questionsEndRef} />
 
               {/* Big Bottom Add Question Card */}
               <button
