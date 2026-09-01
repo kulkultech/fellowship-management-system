@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -178,19 +179,78 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		}
 	}
 
+	parts := strings.Split(email, "@")
+	domain := ""
+	if len(parts) == 2 {
+		domain = strings.ToLower(parts[1])
+	}
+
+	// Environment-based whitelist overrides
+	superadminEmailsEnv := strings.ToLower(os.Getenv("SUPERADMIN_EMAILS"))
+	superadminDomainsEnv := strings.ToLower(os.Getenv("SUPERADMIN_DOMAINS"))
+	rsaDomainsEnv := strings.ToLower(os.Getenv("RSA_DOMAINS"))
+
+	isSuperadmin := false
+	if domain == "kulkul.tech" || domain == "kulkul.com" {
+		isSuperadmin = true
+	}
+	if email == "superadmin@fellowhire.com" {
+		isSuperadmin = true
+	}
+	if superadminDomainsEnv != "" {
+		for _, d := range strings.Split(superadminDomainsEnv, ",") {
+			if strings.TrimSpace(d) == domain {
+				isSuperadmin = true
+				break
+			}
+		}
+	}
+	if superadminEmailsEnv != "" {
+		for _, e := range strings.Split(superadminEmailsEnv, ",") {
+			if strings.TrimSpace(e) == email {
+				isSuperadmin = true
+				break
+			}
+		}
+	}
+
+	isRSA := false
+	if domain == "remoteskills.academy" || domain == "rsa.org" {
+		isRSA = true
+	}
+	if rsaDomainsEnv != "" {
+		for _, d := range strings.Split(rsaDomainsEnv, ",") {
+			if strings.TrimSpace(d) == domain {
+				isRSA = true
+				break
+			}
+		}
+	}
+
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		if u, ok := r.memUsers[email]; ok {
+			// Upgrade role if matched by whitelist
+			if isSuperadmin && u.Role != "superadmin" {
+				u.Role = "superadmin"
+				u.OrganizationID = nil
+			}
 			return u, nil
 		}
 		orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		var userOrgID *uuid.UUID = &orgID
+		role := "org_admin"
+		if isSuperadmin {
+			role = "superadmin"
+			userOrgID = nil
+		}
 		u := &model.User{
 			ID:             uuid.New(),
-			OrganizationID: &orgID,
+			OrganizationID: userOrgID,
 			Email:          email,
 			Name:           name,
-			Role:           "org_admin",
+			Role:           role,
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
@@ -198,24 +258,42 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		return u, nil
 	}
 
-	// 1. Check if user already exists
+	// 1. Check if user already exists in PostgreSQL
 	u, err := r.GetByEmail(ctx, email)
 	if err == nil && u != nil {
+		// If user role needs upgrade based on whitelist
+		if isSuperadmin && u.Role != "superadmin" {
+			_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'superadmin', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
+			u.Role = "superadmin"
+			u.OrganizationID = nil
+		}
 		return u, nil
 	}
 
-	// 2. Ensure a valid organization exists in PostgreSQL (or auto-seed RSA)
+	// 2. Resolve organization based on domain or RSA default
 	var orgID *uuid.UUID
 	var foundID uuid.UUID
-	err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
-	if err == nil {
-		orgID = &foundID
-	} else {
-		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1").Scan(&foundID)
+
+	if isRSA {
+		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
+		if err == nil {
+			orgID = &foundID
+		}
+	} else if !isSuperadmin {
+		// Check if email domain matches any registered and approved organization's contact_email
+		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&foundID)
+		if err == nil {
+			orgID = &foundID
+		}
+	}
+
+	// Fallback to RSA if no specific org was resolved and not superadmin
+	if orgID == nil && !isSuperadmin {
+		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
 		} else {
-			// Auto-seed default RSA organization so foreign key constraint never fails
+			// Auto-seed default RSA organization
 			err = r.pool.QueryRow(ctx, `
 				INSERT INTO organizations (slug, name, logo_url, status, contact_email, created_at, updated_at)
 				VALUES ('rsa', 'Remote Skills Academy', '', 'approved', 'contact@rsa.org', now(), now())
@@ -229,7 +307,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	}
 
 	role := "org_admin"
-	if email == "superadmin@fellowhire.com" {
+	if isSuperadmin {
 		role = "superadmin"
 		orgID = nil
 	}
@@ -240,6 +318,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		VALUES ($1, $2, '', $3, $4, now(), now())
 		ON CONFLICT (email) DO UPDATE SET
 			name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END,
+			role = CASE WHEN EXCLUDED.role = 'superadmin' THEN 'superadmin' ELSE users.role END,
 			updated_at = now()
 		RETURNING id, organization_id, email, password_hash, name, role, created_at, updated_at
 	`

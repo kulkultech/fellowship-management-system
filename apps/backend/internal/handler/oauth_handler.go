@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/kulkul/backend/internal/auth"
@@ -173,5 +174,10 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		Domain: h.cookieDom,
 		MaxAge: h.jwtTTL,
 	})
-	http.Redirect(w, r, h.successURL, http.StatusFound)
+
+	redirectURL := h.successURL
+	if user.Role == "superadmin" && strings.Contains(h.successURL, "/admin/dashboard") {
+		redirectURL = strings.Replace(h.successURL, "/admin/dashboard", "/superadmin/dashboard", 1)
+	}
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
