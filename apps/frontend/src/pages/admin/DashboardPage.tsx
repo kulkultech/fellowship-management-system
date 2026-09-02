@@ -273,6 +273,56 @@ export const DashboardPage: React.FC = () => {
     setTimeout(() => setIsLinkCopied(false), 2500);
   };
 
+  const handleOpenCreateTrack = (progSlug?: string) => {
+    if (progSlug && progSlug !== activeProgramSlug) {
+      setActiveProgramSlug(progSlug);
+    }
+    setEditingTrack(null);
+    setTrackForm({
+      question_set_id: allQuestionSets.length > 0 ? allQuestionSets[0].id : '',
+      name: '',
+      slug: '',
+      description: '',
+      enable_mcq: true,
+      logic_test_duration_minutes: 35,
+      logic_test_passing_score: 70,
+      allow_retake: false,
+      enable_ai_interview: true,
+      ai_interview_instructions: '',
+      ai_interview_questions: [
+        'Describe a challenging project you built in this domain.',
+        'How do you approach debugging complex edge-cases and performance bottlenecks?',
+      ],
+    });
+    setIsCreateTrackModalOpen(true);
+  };
+
+  const handleOpenEditTrack = (track: Track, progSlug?: string) => {
+    if (progSlug && progSlug !== activeProgramSlug) {
+      setActiveProgramSlug(progSlug);
+    }
+    setEditingTrack(track);
+    setTrackForm({
+      question_set_id: track.question_set_id || (allQuestionSets.length > 0 ? allQuestionSets[0].id : ''),
+      name: track.name || '',
+      slug: track.slug || '',
+      description: track.description || '',
+      enable_mcq: track.enable_mcq ?? true,
+      logic_test_duration_minutes: track.logic_test_duration_minutes || 35,
+      logic_test_passing_score: track.logic_test_passing_score || 70,
+      allow_retake: track.allow_retake ?? false,
+      enable_ai_interview: track.enable_ai_interview ?? true,
+      ai_interview_instructions: track.ai_interview_instructions || '',
+      ai_interview_questions: track.ai_interview_questions || [
+        'Describe a challenging project you built in this domain.',
+        'How do you approach debugging complex edge-cases and performance bottlenecks?',
+      ],
+    });
+    setIsCreateTrackModalOpen(true);
+  };
+
+  const activeFilteredTrack = programTracks.find((t) => t.id === selectedTrackFilter);
+
   // Load Applicants list
   const { data: applicants = [], isLoading: isListLoading } = useQuery({
     queryKey: ['admin-applicants', programId, selectedStage],
@@ -375,14 +425,20 @@ export const DashboardPage: React.FC = () => {
 
   // Track Mutations
   const createTrackMutation = useMutation({
-    mutationFn: (payload: CreateTrackPayload) => adminService.createProgramTrack(programId!, payload),
+    mutationFn: (payload: CreateTrackPayload) => {
+      if (!programId) throw new Error('No active program selected');
+      return adminService.createProgramTrack(programId, payload);
+    },
     onSuccess: (newTrack) => {
       toast.success(`Track "${newTrack.name}" created successfully!`);
       refetchTracks();
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       setIsCreateTrackModalOpen(false);
+      setEditingTrack(null);
+      setSelectedTrackFilter(newTrack.id);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to create track');
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to create track');
     },
   });
 
@@ -475,10 +531,12 @@ export const DashboardPage: React.FC = () => {
     onSuccess: (updated) => {
       toast.success(`Track "${updated.name}" updated!`);
       refetchTracks();
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      setIsCreateTrackModalOpen(false);
       setEditingTrack(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to update track');
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to update track');
     },
   });
 
@@ -487,6 +545,10 @@ export const DashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Track removed');
       refetchTracks();
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      setIsCreateTrackModalOpen(false);
+      setEditingTrack(null);
+      setSelectedTrackFilter('');
     },
     onError: () => toast.error('Failed to delete track'),
   });
@@ -687,6 +749,14 @@ export const DashboardPage: React.FC = () => {
                 },
               })),
               {
+                id: `add-track-${p.slug}`,
+                label: 'Add Specialization Track',
+                icon: Plus,
+                onClick: () => {
+                  handleOpenCreateTrack(p.slug);
+                },
+              },
+              {
                 id: `stages-${p.slug}`,
                 label: 'Application Stages',
                 icon: Workflow,
@@ -775,6 +845,18 @@ export const DashboardPage: React.FC = () => {
       >
         <ExternalLink className="w-3.5 h-3.5" />
       </a>
+
+      {/* Add Specialization Track Button */}
+      {programId && (
+        <button
+          onClick={() => handleOpenCreateTrack(activeProgramSlug)}
+          className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+          title="Add specialization track to active program"
+        >
+          <Plus className="w-3.5 h-3.5 text-kulkul-purple" />
+          <span>Add Track</span>
+        </button>
+      )}
 
       {/* Create New Program Button */}
       <button
@@ -929,11 +1011,20 @@ export const DashboardPage: React.FC = () => {
                                 </div>
                               </td>
 
-                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
-                                  <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
-                                  <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '2')} Tracks</span>
-                                </span>
+                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                                    <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
+                                    <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '0')} Tracks</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleOpenCreateTrack(prog.slug)}
+                                    className="p-1 rounded-full hover:bg-purple-100 text-kulkul-purple border border-purple-200 transition"
+                                    title="Add specialization track to this program"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
@@ -1245,12 +1336,21 @@ export const DashboardPage: React.FC = () => {
                 />
               </div>
 
-              {/* Stage Filter Tabs & Active Track Indicator */}
+              {/* Stage Filter Tabs & Active Track Indicator & Track Actions */}
               <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 flex-wrap">
                 {selectedTrackFilter && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-bold text-kulkul-purple shadow-2xs">
                     <Award className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Track: {programTracks.find((t) => t.id === selectedTrackFilter)?.name || 'Filtered Track'}</span>
+                    <span>Track: {activeFilteredTrack?.name || 'Filtered Track'}</span>
+                    {activeFilteredTrack && (
+                      <button
+                        onClick={() => handleOpenEditTrack(activeFilteredTrack)}
+                        className="text-2xs text-kulkul-purple underline hover:text-kulkul-purple-hover font-semibold px-1"
+                        title="Edit track configuration"
+                      >
+                        Edit
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelectedTrackFilter('')}
                       className="p-0.5 rounded-full hover:bg-purple-200/50 text-slate-400 hover:text-slate-700 transition ml-0.5"
@@ -1260,6 +1360,15 @@ export const DashboardPage: React.FC = () => {
                     </button>
                   </div>
                 )}
+
+                <button
+                  onClick={() => handleOpenCreateTrack(activeProgramSlug)}
+                  className="px-3.5 py-1.5 rounded-full bg-white hover:bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
+                  title="Create new specialization track for this program"
+                >
+                  <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
+                  <span>Add Track</span>
+                </button>
 
                 {[
                   { label: 'All Candidates', value: '' },
