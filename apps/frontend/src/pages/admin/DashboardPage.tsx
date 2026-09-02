@@ -360,13 +360,16 @@ export const DashboardPage: React.FC = () => {
       toast.success(`Program "${newProg.name}" created successfully!`);
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       setActiveProgramSlug(newProg.slug);
+      setSelectedTrackFilter('');
+      setCurrentView('pipeline');
       setIsCreateProgramModalOpen(false);
       setNewProgSlug('');
       setNewProgName('');
       setNewProgDesc('');
+      setNewProgImage('');
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to create program');
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to create program');
     },
   });
 
@@ -645,55 +648,65 @@ export const DashboardPage: React.FC = () => {
         setCurrentView('programs');
       },
       isExpanded: true,
-      children: allPrograms.map((p) => {
-        const isCurrentActiveProg = p.slug === activeProgramSlug;
-        const tracksForThisProg = isCurrentActiveProg ? programTracks : [];
+      children: [
+        ...allPrograms.map((p) => {
+          const isCurrentActiveProg = p.slug === activeProgramSlug;
+          const tracksForThisProg = isCurrentActiveProg ? programTracks : [];
 
-        return {
-          id: `program-${p.slug}`,
-          label: p.name,
-          icon: Layers,
-          badge: isCurrentActiveProg ? applicants.length : undefined,
-          isExpanded: isCurrentActiveProg,
+          return {
+            id: `program-${p.slug}`,
+            label: p.name,
+            icon: Layers,
+            badge: isCurrentActiveProg ? applicants.length : undefined,
+            isExpanded: isCurrentActiveProg,
+            onClick: () => {
+              setActiveProgramSlug(p.slug);
+              setSelectedTrackFilter('');
+              setCurrentView('pipeline');
+            },
+            children: [
+              {
+                id: `all-candidates-${p.slug}`,
+                label: 'All Candidates',
+                icon: Users,
+                badge: isCurrentActiveProg ? applicants.length : undefined,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setSelectedTrackFilter('');
+                  setCurrentView('pipeline');
+                },
+              },
+              ...tracksForThisProg.map((t) => ({
+                id: `track-${t.id}`,
+                label: t.name,
+                icon: Award,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setSelectedTrackFilter(t.id);
+                  setCurrentView('pipeline');
+                },
+              })),
+              {
+                id: `stages-${p.slug}`,
+                label: 'Application Stages',
+                icon: Workflow,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('stages');
+                },
+              },
+            ],
+          };
+        }),
+        {
+          id: 'launch-new-program-nav',
+          label: 'Launch New Program',
+          icon: Plus,
           onClick: () => {
-            setActiveProgramSlug(p.slug);
-            setSelectedTrackFilter('');
-            setCurrentView('pipeline');
+            setIsCreateProgramModalOpen(true);
           },
-          children: [
-            {
-              id: `all-candidates-${p.slug}`,
-              label: 'All Candidates',
-              icon: Users,
-              badge: isCurrentActiveProg ? applicants.length : undefined,
-              onClick: () => {
-                setActiveProgramSlug(p.slug);
-                setSelectedTrackFilter('');
-                setCurrentView('pipeline');
-              },
-            },
-            ...tracksForThisProg.map((t) => ({
-              id: `track-${t.id}`,
-              label: t.name,
-              icon: Award,
-              onClick: () => {
-                setActiveProgramSlug(p.slug);
-                setSelectedTrackFilter(t.id);
-                setCurrentView('pipeline');
-              },
-            })),
-            {
-              id: `stages-${p.slug}`,
-              label: 'Application Stages',
-              icon: Workflow,
-              onClick: () => {
-                setActiveProgramSlug(p.slug);
-                setCurrentView('stages');
-              },
-            },
-          ],
-        };
-      }),
+        },
+      ],
     },
     {
       id: 'questions',
@@ -822,9 +835,18 @@ export const DashboardPage: React.FC = () => {
                   </p>
                 </div>
 
-                <span className="text-xs font-bold px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
-                  {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
+                    {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
+                  </span>
+                  <button
+                    onClick={() => setIsCreateProgramModalOpen(true)}
+                    className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-kulkul-orange" />
+                    <span>Launch New Program</span>
+                  </button>
+                </div>
               </div>
 
               {allPrograms.length === 0 ? (
@@ -2219,12 +2241,18 @@ export const DashboardPage: React.FC = () => {
                     placeholder="e.g. AI Engineering Fellowship 2026"
                     value={newProgName}
                     onChange={(e) => {
-                      setNewProgName(e.target.value);
-                      if (!newProgSlug) {
-                        setNewProgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                      const name = e.target.value;
+                      setNewProgName(name);
+                      if (!newProgSlug || newProgSlug === newProgName.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/\s+/g, '-')) {
+                        setNewProgSlug(
+                          name
+                            .toLowerCase()
+                            .replace(/[^a-z0-9\s-]/g, '')
+                            .replace(/\s+/g, '-')
+                        );
                       }
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
                   />
                 </div>
 
@@ -2235,11 +2263,21 @@ export const DashboardPage: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. ai2026"
+                    placeholder="e.g. ai-2026"
                     value={newProgSlug}
-                    onChange={(e) => setNewProgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                    onChange={(e) =>
+                      setNewProgSlug(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, '')
+                          .replace(/\s+/g, '-')
+                      )
+                    }
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                   />
+                  <p className="text-2xs text-slate-400 mt-1 font-mono">
+                    Public candidate URL: /programs/{orgSlug}/{newProgSlug || 'slug'}
+                  </p>
                 </div>
 
                 <div>
