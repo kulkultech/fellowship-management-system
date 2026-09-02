@@ -131,17 +131,13 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			ai.Post("/{inviteToken}/message", aiInterviewHandler.SendMessage)
 		})
 
-		// Candidate Portal: Applications & Dashboard
-		api.Route("/candidate", func(c chi.Router) {
-			c.Get("/applications", candidateHandler.GetCandidateApplications)
-		})
-
-		// Protected Reviewer / Admin / Superadmin Routes
+		// Protected Reviewer / Admin / Superadmin / Candidate Routes
 		api.Group(func(protected chi.Router) {
 			protected.Use(middleware.Authenticator(authSvc))
 			protected.Use(middleware.CSRF)
 
 			protected.Get("/auth/me", authHandler.Me)
+			protected.Get("/candidate/applications", candidateHandler.GetCandidateApplications)
 
 			protected.Route("/admin", func(adm chi.Router) {
 				// Programs & Config

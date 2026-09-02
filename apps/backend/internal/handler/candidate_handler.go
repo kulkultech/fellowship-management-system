@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kulkul/backend/internal/httpx"
+	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
 )
@@ -63,13 +64,27 @@ func NewCandidateHandler(
 }
 
 func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *http.Request) {
-	email := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("email")))
-	if email == "" {
-		httpx.Error(w, http.StatusBadRequest, "email query parameter is required")
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "authentication required to view candidate applications")
 		return
 	}
 
-	applicants, err := h.applicantRepo.ListByEmail(r.Context(), email)
+	targetEmail := strings.TrimSpace(strings.ToLower(claims.Email))
+
+	// If superadmin, org_admin, or reviewer, allow filtering by explicit query email
+	if claims.Role == "superadmin" || claims.Role == "org_admin" || claims.Role == "reviewer" {
+		if queryEmail := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("email"))); queryEmail != "" {
+			targetEmail = queryEmail
+		}
+	}
+
+	if targetEmail == "" {
+		httpx.Error(w, http.StatusBadRequest, "valid authenticated email is required")
+		return
+	}
+
+	applicants, err := h.applicantRepo.ListByEmail(r.Context(), targetEmail)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to fetch candidate applications")
 		return
@@ -142,7 +157,7 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"email":        email,
+		"email":        targetEmail,
 		"applications": items,
 	})
 }

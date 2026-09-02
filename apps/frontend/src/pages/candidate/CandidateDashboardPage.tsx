@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/services/apiClient';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -15,10 +15,8 @@ import {
   AlertCircle,
   ExternalLink,
   ChevronRight,
-  Mail,
   Building2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 interface CandidateApplicationItem {
   applicant_id: string;
@@ -48,68 +46,33 @@ interface CandidateApplicationItem {
 
 export const CandidateDashboardPage: React.FC = () => {
   const { user: authUser, logout: authLogout } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  const storedEmail = localStorage.getItem('candidate_email') || '';
-  const emailParam = searchParams.get('email') || (authUser?.email || storedEmail);
-  const [emailInput, setEmailInput] = useState(emailParam);
-  const [activeEmail, setActiveEmail] = useState(emailParam);
   const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'explore'>('applications');
 
-  // Auto-sync if authUser becomes available from Google OAuth
-  useEffect(() => {
-    if (authUser?.email && !activeEmail) {
-      setActiveEmail(authUser.email);
-      setEmailInput(authUser.email);
-    }
-  }, [authUser, activeEmail]);
-
-  useEffect(() => {
-    if (activeEmail) {
-      localStorage.setItem('candidate_email', activeEmail);
-    }
-  }, [activeEmail]);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['candidate-applications', activeEmail],
+    queryKey: ['candidate-applications', authUser?.email],
     queryFn: async () => {
-      if (!activeEmail) return { applications: [] };
-      const res = await axios.get(`/api/v1/candidate/applications?email=${encodeURIComponent(activeEmail)}`);
+      const res = await apiClient.get('/candidate/applications');
       return res.data;
     },
-    enabled: Boolean(activeEmail),
+    enabled: Boolean(authUser?.email),
   });
 
   const applications: CandidateApplicationItem[] = data?.applications || [];
-  const candidateName = applications[0]?.full_name || (activeEmail ? activeEmail.split('@')[0] : 'Candidate');
+  const candidateName = applications[0]?.full_name || (authUser?.email ? authUser.email.split('@')[0] : 'Candidate');
 
   const handleGoogleSignIn = () => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
     window.location.href = `${apiBase}/auth/oauth/google?return_to=/candidate/dashboard`;
   };
 
-  const handleLookup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailInput.trim()) {
-      toast.error('Please enter your email');
-      return;
-    }
-    const cleanEmail = emailInput.trim().toLowerCase();
-    setActiveEmail(cleanEmail);
-    setSearchParams({ email: cleanEmail });
-  };
-
   const handleSignOut = async () => {
-    localStorage.removeItem('candidate_email');
-    setActiveEmail('');
-    setEmailInput('');
-    setSearchParams({});
     try {
       await authLogout();
     } catch {
       // ignore
     }
+    navigate('/candidate/dashboard');
   };
 
   const getStageBadge = (stage: string, passed: boolean) => {
@@ -137,8 +100,8 @@ export const CandidateDashboardPage: React.FC = () => {
     }
   };
 
-  // If candidate is not authenticated / no email selected, show dedicated clean Sign In screen
-  if (!activeEmail) {
+  // If candidate is not authenticated, show dedicated Google Sign In screen
+  if (!authUser?.email) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <Navbar />
@@ -152,7 +115,7 @@ export const CandidateDashboardPage: React.FC = () => {
                   Candidate Portal
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 mt-2">
-                  Sign in to track your fellowship applications, view MCQ test scorecards, and launch conversational AI screening.
+                  Sign in with your verified Google account to track your fellowship applications, view MCQ test scorecards, and inspect AI interview evaluations.
                 </p>
               </div>
 
@@ -185,43 +148,8 @@ export const CandidateDashboardPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Or Divider */}
-              <div className="flex items-center gap-3 my-2">
-                <div className="flex-1 border-t border-slate-200" />
-                <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">Or lookup by email</span>
-                <div className="flex-1 border-t border-slate-200" />
-              </div>
-
-              {/* Email Lookup Form */}
-              <form onSubmit={handleLookup} className="space-y-4 text-left">
-                <div>
-                  <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                    Application Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="email"
-                      required
-                      value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="candidate@example.com"
-                      className="w-full pl-10 pr-4 py-3 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover transition shadow-md flex items-center justify-center gap-2"
-                >
-                  <span>View My Applications</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-
               {/* Footer Links inside Card */}
-              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2 text-center">
+              <div className="pt-4 border-t border-slate-100 flex flex-col gap-2 text-center">
                 <div>
                   <span className="text-xs text-slate-500">Are you a fellowship administrator? </span>
                   <Link to="/admin/login" className="text-xs font-bold text-kulkul-purple hover:underline">
@@ -269,7 +197,7 @@ export const CandidateDashboardPage: React.FC = () => {
       portalType="candidate"
       title={`Welcome back, ${candidateName}!`}
       subtitle="Track your evaluation journey, launch timed assessments, and inspect AI screening feedback."
-      candidateEmail={activeEmail}
+      candidateEmail={authUser?.email}
       onCandidateSignOut={handleSignOut}
       navItems={navItems}
       activeNavId={activeTab}
@@ -300,7 +228,7 @@ export const CandidateDashboardPage: React.FC = () => {
                   </div>
                   <h3 className="text-lg font-bold text-slate-900">No applications found</h3>
                   <p className="text-sm text-slate-500 mt-1 mb-6 max-w-md mx-auto">
-                    We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{activeEmail}</span>. Apply to an active track below to get started!
+                    We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{authUser?.email}</span>. Apply to an active track below to get started!
                   </p>
                   <button
                     onClick={() => setActiveTab('explore')}
