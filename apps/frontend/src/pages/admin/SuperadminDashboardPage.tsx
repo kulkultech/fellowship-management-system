@@ -109,7 +109,6 @@ export const SuperadminDashboardPage: React.FC = () => {
     <DashboardLayout
       portalType="superadmin"
       title="KulKul Superadmin Portal"
-      subtitle="Centralized management console for company workspace verifications, global programs, and platform operations."
       navItems={navItems}
       activeNavId={activeTab}
       onNavChange={(id) => setActiveTab(id as any)}
@@ -225,13 +224,13 @@ export const SuperadminDashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Companies Grid */}
+            {/* Companies Table */}
             {isCompaniesLoading ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-slate-400">
                 Loading companies directory...
               </div>
             ) : filteredCompanies.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-slate-400">
                 <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <div className="text-base font-bold text-slate-700">No companies found</div>
                 <div className="text-xs text-slate-400 mt-1">
@@ -239,121 +238,136 @@ export const SuperadminDashboardPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCompanies.map((company) => (
-                  <div
-                    key={company.id}
-                    className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs flex flex-col justify-between space-y-5 hover:border-kulkul-purple/40 hover:shadow-md transition"
-                  >
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3.5">
-                          {company.logo_url ? (
-                            <img
-                              src={company.logo_url}
-                              alt={company.name}
-                              className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shadow-2xs p-1 bg-white"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-black text-base border border-kulkul-purple/20 shadow-2xs">
-                              <Building2 className="w-6 h-6 text-kulkul-orange" />
+              <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
+                    <colgroup>
+                      <col className="w-[30%]" />
+                      <col className="w-[25%]" />
+                      <col className="w-[18%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[15%]" />
+                    </colgroup>
+                    <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
+                      <tr>
+                        <th className="py-3.5 px-6 font-bold">Company</th>
+                        <th className="py-3.5 px-6 font-bold">Contact Email</th>
+                        <th className="py-3.5 px-6 font-bold">Registered</th>
+                        <th className="py-3.5 px-6 font-bold">Status</th>
+                        <th className="py-3.5 px-6 font-bold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {filteredCompanies.map((company) => (
+                        <tr key={company.id} className="hover:bg-slate-50/90 transition">
+                          <td className="py-4 px-6 align-middle">
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
+                                {company.logo_url ? (
+                                  <img
+                                    src={company.logo_url}
+                                    alt={company.name}
+                                    className="w-full h-full object-contain p-0.5 bg-white"
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <Building2 className="w-5 h-5 text-kulkul-orange" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-extrabold text-slate-900 text-sm truncate">
+                                  {company.name}
+                                </div>
+                                <div className="text-2xs font-mono text-kulkul-purple font-semibold mt-0.5">
+                                  /{company.slug}
+                                </div>
+                              </div>
                             </div>
-                          )}
+                          </td>
 
-                          <div>
-                            <h3 className="text-base font-extrabold text-slate-900 leading-tight">
-                              {company.name}
-                            </h3>
-                            <span className="text-xs font-mono text-kulkul-purple font-semibold">
-                              /{company.slug}
-                            </span>
-                          </div>
-                        </div>
+                          <td className="py-4 px-6 align-middle text-xs text-slate-700 truncate">
+                            {company.contact_email || (
+                              <span className="text-slate-400 italic">Not specified</span>
+                            )}
+                          </td>
 
-                        {/* Status Badge */}
-                        <div>
-                          {company.status === 'approved' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Approved
-                            </span>
-                          )}
-                          {company.status === 'pending_approval' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                              <Clock className="w-3 h-3" />
-                              Pending
-                            </span>
-                          )}
-                          {company.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                              <XCircle className="w-3 h-3" />
-                              Rejected
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-2 text-slate-700">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Contact Email:</span>
-                          <span className="font-semibold text-slate-900 truncate max-w-[180px]">
-                            {company.contact_email || 'Not specified'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Registered:</span>
-                          <span className="font-semibold text-slate-900">
+                          <td className="py-4 px-6 align-middle text-xs text-slate-600 whitespace-nowrap">
                             {company.created_at
-                              ? new Date(company.created_at).toLocaleDateString()
+                              ? new Date(company.created_at).toLocaleDateString('en-GB', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })
                               : 'System Seed'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                          </td>
 
-                    {/* Action Controls */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                      {company.status === 'pending_approval' && (
-                        <>
-                          <button
-                            onClick={() => rejectMutation.mutate(company.id)}
-                            disabled={rejectMutation.isPending}
-                            className="px-3.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            <span>Reject</span>
-                          </button>
-                          <button
-                            onClick={() => approveMutation.mutate(company.id)}
-                            disabled={approveMutation.isPending}
-                            className="px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Approve</span>
-                          </button>
-                        </>
-                      )}
+                          <td className="py-4 px-6 align-middle whitespace-nowrap">
+                            {company.status === 'approved' && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Approved</span>
+                              </span>
+                            )}
+                            {company.status === 'pending_approval' && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Pending</span>
+                              </span>
+                            )}
+                            {company.status === 'rejected' && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Rejected</span>
+                              </span>
+                            )}
+                          </td>
 
-                      {company.status === 'approved' && (
-                        <span className="text-2xs font-bold text-slate-400">
-                          Workspace Active & Verified
-                        </span>
-                      )}
+                          <td className="py-4 px-6 align-middle text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-2">
+                              {company.status === 'pending_approval' && (
+                                <>
+                                  <button
+                                    onClick={() => rejectMutation.mutate(company.id)}
+                                    disabled={rejectMutation.isPending}
+                                    className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center gap-1 disabled:opacity-50"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    <span>Reject</span>
+                                  </button>
+                                  <button
+                                    onClick={() => approveMutation.mutate(company.id)}
+                                    disabled={approveMutation.isPending}
+                                    className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1 disabled:opacity-50"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Approve</span>
+                                  </button>
+                                </>
+                              )}
 
-                      {company.status === 'rejected' && (
-                        <button
-                          onClick={() => approveMutation.mutate(company.id)}
-                          className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
-                        >
-                          Re-Approve
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                              {company.status === 'approved' && (
+                                <span className="text-2xs font-bold text-slate-400">
+                                  Workspace Active
+                                </span>
+                              )}
+
+                              {company.status === 'rejected' && (
+                                <button
+                                  onClick={() => approveMutation.mutate(company.id)}
+                                  className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                                >
+                                  Re-Approve
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
