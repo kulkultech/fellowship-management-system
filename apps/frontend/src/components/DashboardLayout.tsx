@@ -71,8 +71,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* ========================================================================= */}
       {/* 1. TOP BAR (T-LAYOUT TOP HEADER) */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs h-16 sm:h-20 flex items-center shrink-0">
-        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
+        <div className="w-full px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-4 h-20 sm:h-24">
           {/* Left: Hamburger (Mobile) + Logo */}
           <div className="flex items-center gap-3 sm:gap-4">
             <button
@@ -87,20 +87,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <img
                 src="/kulkul-logo.svg"
                 alt="KulKul"
-                className="h-8 sm:h-9 w-auto object-contain transition group-hover:opacity-90"
+                className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90"
               />
             </Link>
           </div>
 
           {/* Right: Company Logo / Name + User Pill + Sign Out */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* Superadmin Quick Switcher for KulKul Team */}
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 transition"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 transition"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
+                <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
                 <span>Superadmin Workspace</span>
               </Link>
             )}
@@ -108,9 +108,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'superadmin' && (
               <Link
                 to="/admin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition"
               >
-                <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
+                <Building2 className="w-4 h-4 text-kulkul-purple" />
                 <span>Company Workspace</span>
               </Link>
             )}
@@ -122,11 +122,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   <img
                     src={companyLogoUrl}
                     alt={companyName || 'Company'}
-                    className="h-8 max-w-[120px] object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-2xs"
+                    className="h-9 max-w-[140px] object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-2xs"
                   />
                 ) : companyName ? (
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs">
-                    <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 shadow-2xs">
+                    <Building2 className="w-4 h-4 text-kulkul-purple" />
                     <span>{companyName}</span>
                   </div>
                 ) : null}
@@ -135,16 +135,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
             {/* Candidate User Pill */}
             {portalType === 'candidate' && candidateEmail && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
-                <UserIcon className="w-3.5 h-3.5 text-kulkul-purple" />
+              <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+                <UserIcon className="w-4 h-4 text-kulkul-purple" />
                 <span>{candidateEmail}</span>
               </div>
             )}
 
             {/* Admin User Pill */}
             {user && portalType !== 'candidate' && (
-              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
-                <UserIcon className="w-3.5 h-3.5 text-kulkul-purple" />
+              <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+                <UserIcon className="w-4 h-4 text-kulkul-purple" />
                 <span>{user.email}</span>
               </div>
             )}
@@ -153,11 +153,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {((portalType === 'candidate' && Boolean(candidateEmail)) || (portalType !== 'candidate' && Boolean(user))) && (
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-full transition shadow-2xs"
+                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm hover:shadow-md transition active:scale-[0.98] inline-flex items-center gap-2"
                 title="Sign Out"
               >
-                <LogOut className="w-3.5 h-3.5 text-slate-500" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <LogOut className="w-4 h-4 text-white" />
+                <span>Sign Out</span>
               </button>
             )}
           </div>
