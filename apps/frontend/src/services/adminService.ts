@@ -51,6 +51,10 @@ export const adminService = {
     return data;
   },
 
+  deleteProgram: async (programId: string): Promise<void> => {
+    await apiClient.delete(`/admin/programs/${programId}`);
+  },
+
   updatePipelineConfig: async (programId: string, payload: PipelineConfigPayload): Promise<Program> => {
     const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/pipeline-config`, payload);
     return data;

@@ -217,24 +217,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
                 return (
                   <div key={item.id} className="space-y-1">
-                    <button
-                      onClick={() => {
-                        if (item.onClick) {
-                          item.onClick();
-                        } else {
-                          onNavChange(item.id);
-                        }
-                        if (!hasChildren) {
-                          setIsMobileSidebarOpen(false);
-                        }
-                      }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all group ${
+                    <div
+                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-2xl text-xs font-extrabold transition-all group ${
                         isActive
                           ? 'bg-kulkul-purple text-white shadow-sm'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
-                      <div className="flex items-center gap-3 truncate">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (item.onClick) {
+                            item.onClick();
+                          } else {
+                            onNavChange(item.id);
+                          }
+                          if (!hasChildren) {
+                            setIsMobileSidebarOpen(false);
+                          }
+                        }}
+                        className="flex items-center gap-3 truncate flex-1 text-left py-1.5"
+                      >
                         <IconComponent
                           className={`w-4 h-4 shrink-0 transition ${
                             isActive
@@ -243,9 +246,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                           }`}
                         />
                         <span className="truncate">{item.label}</span>
-                      </div>
+                      </button>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0 ml-1">
                         {item.badge !== undefined && (
                           <span
                             className={`px-2 py-0.5 rounded-full text-2xs font-extrabold ${
@@ -261,20 +264,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         )}
 
                         {hasChildren && (
-                          <span
-                            role="button"
-                            tabIndex={0}
+                          <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleExpand(item.id, item.isExpanded !== false);
                             }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.stopPropagation();
-                                toggleExpand(item.id, item.isExpanded !== false);
-                              }
-                            }}
-                            className={`p-1 rounded-lg transition cursor-pointer ${
+                            className={`p-1.5 rounded-lg transition ${
                               isActive
                                 ? 'hover:bg-white/20 text-white/80 hover:text-white'
                                 : 'hover:bg-slate-200 text-slate-400 hover:text-slate-700'
@@ -286,10 +282,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                             ) : (
                               <ChevronRight className="w-3.5 h-3.5" />
                             )}
-                          </span>
+                          </button>
                         )}
                       </div>
-                    </button>
+                    </div>
 
                     {/* Level 1 Children (Programs under Programs Directory) */}
                     {hasChildren && isItemExpanded && (
@@ -302,26 +298,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
                           return (
                             <div key={child.id} className="space-y-1">
-                              <button
-                                onClick={() => {
-                                  if (child.onClick) {
-                                    child.onClick();
-                                  } else {
-                                    onNavChange(child.id);
-                                  }
-                                  // When selecting a program row, ensure its sub-tree is expanded
-                                  setExpandedMap((prev) => ({ ...prev, [child.id]: true }));
-                                  if (!hasSubChildren) {
-                                    setIsMobileSidebarOpen(false);
-                                  }
-                                }}
-                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition group ${
+                              <div
+                                className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition group ${
                                   isChildActive
                                     ? 'bg-purple-50 text-kulkul-purple font-extrabold'
                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                                 }`}
                               >
-                                <div className="flex items-center gap-2 truncate">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (child.onClick) {
+                                      child.onClick();
+                                    } else {
+                                      onNavChange(child.id);
+                                    }
+                                    if (!hasSubChildren) {
+                                      setIsMobileSidebarOpen(false);
+                                    }
+                                  }}
+                                  className="flex items-center gap-2 truncate flex-1 text-left py-1"
+                                >
                                   {ChildIcon && (
                                     <ChildIcon
                                       className={`w-3.5 h-3.5 shrink-0 ${
@@ -330,40 +327,33 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                     />
                                   )}
                                   <span className="truncate">{child.label}</span>
-                                </div>
+                                </button>
 
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className="flex items-center gap-1 shrink-0 ml-1">
                                   {child.badge !== undefined && (
                                     <span className="px-1.5 py-0.5 rounded-md text-2xs font-bold bg-slate-100 text-slate-500">
                                       {child.badge}
                                     </span>
                                   )}
                                   {hasSubChildren && (
-                                    <span
-                                      role="button"
-                                      tabIndex={0}
+                                    <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         toggleExpand(child.id, child.isExpanded !== false);
                                       }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                          e.stopPropagation();
-                                          toggleExpand(child.id, child.isExpanded !== false);
-                                        }
-                                      }}
-                                      className="p-1 rounded-lg hover:bg-purple-100/80 text-slate-400 hover:text-kulkul-purple transition cursor-pointer"
+                                      className="p-1 rounded-lg hover:bg-purple-100 text-slate-400 hover:text-kulkul-purple transition"
                                       title={isChildExpanded ? 'Minimize / Collapse' : 'Expand'}
                                     >
                                       {isChildExpanded ? (
-                                        <ChevronDown className="w-3 h-3" />
+                                        <ChevronDown className="w-3.5 h-3.5 text-kulkul-purple" />
                                       ) : (
-                                        <ChevronRight className="w-3 h-3" />
+                                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                                       )}
-                                    </span>
+                                    </button>
                                   )}
                                 </div>
-                              </button>
+                              </div>
 
                               {/* Level 2 Sub-Children (Tracks under a Program) */}
                               {hasSubChildren && isChildExpanded && (
@@ -375,6 +365,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                     return (
                                       <button
                                         key={sub.id}
+                                        type="button"
                                         onClick={() => {
                                           if (sub.onClick) {
                                             sub.onClick();

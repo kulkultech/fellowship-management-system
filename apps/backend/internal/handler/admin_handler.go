@@ -434,6 +434,36 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, created)
 }
 
+func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	programID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	orgID, err := h.resolveOrgID(r.Context(), claims)
+	if err != nil || orgID == uuid.Nil {
+		httpx.Error(w, http.StatusBadRequest, "organization context not found")
+		return
+	}
+
+	if err := h.programRepo.Delete(r.Context(), programID, orgID); err != nil {
+		if errors.Is(err, repository.ErrProgramNotFound) {
+			httpx.Error(w, http.StatusNotFound, "program not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete program: %v", err))
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "program deleted successfully",
+		"id":      programID.String(),
+	})
+}
+
 type UpdatePipelineConfigRequest struct {
 	EnableMCQ                bool     `json:"enable_mcq"`
 	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`

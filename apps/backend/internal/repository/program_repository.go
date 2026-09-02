@@ -522,3 +522,28 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 	}
 	return list, rows.Err()
 }
+
+func (r *ProgramRepository) Delete(ctx context.Context, id uuid.UUID, orgID uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for key, p := range r.memPrograms {
+			if p.ID == id {
+				delete(r.memPrograms, key)
+				return nil
+			}
+		}
+		return ErrProgramNotFound
+	}
+
+	// For superadmin or fallback org, allow deleting if id matches
+	query := `DELETE FROM programs WHERE id = $1 AND (organization_id = $2 OR organization_id = '00000000-0000-0000-0000-000000000001'::uuid)`
+	tag, err := r.pool.Exec(ctx, query, id, orgID)
+	if err != nil {
+		return fmt.Errorf("program_repo: delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrProgramNotFound
+	}
+	return nil
+}

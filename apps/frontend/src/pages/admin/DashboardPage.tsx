@@ -553,6 +553,23 @@ export const DashboardPage: React.FC = () => {
     onError: () => toast.error('Failed to delete track'),
   });
 
+  const deleteProgramMutation = useMutation({
+    mutationFn: (progId: string) => adminService.deleteProgram(progId),
+    onSuccess: (_, deletedId) => {
+      toast.success('Program deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      const remaining = allPrograms.filter((p) => p.id !== deletedId);
+      if (remaining.length > 0) {
+        setActiveProgramSlug(remaining[0].slug);
+      }
+      setSelectedTrackFilter('');
+      setCurrentView('programs');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to delete program');
+    },
+  });
+
   const updateStageMutation = useMutation({
     mutationFn: ({ applicantId, stage }: { applicantId: string; stage: string }) =>
       adminService.updateApplicantStage(applicantId, stage),
@@ -858,6 +875,26 @@ export const DashboardPage: React.FC = () => {
         </button>
       )}
 
+      {/* Delete Active Program Button */}
+      {programId && (
+        <button
+          onClick={() => {
+            if (
+              window.confirm(
+                `Are you sure you want to delete program "${program?.name || activeProgramSlug}"?\nAll associated tracks, stages, and applicant assessments will be permanently removed.`
+              )
+            ) {
+              deleteProgramMutation.mutate(programId);
+            }
+          }}
+          disabled={deleteProgramMutation.isPending}
+          className="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 bg-white transition shadow-2xs"
+          title="Delete this program"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+
       {/* Create New Program Button */}
       <button
         onClick={() => setIsCreateProgramModalOpen(true)}
@@ -1056,6 +1093,23 @@ export const DashboardPage: React.FC = () => {
                                   >
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
+
+                                  <button
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          `Are you sure you want to permanently delete program "${prog.name}"?\nAll associated tracks, stages, and candidate submissions will be permanently removed.`
+                                        )
+                                      ) {
+                                        deleteProgramMutation.mutate(prog.id);
+                                      }
+                                    }}
+                                    disabled={deleteProgramMutation.isPending}
+                                    className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition"
+                                    title="Delete program"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </td>
                             </tr>
