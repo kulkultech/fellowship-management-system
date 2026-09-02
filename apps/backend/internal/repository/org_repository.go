@@ -225,3 +225,45 @@ func (r *OrgRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Organ
 	}
 	return &o, nil
 }
+
+func (r *OrgRepository) Update(ctx context.Context, id uuid.UUID, name, contactEmail, logoURL string) (*model.Organization, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, org := range r.memOrgs {
+			if org.ID == id {
+				if name != "" {
+					org.Name = name
+				}
+				if contactEmail != "" {
+					org.ContactEmail = contactEmail
+				}
+				org.LogoURL = logoURL
+				org.UpdatedAt = time.Now()
+				return org, nil
+			}
+		}
+		return nil, ErrOrgNotFound
+	}
+
+	query := `
+		UPDATE organizations
+		SET name = COALESCE(NULLIF($1, ''), name),
+		    contact_email = COALESCE(NULLIF($2, ''), contact_email),
+		    logo_url = $3,
+		    updated_at = now()
+		WHERE id = $4
+		RETURNING id, slug, name, COALESCE(contact_email, ''), COALESCE(logo_url, ''), status, created_at, updated_at
+	`
+	var o model.Organization
+	err := r.pool.QueryRow(ctx, query, name, contactEmail, logoURL, id).Scan(
+		&o.ID, &o.Slug, &o.Name, &o.ContactEmail, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrOrgNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("org_repo: update: %w", err)
+	}
+	return &o, nil
+}

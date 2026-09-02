@@ -1061,3 +1061,61 @@ func (h *AdminHandler) DuplicateQuestionSet(w http.ResponseWriter, r *http.Reque
 
 	httpx.JSON(w, http.StatusCreated, dup)
 }
+
+type UpdateOrgRequest struct {
+	Name         string `json:"name"`
+	ContactEmail string `json:"contact_email"`
+	LogoURL      string `json:"logo_url"`
+}
+
+func (h *AdminHandler) GetCurrentOrganization(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var targetOrgID uuid.UUID
+	if claims.OrganizationID != nil {
+		targetOrgID = *claims.OrganizationID
+	} else {
+		// Fallback to default RSA org for superadmin or unassigned dev user
+		targetOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	}
+
+	org, err := h.orgRepo.GetByID(r.Context(), targetOrgID)
+	if err != nil {
+		httpx.JSON(w, http.StatusNotFound, map[string]string{"error": "organization not found"})
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, org)
+}
+
+func (h *AdminHandler) UpdateOrganization(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var targetOrgID uuid.UUID
+	if claims.OrganizationID != nil {
+		targetOrgID = *claims.OrganizationID
+	} else {
+		targetOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	}
+
+	var req UpdateOrgRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		return
+	}
+
+	org, err := h.orgRepo.Update(r.Context(), targetOrgID, req.Name, req.ContactEmail, req.LogoURL)
+	if err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, org)
+}

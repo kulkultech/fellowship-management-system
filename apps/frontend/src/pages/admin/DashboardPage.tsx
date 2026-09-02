@@ -18,13 +18,11 @@ import {
   Clock,
   Calendar,
   Copy,
-  ListOrdered,
   Trash2,
   HelpCircle,
   Bot,
   Layers,
   Award,
-  Edit3,
   FileText,
   Workflow,
   ArrowUp,
@@ -32,6 +30,7 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
+  Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -101,6 +100,59 @@ export const DashboardPage: React.FC = () => {
 
   // Current company slug
   const orgSlug = user?.organization?.slug || 'rsa';
+
+  // Organization Profile Edit State
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [editOrgForm, setEditOrgForm] = useState({
+    name: user?.organization?.name || '',
+    contact_email: user?.organization?.contact_email || '',
+    logo_url: user?.organization?.logo_url || '',
+  });
+
+  // Fetch current organization details
+  const { data: orgProfile, refetch: refetchOrgProfile } = useQuery({
+    queryKey: ['admin-organization-profile'],
+    queryFn: () => adminService.getOrganization(),
+  });
+
+  useEffect(() => {
+    if (orgProfile) {
+      setEditOrgForm({
+        name: orgProfile.name || '',
+        contact_email: orgProfile.contact_email || '',
+        logo_url: orgProfile.logo_url || '',
+      });
+    }
+  }, [orgProfile]);
+
+  const updateOrgMutation = useMutation({
+    mutationFn: (payload: { name: string; contact_email: string; logo_url: string }) =>
+      adminService.updateOrganization(payload),
+    onSuccess: (updated) => {
+      toast.success('Organization profile updated successfully!');
+      refetchOrgProfile();
+      setIsEditProfileModalOpen(false);
+      if (user && user.organization) {
+        useAuthStore.setState({
+          user: {
+            ...user,
+            organization: {
+              ...user.organization,
+              id: updated.id,
+              name: updated.name,
+              slug: updated.slug,
+              logo_url: updated.logo_url,
+              contact_email: updated.contact_email,
+              status: (updated.status || user.organization.status) as any,
+            },
+          },
+        });
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to update organization profile');
+    },
+  });
 
   // Load Active Program Details
   const { data: programData } = useQuery({
@@ -571,30 +623,84 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  // Active nav ID calculation for hierarchical tree
+  const activeNavId =
+    currentView === 'programs'
+      ? 'programs'
+      : currentView === 'questions'
+      ? 'questions'
+      : currentView === 'stages'
+      ? `stages-${activeProgramSlug}`
+      : selectedTrackFilter
+      ? `track-${selectedTrackFilter}`
+      : `all-candidates-${activeProgramSlug}`;
+
   const navItems: NavItem[] = [
     {
       id: 'programs',
-      label: 'Programs Directory',
+      label: 'Programs',
       icon: Layers,
       badge: allPrograms.length,
-    },
-    {
-      id: 'pipeline',
-      label: 'Candidate Pipeline',
-      icon: Users,
-      badge: applicants.length,
-    },
-    {
-      id: 'stages',
-      label: 'Application Stages',
-      icon: Workflow,
-      badge: editableStages.length,
+      onClick: () => {
+        setCurrentView('programs');
+      },
+      isExpanded: true,
+      children: allPrograms.map((p) => {
+        const isCurrentActiveProg = p.slug === activeProgramSlug;
+        const tracksForThisProg = isCurrentActiveProg ? programTracks : [];
+
+        return {
+          id: `program-${p.slug}`,
+          label: p.name,
+          icon: Layers,
+          badge: isCurrentActiveProg ? applicants.length : undefined,
+          isExpanded: isCurrentActiveProg,
+          onClick: () => {
+            setActiveProgramSlug(p.slug);
+            setSelectedTrackFilter('');
+            setCurrentView('pipeline');
+          },
+          children: [
+            {
+              id: `all-candidates-${p.slug}`,
+              label: 'All Candidates',
+              icon: Users,
+              badge: isCurrentActiveProg ? applicants.length : undefined,
+              onClick: () => {
+                setActiveProgramSlug(p.slug);
+                setSelectedTrackFilter('');
+                setCurrentView('pipeline');
+              },
+            },
+            ...tracksForThisProg.map((t) => ({
+              id: `track-${t.id}`,
+              label: t.name,
+              icon: Award,
+              onClick: () => {
+                setActiveProgramSlug(p.slug);
+                setSelectedTrackFilter(t.id);
+                setCurrentView('pipeline');
+              },
+            })),
+            {
+              id: `stages-${p.slug}`,
+              label: 'Application Stages',
+              icon: Workflow,
+              onClick: () => {
+                setActiveProgramSlug(p.slug);
+                setCurrentView('stages');
+              },
+            },
+          ],
+        };
+      }),
     },
     {
       id: 'questions',
       label: 'Question Banks',
       icon: HelpCircle,
       badge: allQuestionSets.length > 0 ? allQuestionSets.length : undefined,
+      onClick: () => setCurrentView('questions'),
     },
     ...(isSuperadmin
       ? [
@@ -673,28 +779,30 @@ export const DashboardPage: React.FC = () => {
       portalType="company_admin"
       title={
         currentView === 'programs'
-          ? 'Fellowship & Scholarship Programs'
+          ? 'Programs'
           : currentView === 'questions'
           ? `${activeQuestionSet?.name || 'Assessment'} Question Bank`
           : currentView === 'stages'
           ? 'Application & Assessment Stages'
-          : program?.name || 'Fellowship Assessment Pipeline'
+          : program?.name || 'Candidate Pipeline'
       }
       subtitle={
-        currentView === 'programs'
-          ? 'Centralized directory of all company fellowship cohorts and candidate admissions.'
-          : currentView === 'questions'
+        currentView === 'questions'
           ? 'Configure timed domain multiple choice questions, passing score benchmarks, and scorecard explanations.'
           : currentView === 'stages'
           ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
-          : `Program Slug: /${orgSlug}/${activeProgramSlug}`
+          : undefined
       }
-      companyName={user?.organization?.name || 'Remote Skills Academy'}
-      companyLogoUrl={user?.organization?.logo_url}
+      companyName={orgProfile?.name || user?.organization?.name || 'Remote Skills Academy'}
+      companyLogoUrl={orgProfile?.logo_url || user?.organization?.logo_url}
       navItems={navItems}
-      activeNavId={currentView}
-      onNavChange={(id) => setCurrentView(id as any)}
+      activeNavId={activeNavId}
+      onNavChange={(id) => {
+        if (id === 'programs') setCurrentView('programs');
+        else if (id === 'questions') setCurrentView('questions');
+      }}
       headerActions={headerActions}
+      onEditProfile={() => setIsEditProfileModalOpen(true)}
     >
 
         {/* ================================================================================= */}
@@ -1098,217 +1206,37 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* ================================================================================= */}
-        {/* VIEW: PROGRAM DETAIL (SPECIALIZATION TRACKS IN CARDS + CANDIDATE PIPELINE) */}
+        {/* VIEW: CANDIDATE PIPELINE (FILTERED BY TREE SELECTION) */}
         {/* ================================================================================= */}
         {currentView === 'pipeline' && (
-          <div className="space-y-8 animate-in fade-in duration-200">
-            {/* 1. Specialization Tracks Cards Section */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-kulkul-purple" />
-                    <span>Specialization Tracks for {program?.name}</span>
-                  </h2>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setTrackForm({
-                      name: '',
-                      slug: '',
-                      description: '',
-                      enable_mcq: true,
-                      logic_test_duration_minutes: 35,
-                      logic_test_passing_score: 70,
-                      allow_retake: false,
-                      enable_ai_interview: true,
-                      ai_interview_instructions: '',
-                      ai_interview_questions: [
-                        'What is your architectural philosophy when designing production systems?',
-                        'How do you manage trade-offs between delivery speed and code reliability?',
-                      ],
-                    });
-                    setIsCreateTrackModalOpen(true);
-                  }}
-                  className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4 text-kulkul-orange" />
-                  <span>Create Track</span>
-                </button>
-              </div>
-
-              {programTracks.length === 0 ? (
-                <div className="stitch-card p-8 bg-white text-center">
-                  <Layers className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <h3 className="font-bold text-slate-700 text-sm">No tracks added to this program yet</h3>
-                  <p className="text-xs text-slate-500 mt-1 mb-3">
-                    Add specialization tracks (e.g. Fullstack, QA, Cloud) to give candidates tailored intake options.
-                  </p>
-                  <button
-                    onClick={() => setIsCreateTrackModalOpen(true)}
-                    className="px-4 py-1.5 rounded-full bg-kulkul-purple text-white text-xs font-bold"
-                  >
-                    Add First Track
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {programTracks.map((track) => (
-                    <div
-                      key={track.id}
-                      className="stitch-card bg-white p-6 border border-slate-200 flex flex-col justify-between space-y-5 hover:border-kulkul-purple/40 hover:shadow-md transition"
-                    >
-                      <div className="space-y-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center font-black text-sm shadow-sm">
-                              <Layers className="w-5 h-5 text-kulkul-orange" />
-                            </div>
-                            <div>
-                              <h3 className="text-base font-extrabold text-slate-900 leading-tight">{track.name}</h3>
-                              <span className="text-xs font-mono text-kulkul-purple">slug: {track.slug}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <p className="text-xs text-slate-600 line-clamp-2">
-                          {track.description || 'Specialized fellowship track with tailored technical evaluations.'}
-                        </p>
-
-                        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-2 text-slate-700">
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-slate-500">
-                              <HelpCircle className="w-3.5 h-3.5 text-kulkul-purple" />
-                              Question Set:
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 truncate max-w-[130px]" title={track.question_set_name || 'Standard Assessment'}>
-                              {track.question_set_name || 'Standard Assessment'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-slate-500">
-                              <Clock className="w-3.5 h-3.5 text-kulkul-orange" />
-                              Timed MCQ:
-                            </span>
-                            <strong className="text-slate-900">{track.logic_test_duration_minutes} Mins</strong>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-slate-500">
-                              <Award className="w-3.5 h-3.5 text-emerald-600" />
-                              Passing Mark:
-                            </span>
-                            <strong className="text-slate-900">{track.logic_test_passing_score}% Score</strong>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-slate-500">
-                              <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
-                              AI Technical Screen:
-                            </span>
-                            <strong className="text-slate-900">
-                              {track.enable_ai_interview ? 'Enabled' : 'Disabled'}
-                            </strong>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Action Controls */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <button
-                          onClick={() => {
-                            if (track.question_set_id) {
-                              setSelectedQuestionSetId(track.question_set_id);
-                            }
-                            setCurrentView('questions');
-                          }}
-                          className="px-3.5 py-1.5 rounded-full bg-kulkul-purple-light hover:bg-kulkul-purple-subtle text-kulkul-purple text-xs font-bold transition flex items-center gap-1.5"
-                          title="View and edit MCQ question bank"
-                        >
-                          <ListOrdered className="w-3.5 h-3.5" />
-                          <span>Question Bank</span>
-                        </button>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              setEditingTrack(track);
-                              setTrackForm({
-                                question_set_id: track.question_set_id || '',
-                                name: track.name,
-                                slug: track.slug,
-                                description: track.description || '',
-                                enable_mcq: track.enable_mcq,
-                                logic_test_duration_minutes: track.logic_test_duration_minutes,
-                                logic_test_passing_score: track.logic_test_passing_score,
-                                allow_retake: track.allow_retake,
-                                enable_ai_interview: track.enable_ai_interview,
-                                ai_interview_instructions: track.ai_interview_instructions || '',
-                                ai_interview_questions: track.ai_interview_questions || [],
-                              });
-                            }}
-                            className="p-2 rounded-xl text-slate-500 hover:text-kulkul-purple hover:bg-slate-100 transition"
-                            title="Edit Track Settings"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete track "${track.name}"?`)) {
-                                deleteTrackMutation.mutate(track.id);
-                              }
-                            }}
-                            className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
-                            title="Delete Track"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 2. Candidate Pipeline Section */}
-            <div className="space-y-4 pt-4 border-t border-slate-200/80">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-kulkul-purple" />
-                  <span>Candidate Pipeline ({applicants.length})</span>
-                </h2>
-              </div>
-
-              {/* Filter and Search Bar */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="relative w-full sm:w-80">
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Candidate Pipeline Header & Filter Bar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
+              <div className="relative w-full lg:w-96">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search candidates by name, email, or stage..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
                 />
               </div>
 
-              {/* Track & Stage Filter Tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 flex-wrap">
-                {/* Track Selector Dropdown */}
-                {programTracks.length > 0 && (
-                  <select
-                    value={selectedTrackFilter}
-                    onChange={(e) => setSelectedTrackFilter(e.target.value)}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  >
-                    <option value="">All Tracks ({programTracks.length})</option>
-                    {programTracks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        Track: {t.name}
-                      </option>
-                    ))}
-                  </select>
+              {/* Stage Filter Tabs & Active Track Indicator */}
+              <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 flex-wrap">
+                {selectedTrackFilter && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-bold text-kulkul-purple shadow-2xs">
+                    <Award className="w-3.5 h-3.5 text-kulkul-orange" />
+                    <span>Track: {programTracks.find((t) => t.id === selectedTrackFilter)?.name || 'Filtered Track'}</span>
+                    <button
+                      onClick={() => setSelectedTrackFilter('')}
+                      className="p-0.5 rounded-full hover:bg-purple-200/50 text-slate-400 hover:text-slate-700 transition ml-0.5"
+                      title="Clear track filter to view all tracks"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
                 )}
 
                 {[
@@ -1320,7 +1248,7 @@ export const DashboardPage: React.FC = () => {
                   <button
                     key={st.value}
                     onClick={() => setSelectedStage(st.value)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                       selectedStage === st.value
                         ? 'bg-kulkul-purple text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1440,8 +1368,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
         {/* ================================================================================= */}
         {/* VIEW 4: DEDICATED REUSABLE QUESTION BANKS WORKSPACE */}
@@ -2076,28 +2003,48 @@ export const DashboardPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="pt-3 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreateTrackModalOpen(false);
-                      setEditingTrack(null);
-                    }}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createTrackMutation.isPending || updateTrackMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
-                  >
-                    {createTrackMutation.isPending || updateTrackMutation.isPending ? (
-                      <span>Saving...</span>
-                    ) : (
-                      <span>{editingTrack ? 'Update Track' : 'Create Track'}</span>
-                    )}
-                  </button>
+                <div className="pt-3 flex items-center justify-between gap-3 border-t border-slate-100">
+                  {editingTrack ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to delete track "${editingTrack.name}"?`)) {
+                          deleteTrackMutation.mutate(editingTrack.id);
+                          setEditingTrack(null);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-full text-xs font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Track</span>
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCreateTrackModalOpen(false);
+                        setEditingTrack(null);
+                      }}
+                      className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={createTrackMutation.isPending || updateTrackMutation.isPending}
+                      className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
+                    >
+                      {createTrackMutation.isPending || updateTrackMutation.isPending ? (
+                        <span>Saving...</span>
+                      ) : (
+                        <span>{editingTrack ? 'Update Track' : 'Create Track'}</span>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -2764,6 +2711,126 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
         )}
-    </DashboardLayout>
+
+        {/* ================================================================================= */}
+        {/* MODAL: EDIT ORGANIZATION PROFILE & LOGO */}
+        {/* ================================================================================= */}
+        {isEditProfileModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-kulkul-purple flex items-center justify-center">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900">Organization Profile</h2>
+                    <p className="text-xs text-slate-500">Update company identity, contact email, and logo</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsEditProfileModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  updateOrgMutation.mutate(editOrgForm);
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Organization / Company Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editOrgForm.name}
+                    onChange={(e) => setEditOrgForm({ ...editOrgForm, name: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                    placeholder="e.g. Remote Skills Academy (RSA)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Contact Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editOrgForm.contact_email}
+                    onChange={(e) => setEditOrgForm({ ...editOrgForm, contact_email: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                    placeholder="e.g. admissions@rsa.org"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Company Logo URL
+                  </label>
+                  <input
+                    type="url"
+                    value={editOrgForm.logo_url}
+                    onChange={(e) => setEditOrgForm({ ...editOrgForm, logo_url: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-mono text-xs"
+                    placeholder="https://example.com/logo.png"
+                  />
+                  <p className="text-2xs text-slate-400 mt-1">
+                    Direct image link (PNG, SVG, JPG) to display on workspace badges and admissions portal.
+                  </p>
+                </div>
+
+                {/* Logo Live Preview */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center overflow-hidden shadow-2xs">
+                    {editOrgForm.logo_url ? (
+                      <img
+                        src={editOrgForm.logo_url}
+                        alt="Logo Preview"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <Building2 className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="text-xs">
+                    <span className="font-bold text-slate-800 block">Logo Live Preview</span>
+                    <span className="text-2xs text-slate-500">
+                      {editOrgForm.logo_url ? 'Active logo configured' : 'Default building avatar active'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditProfileModalOpen(false)}
+                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updateOrgMutation.isPending}
+                    className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition disabled:opacity-50"
+                  >
+                    {updateOrgMutation.isPending ? 'Saving...' : 'Save Profile'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </DashboardLayout>
   );
 };

@@ -173,6 +173,10 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Get("/companies", adminHandler.ListCompanies)
 				adm.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
 				adm.Post("/companies/{id}/reject", adminHandler.RejectCompany)
+
+				// Organization Profile
+				adm.Get("/organization", adminHandler.GetCurrentOrganization)
+				adm.Put("/organization", adminHandler.UpdateOrganization)
 			})
 		})
 	})

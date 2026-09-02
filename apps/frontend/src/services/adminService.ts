@@ -173,4 +173,15 @@ export const adminService = {
     const { data } = await apiClient.post<{ company: Organization }>(`/admin/companies/${companyId}/reject`);
     return data.company;
   },
+
+  // Organization Profile
+  getOrganization: async (): Promise<Organization> => {
+    const { data } = await apiClient.get<Organization>('/admin/organization');
+    return data;
+  },
+
+  updateOrganization: async (payload: { name: string; contact_email: string; logo_url: string }): Promise<Organization> => {
+    const { data } = await apiClient.put<Organization>('/admin/organization', payload);
+    return data;
+  },
 };

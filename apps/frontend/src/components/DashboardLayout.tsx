@@ -7,8 +7,31 @@ import {
   User as UserIcon,
   Building2,
   ShieldCheck,
+  ChevronDown,
+  ChevronRight,
+  Edit3,
 } from 'lucide-react';
 import { useAuthStore } from '@/hooks/useAuthStore';
+
+export interface SubChildNavItem {
+  id: string;
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  badge?: string | number;
+  badgeColor?: string;
+  onClick?: () => void;
+}
+
+export interface ChildNavItem {
+  id: string;
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  badge?: string | number;
+  badgeColor?: string;
+  onClick?: () => void;
+  isExpanded?: boolean;
+  children?: SubChildNavItem[];
+}
 
 export interface NavItem {
   id: string;
@@ -17,6 +40,9 @@ export interface NavItem {
   badge?: string | number;
   badgeColor?: string;
   onClick?: () => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  children?: ChildNavItem[];
 }
 
 interface DashboardLayoutProps {
@@ -32,6 +58,7 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   candidateEmail?: string;
   onCandidateSignOut?: () => void;
+  onEditProfile?: () => void;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -47,6 +74,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   candidateEmail,
   onCandidateSignOut,
+  onEditProfile,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user, logout } = useAuthStore();
@@ -74,7 +102,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
         <div className="w-full px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-4 h-20 sm:h-24">
           {/* Left: Hamburger (Mobile) + Logo */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <button
               onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
               className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition focus:outline-none"
@@ -92,7 +120,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </Link>
           </div>
 
-          {/* Right: Company Logo / Name + User Pill + Sign Out */}
+          {/* Right: User Pill + Sign Out */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* Superadmin Quick Switcher for KulKul Team */}
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
@@ -113,24 +141,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
                 <span>Company Workspace</span>
               </Link>
-            )}
-
-            {/* Company Badge / Logo (Right of Navbar) */}
-            {portalType === 'company_admin' && (
-              <div className="hidden sm:flex items-center gap-2">
-                {companyLogoUrl ? (
-                  <img
-                    src={companyLogoUrl}
-                    alt={companyName || 'Company'}
-                    className="h-9 max-w-[140px] object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-2xs"
-                  />
-                ) : companyName ? (
-                  <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 shadow-2xs">
-                    <Building2 className="w-4 h-4 text-kulkul-purple" />
-                    <span>{companyName}</span>
-                  </div>
-                ) : null}
-              </div>
             )}
 
             {/* Candidate User Pill */}
@@ -185,75 +195,218 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           }`}
         >
           {/* Top Section: Navigation Items */}
-          <div className="p-4 sm:p-5 overflow-y-auto">
-            {/* Nav Items List */}
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-1">
+            {/* Nav Items List with Hierarchical Tree Support */}
             <nav className="space-y-1.5">
               {navItems.map((item) => {
                 const IconComponent = item.icon;
                 const isActive = activeNavId === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.onClick) {
-                        item.onClick();
-                      } else {
-                        onNavChange(item.id);
-                      }
-                      setIsMobileSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all group ${
-                      isActive
-                        ? 'bg-kulkul-purple text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 truncate">
-                      <IconComponent
-                        className={`w-4 h-4 shrink-0 transition ${
-                          isActive
-                            ? 'text-kulkul-orange'
-                            : 'text-slate-400 group-hover:text-kulkul-purple'
-                        }`}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </div>
+                const hasChildren = Boolean(item.children && item.children.length > 0);
 
-                    {item.badge !== undefined && (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-2xs font-extrabold shrink-0 ${
-                          item.badgeColor
-                            ? item.badgeColor
-                            : isActive
-                            ? 'bg-white/20 text-white'
-                            : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
+                return (
+                  <div key={item.id} className="space-y-1">
+                    <button
+                      onClick={() => {
+                        if (item.onClick) {
+                          item.onClick();
+                        } else {
+                          onNavChange(item.id);
+                        }
+                        if (!hasChildren) {
+                          setIsMobileSidebarOpen(false);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all group ${
+                        isActive
+                          ? 'bg-kulkul-purple text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 truncate">
+                        <IconComponent
+                          className={`w-4 h-4 shrink-0 transition ${
+                            isActive
+                              ? 'text-kulkul-orange'
+                              : 'text-slate-400 group-hover:text-kulkul-purple'
+                          }`}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.badge !== undefined && (
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-2xs font-extrabold ${
+                              item.badgeColor
+                                ? item.badgeColor
+                                : isActive
+                                ? 'bg-white/20 text-white'
+                                : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+
+                        {hasChildren && (
+                          <span className="text-slate-400 group-hover:text-slate-600 p-0.5">
+                            {item.isExpanded !== false ? (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Level 1 Children (Programs under Programs Directory) */}
+                    {hasChildren && item.isExpanded !== false && (
+                      <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-1 py-1">
+                        {item.children!.map((child) => {
+                          const isChildActive = activeNavId === child.id;
+                          const hasSubChildren = Boolean(child.children && child.children.length > 0);
+                          const ChildIcon = child.icon;
+
+                          return (
+                            <div key={child.id} className="space-y-1">
+                              <button
+                                onClick={() => {
+                                  if (child.onClick) {
+                                    child.onClick();
+                                  } else {
+                                    onNavChange(child.id);
+                                  }
+                                  if (!hasSubChildren) {
+                                    setIsMobileSidebarOpen(false);
+                                  }
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition group ${
+                                  isChildActive
+                                    ? 'bg-purple-50 text-kulkul-purple font-extrabold'
+                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  {ChildIcon && (
+                                    <ChildIcon
+                                      className={`w-3.5 h-3.5 shrink-0 ${
+                                        isChildActive ? 'text-kulkul-purple' : 'text-slate-400'
+                                      }`}
+                                    />
+                                  )}
+                                  <span className="truncate">{child.label}</span>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {child.badge !== undefined && (
+                                    <span className="px-1.5 py-0.5 rounded-md text-2xs font-bold bg-slate-100 text-slate-500">
+                                      {child.badge}
+                                    </span>
+                                  )}
+                                  {hasSubChildren && (
+                                    <span className="text-slate-400">
+                                      {child.isExpanded !== false ? (
+                                        <ChevronDown className="w-3 h-3" />
+                                      ) : (
+                                        <ChevronRight className="w-3 h-3" />
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+
+                              {/* Level 2 Sub-Children (Tracks under a Program) */}
+                              {hasSubChildren && child.isExpanded !== false && (
+                                <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-0.5 py-0.5">
+                                  {child.children!.map((sub) => {
+                                    const isSubActive = activeNavId === sub.id;
+                                    const SubIcon = sub.icon;
+
+                                    return (
+                                      <button
+                                        key={sub.id}
+                                        onClick={() => {
+                                          if (sub.onClick) {
+                                            sub.onClick();
+                                          } else {
+                                            onNavChange(sub.id);
+                                          }
+                                          setIsMobileSidebarOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-2xs font-semibold transition group ${
+                                          isSubActive
+                                            ? 'bg-purple-100 text-kulkul-purple font-bold'
+                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 truncate">
+                                          {SubIcon && (
+                                            <SubIcon
+                                              className={`w-3 h-3 shrink-0 ${
+                                                isSubActive ? 'text-kulkul-purple' : 'text-slate-400'
+                                              }`}
+                                            />
+                                          )}
+                                          <span className="truncate">{sub.label}</span>
+                                        </div>
+
+                                        {sub.badge !== undefined && (
+                                          <span className="px-1 py-0.2 rounded text-2xs font-bold bg-slate-100 text-slate-500">
+                                            {sub.badge}
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </nav>
           </div>
 
-          {/* Bottom Section: Footer / Organization Context */}
+          {/* Bottom Section: Footer / Organization Context (Clickable to Edit Profile) */}
           <div className="p-4 border-t border-slate-100 bg-slate-50/70">
             {portalType === 'company_admin' && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                  <Building2 className="w-4 h-4 text-kulkul-orange" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-slate-800 truncate">
-                    {companyName || 'Host Organization'}
+              <button
+                type="button"
+                onClick={onEditProfile}
+                className="w-full flex items-center justify-between p-2.5 rounded-2xl hover:bg-white hover:shadow-xs border border-transparent hover:border-slate-200 transition text-left group"
+                title="Click to edit organization profile & logo"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs overflow-hidden border border-kulkul-purple/20">
+                    {companyLogoUrl ? (
+                      <img
+                        src={companyLogoUrl}
+                        alt={companyName || 'Company'}
+                        className="w-full h-full object-contain bg-white p-0.5"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <Building2 className="w-4 h-4 text-kulkul-orange" />
+                    )}
                   </div>
-                  <div className="text-2xs text-slate-400 font-mono truncate">
-                    Organization Workspace
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-kulkul-purple transition truncate">
+                      {companyName || 'Host Organization'}
+                    </div>
+                    <div className="text-2xs text-slate-400 font-mono truncate">
+                      Edit Profile & Logo
+                    </div>
                   </div>
                 </div>
-              </div>
+                <Edit3 className="w-3.5 h-3.5 text-slate-400 group-hover:text-kulkul-purple transition shrink-0 ml-1" />
+              </button>
             )}
 
             {portalType === 'superadmin' && (
