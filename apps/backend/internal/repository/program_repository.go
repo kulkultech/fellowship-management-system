@@ -97,18 +97,22 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
 	}
+	if p.ID == uuid.Nil {
+		p.ID = uuid.New()
+	}
+	if p.OpenDate.IsZero() {
+		p.OpenDate = time.Now()
+	}
+	if p.EndDate.IsZero() {
+		p.EndDate = time.Now().Add(180 * 24 * time.Hour)
+	}
+	if p.Status == "" {
+		p.Status = "published"
+	}
+
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		if p.ID == uuid.Nil {
-			p.ID = uuid.New()
-		}
-		if p.OpenDate.IsZero() {
-			p.OpenDate = time.Now()
-		}
-		if p.EndDate.IsZero() {
-			p.EndDate = time.Now().Add(180 * 24 * time.Hour)
-		}
 		p.CreatedAt = time.Now()
 		p.UpdatedAt = time.Now()
 		key := fmt.Sprintf("%s:%s", p.OrganizationID, p.Slug)

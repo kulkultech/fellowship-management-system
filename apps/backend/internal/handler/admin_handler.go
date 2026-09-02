@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
@@ -314,15 +317,27 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (h *AdminHandler) resolveOrgID(ctx context.Context, claims *auth.Claims) (uuid.UUID, error) {
+	if claims != nil && claims.OrganizationID != nil && *claims.OrganizationID != uuid.Nil {
+		return *claims.OrganizationID, nil
+	}
+	// Fallback 1: Look up "rsa" default org
+	org, err := h.orgRepo.GetBySlug(ctx, "rsa")
+	if err == nil && org != nil && org.ID != uuid.Nil {
+		return org.ID, nil
+	}
+	// Fallback 2: Get first org from repository
+	orgs, err := h.orgRepo.List(ctx, "")
+	if err == nil && len(orgs) > 0 {
+		return orgs[0].ID, nil
+	}
+	// Fallback 3: In-memory fallback
+	return uuid.MustParse("00000000-0000-0000-0000-000000000001"), nil
+}
+
 func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.GetUser(r.Context())
-	var orgID uuid.UUID
-	if ok && claims.OrganizationID != nil {
-		orgID = *claims.OrganizationID
-	}
-	if orgID == uuid.Nil {
-		orgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	}
+	claims, _ := middleware.GetUser(r.Context())
+	orgID, _ := h.resolveOrgID(r.Context(), claims)
 
 	programs, err := h.programRepo.ListByOrg(r.Context(), orgID)
 	if err != nil {
@@ -365,13 +380,11 @@ type CreateProgramRequest struct {
 }
 
 func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.GetUser(r.Context())
-	var orgID uuid.UUID
-	if ok && claims.OrganizationID != nil {
-		orgID = *claims.OrganizationID
-	}
-	if orgID == uuid.Nil {
-		orgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	claims, _ := middleware.GetUser(r.Context())
+	orgID, err := h.resolveOrgID(r.Context(), claims)
+	if err != nil || orgID == uuid.Nil {
+		httpx.Error(w, http.StatusBadRequest, "organization context not found")
+		return
 	}
 
 	var req CreateProgramRequest
@@ -414,7 +427,7 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.programRepo.Create(r.Context(), p)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to create program")
+		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to create program: %v", err))
 		return
 	}
 
@@ -1075,16 +1088,13 @@ func (h *AdminHandler) GetCurrentOrganization(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var targetOrgID uuid.UUID
-	if claims.OrganizationID != nil {
-		targetOrgID = *claims.OrganizationID
-	} else {
-		// Fallback to default RSA org for superadmin or unassigned dev user
-		targetOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	}
-
+	targetOrgID, _ := h.resolveOrgID(r.Context(), claims)
 	org, err := h.orgRepo.GetByID(r.Context(), targetOrgID)
 	if err != nil {
+		if fallbackOrg, fErr := h.orgRepo.GetBySlug(r.Context(), "rsa"); fErr == nil && fallbackOrg != nil {
+			httpx.JSON(w, http.StatusOK, fallbackOrg)
+			return
+		}
 		httpx.JSON(w, http.StatusNotFound, map[string]string{"error": "organization not found"})
 		return
 	}
@@ -1099,13 +1109,7 @@ func (h *AdminHandler) UpdateOrganization(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var targetOrgID uuid.UUID
-	if claims.OrganizationID != nil {
-		targetOrgID = *claims.OrganizationID
-	} else {
-		targetOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	}
-
+	targetOrgID, _ := h.resolveOrgID(r.Context(), claims)
 	var req UpdateOrgRequest
 	if err := httpx.Decode(w, r, &req); err != nil {
 		return
