@@ -178,21 +178,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         {/* LEFT VERTICAL SIDEBAR */}
         <aside
-          className={`fixed lg:sticky top-16 sm:top-20 z-30 w-72 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 ${
+          className={`fixed lg:sticky top-20 sm:top-24 z-30 w-72 h-[calc(100vh-5rem)] sm:h-[calc(100vh-6rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 ${
             isMobileSidebarOpen
               ? 'translate-x-0 shadow-2xl'
               : '-translate-x-full lg:translate-x-0'
           }`}
         >
           {/* Top Section: Navigation Items */}
-          <div className="p-4 sm:p-5 overflow-y-auto space-y-6">
-            {/* Sidebar Section Title / Context */}
-            <div className="px-2">
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Navigation
-              </div>
-            </div>
-
+          <div className="p-4 sm:p-5 overflow-y-auto">
             {/* Nav Items List */}
             <nav className="space-y-1.5">
               {navItems.map((item) => {
