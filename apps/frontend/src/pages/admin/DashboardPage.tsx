@@ -27,6 +27,7 @@ import {
   Workflow,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
   RotateCcw,
   Save,
   ShieldCheck,
@@ -43,27 +44,17 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
   {
     step_number: 2,
     title: 'Timed Logic & Problem Solving MCQ',
-    description: '30-minute timed multiple choice logic and critical problem-solving assessment.',
+    description: 'Candidates take a timed multiple-choice assessment to evaluate logic, analytical thinking, and domain knowledge.',
   },
   {
     step_number: 3,
-    title: 'Submission & Automated Verification',
-    description: 'Test results are scored immediately against calibrated benchmark passing criteria.',
+    title: 'Autonomous AI Technical Screening',
+    description: 'AI-driven dynamic technical screening evaluating system design, technical reasoning, and problem solving.',
   },
   {
     step_number: 4,
-    title: 'Application Confirmation Email',
-    description: 'Candidate submits application and receives an official confirmation email.',
-  },
-  {
-    step_number: 5,
-    title: 'Talent & Technical Review',
-    description: 'Recruitment team reviews itemized answer sheets and AI technical screen evaluation.',
-  },
-  {
-    step_number: 6,
-    title: 'Final Interview Scheduling',
-    description: 'Approved candidates receive an official fellowship invitation and link to schedule their final interview with the host organization.',
+    title: 'Reviewer Final Evaluation',
+    description: 'Admin team performs final assessment and candidate admission confirmation.',
   },
 ];
 
@@ -73,8 +64,8 @@ export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const isSuperadmin = user?.role === 'superadmin';
 
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions'>('programs');
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor'>('programs');
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -82,11 +73,11 @@ export const DashboardPage: React.FC = () => {
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile'>('answers');
 
-  // Modals
+  // Modals & Sub-views
   const [isCreateProgramModalOpen, setIsCreateProgramModalOpen] = useState(false);
-  const [isCreateTrackModalOpen, setIsCreateTrackModalOpen] = useState(false);
   const [isCreateQuestionSetModalOpen, setIsCreateQuestionSetModalOpen] = useState(false);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
+  const [openedQuestionSetId, setOpenedQuestionSetId] = useState<string | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   // Active Program selection
@@ -294,7 +285,7 @@ export const DashboardPage: React.FC = () => {
         'How do you approach debugging complex edge-cases and performance bottlenecks?',
       ],
     });
-    setIsCreateTrackModalOpen(true);
+    setCurrentView('track_editor');
   };
 
   const handleOpenEditTrack = (track: Track, progSlug?: string) => {
@@ -318,7 +309,7 @@ export const DashboardPage: React.FC = () => {
         'How do you approach debugging complex edge-cases and performance bottlenecks?',
       ],
     });
-    setIsCreateTrackModalOpen(true);
+    setCurrentView('track_editor');
   };
 
   const activeFilteredTrack = programTracks.find((t) => t.id === selectedTrackFilter);
@@ -433,9 +424,9 @@ export const DashboardPage: React.FC = () => {
       toast.success(`Track "${newTrack.name}" created successfully!`);
       refetchTracks();
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
-      setIsCreateTrackModalOpen(false);
       setEditingTrack(null);
       setSelectedTrackFilter(newTrack.id);
+      setCurrentView('pipeline');
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.message || 'Failed to create track');
@@ -532,8 +523,8 @@ export const DashboardPage: React.FC = () => {
       toast.success(`Track "${updated.name}" updated!`);
       refetchTracks();
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
-      setIsCreateTrackModalOpen(false);
       setEditingTrack(null);
+      setCurrentView('pipeline');
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.message || 'Failed to update track');
@@ -546,9 +537,9 @@ export const DashboardPage: React.FC = () => {
       toast.success('Track removed');
       refetchTracks();
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
-      setIsCreateTrackModalOpen(false);
       setEditingTrack(null);
       setSelectedTrackFilter('');
+      setCurrentView('pipeline');
     },
     onError: () => toast.error('Failed to delete track'),
   });
@@ -818,81 +809,82 @@ export const DashboardPage: React.FC = () => {
 
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2.5">
-      {/* Program Switcher */}
-      {allPrograms.length > 1 && (
-        <select
-          value={activeProgramSlug}
-          onChange={(e) => setActiveProgramSlug(e.target.value)}
-          className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
-        >
-          {allPrograms.map((p) => (
-            <option key={p.slug} value={p.slug}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      )}
+      {/* Program actions: only visible when a program is opened (not on top-level Programs directory) */}
+      {currentView !== 'programs' && programId && (
+        <>
+          {/* Program Switcher */}
+          {allPrograms.length > 1 && (
+            <select
+              value={activeProgramSlug}
+              onChange={(e) => setActiveProgramSlug(e.target.value)}
+              className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
+            >
+              {allPrograms.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
 
-      {/* Copy Public Link Button */}
-      <button
-        onClick={() => handleCopyProgramLink(activeProgramSlug)}
-        className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-        title="Copy shareable applicant link"
-      >
-        {isLinkCopied ? (
-          <>
-            <Check className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-emerald-700">Link Copied!</span>
-          </>
-        ) : (
-          <>
-            <Copy className="w-3.5 h-3.5 text-slate-500" />
-            <span>Copy Link</span>
-          </>
-        )}
-      </button>
+          {/* Copy Public Link Button */}
+          <button
+            onClick={() => handleCopyProgramLink(activeProgramSlug)}
+            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+            title="Copy shareable applicant link"
+          >
+            {isLinkCopied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700">Link Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-slate-500" />
+                <span>Copy Link</span>
+              </>
+            )}
+          </button>
 
-      {/* Public Page Icon */}
-      <a
-        href={getPublicProgramUrl(activeProgramSlug)}
-        target="_blank"
-        rel="noreferrer"
-        className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 bg-white transition shadow-2xs"
-        title="Open public overview page"
-      >
-        <ExternalLink className="w-3.5 h-3.5" />
-      </a>
+          {/* Public Page Icon */}
+          <a
+            href={getPublicProgramUrl(activeProgramSlug)}
+            target="_blank"
+            rel="noreferrer"
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 bg-white transition shadow-2xs"
+            title="Open public overview page"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
 
-      {/* Add Specialization Track Button */}
-      {programId && (
-        <button
-          onClick={() => handleOpenCreateTrack(activeProgramSlug)}
-          className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-          title="Add specialization track to active program"
-        >
-          <Plus className="w-3.5 h-3.5 text-kulkul-purple" />
-          <span>Add Track</span>
-        </button>
-      )}
+          {/* Add Specialization Track Button - visible only when opening a program */}
+          <button
+            onClick={() => handleOpenCreateTrack(activeProgramSlug)}
+            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+            title="Add specialization track to active program"
+          >
+            <Plus className="w-3.5 h-3.5 text-kulkul-purple" />
+            <span>Add Track</span>
+          </button>
 
-      {/* Delete Active Program Button */}
-      {programId && (
-        <button
-          onClick={() => {
-            if (
-              window.confirm(
-                `Are you sure you want to delete program "${program?.name || activeProgramSlug}"?\nAll associated tracks, stages, and applicant assessments will be permanently removed.`
-              )
-            ) {
-              deleteProgramMutation.mutate(programId);
-            }
-          }}
-          disabled={deleteProgramMutation.isPending}
-          className="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 bg-white transition shadow-2xs"
-          title="Delete this program"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+          {/* Delete Active Program Button */}
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Are you sure you want to delete program "${program?.name || activeProgramSlug}"?\nAll associated tracks, stages, and applicant assessments will be permanently removed.`
+                )
+              ) {
+                deleteProgramMutation.mutate(programId);
+              }
+            }}
+            disabled={deleteProgramMutation.isPending}
+            className="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 bg-white transition shadow-2xs"
+            title="Delete this program"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </>
       )}
 
       {/* Create New Program Button */}
@@ -943,28 +935,18 @@ export const DashboardPage: React.FC = () => {
         {currentView === 'programs' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-6">
                 <div>
                   <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
                     <Layers className="w-5 h-5 text-kulkul-purple" />
                     <span>Active Fellowship Cohorts</span>
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Select a program from the table below to inspect its specialization tracks, question banks, and candidate evaluations.
-                  </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
                     {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
                   </span>
-                  <button
-                    onClick={() => setIsCreateProgramModalOpen(true)}
-                    className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4 text-kulkul-orange" />
-                    <span>Launch New Program</span>
-                  </button>
                 </div>
               </div>
 
@@ -1049,19 +1031,10 @@ export const DashboardPage: React.FC = () => {
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
-                                    <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
-                                    <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '0')} Tracks</span>
-                                  </span>
-                                  <button
-                                    onClick={() => handleOpenCreateTrack(prog.slug)}
-                                    className="p-1 rounded-full hover:bg-purple-100 text-kulkul-purple border border-purple-200 transition"
-                                    title="Add specialization track to this program"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                                  <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
+                                  <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '0')} Tracks</span>
+                                </span>
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
@@ -1560,462 +1533,517 @@ export const DashboardPage: React.FC = () => {
         {/* ================================================================================= */}
         {currentView === 'questions' && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Top Card: Library Header & Actions */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    Assessment Question Banks & Test Sets
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-                    Create and manage reusable sets of MCQ test questions. When configuring tracks in your fellowship program, choose which test set candidates will receive.
-                  </p>
-                </div>
+            {!openedQuestionSetId ? (
+              /* Simple Question Banks Table View */
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                      <HelpCircle className="w-5 h-5 text-kulkul-purple" />
+                      <span>Assessment Question Banks</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Create and manage reusable sets of MCQ questions. Click any set to inspect and edit its questions.
+                    </p>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreateQuestionSetModalOpen(true)}
-                    className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4 text-kulkul-purple" />
-                    <span>Create Question Set</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAddQuestion}
-                    className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4 text-kulkul-orange" />
-                    <span>Add Question to Active Set</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => saveActiveQuestionSetMutation.mutate()}
-                    disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
-                    className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4 text-kulkul-orange" />
-                    {saveActiveQuestionSetMutation.isPending ? <span>Saving Set...</span> : <span>Save Question Set</span>}
-                  </button>
-                </div>
-              </div>
-
-              {/* Question Sets Library Selector Grid */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Question Sets in Your Bank ({allQuestionSets.length})
-                  </span>
-                  <span className="text-2xs text-slate-400">Click any set below to edit its questions</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
+                      {allQuestionSets.length} {allQuestionSets.length === 1 ? 'Question Set' : 'Question Sets'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateQuestionSetModalOpen(true)}
+                      className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4 text-kulkul-orange" />
+                      <span>Create Question Set</span>
+                    </button>
+                  </div>
                 </div>
 
                 {allQuestionSets.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
-                    <p className="text-xs font-medium">No question sets found.</p>
+                  <div className="stitch-card p-12 bg-white text-center">
+                    <HelpCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <h3 className="font-bold text-slate-700">No question sets found</h3>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">
+                      Create your first reusable question bank to configure domain MCQ assessments for your tracks.
+                    </p>
                     <button
                       onClick={() => setIsCreateQuestionSetModalOpen(true)}
-                      className="mt-2 text-xs font-bold text-kulkul-purple hover:underline"
+                      className="px-5 py-2 rounded-full bg-kulkul-purple text-white text-xs font-bold"
                     >
-                      + Create Your First Question Set
+                      Create Question Set
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allQuestionSets.map((qs) => {
-                      const isSelected = selectedQuestionSetId === qs.id;
-                      const assignedTracks = programTracks.filter((t) => t.question_set_id === qs.id);
+                  <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
+                        <colgroup>
+                          <col className="w-[30%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[14%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[20%]" />
+                        </colgroup>
+                        <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
+                          <tr>
+                            <th className="py-3.5 px-6 font-bold">Question Set</th>
+                            <th className="py-3.5 px-6 font-bold">Category</th>
+                            <th className="py-3.5 px-6 font-bold">Questions</th>
+                            <th className="py-3.5 px-6 font-bold">Timing & Benchmark</th>
+                            <th className="py-3.5 px-6 font-bold text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {allQuestionSets.map((qs) => {
+                            return (
+                              <tr
+                                key={qs.id}
+                                className="hover:bg-slate-50/90 transition group cursor-pointer"
+                                onClick={() => {
+                                  setSelectedQuestionSetId(qs.id);
+                                  setOpenedQuestionSetId(qs.id);
+                                }}
+                              >
+                                <td className="py-4 px-6 align-middle">
+                                  <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm">
+                                    {qs.name}
+                                  </div>
+                                  {qs.description && (
+                                    <div className="text-2xs text-slate-500 mt-0.5 line-clamp-1">
+                                      {qs.description}
+                                    </div>
+                                  )}
+                                </td>
 
-                      return (
-                        <div
-                          key={qs.id}
-                          onClick={() => setSelectedQuestionSetId(qs.id)}
-                          className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-3 ${
-                            isSelected
-                              ? 'bg-purple-50/50 border-kulkul-purple ring-2 ring-kulkul-purple/20 shadow-sm'
-                              : 'bg-slate-50/50 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="px-2 py-0.5 rounded-full text-2xs font-extrabold bg-white border border-slate-200 text-slate-600">
-                                {qs.category || 'Logic Assessment'}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    duplicateQuestionSetMutation.mutate(qs.id);
-                                  }}
-                                  className="p-1 rounded-md text-slate-400 hover:text-kulkul-purple hover:bg-white"
-                                  title="Duplicate this question set"
-                                >
-                                  <Copy className="w-3.5 h-3.5" />
-                                </button>
-                                {allQuestionSets.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (window.confirm(`Delete question set "${qs.name}"?`)) {
-                                        deleteQuestionSetMutation.mutate(qs.id);
-                                      }
-                                    }}
-                                    className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-white"
-                                    title="Delete this question set"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            <h4 className="font-black text-slate-900 text-sm mt-2 leading-snug">
-                              {qs.name}
-                            </h4>
-                            {qs.description && (
-                              <p className="text-2xs text-slate-500 mt-1 line-clamp-2">{qs.description}</p>
-                            )}
-                          </div>
-
-                          <div className="pt-2 border-t border-slate-200/60 space-y-2">
-                            <div className="flex items-center justify-between text-2xs font-bold text-slate-600">
-                              <span>{qs.questions?.length || qs.total_questions || 0} Questions</span>
-                              <span>{qs.duration_minutes}m &middot; {qs.passing_score}% pass</span>
-                            </div>
-
-                            <div className="text-2xs text-slate-500 flex items-center gap-1 flex-wrap">
-                              <span className="font-semibold text-slate-400">Assigned:</span>
-                              {assignedTracks.length > 0 ? (
-                                assignedTracks.map((tr) => (
-                                  <span
-                                    key={tr.id}
-                                    className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-bold"
-                                  >
-                                    {tr.name}
+                                <td className="py-4 px-6 align-middle whitespace-nowrap">
+                                  <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-slate-100 border border-slate-200 text-slate-700">
+                                    {qs.category || 'Logic Assessment'}
                                   </span>
-                                ))
-                              ) : (
-                                <span className="text-slate-400 italic">Not assigned to tracks yet</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                                </td>
+
+                                <td className="py-4 px-6 align-middle whitespace-nowrap text-xs font-bold text-slate-800">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200 text-2xs font-bold">
+                                    {qs.questions?.length || qs.total_questions || 0} Questions
+                                  </span>
+                                </td>
+
+                                <td className="py-4 px-6 align-middle whitespace-nowrap text-xs text-slate-600">
+                                  <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{qs.duration_minutes} mins · {qs.passing_score}% pass</span>
+                                  </div>
+                                </td>
+
+                                <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedQuestionSetId(qs.id);
+                                        setOpenedQuestionSetId(qs.id);
+                                      }}
+                                      className="px-3.5 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
+                                    >
+                                      <span>Open Set</span>
+                                      <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => duplicateQuestionSetMutation.mutate(qs.id)}
+                                      className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                      title="Duplicate question set"
+                                    >
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {allQuestionSets.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (window.confirm(`Are you sure you want to delete question set "${qs.name}"?`)) {
+                                            deleteQuestionSetMutation.mutate(qs.id);
+                                          }
+                                        }}
+                                        className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition"
+                                        title="Delete question set"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Active Set Metrics & Inline Meta Settings */}
-              {activeQuestionSet && (
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                      Active Set Settings: {activeQuestionSet.name}
-                    </span>
-                    <span className="text-2xs font-mono text-slate-400">ID: {activeQuestionSet.id.substring(0, 8)}...</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Set Name</label>
-                      <input
-                        type="text"
-                        value={editingSetName}
-                        onChange={(e) => setEditingSetName(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Category</label>
-                      <input
-                        type="text"
-                        value={editingSetCategory}
-                        onChange={(e) => setEditingSetCategory(e.target.value)}
-                        placeholder="e.g. Software Engineering, QA"
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Default Duration (Mins)</label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={180}
-                        value={editingSetDuration}
-                        onChange={(e) => setEditingSetDuration(parseInt(e.target.value) || 30)}
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Benchmark Passing Score (%)</label>
-                      <input
-                        type="number"
-                        min={10}
-                        max={100}
-                        value={editingSetPassingScore}
-                        onChange={(e) => setEditingSetPassingScore(parseInt(e.target.value) || 70)}
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Metrics Bar */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-200/80">
-                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
-                      <div className="text-2xs font-extrabold uppercase text-slate-400">Total Questions</div>
-                      <div className="text-xl font-black text-slate-900 mt-0.5">{editingQuestions.length}</div>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
-                      <div className="text-2xs font-extrabold uppercase text-slate-400">Time Allowed</div>
-                      <div className="text-xl font-black text-kulkul-purple mt-0.5">{editingSetDuration} mins</div>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
-                      <div className="text-2xs font-extrabold uppercase text-slate-400">Passing Score</div>
-                      <div className="text-xl font-black text-emerald-600 mt-0.5">{editingSetPassingScore}%</div>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
-                      <div className="text-2xs font-extrabold uppercase text-slate-400">Total Points</div>
-                      <div className="text-xl font-black text-slate-900 mt-0.5">
-                        {editingQuestions.reduce((acc, q) => acc + (q.points || 10), 0)} pts
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Questions List */}
-            <div className="space-y-6">
-              {editingQuestions.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
-                  <HelpCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <h3 className="text-base font-bold text-slate-800">No questions in this set yet</h3>
-                  <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto">
-                    Add multiple choice logic and domain questions to build this assessment set.
-                  </p>
+            ) : (
+              /* Opened Question Set Detail / Questions Editor */
+              <div className="space-y-6">
+                {/* Top Action Bar with Back button */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <button
                     type="button"
-                    onClick={handleAddQuestion}
-                    className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-xs"
+                    onClick={() => setOpenedQuestionSetId(null)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
                   >
-                    Add First Question
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Question Banks</span>
                   </button>
+
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleAddQuestion}
+                      className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-kulkul-purple" />
+                      <span>Add Question</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => saveActiveQuestionSetMutation.mutate()}
+                      disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
+                      className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5 text-kulkul-orange" />
+                      {saveActiveQuestionSetMutation.isPending ? <span>Saving...</span> : <span>Save Question Set</span>}
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                editingQuestions.map((q, qIdx) => (
-                  <div
-                    key={qIdx}
-                    className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-5"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="px-3 py-1 rounded-full bg-kulkul-purple text-white text-xs font-extrabold tracking-wide">
-                          Question {qIdx + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={q.category || 'Problem Solving'}
-                          onChange={(e) => handleQuestionChange(qIdx, 'category', e.target.value)}
-                          placeholder="Category (e.g. Logic, Algorithms, QA)"
-                          className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-kulkul-purple"
-                        />
+
+                {/* Active Set Metrics & Settings */}
+                {activeQuestionSet && (
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                      <div>
+                        <h3 className="text-base font-black text-slate-900">
+                          {activeQuestionSet.name}
+                        </h3>
+                        <p className="text-2xs text-slate-400 font-mono mt-0.5">
+                          ID: {activeQuestionSet.id}
+                        </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveQuestion(qIdx)}
-                        className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition"
-                        title="Delete question"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                        {editingQuestions.length} Questions Configured
+                      </span>
                     </div>
 
-                    {/* Question Prompt */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Question Prompt <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        rows={3}
-                        data-question-prompt="true"
-                        value={q.question_text}
-                        onChange={(e) => handleQuestionChange(qIdx, 'question_text', e.target.value)}
-                        placeholder="Enter the question text or problem description..."
-                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple focus:bg-white transition"
-                      />
-                    </div>
-
-                    {/* Multiple Choice Options & Correct Selection */}
-                    <div className="space-y-3">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Options & Answer Key (Select radio button for the correct answer):
-                      </label>
-
-                      <div className="space-y-2.5">
-                        {q.options.map((opt, optIdx) => (
-                          <div
-                            key={opt.id}
-                            className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
-                              q.correct_option_id === opt.id
-                                ? 'bg-purple-50/60 border-kulkul-purple/30'
-                                : 'bg-slate-50/50 border-slate-200'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`correct_${qIdx}`}
-                              checked={q.correct_option_id === opt.id}
-                              onChange={() => handleQuestionChange(qIdx, 'correct_option_id', opt.id)}
-                              className="w-4 h-4 text-kulkul-purple focus:ring-kulkul-purple cursor-pointer"
-                              title="Set as correct answer"
-                            />
-                            <span className="text-xs font-mono font-extrabold text-slate-600 w-5">
-                              {opt.id}.
-                            </span>
-                            <input
-                              type="text"
-                              value={opt.text}
-                              onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                              placeholder={`Option ${optIdx + 1} text`}
-                              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                            />
-                            {q.correct_option_id === opt.id && (
-                              <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                                Correct Answer
-                              </span>
-                            )}
-                            {q.options.length > 2 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveOption(qIdx, optIdx)}
-                                className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-slate-100"
-                                title="Remove option"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleAddOption(qIdx)}
-                        className="text-xs font-bold text-kulkul-purple hover:text-kulkul-orange transition flex items-center gap-1.5 pt-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Option Choice</span>
-                      </button>
-                    </div>
-
-                    {/* Explanation & Points */}
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
-                      <div className="sm:col-span-3">
-                        <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Scorecard Explanation (Displayed to candidates after submission)
-                        </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Set Name</label>
                         <input
                           type="text"
-                          value={q.explanation || ''}
-                          onChange={(e) => handleQuestionChange(qIdx, 'explanation', e.target.value)}
-                          placeholder="Provide the rationale or proof for the correct option..."
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          value={editingSetName}
+                          onChange={(e) => setEditingSetName(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Points
-                        </label>
+                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Category</label>
+                        <input
+                          type="text"
+                          value={editingSetCategory}
+                          onChange={(e) => setEditingSetCategory(e.target.value)}
+                          placeholder="e.g. Software Engineering, QA"
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Duration (Minutes)</label>
                         <input
                           type="number"
-                          min={1}
+                          min={5}
+                          max={180}
+                          value={editingSetDuration}
+                          onChange={(e) => setEditingSetDuration(parseInt(e.target.value) || 30)}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Passing Score (%)</label>
+                        <input
+                          type="number"
+                          min={10}
                           max={100}
-                          value={q.points || 10}
-                          onChange={(e) => handleQuestionChange(qIdx, 'points', parseInt(e.target.value) || 10)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-bold"
+                          value={editingSetPassingScore}
+                          onChange={(e) => setEditingSetPassingScore(parseInt(e.target.value) || 70)}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                         />
                       </div>
                     </div>
+
+                    {/* Metrics Bar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <div className="text-2xs font-extrabold uppercase text-slate-400">Total Questions</div>
+                        <div className="text-lg font-black text-slate-900 mt-0.5">{editingQuestions.length}</div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <div className="text-2xs font-extrabold uppercase text-slate-400">Time Limit</div>
+                        <div className="text-lg font-black text-kulkul-purple mt-0.5">{editingSetDuration} mins</div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <div className="text-2xs font-extrabold uppercase text-slate-400">Passing Score</div>
+                        <div className="text-lg font-black text-emerald-600 mt-0.5">{editingSetPassingScore}%</div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <div className="text-2xs font-extrabold uppercase text-slate-400">Total Points</div>
+                        <div className="text-lg font-black text-slate-900 mt-0.5">
+                          {editingQuestions.reduce((acc, q) => acc + (q.points || 10), 0)} pts
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))
-              )}
+                )}
 
-              {/* Anchor for Auto-Scrolling to newly added question */}
-              <div ref={questionsEndRef} />
+                {/* Questions List */}
+                <div className="space-y-6">
+                  {editingQuestions.length === 0 ? (
+                    <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+                      <HelpCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                      <h3 className="text-base font-bold text-slate-800">No questions in this set yet</h3>
+                      <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto">
+                        Add multiple choice logic and domain questions to build this assessment set.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleAddQuestion}
+                        className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-xs"
+                      >
+                        Add First Question
+                      </button>
+                    </div>
+                  ) : (
+                    editingQuestions.map((q, qIdx) => (
+                      <div
+                        key={qIdx}
+                        className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-5"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="px-3 py-1 rounded-full bg-kulkul-purple text-white text-xs font-extrabold tracking-wide">
+                              Question {qIdx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              value={q.category || 'Problem Solving'}
+                              onChange={(e) => handleQuestionChange(qIdx, 'category', e.target.value)}
+                              placeholder="Category (e.g. Logic, Algorithms, QA)"
+                              className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-kulkul-purple"
+                            />
+                          </div>
 
-              {/* Big Bottom Add Question Card */}
-              <button
-                type="button"
-                onClick={handleAddQuestion}
-                className="w-full py-5 rounded-3xl border-2 border-dashed border-slate-300 hover:border-kulkul-purple text-slate-600 hover:text-kulkul-purple text-sm font-bold transition flex items-center justify-center gap-2 bg-white/80 hover:bg-white shadow-2xs"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Add New MCQ Question to Set</span>
-              </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveQuestion(qIdx)}
+                            className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition"
+                            title="Delete question"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
 
-              {/* Sticky Bottom Save Bar */}
-              <div className="sticky bottom-4 z-20 p-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between gap-4">
-                <div className="text-xs text-slate-600">
-                  Editing <strong>{editingQuestions.length} questions</strong> in set <strong>{editingSetName || activeQuestionSet?.name}</strong>.
-                </div>
-                <div className="flex items-center gap-3">
+                        {/* Question Prompt */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Question Prompt <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            rows={3}
+                            data-question-prompt="true"
+                            value={q.question_text}
+                            onChange={(e) => handleQuestionChange(qIdx, 'question_text', e.target.value)}
+                            placeholder="Enter the question text or problem description..."
+                            className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple focus:bg-white transition"
+                          />
+                        </div>
+
+                        {/* Multiple Choice Options & Correct Selection */}
+                        <div className="space-y-3">
+                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Options & Answer Key (Select radio button for the correct answer):
+                          </label>
+
+                          <div className="space-y-2.5">
+                            {q.options.map((opt, optIdx) => (
+                              <div
+                                key={opt.id}
+                                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                                  q.correct_option_id === opt.id
+                                    ? 'bg-purple-50/60 border-kulkul-purple/30'
+                                    : 'bg-slate-50/50 border-slate-200'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`correct_${qIdx}`}
+                                  checked={q.correct_option_id === opt.id}
+                                  onChange={() => handleQuestionChange(qIdx, 'correct_option_id', opt.id)}
+                                  className="w-4 h-4 text-kulkul-purple focus:ring-kulkul-purple cursor-pointer"
+                                  title="Set as correct answer"
+                                />
+                                <span className="text-xs font-mono font-extrabold text-slate-600 w-5">
+                                  {opt.id}.
+                                </span>
+                                <input
+                                  type="text"
+                                  value={opt.text}
+                                  onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
+                                  placeholder={`Option ${optIdx + 1} text`}
+                                  className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                                />
+                                {q.correct_option_id === opt.id && (
+                                  <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                    Correct Answer
+                                  </span>
+                                )}
+                                {q.options.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveOption(qIdx, optIdx)}
+                                    className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-slate-100"
+                                    title="Remove option"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAddOption(qIdx)}
+                            className="text-xs font-bold text-kulkul-purple hover:text-kulkul-orange transition flex items-center gap-1.5 pt-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Option Choice</span>
+                          </button>
+                        </div>
+
+                        {/* Explanation & Points */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+                          <div className="sm:col-span-3">
+                            <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                              Scorecard Explanation (Displayed to candidates after submission)
+                            </label>
+                            <input
+                              type="text"
+                              value={q.explanation || ''}
+                              onChange={(e) => handleQuestionChange(qIdx, 'explanation', e.target.value)}
+                              placeholder="Provide the rationale or proof for the correct option..."
+                              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                              Points
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={q.points || 10}
+                              onChange={(e) => handleQuestionChange(qIdx, 'points', parseInt(e.target.value) || 10)}
+                              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-bold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Anchor for Auto-Scrolling to newly added question */}
+                  <div ref={questionsEndRef} />
+
+                  {/* Big Bottom Add Question Card */}
                   <button
                     type="button"
-                    onClick={() => setCurrentView('pipeline')}
-                    className="px-4 py-2 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                    onClick={handleAddQuestion}
+                    className="w-full py-5 rounded-3xl border-2 border-dashed border-slate-300 hover:border-kulkul-purple text-slate-600 hover:text-kulkul-purple text-sm font-bold transition flex items-center justify-center gap-2 bg-white/80 hover:bg-white shadow-2xs"
                   >
-                    Back to Pipeline
+                    <Plus className="w-5 h-5" />
+                    <span>Add New MCQ Question to Set</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => saveActiveQuestionSetMutation.mutate()}
-                    disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4 text-kulkul-orange" />
-                    {saveActiveQuestionSetMutation.isPending ? <span>Saving Changes...</span> : <span>Save Question Set</span>}
-                  </button>
+
+                  {/* Sticky Bottom Save Bar */}
+                  <div className="sticky bottom-4 z-20 p-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between gap-4">
+                    <div className="text-xs text-slate-600">
+                      Editing <strong>{editingQuestions.length} questions</strong> in set <strong>{editingSetName || activeQuestionSet?.name}</strong>.
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setOpenedQuestionSetId(null)}
+                        className="px-4 py-2 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                      >
+                        Back to Question Banks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveActiveQuestionSetMutation.mutate()}
+                        disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
+                        className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4 text-kulkul-orange" />
+                        {saveActiveQuestionSetMutation.isPending ? <span>Saving Changes...</span> : <span>Save Question Set</span>}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {/* ================================================================================= */}
-        {/* MODAL 2: CREATE / EDIT TRACK MODAL (WITH QUESTION SET SELECTION) */}
+        {/* VIEW 5: SPECIALIZATION TRACK EDITOR FULL PAGE VIEW */}
         {/* ================================================================================= */}
-        {(isCreateTrackModalOpen || editingTrack) && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <Layers className="w-5 h-5 text-kulkul-purple" />
-                  <h2 className="text-lg font-extrabold text-slate-900">
-                    {editingTrack ? `Edit Track: ${editingTrack.name}` : 'Create Specialization Track'}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsCreateTrackModalOpen(false);
-                    setEditingTrack(null);
-                  }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+        {currentView === 'track_editor' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Top Navigation / Breadcrumb */}
+            <div className="flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => setCurrentView('pipeline')}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Candidate Pipeline</span>
+              </button>
+
+              <span className="text-xs font-bold px-3.5 py-1.5 bg-purple-50 text-kulkul-purple border border-purple-200 rounded-full">
+                Program: {program?.name || activeProgramSlug}
+              </span>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-8">
+              <div className="border-b border-slate-100 pb-5">
+                <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-kulkul-purple" />
+                  <span>{editingTrack ? `Edit Track: ${editingTrack.name}` : 'Create Specialization Track'}</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Configure candidate specialization tracks, MCQ question sets, and AI technical screening parameters.
+                </p>
               </div>
 
               <form
@@ -2027,207 +2055,248 @@ export const DashboardPage: React.FC = () => {
                     createTrackMutation.mutate(trackForm);
                   }
                 }}
-                className="space-y-4"
+                className="space-y-6"
               >
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Track Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Cloud & DevOps Engineering"
-                    value={trackForm.name}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      setTrackForm((prev) => ({
-                        ...prev,
-                        name,
-                        slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-                      }));
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                </div>
+                {/* Section 1: Track Details */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    1. Track Information
+                  </h3>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Track URL Slug <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. devops"
-                    value={trackForm.slug}
-                    onChange={(e) => setTrackForm({ ...trackForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Track Description
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Focus areas, required skillsets, expectations..."
-                    value={trackForm.description}
-                    onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                </div>
-
-                {/* Question Set Selection */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <HelpCircle className="w-3.5 h-3.5 text-kulkul-purple" />
-                      Assessment Question Bank / Test Set
-                    </span>
-                    <span className="text-2xs font-semibold text-slate-400">Reusable Set</span>
-                  </label>
-                  <select
-                    value={trackForm.question_set_id || ''}
-                    onChange={(e) => {
-                      const qSetId = e.target.value;
-                      const selectedSet = allQuestionSets.find((s) => s.id === qSetId);
-                      if (selectedSet) {
-                        setTrackForm((prev) => ({
-                          ...prev,
-                          question_set_id: qSetId,
-                          logic_test_duration_minutes: selectedSet.duration_minutes || prev.logic_test_duration_minutes,
-                          logic_test_passing_score: selectedSet.passing_score || prev.logic_test_passing_score,
-                        }));
-                      } else {
-                        setTrackForm((prev) => ({
-                          ...prev,
-                          question_set_id: '',
-                        }));
-                      }
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
-                  >
-                    <option value="">-- Choose Question Set from Bank --</option>
-                    {allQuestionSets.map((qs) => (
-                      <option key={qs.id} value={qs.id}>
-                        {qs.name} ({qs.category} · {qs.questions?.length || qs.total_questions || 0} Qs · {qs.duration_minutes}m · {qs.passing_score}%)
-                      </option>
-                    ))}
-                  </select>
-                  {trackForm.question_set_id && (
-                    <p className="text-2xs text-emerald-700 mt-1 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Linked question bank will automatically supply questions and timing for this track.
-                    </p>
-                  )}
-                </div>
-
-                {/* MCQ Duration & Passing Score */}
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div>
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                      Logic Test Duration (Mins)
-                    </label>
-                    <input
-                      type="number"
-                      min={5}
-                      max={180}
-                      value={trackForm.logic_test_duration_minutes}
-                      onChange={(e) => setTrackForm({ ...trackForm, logic_test_duration_minutes: parseInt(e.target.value) || 35 })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                      Passing Score (%)
-                    </label>
-                    <input
-                      type="number"
-                      min={10}
-                      max={100}
-                      value={trackForm.logic_test_passing_score}
-                      onChange={(e) => setTrackForm({ ...trackForm, logic_test_passing_score: parseInt(e.target.value) || 70 })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
-                    />
-                  </div>
-                </div>
-
-                {/* AI Interview Settings */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Bot className="w-4 h-4 text-kulkul-purple" />
-                      Enable AI Technical Screen
-                    </label>
-                    <input
-                      type="checkbox"
-                      checked={trackForm.enable_ai_interview}
-                      onChange={(e) => setTrackForm({ ...trackForm, enable_ai_interview: e.target.checked })}
-                      className="w-4 h-4 text-kulkul-purple rounded"
-                    />
-                  </div>
-
-                  {trackForm.enable_ai_interview && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
-                        Track AI Interview Prompt / Questions (One per line)
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Track Name <span className="text-red-500">*</span>
                       </label>
-                      <textarea
-                        rows={3}
-                        value={(trackForm.ai_interview_questions || []).join('\n')}
-                        onChange={(e) =>
-                          setTrackForm({
-                            ...trackForm,
-                            ai_interview_questions: e.target.value.split('\n').filter((q) => q.trim().length > 0),
-                          })
-                        }
-                        placeholder="Enter domain-specific questions for the AI interviewer..."
-                        className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Cloud & DevOps Engineering"
+                        value={trackForm.name}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setTrackForm((prev) => ({
+                            ...prev,
+                            name,
+                            slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                          }));
+                        }}
+                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Track URL Slug <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. devops"
+                        value={trackForm.slug}
+                        onChange={(e) => setTrackForm({ ...trackForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Track Description
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Focus areas, required skillsets, expectations..."
+                      value={trackForm.description}
+                      onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    />
+                  </div>
+                </div>
+
+                {/* Section 2: Question Bank & Logic MCQ */}
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                      <HelpCircle className="w-4 h-4 text-kulkul-purple" />
+                      <span>2. Timed Logic & Domain MCQ Assessment</span>
+                    </h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={trackForm.enable_mcq}
+                        onChange={(e) => setTrackForm({ ...trackForm, enable_mcq: e.target.checked })}
+                        className="w-4 h-4 text-kulkul-purple rounded"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Enable Assessment</span>
+                    </label>
+                  </div>
+
+                  {trackForm.enable_mcq && (
+                    <div className="space-y-4 pt-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                          Question Bank / Reusable Test Set
+                        </label>
+                        <select
+                          value={trackForm.question_set_id || ''}
+                          onChange={(e) => {
+                            const qSetId = e.target.value;
+                            const selectedSet = allQuestionSets.find((s) => s.id === qSetId);
+                            if (selectedSet) {
+                              setTrackForm((prev) => ({
+                                ...prev,
+                                question_set_id: qSetId,
+                                logic_test_duration_minutes: selectedSet.duration_minutes || prev.logic_test_duration_minutes,
+                                logic_test_passing_score: selectedSet.passing_score || prev.logic_test_passing_score,
+                              }));
+                            } else {
+                              setTrackForm((prev) => ({
+                                ...prev,
+                                question_set_id: '',
+                              }));
+                            }
+                          }}
+                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                        >
+                          <option value="">-- Choose Question Set from Bank --</option>
+                          {allQuestionSets.map((qs) => (
+                            <option key={qs.id} value={qs.id}>
+                              {qs.name} ({qs.category} · {qs.questions?.length || qs.total_questions || 0} Qs · {qs.duration_minutes}m · {qs.passing_score}%)
+                            </option>
+                          ))}
+                        </select>
+                        {trackForm.question_set_id && (
+                          <p className="text-2xs text-emerald-700 mt-1.5 font-medium flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Linked question bank will automatically supply questions and passing criteria for this track.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                            Logic Test Duration (Minutes)
+                          </label>
+                          <input
+                            type="number"
+                            min={5}
+                            max={180}
+                            value={trackForm.logic_test_duration_minutes}
+                            onChange={(e) => setTrackForm({ ...trackForm, logic_test_duration_minutes: parseInt(e.target.value) || 35 })}
+                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                            Passing Score Benchmark (%)
+                          </label>
+                          <input
+                            type="number"
+                            min={10}
+                            max={100}
+                            value={trackForm.logic_test_passing_score}
+                            onChange={(e) => setTrackForm({ ...trackForm, logic_test_passing_score: parseInt(e.target.value) || 70 })}
+                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className="pt-3 flex items-center justify-between gap-3 border-t border-slate-100">
+                {/* Section 3: AI Technical Screening */}
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-kulkul-purple" />
+                      <span>3. Autonomous AI Technical Screening Room</span>
+                    </h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={trackForm.enable_ai_interview}
+                        onChange={(e) => setTrackForm({ ...trackForm, enable_ai_interview: e.target.checked })}
+                        className="w-4 h-4 text-kulkul-purple rounded"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Enable AI Screening</span>
+                    </label>
+                  </div>
+
+                  {trackForm.enable_ai_interview && (
+                    <div className="space-y-4 pt-2">
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                          AI Interviewer Guidelines & System Instructions
+                        </label>
+                        <input
+                          type="text"
+                          value={trackForm.ai_interview_instructions}
+                          onChange={(e) => setTrackForm({ ...trackForm, ai_interview_instructions: e.target.value })}
+                          placeholder="e.g. Assess system design principles, debugging methodology, and communication clarity."
+                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                          Track Technical Interview Questions (One question per line)
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={(trackForm.ai_interview_questions || []).join('\n')}
+                          onChange={(e) =>
+                            setTrackForm({
+                              ...trackForm,
+                              ai_interview_questions: e.target.value.split('\n').filter((q) => q.trim().length > 0),
+                            })
+                          }
+                          placeholder="Enter domain-specific questions for the AI interviewer..."
+                          className="w-full p-4 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons Footer */}
+                <div className="pt-4 flex items-center justify-between gap-4 border-t border-slate-100">
                   {editingTrack ? (
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete track "${editingTrack.name}"?`)) {
+                        if (window.confirm(`Are you sure you want to permanently delete track "${editingTrack.name}"?`)) {
                           deleteTrackMutation.mutate(editingTrack.id);
-                          setEditingTrack(null);
                         }
                       }}
-                      className="px-4 py-2 rounded-full text-xs font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
+                      disabled={deleteTrackMutation.isPending}
+                      className="px-4 py-2.5 rounded-full text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center gap-1.5"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                       <span>Delete Track</span>
                     </button>
                   ) : (
                     <div />
                   )}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsCreateTrackModalOpen(false);
-                        setEditingTrack(null);
-                      }}
-                      className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
+                      onClick={() => setCurrentView('pipeline')}
+                      className="px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs"
                     >
                       Cancel
                     </button>
+
                     <button
                       type="submit"
                       disabled={createTrackMutation.isPending || updateTrackMutation.isPending}
-                      className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
+                      className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
                     >
-                      {createTrackMutation.isPending || updateTrackMutation.isPending ? (
-                        <span>Saving...</span>
-                      ) : (
-                        <span>{editingTrack ? 'Update Track' : 'Create Track'}</span>
-                      )}
+                      <Save className="w-4 h-4 text-kulkul-orange" />
+                      <span>{editingTrack ? 'Save Track Changes' : 'Create Specialization Track'}</span>
                     </button>
                   </div>
                 </div>
