@@ -77,8 +77,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onEditProfile,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+
+  const toggleExpand = (id: string, defaultExpanded: boolean) => {
+    setExpandedMap((prev) => {
+      const current = prev[id] !== undefined ? prev[id] : defaultExpanded;
+      return {
+        ...prev,
+        [id]: !current,
+      };
+    });
+  };
 
   const handleSignOut = () => {
     if (portalType === 'candidate') {
@@ -202,6 +213,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 const IconComponent = item.icon;
                 const isActive = activeNavId === item.id;
                 const hasChildren = Boolean(item.children && item.children.length > 0);
+                const isItemExpanded = expandedMap[item.id] !== undefined ? expandedMap[item.id] : (item.isExpanded !== false);
 
                 return (
                   <div key={item.id} className="space-y-1">
@@ -249,8 +261,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         )}
 
                         {hasChildren && (
-                          <span className="text-slate-400 group-hover:text-slate-600 p-0.5">
-                            {item.isExpanded !== false ? (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(item.id, item.isExpanded !== false);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation();
+                                toggleExpand(item.id, item.isExpanded !== false);
+                              }
+                            }}
+                            className={`p-1 rounded-lg transition cursor-pointer ${
+                              isActive
+                                ? 'hover:bg-white/20 text-white/80 hover:text-white'
+                                : 'hover:bg-slate-200 text-slate-400 hover:text-slate-700'
+                            }`}
+                            title={isItemExpanded ? 'Minimize / Collapse' : 'Expand'}
+                          >
+                            {isItemExpanded ? (
                               <ChevronDown className="w-3.5 h-3.5" />
                             ) : (
                               <ChevronRight className="w-3.5 h-3.5" />
@@ -261,11 +292,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     </button>
 
                     {/* Level 1 Children (Programs under Programs Directory) */}
-                    {hasChildren && item.isExpanded !== false && (
+                    {hasChildren && isItemExpanded && (
                       <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-1 py-1">
                         {item.children!.map((child) => {
                           const isChildActive = activeNavId === child.id;
                           const hasSubChildren = Boolean(child.children && child.children.length > 0);
+                          const isChildExpanded = expandedMap[child.id] !== undefined ? expandedMap[child.id] : (child.isExpanded !== false);
                           const ChildIcon = child.icon;
 
                           return (
@@ -277,6 +309,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                   } else {
                                     onNavChange(child.id);
                                   }
+                                  // When selecting a program row, ensure its sub-tree is expanded
+                                  setExpandedMap((prev) => ({ ...prev, [child.id]: true }));
                                   if (!hasSubChildren) {
                                     setIsMobileSidebarOpen(false);
                                   }
@@ -305,8 +339,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                     </span>
                                   )}
                                   {hasSubChildren && (
-                                    <span className="text-slate-400">
-                                      {child.isExpanded !== false ? (
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleExpand(child.id, child.isExpanded !== false);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.stopPropagation();
+                                          toggleExpand(child.id, child.isExpanded !== false);
+                                        }
+                                      }}
+                                      className="p-1 rounded-lg hover:bg-purple-100/80 text-slate-400 hover:text-kulkul-purple transition cursor-pointer"
+                                      title={isChildExpanded ? 'Minimize / Collapse' : 'Expand'}
+                                    >
+                                      {isChildExpanded ? (
                                         <ChevronDown className="w-3 h-3" />
                                       ) : (
                                         <ChevronRight className="w-3 h-3" />
@@ -317,7 +366,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                               </button>
 
                               {/* Level 2 Sub-Children (Tracks under a Program) */}
-                              {hasSubChildren && child.isExpanded !== false && (
+                              {hasSubChildren && isChildExpanded && (
                                 <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-0.5 py-0.5">
                                   {child.children!.map((sub) => {
                                     const isSubActive = activeNavId === sub.id;
