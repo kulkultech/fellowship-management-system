@@ -138,7 +138,7 @@ export const TestPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50/60 flex flex-col">
       {/* Sticky Top Assessment Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+        <div className="w-full px-4 sm:px-8 lg:px-12">
           <div className="flex items-center justify-between h-20 sm:h-24">
             <div className="flex items-center gap-4">
               <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain" />

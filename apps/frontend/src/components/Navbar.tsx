@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 w-full">
+      <div className="w-full px-4 sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-20 sm:h-24">
           {/* Brand Logo - Prominent Kulkul logo */}
           <div className="flex items-center shrink-0">
