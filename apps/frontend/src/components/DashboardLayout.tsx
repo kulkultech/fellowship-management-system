@@ -72,7 +72,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* 1. TOP BAR (T-LAYOUT TOP HEADER) */}
       {/* ========================================================================= */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 w-full flex items-center justify-between gap-4 h-20 sm:h-24">
+        <div className="w-full px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-4 h-20 sm:h-24">
           {/* Left: Hamburger (Mobile) + Logo */}
           <div className="flex items-center gap-3 sm:gap-4">
             <button
@@ -178,7 +178,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         {/* LEFT VERTICAL SIDEBAR */}
         <aside
-          className={`fixed lg:sticky top-20 sm:top-24 z-30 w-72 h-[calc(100vh-5rem)] sm:h-[calc(100vh-6rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 ${
+          className={`fixed lg:sticky top-16 sm:top-20 z-30 w-72 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 ${
             isMobileSidebarOpen
               ? 'translate-x-0 shadow-2xl'
               : '-translate-x-full lg:translate-x-0'
