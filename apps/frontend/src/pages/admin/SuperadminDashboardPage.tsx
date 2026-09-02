@@ -112,14 +112,6 @@ export const SuperadminDashboardPage: React.FC = () => {
       navItems={navItems}
       activeNavId={activeTab}
       onNavChange={(id) => setActiveTab(id as any)}
-      headerActions={
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 flex items-center gap-1.5 shadow-2xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
-            <span>Root Superadmin Access</span>
-          </span>
-        </div>
-      }
     >
       <div className="space-y-6">
         {/* ========================================================================= */}
