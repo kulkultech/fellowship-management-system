@@ -6,18 +6,14 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import {
   ArrowRight,
-  Clock,
   AlertCircle,
   FileText,
   Linkedin,
   Mail,
   User as UserIcon,
   Phone,
-  CheckCircle2,
   Upload,
   X,
-  Layers,
-  Award,
   GraduationCap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -147,7 +143,6 @@ export const ApplyPage: React.FC = () => {
   const currentTrack = tracks.find((t) => t.slug === selectedTrackSlug) || tracks[0];
 
   const durationMinutes = currentTrack?.logic_test_duration_minutes || program?.logic_test_duration_minutes || 35;
-  const passingScore = currentTrack?.logic_test_passing_score || program?.logic_test_passing_score || 70;
 
   const applyMutation = useMutation({
     mutationFn: () => {
@@ -261,45 +256,17 @@ export const ApplyPage: React.FC = () => {
         <div className="max-w-2xl w-full">
           {/* Header Card */}
           <div className="stitch-card p-6 sm:p-8 mb-6 bg-white shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <span className="px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5" />
-                {program?.name || 'LIT 2026 Fellowship'}
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Candidate Intake Form
+              </h1>
 
               <Link
                 to={`/programs/${orgSlug}/${programSlug}`}
-                className="text-xs font-bold text-kulkul-purple hover:underline"
+                className="text-xs font-bold text-kulkul-purple hover:underline shrink-0"
               >
                 &larr; Program Overview
               </Link>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Candidate Intake Form
-            </h1>
-            <p className="text-slate-600 text-sm mt-1">
-              Please complete all mandatory questions below to initiate your scholarship assessment.
-            </p>
-
-            {/* Quick Benchmark Box */}
-            <div className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-kulkul-purple/5 to-kulkul-orange/5 border border-kulkul-purple/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-kulkul-orange" />
-                <span>
-                  <strong className="text-slate-900">{durationMinutes} Minutes</strong> timed logic test
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-600" />
-                <span>
-                  <strong className="text-slate-900">{passingScore}% Passing Score</strong> required
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-kulkul-purple" />
-                <span>Instant scorecard</span>
-              </div>
             </div>
           </div>
 
