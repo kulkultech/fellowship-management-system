@@ -219,7 +219,7 @@ const baseHTMLTemplate = `<!DOCTYPE html>
       <!-- HEADER -->
       <div class="header">
         <a href="{{.FrontendURL}}" class="header-logo">KulKul <span>|</span> FellowHire</a>
-        <div class="header-tagline">Remote Skills Academy (RSA) Fellowship Management Platform</div>
+        <div class="header-tagline">Fellowship Management Platform</div>
       </div>
 
       <!-- CONTENT BODY -->
@@ -229,7 +229,7 @@ const baseHTMLTemplate = `<!DOCTYPE html>
 
       <!-- FOOTER -->
       <div class="footer">
-        <p style="margin: 0 0 6px 0;"><strong>FellowHire Assessment Platform</strong> &bull; Powered by KulKul Tech &amp; Remote Skills Academy</p>
+        <p style="margin: 0 0 6px 0;"><strong>FellowHire Assessment Platform</strong> &bull; Powered by KulKul Tech</p>
         <p style="margin: 0 0 8px 0;">Questions? Contact our admissions support at <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a>.</p>
         <p style="font-size: 11px; color: #94a3b8; margin: 8px 0 0 0;">This is an automated notification. Please do not share your private assessment or interview tokens with anyone.</p>
       </div>
@@ -261,27 +261,28 @@ func buildRegistrationEmail(userName, companyName, loginURL, frontendURL, suppor
 	subject = fmt.Sprintf("Welcome to FellowHire - %s Registration Received", companyName)
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple">Company Registration</span>
     <h2>Welcome to FellowHire, %s!</h2>
     <p>Thank you for registering <strong>%s</strong> on the FellowHire Multi-Tenant Assessment Platform.</p>
     <p>Your company workspace has been initialized and is queued for verification by the platform administration team.</p>
     
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Organization Name</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Admin Contact</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Platform Status</span>
-        <span class="info-value">Pending Platform Review</span>
-      </div>
-    </div>
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Organization Name</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Admin Contact</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Platform Status</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">Pending Platform Review</td>
+        </tr>
+      </tbody>
+    </table>
 
-    <p>Once approved, you will be able to launch custom fellowship assessment programs, configure domain-specific MCQ banks, and evaluate candidate video responses with Cloudflare AI rubrics.</p>
+    <p>Once approved, you will be able to launch custom programs, configure domain-specific MCQ banks, and evaluate candidate video responses with Cloudflare AI rubrics.</p>
 
     <div class="btn-container">
       <a href="%s" class="btn">Access Reviewer Admin Portal</a>
@@ -302,27 +303,27 @@ func buildCompanyApprovedEmail(userName, companyName, loginURL, frontendURL, sup
 	subject = fmt.Sprintf("Your Company Registration for %s has been Approved! - FellowHire", companyName)
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-green">Workspace Activated</span>
-    <h2>Your Company Workspace is Ready!</h2>
-    <p>Dear <strong>%s</strong>,</p>
+    <h2>Welcome to FellowHire, %s!</h2>
     <p>Great news! Your company registration for <strong>%s</strong> has been reviewed and <strong style="color: #16a34a;">approved</strong> by the FellowHire platform administration team.</p>
     
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Organization Name</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Workspace Status</span>
-        <span class="info-value" style="color: #16a34a; font-weight: 700;">Active &amp; Approved</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Portal Access</span>
-        <span class="info-value">Full Organization Admin</span>
-      </div>
-    </div>
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Organization Name</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Workspace Status</td>
+          <td style="padding: 12px 18px; color: #16a34a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">Active &amp; Approved</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Portal Access</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">Full Organization Admin</td>
+        </tr>
+      </tbody>
+    </table>
 
-    <p>You can now log in to manage fellowship assessment programs, review applicant pipelines, configure custom question banks, and conduct AI-assisted technical interviews.</p>
+    <p>You can now log in to manage custom programs, review applicant pipelines, configure custom question banks, and conduct AI-assisted technical interviews.</p>
 
     <div class="btn-container">
       <a href="%s" class="btn">Log In to Employer Dashboard</a>
@@ -345,37 +346,38 @@ func buildApplicationReceivedEmail(candidateName, programName, trackName, testUR
 	}
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple">Application Received</span>
     <h2>Application Confirmed!</h2>
     <p>Dear <strong>%s</strong>,</p>
     <p>We have successfully received your application for the <strong>%s</strong> (%s).</p>
     
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Candidate Name</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Fellowship Program</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Specialization Track</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Next Stage</span>
-        <span class="info-value">Timed Logic MCQ Assessment</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Allocated Duration</span>
-        <span class="info-value">%d Minutes</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Passing Benchmark</span>
-        <span class="info-value">%d%%</span>
-      </div>
-    </div>
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate Name</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Fellowship Program</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Specialization Track</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Next Stage</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">Timed Logic MCQ Assessment</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Allocated Duration</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%d Minutes</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Passing Benchmark</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">%d%%</td>
+        </tr>
+      </tbody>
+    </table>
 
     <div class="guidelines">
       <strong>Important Guidelines for Your Assessment:</strong>
@@ -411,29 +413,30 @@ func buildLogicTestSubmittedEmail(candidateName, programName, trackName, resultU
 	}
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple">Assessment Submitted</span>
     <h2>Answers Recorded Successfully</h2>
     <p>Hello <strong>%s</strong>,</p>
     <p>Your responses for the <strong>%s</strong> (%s) logic test have been safely received and processed by our automated scoring engine.</p>
     
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Candidate</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Program</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Track</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Submission Status</span>
-        <span class="info-value">Completed &amp; Evaluated</span>
-      </div>
-    </div>
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Program</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Track</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Submission Status</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">Completed &amp; Evaluated</td>
+        </tr>
+      </tbody>
+    </table>
 
     <p>Your test scorecard has been generated with itemized category breakdowns.</p>
 
@@ -465,7 +468,6 @@ func buildLogicTestResultEmail(candidateName, programName, trackName string, sco
 		}
 
 		body := fmt.Sprintf(`
-      <span class="badge badge-emerald">Assessment Passed 🎉</span>
       <h2>Outstanding Performance!</h2>
       <p>Dear <strong>%s</strong>,</p>
       <p>Congratulations! You have successfully passed the timed logic assessment for <strong>%s</strong> (%s).</p>
@@ -476,20 +478,22 @@ func buildLogicTestResultEmail(candidateName, programName, trackName string, sco
         <div class="score-subtext">Passing Benchmark: %d%% &bull; Result: PASSED</div>
       </div>
 
-      <div class="info-box">
-        <div class="info-row">
-          <span class="info-label">Candidate</span>
-          <span class="info-value">%s</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Program &amp; Track</span>
-          <span class="info-value">%s - %s</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Next Stage</span>
-          <span class="info-value">AI Video Interview Room (Unlocked)</span>
-        </div>
-      </div>
+      <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+        <tbody>
+          <tr>
+            <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
+            <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Program &amp; Track</td>
+            <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s - %s</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Next Stage</td>
+            <td style="padding: 12px 18px; color: #16a34a; font-size: 13px; font-weight: 700; text-align: right;">AI Video Interview Room (Unlocked)</td>
+          </tr>
+        </tbody>
+      </table>
 
       <p>Because you met the technical benchmark, the admissions committee has officially unlocked your <strong>AI Technical Video Screening Room</strong>.</p>
 
@@ -509,7 +513,6 @@ func buildLogicTestResultEmail(candidateName, programName, trackName string, sco
 		subject = fmt.Sprintf("Assessment Results: %s (%d%%)", programName, score)
 
 		body := fmt.Sprintf(`
-      <span class="badge badge-amber">Assessment Completed</span>
       <h2>Assessment Result Update</h2>
       <p>Dear <strong>%s</strong>,</p>
       <p>Thank you for participating in the technical assessment for <strong>%s</strong> (%s).</p>
@@ -551,37 +554,38 @@ func buildAIInterviewInvitationEmail(candidateName, programName, trackName, inte
 	}
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple">AI Video Screening 🎥</span>
     <h2>You're Invited to the AI Video Interview</h2>
     <p>Dear <strong>%s</strong>,</p>
     <p>You have qualified for the next stage of the admissions process: the <strong>AI Technical Video Screening</strong> for <strong>%s</strong> (%s).</p>
 
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Candidate</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Program &amp; Track</span>
-        <span class="info-value">%s - %s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Format</span>
-        <span class="info-value">5 Video Prompts &bull; AI Evaluated</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Prep Countdown</span>
-        <span class="info-value">60 Seconds / Prompt</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Response Time</span>
-        <span class="info-value">90 Seconds / Prompt</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Room Access Deadline</span>
-        <span class="info-value">%s</span>
-      </div>
-    </div>
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Program &amp; Track</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s - %s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Format</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">5 Video Prompts &bull; AI Evaluated</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Prep Countdown</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">60 Seconds / Prompt</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Response Time</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">90 Seconds / Prompt</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Room Access Deadline</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">%s</td>
+        </tr>
+      </tbody>
+    </table>
 
     <div class="guidelines">
       <strong>Important Setup Checklist:</strong>
@@ -627,25 +631,26 @@ func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, d
 	}
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-emerald">Approved for Final Stage 🎉</span>
     <h2>Admissions Committee Approval</h2>
     <p>Dear <strong>%s</strong>,</p>
     <p>We are delighted to inform you that your AI video screening assessment and application for <strong>%s</strong> (%s) have been <strong>officially approved by the Admissions Committee</strong>!</p>
 
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Candidate</span>
-        <span class="info-value">%s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Program &amp; Track</span>
-        <span class="info-value">%s - %s</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Current Stage</span>
-        <span class="info-value" style="color: #047857;">Approved for Final Live Interview</span>
-      </div>
-    </div>
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Program &amp; Track</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s - %s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Current Stage</td>
+          <td style="padding: 12px 18px; color: #047857; font-size: 13px; font-weight: 700; text-align: right;">Approved for Final Live Interview</td>
+        </tr>
+      </tbody>
+    </table>
 
     %s
 
