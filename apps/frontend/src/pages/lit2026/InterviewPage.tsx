@@ -487,9 +487,9 @@ export const InterviewPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="max-w-3xl mx-auto w-full">
             {/* Live Camera Preview Card */}
-            <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl backdrop-blur-sm relative overflow-hidden">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl backdrop-blur-sm relative overflow-hidden">
               <div className="relative aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/80 flex items-center justify-center">
                 {stream ? (
                   <video
@@ -597,86 +597,22 @@ export const InterviewPage: React.FC = () => {
                   <span>Encrypted Peer Feed</span>
                 </div>
               </div>
-            </div>
 
-            {/* Program Details & Instructions Card */}
-            <div className="lg:col-span-5 space-y-5">
-              <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                <div className="border-b border-slate-800 pb-4">
-                  <span className="text-2xs font-extrabold uppercase text-purple-400 tracking-wider">
-                    Fellowship Assessment Stage
-                  </span>
-                  <h2 className="text-lg font-black text-white mt-1">{session.program_name}</h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Specialization Track: <span className="text-slate-200 font-semibold">{session.track_name || 'General Fellowship'}</span>
+              {/* Enter Interview Button */}
+              <div className="mt-6 pt-4 border-t border-slate-800">
+                <button
+                  onClick={handleEnterChamber}
+                  disabled={!stream}
+                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-purple-600/30 transition transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  <span>Enter AI Video Interview Room</span>
+                  <ArrowRight className="w-5 h-5 text-white" />
+                </button>
+                {!stream && (
+                  <p className="text-2xs text-rose-400 text-center mt-2 font-medium">
+                    Camera permission required to enter
                   </p>
-                </div>
-
-                <div className="space-y-3 text-xs text-slate-300">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                      1
-                    </div>
-                    <div>
-                      <div className="font-bold text-white">3 Video Technical Prompts</div>
-                      <div className="text-slate-400 text-2xs">
-                        You will be asked 3 structured engineering questions one by one.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                      2
-                    </div>
-                    <div>
-                      <div className="font-bold text-white">15s Preparation & 2min Response</div>
-                      <div className="text-slate-400 text-2xs">
-                        Collect your thoughts during prep, then speak clearly into your microphone.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                      3
-                    </div>
-                    <div>
-                      <div className="font-bold text-white">Review & Retake Freedom</div>
-                      <div className="text-slate-400 text-2xs">
-                        Watch your recorded answer before confirming. You can re-record if needed!
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                      4
-                    </div>
-                    <div>
-                      <div className="font-bold text-white">Stored for Review Committee</div>
-                      <div className="text-slate-400 text-2xs">
-                        Videos are securely saved into the database for reviewer evaluation.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    onClick={handleEnterChamber}
-                    disabled={!stream}
-                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-purple-600/30 transition transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span>Enter AI Video Interview Room</span>
-                    <ArrowRight className="w-5 h-5 text-white" />
-                  </button>
-                  {!stream && (
-                    <p className="text-2xs text-rose-400 text-center mt-2 font-medium">
-                      Camera permission required to enter
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
