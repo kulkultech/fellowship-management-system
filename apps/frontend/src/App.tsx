@@ -79,6 +79,8 @@ export function App() {
           <Route path="/admin/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/admin/dashboard" element={<DashboardPage />} />
+            <Route path="/admin/rubric" element={<DashboardPage defaultView="ai_rubric" />} />
+            <Route path="/admin/programs/:programSlug/rubric" element={<DashboardPage defaultView="ai_rubric" />} />
             <Route path="/superadmin/dashboard" element={<SuperadminDashboardPage />} />
           </Route>
 

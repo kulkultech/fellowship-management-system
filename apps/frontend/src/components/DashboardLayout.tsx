@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
-  Edit3,
 } from 'lucide-react';
 import { useAuthStore } from '@/hooks/useAuthStore';
 
@@ -74,7 +73,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   candidateEmail,
   onCandidateSignOut,
-  onEditProfile,
+  onEditProfile: _onEditProfile,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
@@ -415,38 +414,31 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {/* Bottom Section: Footer / Organization Context (Clickable to Edit Profile) */}
           <div className="p-4 border-t border-slate-100 bg-slate-50/70">
             {portalType === 'company_admin' && (
-              <button
-                type="button"
-                onClick={onEditProfile}
-                className="w-full flex items-center justify-between p-2.5 rounded-2xl hover:bg-white hover:shadow-xs border border-transparent hover:border-slate-200 transition text-left group"
-                title="Click to edit organization profile & logo"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs overflow-hidden border border-kulkul-purple/20">
-                    {companyLogoUrl ? (
-                      <img
-                        src={companyLogoUrl}
-                        alt={companyName || 'Company'}
-                        className="w-full h-full object-contain bg-white p-0.5"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <Building2 className="w-4 h-4 text-kulkul-orange" />
-                    )}
+              <div className="flex items-center gap-3 p-1">
+                <div className="w-9 h-9 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs overflow-hidden border border-kulkul-purple/20">
+                  {companyLogoUrl ? (
+                    <img
+                      src={companyLogoUrl}
+                      alt={companyName || 'Company'}
+                      className="w-full h-full object-contain bg-white p-0.5"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Building2 className="w-4 h-4 text-kulkul-orange" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-slate-900 truncate">
+                    {companyName || 'Host Organization'}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-kulkul-purple transition truncate">
-                      {companyName || 'Host Organization'}
-                    </div>
-                    <div className="text-2xs text-slate-400 font-mono truncate">
-                      Edit Profile & Logo
-                    </div>
+                  <div className="text-2xs text-emerald-600 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Workspace Active</span>
                   </div>
                 </div>
-                <Edit3 className="w-3.5 h-3.5 text-slate-400 group-hover:text-kulkul-purple transition shrink-0 ml-1" />
-              </button>
+              </div>
             )}
 
             {portalType === 'superadmin' && (
