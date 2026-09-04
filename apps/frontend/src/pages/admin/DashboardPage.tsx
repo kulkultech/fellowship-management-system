@@ -126,6 +126,7 @@ import {
   Building2,
   Video,
   Download,
+  PlusCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -143,7 +144,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
   {
     step_number: 3,
     title: 'Autonomous AI Technical Screening',
-    description: 'AI-driven dynamic technical screening evaluating system design, technical reasoning, and problem solving.',
+    description: 'Conversational AI bot evaluates technical depth and communication with live transcription & scoring.',
   },
   {
     step_number: 4,
@@ -153,7 +154,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
 ];
 
 export interface DashboardPageProps {
-  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric';
+  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program';
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
@@ -165,8 +166,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const isSuperadmin = user?.role === 'superadmin';
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -175,7 +176,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile'>('answers');
 
   // Modals & Sub-views
-  const [isCreateProgramModalOpen, setIsCreateProgramModalOpen] = useState(false);
   const [isCreateQuestionSetModalOpen, setIsCreateQuestionSetModalOpen] = useState(false);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [openedQuestionSetId, setOpenedQuestionSetId] = useState<string | null>(null);
@@ -535,7 +535,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setActiveProgramSlug(newProg.slug);
       setSelectedTrackFilter('');
       setCurrentView('pipeline');
-      setIsCreateProgramModalOpen(false);
       setNewProgSlug('');
       setNewProgName('');
       setNewProgDesc('');
@@ -921,6 +920,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const activeNavId =
     currentView === 'programs'
       ? 'programs'
+      : currentView === 'create_program'
+      ? 'launch-new-program-nav'
       : currentView === 'questions'
       ? 'questions'
       : currentView === 'stages'
@@ -1012,7 +1013,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           label: 'Launch New Program',
           icon: Plus,
           onClick: () => {
-            setIsCreateProgramModalOpen(true);
+            setCurrentView('create_program');
           },
         },
       ],
@@ -1120,7 +1121,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       {/* Create New Program Button */}
       <button
-        onClick={() => setIsCreateProgramModalOpen(true)}
+        onClick={() => setCurrentView('create_program')}
         className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
       >
         <Plus className="w-4 h-4 text-kulkul-orange" />
@@ -1135,6 +1136,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       title={
         currentView === 'programs'
           ? 'Programs'
+          : currentView === 'create_program'
+          ? 'Launch New Program'
           : currentView === 'questions'
           ? `${activeQuestionSet?.name || 'Assessment'} Question Bank`
           : currentView === 'stages'
@@ -1144,7 +1147,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           : program?.name || 'Candidate Pipeline'
       }
       subtitle={
-        currentView === 'questions'
+        currentView === 'create_program'
+          ? 'Set up a new fellowship or cohort with specialization tracks, screening modules, and candidate assessments.'
+          : currentView === 'questions'
           ? 'Configure timed domain multiple choice questions, passing score benchmarks, and scorecard explanations.'
           : currentView === 'stages'
           ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
@@ -1180,6 +1185,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <span className="text-xs font-bold px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
                     {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('create_program')}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-2xs transition"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
+                    <span>Launch New Program</span>
+                  </button>
                 </div>
               </div>
 
@@ -1191,7 +1204,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     Create your first fellowship program to host multiple specialization tracks and candidate assessments.
                   </p>
                   <button
-                    onClick={() => setIsCreateProgramModalOpen(true)}
+                    onClick={() => setCurrentView('create_program')}
                     className="px-5 py-2 rounded-full bg-kulkul-purple text-white text-xs font-bold"
                   >
                     Create First Program
@@ -2755,9 +2768,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <FileText className="w-4 h-4 text-kulkul-purple" />
                       <span>AI Video Prompts & Criteria ({rubricForm.questions?.length || 0} Questions)</span>
                     </h3>
-                    <p className="text-xs text-slate-500">
-                      Each prompt is delivered sequentially to the candidate, transcribed, and scored against itemized criteria.
-                    </p>
                   </div>
 
                   <button
@@ -2941,6 +2951,236 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         )}
 
         {/* ================================================================================= */}
+        {/* VIEW 7: LAUNCH NEW PROGRAM FULL PAGE VIEW */}
+        {/* ================================================================================= */}
+        {currentView === 'create_program' && (
+          <div className="space-y-6 animate-in fade-in duration-200 max-w-4xl">
+            {/* Top Navigation / Breadcrumb */}
+            <div className="flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => setCurrentView('programs')}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Programs</span>
+              </button>
+            </div>
+
+            {/* Main Form Card */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-8">
+              <div className="border-b border-slate-100 pb-5 flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200 shrink-0 shadow-2xs">
+                  <PlusCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    Launch New Program
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Configure cohort branding, public portal paths, and autonomous screening assessment pipelines.
+                  </p>
+                </div>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createProgramMutation.mutate({
+                    slug: newProgSlug.toLowerCase().trim(),
+                    name: newProgName.trim(),
+                    description: newProgDesc.trim(),
+                    image_url: newProgImage.trim(),
+                    enable_mcq: newProgEnableMCQ,
+                    enable_ai_interview: newProgEnableAI,
+                    logic_test_duration_minutes: newProgDuration,
+                    logic_test_passing_score: newProgPassingScore,
+                    allow_retake: false,
+                  });
+                }}
+                className="space-y-6"
+              >
+                {/* Section 1: Program Information */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    1. Program Information
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Program Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. AI Engineering Fellowship 2026"
+                        value={newProgName}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setNewProgName(name);
+                          if (
+                            !newProgSlug ||
+                            newProgSlug ===
+                              newProgName
+                                .toLowerCase()
+                                .replace(/[^a-z0-9-]/g, '')
+                                .replace(/\s+/g, '-')
+                          ) {
+                            setNewProgSlug(
+                              name
+                                .toLowerCase()
+                                .replace(/[^a-z0-9\s-]/g, '')
+                                .replace(/\s+/g, '-')
+                            );
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        URL Slug <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. ai-2026"
+                        value={newProgSlug}
+                        onChange={(e) =>
+                          setNewProgSlug(
+                            e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9-]/g, '')
+                              .replace(/\s+/g, '-')
+                          )
+                        }
+                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      />
+                      <p className="text-2xs text-slate-400 mt-1 font-mono">
+                        Public candidate URL: /programs/{orgSlug}/{newProgSlug || 'slug'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Description
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Overview of the program, requirements, and cohort dates..."
+                      value={newProgDesc}
+                      onChange={(e) => setNewProgDesc(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Cover Banner Image URL
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://images.unsplash.com/..."
+                      value={newProgImage}
+                      onChange={(e) => setNewProgImage(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    />
+                  </div>
+                </div>
+
+                {/* Section 2: Screening Pipeline Modules */}
+                <div className="space-y-4 p-6 rounded-2xl bg-slate-50 border border-slate-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    2. Screening Pipeline Modules
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-slate-200">
+                      <input
+                        type="checkbox"
+                        id="pageMcqToggle"
+                        checked={newProgEnableMCQ}
+                        onChange={(e) => setNewProgEnableMCQ(e.target.checked)}
+                        className="w-4 h-4 text-kulkul-purple rounded"
+                      />
+                      <label htmlFor="pageMcqToggle" className="text-xs font-bold text-slate-700 cursor-pointer">
+                        Enable Timed MCQ Logic Test
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-slate-200">
+                      <input
+                        type="checkbox"
+                        id="pageAiToggle"
+                        checked={newProgEnableAI}
+                        onChange={(e) => setNewProgEnableAI(e.target.checked)}
+                        className="w-4 h-4 text-kulkul-orange rounded"
+                      />
+                      <label htmlFor="pageAiToggle" className="text-xs font-bold text-slate-700 cursor-pointer">
+                        Enable AI Video Interview
+                      </label>
+                    </div>
+                  </div>
+
+                  {newProgEnableMCQ && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                          MCQ Duration (Minutes)
+                        </label>
+                        <input
+                          type="number"
+                          min={5}
+                          max={180}
+                          value={newProgDuration}
+                          onChange={(e) => setNewProgDuration(parseInt(e.target.value) || 30)}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                          Passing Score Benchmark (%)
+                        </label>
+                        <input
+                          type="number"
+                          min={10}
+                          max={100}
+                          value={newProgPassingScore}
+                          onChange={(e) => setNewProgPassingScore(parseInt(e.target.value) || 70)}
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons Footer */}
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('programs')}
+                    className="px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createProgramMutation.isPending}
+                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4 text-kulkul-orange" />
+                    <span>{createProgramMutation.isPending ? 'Launching Program...' : 'Launch Program'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================================= */}
         {/* MODAL 3: CREATE NEW QUESTION SET MODAL */}
         {/* ================================================================================= */}
         {isCreateQuestionSetModalOpen && (
@@ -3062,196 +3302,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           </div>
         )}
 
-        {/* ================================================================================= */}
-        {/* MODAL 3: CREATE NEW PROGRAM MODAL */}
-        {/* ================================================================================= */}
-        {isCreateProgramModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <Plus className="w-5 h-5 text-kulkul-purple" />
-                  <h2 className="text-lg font-extrabold text-slate-900">Launch New Program</h2>
-                </div>
-                <button
-                  onClick={() => setIsCreateProgramModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  createProgramMutation.mutate({
-                    slug: newProgSlug.toLowerCase().trim(),
-                    name: newProgName.trim(),
-                    description: newProgDesc.trim(),
-                    image_url: newProgImage.trim(),
-                    enable_mcq: newProgEnableMCQ,
-                    enable_ai_interview: newProgEnableAI,
-                    logic_test_duration_minutes: newProgDuration,
-                    logic_test_passing_score: newProgPassingScore,
-                    allow_retake: false,
-                  });
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Program Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. AI Engineering Fellowship 2026"
-                    value={newProgName}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      setNewProgName(name);
-                      if (!newProgSlug || newProgSlug === newProgName.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/\s+/g, '-')) {
-                        setNewProgSlug(
-                          name
-                            .toLowerCase()
-                            .replace(/[^a-z0-9\s-]/g, '')
-                            .replace(/\s+/g, '-')
-                        );
-                      }
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    URL Slug <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. ai-2026"
-                    value={newProgSlug}
-                    onChange={(e) =>
-                      setNewProgSlug(
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]/g, '')
-                          .replace(/\s+/g, '-')
-                      )
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                  <p className="text-2xs text-slate-400 mt-1 font-mono">
-                    Public candidate URL: /programs/{orgSlug}/{newProgSlug || 'slug'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Overview of the program, requirements, and cohort dates..."
-                    value={newProgDesc}
-                    onChange={(e) => setNewProgDesc(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Cover Banner Image URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://images.unsplash.com/..."
-                    value={newProgImage}
-                    onChange={(e) => setNewProgImage(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      id="mcqToggle"
-                      checked={newProgEnableMCQ}
-                      onChange={(e) => setNewProgEnableMCQ(e.target.checked)}
-                      className="w-4 h-4 text-kulkul-purple rounded"
-                    />
-                    <label htmlFor="mcqToggle" className="text-xs font-bold text-slate-700 cursor-pointer">
-                      Enable MCQ Test
-                    </label>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      id="aiToggle"
-                      checked={newProgEnableAI}
-                      onChange={(e) => setNewProgEnableAI(e.target.checked)}
-                      className="w-4 h-4 text-kulkul-orange rounded"
-                    />
-                    <label htmlFor="aiToggle" className="text-xs font-bold text-slate-700 cursor-pointer">
-                      Enable AI Interview
-                    </label>
-                  </div>
-                </div>
-
-                {newProgEnableMCQ && (
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                        MCQ Duration (Mins)
-                      </label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={180}
-                        value={newProgDuration}
-                        onChange={(e) => setNewProgDuration(parseInt(e.target.value) || 30)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                        Passing Score (%)
-                      </label>
-                      <input
-                        type="number"
-                        min={10}
-                        max={100}
-                        value={newProgPassingScore}
-                        onChange={(e) => setNewProgPassingScore(parseInt(e.target.value) || 70)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-4 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreateProgramModalOpen(false)}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createProgramMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
-                  >
-                    {createProgramMutation.isPending ? <span>Creating...</span> : <span>Create Program</span>}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
 
         {selectedApplicantId && (
