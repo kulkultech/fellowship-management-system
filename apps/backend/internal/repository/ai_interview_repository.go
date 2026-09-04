@@ -250,3 +250,41 @@ func (r *AIInterviewRepository) UpdateSession(
 	}
 	return nil
 }
+
+func (r *AIInterviewRepository) UpdateRecording(
+	ctx context.Context,
+	id uuid.UUID,
+	recordingURL string,
+	recordingStatus string,
+) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, ai := range r.memInterviews {
+			if ai.ID == id {
+				ai.RecordingURL = recordingURL
+				ai.RecordingStatus = recordingStatus
+				ai.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrAIInterviewNotFound
+	}
+
+	query := `
+		UPDATE ai_interviews
+		SET recording_url = $2,
+			recording_status = $3,
+			updated_at = now()
+		WHERE id = $1
+	`
+	tag, err := r.pool.Exec(ctx, query, id, recordingURL, recordingStatus)
+	if err != nil {
+		return fmt.Errorf("ai_interview_repo: update recording: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrAIInterviewNotFound
+	}
+	return nil
+}
+

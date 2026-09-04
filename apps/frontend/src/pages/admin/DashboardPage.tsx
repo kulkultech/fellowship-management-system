@@ -32,6 +32,8 @@ import {
   Save,
   ShieldCheck,
   Building2,
+  Video,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -2773,6 +2775,64 @@ export const DashboardPage: React.FC = () => {
                 ) : activeDrawerTab === 'ai' ? (
                   applicantDetail?.ai_screen ? (
                     <div className="space-y-6">
+                      {/* Video Recording Inspection Player */}
+                      <div className="stitch-card bg-slate-900 border border-slate-800 p-4 rounded-2xl overflow-hidden shadow-lg text-white space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                          <div className="flex items-center gap-2">
+                            <Video className="w-4 h-4 text-purple-400" />
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">
+                              Candidate Video Assessment Recording
+                            </span>
+                          </div>
+                          {applicantDetail.ai_screen.recording_url ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-3xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              Stored in Database
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-3xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                              Recording Pending
+                            </span>
+                          )}
+                        </div>
+
+                        {applicantDetail.ai_screen.recording_url ? (
+                          <div className="space-y-3">
+                            <div className="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800">
+                              <video
+                                src={applicantDetail.ai_screen.recording_url}
+                                controls
+                                playsInline
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-2xs text-slate-400 pt-1">
+                              <span>Playback Speed: 1.0x (controls available in player)</span>
+                              <a
+                                href={applicantDetail.ai_screen.recording_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                download
+                                className="inline-flex items-center gap-1.5 text-purple-400 hover:text-purple-300 font-semibold"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download Recording</span>
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="aspect-video bg-slate-950/80 rounded-xl border border-slate-800/80 flex flex-col items-center justify-center p-6 text-center text-slate-500">
+                            <Video className="w-10 h-10 mb-2 text-slate-600" />
+                            <p className="text-xs font-semibold text-slate-400">
+                              No video recording uploaded yet
+                            </p>
+                            <p className="text-3xs text-slate-500 mt-1 max-w-xs">
+                              Video response captures will appear here once the candidate records and completes their AI interview session.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
                       {applicantDetail.ai_screen.summary_evaluation && (
                         <div className="stitch-card bg-purple-50/50 p-5 border border-purple-200 space-y-3">
                           <div className="flex items-center justify-between">
@@ -2786,6 +2846,28 @@ export const DashboardPage: React.FC = () => {
                           <p className="text-xs text-purple-950 leading-relaxed font-medium">
                             {applicantDetail.ai_screen.summary_evaluation.executive_summary}
                           </p>
+
+                          {/* Metric breakdown */}
+                          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-purple-100 text-2xs">
+                            <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
+                              <span className="text-slate-400 block font-bold uppercase">Technical</span>
+                              <span className="text-sm font-black text-purple-900">
+                                {applicantDetail.ai_screen.summary_evaluation.technical_acumen}/10
+                              </span>
+                            </div>
+                            <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
+                              <span className="text-slate-400 block font-bold uppercase">Communication</span>
+                              <span className="text-sm font-black text-purple-900">
+                                {applicantDetail.ai_screen.summary_evaluation.communication}/10
+                              </span>
+                            </div>
+                            <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
+                              <span className="text-slate-400 block font-bold uppercase">Problem Solving</span>
+                              <span className="text-sm font-black text-purple-900">
+                                {applicantDetail.ai_screen.summary_evaluation.problem_solving}/10
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       )}
 

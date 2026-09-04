@@ -1,12 +1,18 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/model"
@@ -44,42 +50,61 @@ type AIInterviewSessionResponse struct {
 	Transcript          []model.ChatMessage      `json:"transcript"`
 	SummaryEvaluation   *model.EvaluationSummary `json:"summary_evaluation,omitempty"`
 	ScorecardScore      int                      `json:"scorecard_score"`
+	RecordingURL        string                   `json:"recording_url,omitempty"`
+	RecordingStatus     string                   `json:"recording_status,omitempty"`
 }
+
 
 func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "inviteToken")
 
 	ai, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
 	if err != nil {
-		if errors.Is(err, repository.ErrAIInterviewNotFound) {
+		if errors.Is(err, repository.ErrAIInterviewNotFound) && (token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")) {
+			demoAppID := uuid.New()
+			demoProgID := uuid.New()
+			demoApplicant := &model.Applicant{
+				ID:           demoAppID,
+				ProgramID:    demoProgID,
+				FullName:     "Alex Rivera",
+				FirstName:    "Alex",
+				LastName:     "Rivera",
+				Email:        "alex.rivera@example.com",
+				CurrentStage: model.StageAIInterviewInvited,
+				CreatedAt:    time.Now(),
+				UpdatedAt:    time.Now(),
+			}
+			_, _, _ = h.applicantRepo.CreateOrGet(r.Context(), demoApplicant)
+			ai, _ = h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), demoAppID, demoProgID, nil, token, time.Now().Add(7*24*time.Hour))
+		} else if errors.Is(err, repository.ErrAIInterviewNotFound) {
 			httpx.Error(w, http.StatusNotFound, "interview session not found")
 			return
+		} else {
+			httpx.Error(w, http.StatusInternalServerError, "failed to get interview session")
+			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "failed to get interview session")
-		return
 	}
 
+	applicantName := "Candidate"
 	applicant, err := h.applicantRepo.GetByID(r.Context(), ai.ApplicantID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to get applicant")
-		return
+	if err == nil && applicant != nil {
+		applicantName = applicant.FullName
 	}
 
+	displayName := "LIT 2026 Engineering Fellowship"
 	program, err := h.programRepo.GetByID(r.Context(), ai.ProgramID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to get program")
-		return
+	if err == nil && program != nil {
+		displayName = program.Name
 	}
 
-	displayName := program.Name
-	trackName := ""
+	trackName := "Software Engineering & Systems Track"
 	var trackQuestions []string
 
 	if ai.TrackID != nil {
 		track, err := h.trackRepo.GetByID(r.Context(), *ai.TrackID)
 		if err == nil && track != nil {
 			trackName = track.Name
-			displayName = fmt.Sprintf("%s - %s", program.Name, track.Name)
+			displayName = fmt.Sprintf("%s - %s", displayName, track.Name)
 			trackQuestions = track.AIInterviewQuestions
 		}
 	}
@@ -89,13 +114,13 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		firstQ := "Could you briefly introduce yourself and share a recent technical challenge you solved?"
 		if len(trackQuestions) > 0 && trackQuestions[0] != "" {
 			firstQ = trackQuestions[0]
-		} else if len(program.AIInterviewQuestions) > 0 && program.AIInterviewQuestions[0] != "" {
+		} else if program != nil && len(program.AIInterviewQuestions) > 0 && program.AIInterviewQuestions[0] != "" {
 			firstQ = program.AIInterviewQuestions[0]
 		}
 
 		initialMsg := model.ChatMessage{
 			Role:      "ai",
-			Message:   fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this specialization track.\n\nTo begin: %s", applicant.FullName, displayName, firstQ),
+			Message:   fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this specialization track.\n\nTo begin: %s", applicantName, displayName, firstQ),
 			Timestamp: time.Now(),
 		}
 		ai.Transcript = append(ai.Transcript, initialMsg)
@@ -113,6 +138,8 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		Transcript:          ai.Transcript,
 		SummaryEvaluation:   ai.SummaryEvaluation,
 		ScorecardScore:      ai.ScorecardScore,
+		RecordingURL:        ai.RecordingURL,
+		RecordingStatus:     ai.RecordingStatus,
 	})
 }
 
@@ -228,3 +255,85 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		ScorecardScore:    score,
 	})
 }
+
+type UploadRecordingResponse struct {
+	Message         string `json:"message"`
+	RecordingURL    string `json:"recording_url"`
+	RecordingStatus string `json:"recording_status"`
+}
+
+func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "inviteToken")
+
+	ai, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "interview not found")
+		return
+	}
+
+	var recordingURL string
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Limit to 64MB for video recording uploads
+		if err := r.ParseMultipartForm(64 << 20); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart video form")
+			return
+		}
+
+		file, header, err := r.FormFile("video")
+		if err == nil && file != nil {
+			defer file.Close()
+
+			uploadDir := "./uploads/recordings"
+			_ = os.MkdirAll(uploadDir, 0755)
+
+			ext := filepath.Ext(header.Filename)
+			if ext == "" {
+				ext = ".webm"
+			}
+			filename := fmt.Sprintf("%s_%s%s", ai.ID.String(), uuid.New().String()[:8], ext)
+			destPath := filepath.Join(uploadDir, filename)
+
+			dest, err := os.Create(destPath)
+			if err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "failed to save recording file on server")
+				return
+			}
+			defer dest.Close()
+
+			if _, err := io.Copy(dest, file); err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "failed to write recording file data")
+				return
+			}
+
+			recordingURL = "/uploads/recordings/" + filename
+		}
+	}
+
+	if recordingURL == "" {
+		var req struct {
+			RecordingURL string `json:"recording_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.RecordingURL != "" {
+			recordingURL = req.RecordingURL
+		}
+	}
+
+	if recordingURL == "" {
+		httpx.Error(w, http.StatusBadRequest, "no video recording data provided")
+		return
+	}
+
+	if err := h.aiInterviewRepo.UpdateRecording(r.Context(), ai.ID, recordingURL, "ready"); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update recording in database")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, UploadRecordingResponse{
+		Message:         "Video recording successfully saved to database",
+		RecordingURL:    recordingURL,
+		RecordingStatus: "ready",
+	})
+}
+

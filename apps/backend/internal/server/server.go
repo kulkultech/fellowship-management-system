@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -89,6 +90,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		})
 	}
 
+	workDir, _ := os.Getwd()
+	uploadsDir := filepath.Join(workDir, "uploads")
+	_ = os.MkdirAll(uploadsDir, 0755)
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadsDir))))
+
 	r.Route("/api/v1", func(api chi.Router) {
 		// Health & Probes
 		api.Route("/health", func(h chi.Router) {
@@ -129,7 +135,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		api.Route("/interviews", func(ai chi.Router) {
 			ai.Get("/{inviteToken}", aiInterviewHandler.GetSession)
 			ai.Post("/{inviteToken}/message", aiInterviewHandler.SendMessage)
+			ai.Post("/{inviteToken}/recording", aiInterviewHandler.UploadRecording)
 		})
+
 
 		// Protected Reviewer / Admin / Superadmin / Candidate Routes
 		api.Group(func(protected chi.Router) {

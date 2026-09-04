@@ -234,6 +234,8 @@ export interface AIInterviewSession {
   transcript: ChatMessage[];
   summary_evaluation?: EvaluationSummary;
   scorecard_score: number;
+  recording_url?: string;
+  recording_status?: string;
 }
 
 export interface User {
