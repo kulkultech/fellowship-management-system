@@ -232,21 +232,14 @@ export const SuperadminDashboardPage: React.FC = () => {
             ) : (
               <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
-                    <colgroup>
-                      <col className="w-[30%]" />
-                      <col className="w-[25%]" />
-                      <col className="w-[18%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[15%]" />
-                    </colgroup>
+                  <table className="w-full text-left border-collapse min-w-[900px]">
                     <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                       <tr>
                         <th className="py-3.5 px-6 font-bold">Company</th>
-                        <th className="py-3.5 px-6 font-bold">Contact Email</th>
-                        <th className="py-3.5 px-6 font-bold">Registered</th>
-                        <th className="py-3.5 px-6 font-bold">Status</th>
-                        <th className="py-3.5 px-6 font-bold text-right">Actions</th>
+                        <th className="py-3.5 px-6 font-bold whitespace-nowrap">Contact Email</th>
+                        <th className="py-3.5 px-6 font-bold whitespace-nowrap">Registered</th>
+                        <th className="py-3.5 px-6 font-bold whitespace-nowrap">Status</th>
+                        <th className="py-3.5 px-6 font-bold text-right whitespace-nowrap">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -372,21 +365,14 @@ export const SuperadminDashboardPage: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
-                  <colgroup>
-                    <col className="w-[35%]" />
-                    <col className="w-[25%]" />
-                    <col className="w-[15%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[13%]" />
-                  </colgroup>
+                <table className="w-full text-left border-collapse min-w-[960px]">
                   <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                     <tr>
                       <th className="py-3.5 px-6 font-bold">Program Details</th>
-                      <th className="py-3.5 px-6 font-bold">Cohort Window</th>
-                      <th className="py-3.5 px-6 font-bold">Tracks</th>
-                      <th className="py-3.5 px-6 font-bold">Status</th>
-                      <th className="py-3.5 px-6 font-bold text-right">Actions</th>
+                      <th className="py-3.5 px-6 font-bold whitespace-nowrap">Cohort Window</th>
+                      <th className="py-3.5 px-6 font-bold whitespace-nowrap">Tracks</th>
+                      <th className="py-3.5 px-6 font-bold whitespace-nowrap">Status</th>
+                      <th className="py-3.5 px-6 font-bold text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
@@ -442,17 +428,17 @@ export const SuperadminDashboardPage: React.FC = () => {
                           </td>
 
                           <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                               <span>Admissions Open</span>
                             </span>
                           </td>
 
                           <td className="py-4 px-6 align-middle text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2 shrink-0">
                               <Link
                                 to="/admin/dashboard"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition text-xs font-bold shadow-2xs"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition text-xs font-bold shadow-2xs shrink-0"
                               >
                                 <Building2 className="w-3 h-3" />
                                 <span>Review Workspace</span>
@@ -461,7 +447,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                 href={`/programs/rsa/${prog.slug}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition text-xs font-bold"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition text-xs font-bold shrink-0"
                               >
                                 <span>Public Link</span>
                                 <ExternalLink className="w-3 h-3" />
