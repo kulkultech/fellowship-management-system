@@ -71,6 +71,8 @@ temp/
 *~
 *.xlsx
 *.csv
+*.pdf
+Workflow.pdf
 
 # ── IDEs & Editors ──────────────────────────────────────
 .idea/
