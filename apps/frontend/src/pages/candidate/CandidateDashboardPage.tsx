@@ -202,13 +202,6 @@ export const CandidateDashboardPage: React.FC = () => {
       navItems={navItems}
       activeNavId={activeTab}
       onNavChange={(id) => setActiveTab(id as any)}
-      headerActions={
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            {applications.filter((a) => a.test_passed).length} Passed Assessments
-          </span>
-        </div>
-      }
     >
       <div className="space-y-8">
           {/* ========================================================================= */}
@@ -443,9 +436,6 @@ export const CandidateDashboardPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
                 <div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">
-                    Open for Admissions
-                  </span>
                   <h3 className="text-lg font-bold text-slate-900">Fullstack Software Engineering Track</h3>
                   <p className="text-xs text-slate-600 mt-1">
                     Master modern JavaScript DOM, HTML5/CSS, Java OOP, and scalable REST API architectures.
@@ -462,9 +452,6 @@ export const CandidateDashboardPage: React.FC = () => {
 
               <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
                 <div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 mb-2">
-                    Open for Admissions
-                  </span>
                   <h3 className="text-lg font-bold text-slate-900">QA & Test Automation Track</h3>
                   <p className="text-xs text-slate-600 mt-1">
                     Automated testing pipelines with Cypress, Postman API suites, and regression testing workflows.
