@@ -144,6 +144,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			ai.Get("/{inviteToken}", aiInterviewHandler.GetSession)
 			ai.Post("/{inviteToken}/message", aiInterviewHandler.SendMessage)
 			ai.Post("/{inviteToken}/recording", aiInterviewHandler.UploadRecording)
+			ai.Post("/{inviteToken}/reset", aiInterviewHandler.ResetSession)
 		})
 
 

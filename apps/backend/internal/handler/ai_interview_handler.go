@@ -61,36 +61,77 @@ type AIInterviewSessionResponse struct {
 
 func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "inviteToken")
+	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
+	shouldReset := r.URL.Query().Get("reset") == "true" || r.URL.Query().Get("reset") == "1"
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
-	if (r.URL.Query().Get("reset") == "true" || r.URL.Query().Get("reset") == "1") && (token == "demo" || strings.HasPrefix(token, "demo-")) {
-		if aiSession != nil {
-			aiSession.Transcript = []model.ChatMessage{}
-			aiSession.Status = model.AIInterviewInvited
-			aiSession.SummaryEvaluation = nil
-			aiSession.ScorecardScore = 0
-			aiSession.RecordingURL = ""
-			aiSession.RecordingStatus = "pending"
-			_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInvited)
-		}
+	if isDemo && shouldReset && aiSession != nil {
+		aiSession.Transcript = []model.ChatMessage{}
+		aiSession.Status = model.AIInterviewInvited
+		aiSession.SummaryEvaluation = nil
+		aiSession.ScorecardScore = 0
+		aiSession.RecordingURL = ""
+		aiSession.RecordingStatus = "pending"
+		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInvited)
 	}
-	if err != nil {
-		if errors.Is(err, repository.ErrAIInterviewNotFound) && (token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")) {
-			demoAppID := uuid.New()
-			demoProgID := uuid.New()
-			demoApplicant := &model.Applicant{
-				ID:           demoAppID,
-				ProgramID:    demoProgID,
-				FullName:     "Alex Rivera",
-				FirstName:    "Alex",
-				LastName:     "Rivera",
-				Email:        "alex.rivera@example.com",
-				CurrentStage: model.StageAIInterviewInvited,
-				CreatedAt:    time.Now(),
-				UpdatedAt:    time.Now(),
+
+	if err != nil || aiSession == nil {
+		if isDemo {
+			// Find existing program and org for demo
+			var demoOrgID uuid.UUID
+			var demoProgID uuid.UUID
+			var demoTrackID *uuid.UUID
+
+			if p, _, err := h.programRepo.GetByOrgSlugAndProgramSlug(r.Context(), "rsa", "lit2026"); err == nil && p != nil {
+				demoOrgID = p.OrganizationID
+				demoProgID = p.ID
+			} else if p, err := h.programRepo.GetByID(r.Context(), uuid.MustParse("00000000-0000-0000-0000-000000000003")); err == nil && p != nil {
+				demoOrgID = p.OrganizationID
+				demoProgID = p.ID
 			}
-			_, _, _ = h.applicantRepo.CreateOrGet(r.Context(), demoApplicant)
-			aiSession, _ = h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), demoAppID, demoProgID, nil, token, time.Now().Add(7*24*time.Hour))
+			if demoOrgID == uuid.Nil {
+				demoOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+			}
+			if demoProgID == uuid.Nil {
+				demoProgID = uuid.MustParse("00000000-0000-0000-0000-000000000003")
+			}
+
+			demoAppID := uuid.MustParse("00000000-0000-0000-0000-000000000099")
+			demoApplicant := &model.Applicant{
+				ID:             demoAppID,
+				OrganizationID: demoOrgID,
+				ProgramID:      demoProgID,
+				TrackID:        demoTrackID,
+				FullName:       "KulKul Demo Reviewer",
+				FirstName:      "KulKul",
+				LastName:       "Reviewer",
+				Email:          "demo-reviewer@kulkul.tech",
+				CurrentStage:   model.StageAIInterviewInvited,
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			}
+			app, _, _ := h.applicantRepo.CreateOrGet(r.Context(), demoApplicant)
+			if app != nil {
+				demoAppID = app.ID
+			}
+
+			aiSession, _ = h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), demoAppID, demoProgID, demoTrackID, token, time.Now().Add(365*24*time.Hour))
+			if aiSession == nil {
+				aiSession = &model.AIInterview{
+					ID:                  uuid.New(),
+					ApplicantID:         demoAppID,
+					ProgramID:           demoProgID,
+					TrackID:             demoTrackID,
+					InvitationToken:     token,
+					InvitationExpiresAt: time.Now().Add(365 * 24 * time.Hour),
+					Status:              model.AIInterviewInvited,
+					Transcript:          []model.ChatMessage{},
+					ScorecardScore:      0,
+					RecordingStatus:     "pending",
+					CreatedAt:           time.Now(),
+					UpdatedAt:           time.Now(),
+				}
+			}
 		} else if errors.Is(err, repository.ErrAIInterviewNotFound) {
 			httpx.Error(w, http.StatusNotFound, "interview session not found")
 			return
@@ -100,10 +141,12 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	applicantName := "Candidate"
-	applicant, err := h.applicantRepo.GetByID(r.Context(), aiSession.ApplicantID)
-	if err == nil && applicant != nil {
-		applicantName = applicant.FullName
+	applicantName := "KulKul Reviewer"
+	if aiSession.ApplicantID != uuid.Nil {
+		applicant, err := h.applicantRepo.GetByID(r.Context(), aiSession.ApplicantID)
+		if err == nil && applicant != nil && applicant.FullName != "" {
+			applicantName = applicant.FullName
+		}
 	}
 
 	displayName := "LIT 2026 Engineering Fellowship"
@@ -384,3 +427,28 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		RecordingStatus: "ready",
 	})
 }
+
+func (h *AIInterviewHandler) ResetSession(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "inviteToken")
+
+	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
+	if !isDemo {
+		httpx.Error(w, http.StatusForbidden, "only demo sessions can be reset")
+		return
+	}
+
+	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
+	if err == nil && aiSession != nil {
+		aiSession.Transcript = []model.ChatMessage{}
+		aiSession.Status = model.AIInterviewInvited
+		aiSession.SummaryEvaluation = nil
+		aiSession.ScorecardScore = 0
+		aiSession.RecordingURL = ""
+		aiSession.RecordingStatus = "pending"
+		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInvited)
+	}
+
+	// Return refreshed session state
+	h.GetSession(w, r)
+}
+

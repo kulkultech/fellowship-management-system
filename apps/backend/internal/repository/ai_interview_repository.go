@@ -69,14 +69,14 @@ func (r *AIInterviewRepository) CreateInvitationWithTrack(
 
 	query := `
 		INSERT INTO ai_interviews (
-			applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
+			applicant_id, program_id, track_id, invite_token, invitation_token, invitation_expires_at,
 			transcript, scorecard_score, recording_status, status,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, '[]'::jsonb, 0, 'pending', 'invited', now(), now())
+		) VALUES ($1, $2, $3, $4, $4, $5, '[]'::jsonb, 0, 'pending', 'invited', now(), now())
 		ON CONFLICT (invitation_token) DO UPDATE SET
 			invitation_expires_at = EXCLUDED.invitation_expires_at,
 			updated_at = now()
-		RETURNING id, applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
+		RETURNING id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), invitation_expires_at,
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
 			recording_status, recording_url, status, created_at, updated_at
 	`
@@ -107,11 +107,13 @@ func (r *AIInterviewRepository) GetByToken(ctx context.Context, token string) (*
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
+		SELECT id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), invitation_expires_at,
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
 			recording_status, recording_url, status, created_at, updated_at
 		FROM ai_interviews
-		WHERE invitation_token = $1
+		WHERE invitation_token = $1 OR invite_token = $1
+		ORDER BY created_at DESC
+		LIMIT 1
 	`
 	var ai model.AIInterview
 	var rawTranscript []byte

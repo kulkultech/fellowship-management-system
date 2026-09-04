@@ -200,15 +200,41 @@ export const InterviewPage: React.FC = () => {
     ];
   }, [rubric]);
 
+  const isDemo = inviteToken === 'demo' || inviteToken === 'demo-interview-token' || inviteToken?.startsWith('demo-');
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetDemo = async () => {
+    if (!inviteToken) return;
+    setIsResetting(true);
+    try {
+      await aiInterviewService.resetSession(inviteToken);
+      await queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
+      setCurrentQIndex(0);
+      setInterviewPhase('prep');
+      setPrepCountdown(prepBufferSeconds);
+      setRecordingSeconds(0);
+      setQuestionRecordings({});
+      setTranscripts({});
+      setEvaluationResult(null);
+      setFinalVideoUrl(null);
+      setUiStage('lobby');
+      toast.success('Demo session reset! Ready for a fresh interview run.');
+    } catch (err) {
+      toast.error('Failed to reset demo session.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   // Sync completed state if session in backend is already completed
   useEffect(() => {
-    if (session?.status === 'completed') {
+    if (session?.status === 'completed' && !isResetting) {
       setUiStage('completed');
       if (session.recording_url) {
         setFinalVideoUrl(session.recording_url);
       }
     }
-  }, [session?.status, session?.recording_url]);
+  }, [session?.status, session?.recording_url, isResetting]);
 
   // Request media devices on mount
   const startCamera = async () => {
@@ -471,7 +497,7 @@ export const InterviewPage: React.FC = () => {
   // Stop Recording Answer
   const stopRecordingAnswer = () => {
     stopSpeechRecognition();
-    if (!stream && inviteToken === 'demo') {
+    if (!stream && isDemo) {
       const demoBlob = new Blob(['demo video recording'], { type: 'video/webm' });
       setQuestionRecordings((prev) => ({
         ...prev,
@@ -578,9 +604,8 @@ export const InterviewPage: React.FC = () => {
   };
 
   // Enter Chamber from Lobby
-  // Enter Chamber from Lobby
   const handleEnterChamber = () => {
-    if (!stream && inviteToken !== 'demo') {
+    if (!stream && !isDemo) {
       toast.error('Please enable camera and microphone permissions first.');
       return;
     }
@@ -643,6 +668,23 @@ export const InterviewPage: React.FC = () => {
           </div>
 
           <div className="max-w-3xl mx-auto w-full">
+            {isDemo && (
+              <div className="mb-4 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-between gap-3 text-xs shadow-2xs">
+                <div className="flex items-center gap-2.5 text-kulkul-purple font-bold">
+                  <Sparkles className="w-4 h-4 text-kulkul-purple shrink-0" />
+                  <span>KulKul Team AI Interview Demo Room</span>
+                </div>
+                <button
+                  onClick={handleResetDemo}
+                  disabled={isResetting}
+                  className="px-3.5 py-1.5 rounded-full bg-white border border-purple-200 text-2xs font-bold text-slate-700 hover:text-kulkul-purple flex items-center gap-1.5 transition shadow-2xs"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isResetting ? 'animate-spin' : ''}`} />
+                  <span>Reset Demo Progress</span>
+                </button>
+              </div>
+            )}
+
             {/* Live Camera Preview Card */}
             <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs relative overflow-hidden space-y-6">
               <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
@@ -759,15 +801,20 @@ export const InterviewPage: React.FC = () => {
               <div className="pt-4 border-t border-slate-100">
                 <button
                   onClick={handleEnterChamber}
-                  disabled={!stream && inviteToken !== 'demo'}
+                  disabled={!stream && !isDemo}
                   className="w-full py-3.5 px-6 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
                   <span>Enter AI Video Interview Room</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                {!stream && inviteToken !== 'demo' && (
+                {!stream && !isDemo && (
                   <p className="text-2xs text-rose-500 text-center mt-2 font-medium">
                     Camera permission required to enter
+                  </p>
+                )}
+                {!stream && isDemo && (
+                  <p className="text-2xs text-purple-600 text-center mt-2 font-medium">
+                    Demo Mode active: Camera check can be skipped to test the interview flow.
                   </p>
                 )}
               </div>
@@ -1136,6 +1183,26 @@ export const InterviewPage: React.FC = () => {
               <p className="text-sm text-slate-600 max-w-xl mx-auto mt-2">
                 Thank you, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Your technical responses have been encrypted, verified, and saved to the review database for the fellowship admissions committee.
               </p>
+
+              {isDemo && (
+                <div className="max-w-xl mx-auto mt-4 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-left shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="w-5 h-5 text-kulkul-purple shrink-0" />
+                    <p className="text-xs text-slate-700 font-medium">
+                      <span className="font-bold text-slate-900 block">KulKul Interactive Demo Completed</span>
+                      You can reset and test the interview chamber again anytime.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleResetDemo}
+                    disabled={isResetting}
+                    className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
+                    <span>Restart Demo</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Recorded Video Playback Player */}
@@ -1377,6 +1444,16 @@ export const InterviewPage: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+              {isDemo && (
+                <button
+                  onClick={handleResetDemo}
+                  disabled={isResetting}
+                  className="w-full sm:w-auto px-8 py-3.5 bg-kulkul-orange hover:bg-kulkul-orange-hover text-white font-bold rounded-full transition shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isResetting ? 'animate-spin' : ''}`} />
+                  <span>{isResetting ? 'Resetting...' : 'Restart Demo & Try Again'}</span>
+                </button>
+              )}
               <button
                 onClick={() => navigate('/candidate/dashboard')}
                 className="w-full sm:w-auto px-8 py-3.5 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full transition shadow-sm hover:shadow active:scale-[0.98]"

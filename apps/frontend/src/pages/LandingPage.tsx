@@ -4,6 +4,8 @@ import {
   CheckCircle2,
   Terminal,
   Sliders,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -39,13 +41,20 @@ export const LandingPage: React.FC = () => {
             <p className="block mt-1">Deliver instant reviewer scorecards in one unified platform.</p>
           </div>
 
-          {/* Single Focused CTA Button for Companies */}
-          <div className="mt-10 flex items-center justify-center">
+          {/* CTAs */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => navigate('/register-company')}
-              className="px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center justify-center"
+              className="w-full sm:w-auto px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center justify-center"
             >
               <span>Create Fellowship Program</span>
+            </button>
+            <button
+              onClick={() => navigate('/lit2026/interview/demo?reset=1')}
+              className="w-full sm:w-auto px-8 py-4 rounded-full text-base sm:text-lg font-bold text-kulkul-purple bg-purple-50 hover:bg-purple-100 border border-purple-200 shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5"
+            >
+              <Sparkles className="w-5 h-5 text-kulkul-purple" />
+              <span>Try AI Interview Demo</span>
             </button>
           </div>
         </div>
@@ -92,9 +101,18 @@ export const LandingPage: React.FC = () => {
                   Candidates who clear the MCQ benchmark enter a conversational AI screening room that evaluates technical depth, problem-solving, and architecture trade-offs.
                 </p>
               </div>
-              <div className="mt-6 pt-6 border-t border-slate-100 text-xs font-semibold text-kulkul-purple flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
-                <span>Instant scorecard generator</span>
+              <div className="mt-6 pt-6 border-t border-slate-100 flex items-center justify-between">
+                <div className="text-xs font-semibold text-kulkul-purple flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
+                  <span>Instant scorecard generator</span>
+                </div>
+                <button
+                  onClick={() => navigate('/lit2026/interview/demo?reset=1')}
+                  className="text-xs font-bold text-kulkul-purple hover:text-kulkul-purple-hover flex items-center gap-1 group transition"
+                >
+                  <span>Try Demo Chamber</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
               </div>
             </div>
           </div>

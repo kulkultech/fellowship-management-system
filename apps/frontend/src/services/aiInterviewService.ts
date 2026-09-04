@@ -41,5 +41,10 @@ export const aiInterviewService = {
     });
     return data;
   },
+
+  resetSession: async (inviteToken: string): Promise<AIInterviewSession> => {
+    const { data } = await apiClient.post<AIInterviewSession>(`/interviews/${inviteToken}/reset`);
+    return data;
+  },
 };
 
