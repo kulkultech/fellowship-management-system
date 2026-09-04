@@ -127,6 +127,7 @@ import {
   Video,
   Download,
   PlusCircle,
+  Upload,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -358,13 +359,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [newProgSlug, setNewProgSlug] = useState('');
   const [newProgName, setNewProgName] = useState('');
   const [newProgDesc, setNewProgDesc] = useState('');
-  const [newProgImage, setNewProgImage] = useState(
-    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80'
-  );
+  const [newProgImage, setNewProgImage] = useState('');
   const [newProgEnableMCQ, setNewProgEnableMCQ] = useState(true);
   const [newProgEnableAI, setNewProgEnableAI] = useState(true);
   const [newProgDuration, setNewProgDuration] = useState(30);
   const [newProgPassingScore, setNewProgPassingScore] = useState(70);
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (PNG, JPG, WebP, SVG)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Banner image must be under 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setNewProgImage(base64);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Track Form State (Create / Edit)
   const [trackForm, setTrackForm] = useState<CreateTrackPayload>({
@@ -2977,9 +2998,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <h2 className="text-xl font-black text-slate-900">
                     Launch New Program
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Configure cohort branding, public portal paths, and autonomous screening assessment pipelines.
-                  </p>
                 </div>
               </div>
 
@@ -3079,15 +3097,54 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                      Cover Banner Image URL
+                      Cover Banner Photo
                     </label>
-                    <input
-                      type="url"
-                      placeholder="https://images.unsplash.com/..."
-                      value={newProgImage}
-                      onChange={(e) => setNewProgImage(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                    />
+
+                    {newProgImage ? (
+                      <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 aspect-[3/1] max-h-56 w-full flex items-center justify-center">
+                        <img
+                          src={newProgImage}
+                          alt="Cover banner preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                          <label className="cursor-pointer px-4 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5">
+                            <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
+                            <span>Change Photo</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleBannerUpload}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setNewProgImage('')}
+                            className="px-4 py-2 rounded-full bg-red-600/90 hover:bg-red-600 text-white text-xs font-bold transition shadow-md flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-kulkul-purple rounded-2xl p-8 cursor-pointer bg-slate-50/50 hover:bg-purple-50/20 transition group">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-kulkul-purple group-hover:border-kulkul-purple/40 shadow-2xs mb-3 transition">
+                          <Upload className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 group-hover:text-kulkul-purple transition">
+                          Click to upload cover banner photo
+                        </span>
+                        <span className="text-2xs text-slate-400 mt-1">PNG, JPG, WebP, or GIF up to 5MB</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleBannerUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
 
