@@ -34,6 +34,8 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 	set1ID := uuid.MustParse("00000000-0000-0000-0000-000000000021") // Fullstack
 	set2ID := uuid.MustParse("00000000-0000-0000-0000-000000000022") // QA
 
+	litRubric := model.DefaultLITRubric()
+
 	repo.memTracks[t2ID] = &model.Track{
 		ID:                       t2ID,
 		ProgramID:                litProgID,
@@ -48,9 +50,13 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		LogicTestPassingScore:    70,
 		AllowRetake:              false,
 		EnableAIInterview:        true,
+		AIInterviewRubric:        litRubric,
 		AIInterviewQuestions: []string{
-			"Describe how you handle state synchronization between client and server in real-time apps.",
-			"How do you optimize slow SQL queries and resolve N+1 problems in ORMs?",
+			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
+			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
+			"Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?",
+			"Describe a situation where you had to work with others and encountered a miscommunication or disagreement. How did you address it, and what did you learn?",
+			"Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?",
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -69,9 +75,13 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		LogicTestPassingScore:    70,
 		AllowRetake:              false,
 		EnableAIInterview:        true,
+		AIInterviewRubric:        litRubric,
 		AIInterviewQuestions: []string{
-			"How do you design an end-to-end regression test suite that minimizes flaky tests?",
-			"Explain how you would test an asynchronous event-driven payment webhook.",
+			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
+			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
+			"Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?",
+			"Describe a situation where you had to work with others and encountered a miscommunication or disagreement. How did you address it, and what did you learn?",
+			"Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?",
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -98,13 +108,18 @@ func (r *TrackRepository) Create(ctx context.Context, t *model.Track) (*model.Tr
 		questionsJSON = []byte("[]")
 	}
 
+	rubricJSON, _ := json.Marshal(t.AIInterviewRubric)
+	if t.AIInterviewRubric == nil {
+		rubricJSON = []byte("null")
+	}
+
 	query := `
 		INSERT INTO program_tracks (
 			program_id, question_set_id, slug, name, description,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
 			allow_retake, enable_ai_interview, ai_interview_instructions,
-			ai_interview_questions, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
+			ai_interview_questions, ai_interview_rubric, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now(), now())
 		ON CONFLICT (program_id, slug) DO UPDATE SET
 			question_set_id = EXCLUDED.question_set_id,
 			name = EXCLUDED.name,
@@ -116,31 +131,39 @@ func (r *TrackRepository) Create(ctx context.Context, t *model.Track) (*model.Tr
 			enable_ai_interview = EXCLUDED.enable_ai_interview,
 			ai_interview_instructions = EXCLUDED.ai_interview_instructions,
 			ai_interview_questions = EXCLUDED.ai_interview_questions,
+			ai_interview_rubric = EXCLUDED.ai_interview_rubric,
 			updated_at = now()
 		RETURNING id, program_id, question_set_id, slug, name, COALESCE(description, ''),
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
 			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
-			ai_interview_questions, created_at, updated_at
+			ai_interview_questions, COALESCE(ai_interview_rubric, 'null'::jsonb), created_at, updated_at
 	`
 
 	var res model.Track
 	var rawQuestions []byte
+	var rawRubric []byte
 	err = r.pool.QueryRow(ctx, query,
 		t.ProgramID, t.QuestionSetID, t.Slug, t.Name, t.Description,
 		t.EnableMCQ, t.LogicTestDurationMinutes, t.LogicTestPassingScore,
 		t.AllowRetake, t.EnableAIInterview, t.AIInterviewInstructions,
-		questionsJSON,
+		questionsJSON, rubricJSON,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
-		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+		&rawQuestions, &rawRubric, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("track_repo: create: %w", err)
 	}
 
 	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+	}
+	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
+		res.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	return &res, nil
 }
 
@@ -162,6 +185,9 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 		track.EnableAIInterview = t.EnableAIInterview
 		track.AIInterviewInstructions = t.AIInterviewInstructions
 		track.AIInterviewQuestions = t.AIInterviewQuestions
+		if t.AIInterviewRubric != nil {
+			track.AIInterviewRubric = t.AIInterviewRubric
+		}
 		track.UpdatedAt = time.Now()
 		return track, nil
 	}
@@ -169,6 +195,11 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 	questionsJSON, err := json.Marshal(t.AIInterviewQuestions)
 	if err != nil {
 		questionsJSON = []byte("[]")
+	}
+
+	rubricJSON, _ := json.Marshal(t.AIInterviewRubric)
+	if t.AIInterviewRubric == nil {
+		rubricJSON = []byte("null")
 	}
 
 	query := `
@@ -183,26 +214,28 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 			enable_ai_interview = $9,
 			ai_interview_instructions = $10,
 			ai_interview_questions = $11,
+			ai_interview_rubric = $12,
 			updated_at = now()
 		WHERE id = $1
 		RETURNING id, program_id, question_set_id, slug, name, COALESCE(description, ''),
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
 			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
-			ai_interview_questions, created_at, updated_at
+			ai_interview_questions, COALESCE(ai_interview_rubric, 'null'::jsonb), created_at, updated_at
 	`
 
 	var res model.Track
 	var rawQuestions []byte
+	var rawRubric []byte
 	err = r.pool.QueryRow(ctx, query,
 		t.ID, t.QuestionSetID, t.Name, t.Description,
 		t.EnableMCQ, t.LogicTestDurationMinutes, t.LogicTestPassingScore,
 		t.AllowRetake, t.EnableAIInterview, t.AIInterviewInstructions,
-		questionsJSON,
+		questionsJSON, rubricJSON,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
-		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+		&rawQuestions, &rawRubric, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTrackNotFound
@@ -212,6 +245,79 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 	}
 
 	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+	}
+	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
+		res.AIInterviewRubric = model.DefaultLITRubric()
+	}
+	return &res, nil
+}
+
+func (r *TrackRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubric *model.AIInterviewRubric) (*model.Track, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		track, ok := r.memTracks[id]
+		if !ok {
+			return nil, ErrTrackNotFound
+		}
+		track.AIInterviewRubric = rubric
+		if rubric != nil && len(rubric.Questions) > 0 {
+			qTexts := make([]string, len(rubric.Questions))
+			for i, q := range rubric.Questions {
+				qTexts[i] = q.Question
+			}
+			track.AIInterviewQuestions = qTexts
+		}
+		track.UpdatedAt = time.Now()
+		return track, nil
+	}
+
+	rubricJSON, _ := json.Marshal(rubric)
+	var questionTexts []string
+	if rubric != nil {
+		for _, q := range rubric.Questions {
+			questionTexts = append(questionTexts, q.Question)
+		}
+	}
+	qJSON, _ := json.Marshal(questionTexts)
+
+	query := `
+		UPDATE program_tracks SET
+			ai_interview_rubric = $2,
+			ai_interview_questions = CASE WHEN $3::text = '[]' THEN ai_interview_questions ELSE $3::jsonb END,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, program_id, question_set_id, slug, name, COALESCE(description, ''),
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
+			allow_retake, enable_ai_interview, COALESCE(ai_interview_instructions, ''),
+			ai_interview_questions, COALESCE(ai_interview_rubric, 'null'::jsonb), created_at, updated_at
+	`
+
+	var res model.Track
+	var rawQuestions []byte
+	var rawRubric []byte
+	err := r.pool.QueryRow(ctx, query, id, rubricJSON, string(qJSON)).Scan(
+		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
+		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
+		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
+		&rawQuestions, &rawRubric, &res.CreatedAt, &res.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrTrackNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("track_repo: update rubric: %w", err)
+	}
+
+	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+	}
+	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
+		res.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	return &res, nil
 }
 
@@ -223,6 +329,9 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 		if !ok {
 			return nil, ErrTrackNotFound
 		}
+		if track.AIInterviewRubric == nil && (track.Slug == "fullstack" || track.Slug == "qa-automation") {
+			track.AIInterviewRubric = model.DefaultLITRubric()
+		}
 		return track, nil
 	}
 
@@ -231,7 +340,7 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 			t.id, t.program_id, t.question_set_id, t.slug, t.name, COALESCE(t.description, ''),
 			t.enable_mcq, t.logic_test_duration_minutes, t.logic_test_passing_score,
 			t.allow_retake, t.enable_ai_interview, COALESCE(t.ai_interview_instructions, ''),
-			t.ai_interview_questions, t.created_at, t.updated_at,
+			t.ai_interview_questions, COALESCE(t.ai_interview_rubric, 'null'::jsonb), t.created_at, t.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = t.question_set_id OR (t.question_set_id IS NULL AND mq.track_id = t.id)) as question_count
 		FROM program_tracks t
@@ -241,11 +350,12 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 
 	var res model.Track
 	var rawQuestions []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
-		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+		&rawQuestions, &rawRubric, &res.CreatedAt, &res.UpdatedAt,
 		&res.QuestionSetName, &res.QuestionCount,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -256,6 +366,12 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 	}
 
 	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+	}
+	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
+		res.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	return &res, nil
 }
 
@@ -265,6 +381,9 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 		defer r.mu.RUnlock()
 		for _, t := range r.memTracks {
 			if t.ProgramID == programID && t.Slug == slug {
+				if t.AIInterviewRubric == nil && (t.Slug == "fullstack" || t.Slug == "qa-automation") {
+					t.AIInterviewRubric = model.DefaultLITRubric()
+				}
 				return t, nil
 			}
 		}
@@ -276,7 +395,7 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 			t.id, t.program_id, t.question_set_id, t.slug, t.name, COALESCE(t.description, ''),
 			t.enable_mcq, t.logic_test_duration_minutes, t.logic_test_passing_score,
 			t.allow_retake, t.enable_ai_interview, COALESCE(t.ai_interview_instructions, ''),
-			t.ai_interview_questions, t.created_at, t.updated_at,
+			t.ai_interview_questions, COALESCE(t.ai_interview_rubric, 'null'::jsonb), t.created_at, t.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = t.question_set_id OR (t.question_set_id IS NULL AND mq.track_id = t.id)) as question_count
 		FROM program_tracks t
@@ -286,11 +405,12 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 
 	var res model.Track
 	var rawQuestions []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query, programID, slug).Scan(
 		&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 		&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
-		&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+		&rawQuestions, &rawRubric, &res.CreatedAt, &res.UpdatedAt,
 		&res.QuestionSetName, &res.QuestionCount,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -301,6 +421,12 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 	}
 
 	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+	}
+	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
+		res.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	return &res, nil
 }
 
@@ -311,7 +437,11 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 		var list []model.Track
 		for _, t := range r.memTracks {
 			if t.ProgramID == programID {
-				list = append(list, *t)
+				item := *t
+				if item.AIInterviewRubric == nil && (item.Slug == "fullstack" || item.Slug == "qa-automation") {
+					item.AIInterviewRubric = model.DefaultLITRubric()
+				}
+				list = append(list, item)
 			}
 		}
 		return list, nil
@@ -322,7 +452,7 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 			t.id, t.program_id, t.question_set_id, t.slug, t.name, COALESCE(t.description, ''),
 			t.enable_mcq, t.logic_test_duration_minutes, t.logic_test_passing_score,
 			t.allow_retake, t.enable_ai_interview, COALESCE(t.ai_interview_instructions, ''),
-			t.ai_interview_questions, t.created_at, t.updated_at,
+			t.ai_interview_questions, COALESCE(t.ai_interview_rubric, 'null'::jsonb), t.created_at, t.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = t.question_set_id OR (t.question_set_id IS NULL AND mq.track_id = t.id)) as question_count
 		FROM program_tracks t
@@ -341,16 +471,23 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 	for rows.Next() {
 		var res model.Track
 		var rawQuestions []byte
+		var rawRubric []byte
 		if err := rows.Scan(
 			&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description,
 			&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore,
 			&res.AllowRetake, &res.EnableAIInterview, &res.AIInterviewInstructions,
-			&rawQuestions, &res.CreatedAt, &res.UpdatedAt,
+			&rawQuestions, &rawRubric, &res.CreatedAt, &res.UpdatedAt,
 			&res.QuestionSetName, &res.QuestionCount,
 		); err != nil {
 			return nil, fmt.Errorf("track_repo: scan: %w", err)
 		}
 		_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
+		if len(rawRubric) > 0 && string(rawRubric) != "null" {
+			_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+		}
+		if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
+			res.AIInterviewRubric = model.DefaultLITRubric()
+		}
 		list = append(list, res)
 	}
 	return list, rows.Err()

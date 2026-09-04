@@ -22,7 +22,26 @@ type Config struct {
 	CookieDomain       string
 	GoogleOAuth        OAuthConfig
 	Storage            StorageConfig
+	Cloudflare         CloudflareConfig
 }
+
+type CloudflareConfig struct {
+	AccountID string
+	APIKey    string
+	APIToken  string
+}
+
+func (c CloudflareConfig) Enabled() bool {
+	return c.AccountID != "" && (c.APIToken != "" || c.APIKey != "")
+}
+
+func (c CloudflareConfig) Token() string {
+	if c.APIToken != "" {
+		return c.APIToken
+	}
+	return c.APIKey
+}
+
 
 type OAuthConfig struct {
 	ClientID           string
@@ -97,6 +116,11 @@ func Load() (*Config, error) {
 			S3AccessKeyID:  getString("S3_ACCESS_KEY_ID", ""),
 			S3SecretKey:    getString("S3_SECRET_ACCESS_KEY", ""),
 			S3UsePathStyle: getBool("S3_USE_PATH_STYLE", true),
+		},
+		Cloudflare: CloudflareConfig{
+			AccountID: getString("CLOUDFLARE_ACCOUNT_ID", ""),
+			APIKey:    getString("CLOUDFLARE_API_KEY", ""),
+			APIToken:  getString("CLOUDFLARE_API_TOKEN", getString("CLOUDFLARE_API_KEY", "")),
 		},
 	}
 

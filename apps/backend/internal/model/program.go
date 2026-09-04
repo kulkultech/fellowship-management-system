@@ -28,6 +28,7 @@ type Program struct {
 	EnableAIInterview        bool                   `json:"enable_ai_interview"`
 	AIInterviewInstructions  string                 `json:"ai_interview_instructions,omitempty"`
 	AIInterviewQuestions     []string               `json:"ai_interview_questions,omitempty"`
+	AIInterviewRubric        *AIInterviewRubric     `json:"ai_interview_rubric,omitempty"`
 	ApplicationStages        []ApplicationStageItem `json:"application_stages,omitempty"`
 	Status                   string                 `json:"status"` // 'draft', 'published', 'archived'
 	CreatedAt                time.Time              `json:"created_at"`

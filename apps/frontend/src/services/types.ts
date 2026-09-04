@@ -24,6 +24,7 @@ export interface Track {
   enable_ai_interview: boolean;
   ai_interview_instructions?: string;
   ai_interview_questions?: string[];
+  ai_interview_rubric?: AIInterviewRubric;
   question_count?: number;
   created_at?: string;
   updated_at?: string;
@@ -87,6 +88,7 @@ export interface Program {
   enable_ai_interview: boolean;
   ai_interview_instructions?: string;
   ai_interview_questions?: string[];
+  ai_interview_rubric?: AIInterviewRubric;
   application_stages?: ApplicationStageItem[];
   status?: string;
   is_open?: boolean;
@@ -213,6 +215,54 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface RubricCriterion {
+  id: string;
+  criterion: string;
+  points: number;
+}
+
+export interface AIInterviewQuestionItem {
+  id: number;
+  theme: string;
+  question: string;
+  max_points: number;
+  preparation_time_seconds?: number;
+  response_time_seconds?: number;
+  criteria: RubricCriterion[];
+}
+
+export interface AIInterviewRubric {
+  name?: string;
+  instructions?: string;
+  total_points?: number;
+  preparation_time_seconds: number;
+  response_time_seconds: number;
+  allow_rerecord: boolean;
+  scoring_guideline: string;
+  questions: AIInterviewQuestionItem[];
+}
+
+export interface CriterionScore {
+  criterion_id?: string;
+  criterion: string;
+  score: number;
+  max_points?: number;
+  max_score?: number;
+  feedback?: string;
+  comment?: string;
+}
+
+export interface QuestionEvaluation {
+  question_id: number;
+  theme: string;
+  score: number;
+  max_points?: number;
+  max_score?: number;
+  feedback?: string;
+  criteria?: CriterionScore[];
+  criteria_scores?: CriterionScore[];
+}
+
 export interface EvaluationSummary {
   technical_acumen: number;
   communication: number;
@@ -222,6 +272,7 @@ export interface EvaluationSummary {
   areas_for_growth: string[];
   recommendation: string;
   executive_summary: string;
+  question_evaluations?: QuestionEvaluation[];
 }
 
 export interface AIInterviewSession {
@@ -236,6 +287,7 @@ export interface AIInterviewSession {
   scorecard_score: number;
   recording_url?: string;
   recording_status?: string;
+  rubric?: AIInterviewRubric;
 }
 
 export interface User {

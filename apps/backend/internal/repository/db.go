@@ -88,6 +88,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS enable_ai_interview BOOLEAN NOT NULL DEFAULT true;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_instructions TEXT;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_questions JSONB NOT NULL DEFAULT '[]'::jsonb;
+	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_rubric JSONB;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS application_stages JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 	CREATE TABLE IF NOT EXISTS question_sets (
@@ -124,6 +125,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		CONSTRAINT uq_program_track_slug UNIQUE (program_id, slug)
 	);
 	ALTER TABLE program_tracks ADD COLUMN IF NOT EXISTS question_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL;
+	ALTER TABLE program_tracks ADD COLUMN IF NOT EXISTS ai_interview_rubric JSONB;
 	CREATE INDEX IF NOT EXISTS idx_tracks_program ON program_tracks(program_id);
 	CREATE INDEX IF NOT EXISTS idx_tracks_question_set ON program_tracks(question_set_id);
 

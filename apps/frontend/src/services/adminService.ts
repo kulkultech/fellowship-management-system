@@ -10,6 +10,7 @@ import type {
   QuestionSet,
   CreateQuestionSetPayload,
   UpdateQuestionSetPayload,
+  AIInterviewRubric,
 } from './types';
 
 export interface CreateProgramPayload {
@@ -24,6 +25,7 @@ export interface CreateProgramPayload {
   enable_ai_interview?: boolean;
   ai_interview_instructions?: string;
   ai_interview_questions?: string[];
+  ai_interview_rubric?: AIInterviewRubric;
 }
 
 export interface CreateTrackPayload {
@@ -38,6 +40,7 @@ export interface CreateTrackPayload {
   enable_ai_interview?: boolean;
   ai_interview_instructions?: string;
   ai_interview_questions?: string[];
+  ai_interview_rubric?: AIInterviewRubric;
 }
 
 export const adminService = {
@@ -57,6 +60,11 @@ export const adminService = {
 
   updatePipelineConfig: async (programId: string, payload: PipelineConfigPayload): Promise<Program> => {
     const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/pipeline-config`, payload);
+    return data;
+  },
+
+  updateProgramRubric: async (programId: string, rubric: AIInterviewRubric): Promise<Program> => {
+    const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/rubric`, rubric);
     return data;
   },
 
@@ -88,6 +96,11 @@ export const adminService = {
 
   updateTrack: async (trackId: string, payload: CreateTrackPayload): Promise<Track> => {
     const { data } = await apiClient.put<Track>(`/admin/tracks/${trackId}`, payload);
+    return data;
+  },
+
+  updateTrackRubric: async (trackId: string, rubric: AIInterviewRubric): Promise<Track> => {
+    const { data } = await apiClient.put<Track>(`/admin/tracks/${trackId}/rubric`, rubric);
     return data;
   },
 

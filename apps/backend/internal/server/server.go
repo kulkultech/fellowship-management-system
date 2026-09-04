@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/kulkul/backend/internal/ai"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/handler"
@@ -35,12 +36,15 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	submissionRepo := repository.NewSubmissionRepository(pool)
 	aiInterviewRepo := repository.NewAIInterviewRepository(pool)
 
+	// AI Evaluator
+	aiEvaluator := ai.NewCloudflareEvaluator(cfg.Cloudflare, logger)
+
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo)
-	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo)
+	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator)
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
@@ -153,6 +157,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Post("/programs", adminHandler.CreateProgram)
 				adm.Delete("/programs/{id}", adminHandler.DeleteProgram)
 				adm.Put("/programs/{id}/pipeline-config", adminHandler.UpdatePipelineConfig)
+				adm.Put("/programs/{id}/rubric", adminHandler.UpdateProgramRubric)
 				adm.Put("/programs/{id}/stages", adminHandler.UpdateProgramStages)
 				adm.Get("/programs/{id}/questions", adminHandler.ListProgramQuestions)
 				adm.Put("/programs/{id}/questions", adminHandler.SaveProgramQuestions)
@@ -161,6 +166,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Get("/programs/{id}/tracks", adminHandler.ListProgramTracks)
 				adm.Post("/programs/{id}/tracks", adminHandler.CreateProgramTrack)
 				adm.Put("/tracks/{id}", adminHandler.UpdateTrack)
+				adm.Put("/tracks/{id}/rubric", adminHandler.UpdateTrackRubric)
 				adm.Delete("/tracks/{id}", adminHandler.DeleteTrack)
 				adm.Get("/tracks/{id}/questions", adminHandler.ListTrackQuestions)
 				adm.Put("/tracks/{id}/questions", adminHandler.SaveTrackQuestions)

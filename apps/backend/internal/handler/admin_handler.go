@@ -465,13 +465,14 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdatePipelineConfigRequest struct {
-	EnableMCQ                bool     `json:"enable_mcq"`
-	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`
-	LogicTestPassingScore    int      `json:"logic_test_passing_score"`
-	AllowRetake              bool     `json:"allow_retake"`
-	EnableAIInterview        bool     `json:"enable_ai_interview"`
-	AIInterviewInstructions  string   `json:"ai_interview_instructions"`
-	AIInterviewQuestions     []string `json:"ai_interview_questions"`
+	EnableMCQ                bool                     `json:"enable_mcq"`
+	LogicTestDurationMinutes int                      `json:"logic_test_duration_minutes"`
+	LogicTestPassingScore    int                      `json:"logic_test_passing_score"`
+	AllowRetake              bool                     `json:"allow_retake"`
+	EnableAIInterview        bool                     `json:"enable_ai_interview"`
+	AIInterviewInstructions  string                   `json:"ai_interview_instructions"`
+	AIInterviewQuestions     []string                 `json:"ai_interview_questions"`
+	AIInterviewRubric        *model.AIInterviewRubric `json:"ai_interview_rubric,omitempty"`
 }
 
 func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Request) {
@@ -498,10 +499,38 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 	// 1. Update basic duration and passing score
 	_, _ = h.programRepo.UpdateConfig(r.Context(), id, req.LogicTestDurationMinutes, req.LogicTestPassingScore, req.AllowRetake)
 
-	// 2. Update pipeline toggles and questions
-	updated, err := h.programRepo.UpdatePipeline(r.Context(), id, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions)
+	// 2. Update pipeline toggles, questions and rubric
+	var updated *model.Program
+	if req.AIInterviewRubric != nil {
+		updated, err = h.programRepo.UpdatePipelineWithRubric(r.Context(), id, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions, req.AIInterviewRubric)
+	} else {
+		updated, err = h.programRepo.UpdatePipeline(r.Context(), id, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions)
+	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update pipeline config")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+func (h *AdminHandler) UpdateProgramRubric(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req model.AIInterviewRubric
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	updated, err := h.programRepo.UpdateRubric(r.Context(), id, &req)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update program rubric")
 		return
 	}
 
@@ -574,17 +603,18 @@ func (h *AdminHandler) ListProgramTracks(w http.ResponseWriter, r *http.Request)
 }
 
 type CreateTrackRequest struct {
-	QuestionSetID            *string  `json:"question_set_id,omitempty"`
-	Slug                     string   `json:"slug"`
-	Name                     string   `json:"name"`
-	Description              string   `json:"description"`
-	EnableMCQ                bool     `json:"enable_mcq"`
-	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`
-	LogicTestPassingScore    int      `json:"logic_test_passing_score"`
-	AllowRetake              bool     `json:"allow_retake"`
-	EnableAIInterview        bool     `json:"enable_ai_interview"`
-	AIInterviewInstructions  string   `json:"ai_interview_instructions"`
-	AIInterviewQuestions     []string `json:"ai_interview_questions"`
+	QuestionSetID            *string                  `json:"question_set_id,omitempty"`
+	Slug                     string                   `json:"slug"`
+	Name                     string                   `json:"name"`
+	Description              string                   `json:"description"`
+	EnableMCQ                bool                     `json:"enable_mcq"`
+	LogicTestDurationMinutes int                      `json:"logic_test_duration_minutes"`
+	LogicTestPassingScore    int                      `json:"logic_test_passing_score"`
+	AllowRetake              bool                     `json:"allow_retake"`
+	EnableAIInterview        bool                     `json:"enable_ai_interview"`
+	AIInterviewInstructions  string                   `json:"ai_interview_instructions"`
+	AIInterviewQuestions     []string                 `json:"ai_interview_questions"`
+	AIInterviewRubric        *model.AIInterviewRubric `json:"ai_interview_rubric,omitempty"`
 }
 
 func (h *AdminHandler) CreateProgramTrack(w http.ResponseWriter, r *http.Request) {
@@ -636,6 +666,7 @@ func (h *AdminHandler) CreateProgramTrack(w http.ResponseWriter, r *http.Request
 		EnableAIInterview:        req.EnableAIInterview,
 		AIInterviewInstructions:  req.AIInterviewInstructions,
 		AIInterviewQuestions:     req.AIInterviewQuestions,
+		AIInterviewRubric:        req.AIInterviewRubric,
 	}
 
 	created, err := h.trackRepo.Create(r.Context(), track)
@@ -687,11 +718,35 @@ func (h *AdminHandler) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 		EnableAIInterview:        req.EnableAIInterview,
 		AIInterviewInstructions:  req.AIInterviewInstructions,
 		AIInterviewQuestions:     req.AIInterviewQuestions,
+		AIInterviewRubric:        req.AIInterviewRubric,
 	}
 
 	updated, err := h.trackRepo.Update(r.Context(), track)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update track")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+func (h *AdminHandler) UpdateTrackRubric(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	trackID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid track id")
+		return
+	}
+
+	var req model.AIInterviewRubric
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	updated, err := h.trackRepo.UpdateRubric(r.Context(), trackID, &req)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update track rubric")
 		return
 	}
 

@@ -63,7 +63,7 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		pool:        pool,
 		memPrograms: make(map[string]*model.Program),
 	}
-	// Pre-seed LIT 2026 program
+	// Pre-seed LIT 2026 program with exact Workflow.pdf configuration
 	litProg := &model.Program{
 		ID:                       uuid.MustParse("00000000-0000-0000-0000-000000000003"),
 		OrganizationID:           uuid.MustParse("00000000-0000-0000-0000-000000000001"),
@@ -78,11 +78,14 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		LogicTestPassingScore:    70,
 		AllowRetake:              false,
 		EnableAIInterview:        true,
-		AIInterviewInstructions:  "Assess software architecture, system trade-offs, and concurrency understanding.",
+		AIInterviewInstructions:  "Assess communication readiness, workplace problem-solving, and collaboration per LIT rubric.",
+		AIInterviewRubric:        model.DefaultLITRubric(),
 		AIInterviewQuestions: []string{
-			"Can you describe how you would design a scalable distributed job queue?",
-			"What are the pros and cons of using optimistic vs pessimistic locking in databases?",
-			"How do you handle graceful degradation when downstream APIs experience high latency?",
+			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
+			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
+			"Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?",
+			"Describe a situation where you had to work with others and encountered a miscommunication or disagreement. How did you address it, and what did you learn?",
+			"Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?",
 		},
 		ApplicationStages: DefaultApplicationStages(),
 		Status:            "published",
@@ -109,6 +112,9 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	if p.Status == "" {
 		p.Status = "published"
 	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
 
 	if r.pool == nil {
 		r.mu.Lock()
@@ -129,14 +135,18 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	if p.ApplicationStages == nil {
 		stagesJSON = []byte("[]")
 	}
+	rubricJSON, _ := json.Marshal(p.AIInterviewRubric)
+	if p.AIInterviewRubric == nil {
+		rubricJSON = []byte("null")
+	}
 
 	query := `
 		INSERT INTO programs (
 			organization_id, slug, name, description, image_url, open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, ai_interview_instructions, ai_interview_questions, application_stages,
-			status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, now(), now())
+			ai_interview_rubric, status, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now(), now())
 		ON CONFLICT (organization_id, slug) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -151,33 +161,42 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 			ai_interview_instructions = EXCLUDED.ai_interview_instructions,
 			ai_interview_questions = EXCLUDED.ai_interview_questions,
 			application_stages = EXCLUDED.application_stages,
+			ai_interview_rubric = EXCLUDED.ai_interview_rubric,
 			status = EXCLUDED.status,
 			updated_at = now()
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			status, created_at, updated_at
 	`
 	var res model.Program
 	var rawQuestions []byte
 	var rawStages []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query,
 		p.OrganizationID, p.Slug, p.Name, p.Description, p.ImageURL, p.OpenDate, p.EndDate,
 		p.EnableMCQ, p.LogicTestDurationMinutes, p.LogicTestPassingScore, p.AllowRetake,
 		p.EnableAIInterview, p.AIInterviewInstructions, questionsJSON, stagesJSON,
-		p.Status,
+		rubricJSON, p.Status,
 	).Scan(
 		&res.ID, &res.OrganizationID, &res.Slug, &res.Name, &res.Description, &res.ImageURL,
 		&res.OpenDate, &res.EndDate,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore, &res.AllowRetake,
-		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &rawStages, &res.Status,
-		&res.CreatedAt, &res.UpdatedAt,
+		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&res.Status, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: create: %w", err)
 	}
 	_ = json.Unmarshal(rawQuestions, &res.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &res.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
+	}
+	if res.AIInterviewRubric == nil && res.Slug == "lit2026" {
+		res.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	if len(res.ApplicationStages) == 0 {
 		res.ApplicationStages = DefaultApplicationStages()
 	}
@@ -205,6 +224,9 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		if len(p.ApplicationStages) == 0 {
 			p.ApplicationStages = DefaultApplicationStages()
 		}
+		if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+			p.AIInterviewRubric = model.DefaultLITRubric()
+		}
 		org := &model.Organization{
 			ID:        p.OrganizationID,
 			Slug:      orgSlug,
@@ -222,7 +244,8 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 			p.id, p.organization_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
 			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
 			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
-			COALESCE(p.application_stages, '[]'::jsonb), p.status, p.created_at, p.updated_at,
+			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
+			p.status, p.created_at, p.updated_at,
 			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at
 		FROM programs p
 		JOIN organizations o ON p.organization_id = o.id
@@ -232,12 +255,13 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	var o model.Organization
 	var rawQuestions []byte
 	var rawStages []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query, orgSlug, programSlug).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
 		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -248,6 +272,12 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
 	}
@@ -263,6 +293,9 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 				if len(p.ApplicationStages) == 0 {
 					p.ApplicationStages = DefaultApplicationStages()
 				}
+				if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+					p.AIInterviewRubric = model.DefaultLITRubric()
+				}
 				return p, nil
 			}
 		}
@@ -273,19 +306,21 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			status, created_at, updated_at
 		FROM programs
 		WHERE id = $1
 	`
 	var p model.Program
 	var rawQuestions []byte
 	var rawStages []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -295,6 +330,12 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
 	}
@@ -327,17 +368,19 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			status, created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions []byte
 	var rawStages []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query, id, duration, passingScore, allowRetake).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -347,6 +390,12 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
 	}
@@ -354,6 +403,10 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 }
 
 func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string) (*model.Program, error) {
+	return r.UpdatePipelineWithRubric(ctx, id, enableMCQ, enableAI, instructions, questions, nil)
+}
+
+func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string, rubric *model.AIInterviewRubric) (*model.Program, error) {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -363,6 +416,9 @@ func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, en
 				p.EnableAIInterview = enableAI
 				p.AIInterviewInstructions = instructions
 				p.AIInterviewQuestions = questions
+				if rubric != nil {
+					p.AIInterviewRubric = rubric
+				}
 				p.UpdatedAt = time.Now()
 				return p, nil
 			}
@@ -375,28 +431,55 @@ func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, en
 		questionsJSON = []byte("[]")
 	}
 
-	query := `
-		UPDATE programs
-		SET enable_mcq = $2,
-			enable_ai_interview = $3,
-			ai_interview_instructions = $4,
-			ai_interview_questions = $5,
-			updated_at = now()
-		WHERE id = $1
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
-			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
-	`
+	var query string
+	var args []any
+
+	if rubric != nil {
+		rubricJSON, _ := json.Marshal(rubric)
+		query = `
+			UPDATE programs
+			SET enable_mcq = $2,
+				enable_ai_interview = $3,
+				ai_interview_instructions = $4,
+				ai_interview_questions = $5,
+				ai_interview_rubric = $6,
+				updated_at = now()
+			WHERE id = $1
+			RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+				enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+				status, created_at, updated_at
+		`
+		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON}
+	} else {
+		query = `
+			UPDATE programs
+			SET enable_mcq = $2,
+				enable_ai_interview = $3,
+				ai_interview_instructions = $4,
+				ai_interview_questions = $5,
+				updated_at = now()
+			WHERE id = $1
+			RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+				enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+				status, created_at, updated_at
+		`
+		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON}
+	}
+
 	var p model.Program
 	var rawQuestions []byte
 	var rawStages []byte
-	err := r.pool.QueryRow(ctx, query, id, enableMCQ, enableAI, instructions, questionsJSON).Scan(
+	var rawRubric []byte
+	err := r.pool.QueryRow(ctx, query, args...).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -406,17 +489,91 @@ func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, en
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
 	}
 	return &p, nil
 }
 
-func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stages []model.ApplicationStageItem) (*model.Program, error) {
-	if len(stages) == 0 {
-		stages = DefaultApplicationStages()
+func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubric *model.AIInterviewRubric) (*model.Program, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, p := range r.memPrograms {
+			if p.ID == id {
+				p.AIInterviewRubric = rubric
+				if rubric != nil && len(rubric.Questions) > 0 {
+					qTexts := make([]string, len(rubric.Questions))
+					for i, q := range rubric.Questions {
+						qTexts[i] = q.Question
+					}
+					p.AIInterviewQuestions = qTexts
+				}
+				p.UpdatedAt = time.Now()
+				return p, nil
+			}
+		}
+		return nil, ErrProgramNotFound
 	}
 
+	rubricJSON, _ := json.Marshal(rubric)
+
+	// Also extract question texts to keep legacy column in sync
+	var questionTexts []string
+	if rubric != nil {
+		for _, q := range rubric.Questions {
+			questionTexts = append(questionTexts, q.Question)
+		}
+	}
+	qJSON, _ := json.Marshal(questionTexts)
+
+	query := `
+		UPDATE programs
+		SET ai_interview_rubric = $2,
+			ai_interview_questions = CASE WHEN $3::text = '[]' THEN ai_interview_questions ELSE $3::jsonb END,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			status, created_at, updated_at
+	`
+	var p model.Program
+	var rawQuestions []byte
+	var rawStages []byte
+	var rawRubric []byte
+	err := r.pool.QueryRow(ctx, query, id, rubricJSON, string(qJSON)).Scan(
+		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProgramNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: update rubric: %w", err)
+	}
+	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
+	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
+	return &p, nil
+}
+
+func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stages []model.ApplicationStageItem) (*model.Program, error) {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -440,17 +597,19 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			status, created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions []byte
 	var rawStages []byte
+	var rawRubric []byte
 	err := r.pool.QueryRow(ctx, query, id, stagesJSON).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -460,6 +619,12 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 	}
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+	if len(rawRubric) > 0 && string(rawRubric) != "null" {
+		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+	}
+	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
 	}
@@ -478,6 +643,9 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 				if len(p.ApplicationStages) == 0 {
 					p.ApplicationStages = DefaultApplicationStages()
 				}
+				if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+					p.AIInterviewRubric = model.DefaultLITRubric()
+				}
 				list = append(list, *p)
 			}
 		}
@@ -488,7 +656,8 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), status, created_at, updated_at
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			status, created_at, updated_at
 		FROM programs
 		WHERE organization_id = $1
 		ORDER BY created_at DESC
@@ -504,17 +673,24 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 		var p model.Program
 		var rawQuestions []byte
 		var rawStages []byte
+		var rawRubric []byte
 		if err := rows.Scan(
 			&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 			&p.OpenDate, &p.EndDate,
 			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
-			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &p.Status,
-			&p.CreatedAt, &p.UpdatedAt,
+			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+			&p.Status, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
 		}
 		_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 		_ = json.Unmarshal(rawStages, &p.ApplicationStages)
+		if len(rawRubric) > 0 && string(rawRubric) != "null" {
+			_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
+		}
+		if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
+			p.AIInterviewRubric = model.DefaultLITRubric()
+		}
 		if len(p.ApplicationStages) == 0 {
 			p.ApplicationStages = DefaultApplicationStages()
 		}

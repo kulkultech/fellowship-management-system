@@ -19,9 +19,10 @@ type Track struct {
 	LogicTestDurationMinutes int        `json:"logic_test_duration_minutes"`
 	LogicTestPassingScore    int        `json:"logic_test_passing_score"` // percentage (e.g. 70)
 	AllowRetake              bool       `json:"allow_retake"`
-	EnableAIInterview        bool       `json:"enable_ai_interview"`
-	AIInterviewInstructions  string     `json:"ai_interview_instructions,omitempty"`
-	AIInterviewQuestions     []string   `json:"ai_interview_questions,omitempty"`
-	CreatedAt                time.Time  `json:"created_at"`
+	EnableAIInterview        bool               `json:"enable_ai_interview"`
+	AIInterviewInstructions  string             `json:"ai_interview_instructions,omitempty"`
+	AIInterviewQuestions     []string           `json:"ai_interview_questions,omitempty"`
+	AIInterviewRubric        *AIInterviewRubric `json:"ai_interview_rubric,omitempty"`
+	CreatedAt                time.Time          `json:"created_at"`
 	UpdatedAt                time.Time  `json:"updated_at"`
 }

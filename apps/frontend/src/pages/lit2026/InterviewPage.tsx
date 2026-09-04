@@ -23,7 +23,10 @@ import {
   ArrowRight,
   Check,
   RefreshCw,
+  Award,
+  Sparkles,
 } from 'lucide-react';
+import type { EvaluationSummary, CriterionScore } from '@/services/types';
 import toast from 'react-hot-toast';
 
 interface RecordedItem {
@@ -66,13 +69,28 @@ export const InterviewPage: React.FC = () => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
+  // Rubric settings from backend session
+  const rubric = session?.rubric;
+  const prepBufferSeconds = rubric?.preparation_time_seconds ?? 60;
+  const maxResponseSeconds = rubric?.response_time_seconds ?? 90;
+  const allowRerecord = rubric?.allow_rerecord ?? false;
+
   // Question & Interview Flow
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [interviewPhase, setInterviewPhase] = useState<'prep' | 'recording' | 'review'>('prep');
-  const [prepCountdown, setPrepCountdown] = useState(15);
+  const [prepCountdown, setPrepCountdown] = useState(prepBufferSeconds);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isSpeakingQuestion, setIsSpeakingQuestion] = useState(false);
+  const [transcripts, setTranscripts] = useState<Record<number, string>>({});
+  const speechRecognitionRef = useRef<any>(null);
+
+  // Sync prep countdown when rubric arrives
+  useEffect(() => {
+    if (rubric?.preparation_time_seconds && interviewPhase === 'prep') {
+      setPrepCountdown(rubric.preparation_time_seconds);
+    }
+  }, [rubric?.preparation_time_seconds]);
 
   // Recorded Video Chunks & State
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -80,36 +98,110 @@ export const InterviewPage: React.FC = () => {
   const [questionRecordings, setQuestionRecordings] = useState<Record<number, RecordedItem>>({});
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationSummary | null>(null);
 
-  // Pre-configured / Backend Question Pool
+  // Sync evaluation if session already evaluated
+  useEffect(() => {
+    if (session?.summary_evaluation) {
+      setEvaluationResult(session.summary_evaluation);
+    }
+  }, [session?.summary_evaluation]);
+
+  // Pre-configured / Backend Question Pool from Workflow.pdf
   const questions = useMemo(() => {
+    if (rubric?.questions && rubric.questions.length > 0) {
+      return rubric.questions.map((q) => ({
+        id: q.id,
+        category: q.theme,
+        title: q.theme,
+        prompt: q.question,
+        max_points: q.max_points,
+        criteria: q.criteria,
+        hint: q.criteria?.length ? q.criteria.map((c) => `${c.criterion} (${c.points} pts)`).join(' • ') : '',
+      }));
+    }
+    // Fallback default LIT questions from Workflow.pdf
     return [
       {
         id: 1,
-        category: 'Introduction & Core Motivation',
-        title: 'Professional Background & Motivation',
+        category: 'Self-introduction and motivation',
+        title: 'Self-introduction and motivation',
         prompt:
-          'Please introduce yourself, walk us through your most impactful software project, and explain why you want to join this fellowship track.',
-        hint: 'Focus on technical skills used, project scope, and your personal engineering growth goals.',
+          'Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?',
+        max_points: 15,
+        criteria: [
+          { id: 'q1_c1', criterion: 'Understands the prompt and gives a relevant response', points: 4 },
+          { id: 'q1_c2', criterion: 'Provides a clear, structured introduction (background, interests, strengths)', points: 5 },
+          { id: 'q1_c3', criterion: 'Explains why they want to join and what they hope to achieve', points: 4 },
+          { id: 'q1_c4', criterion: 'Speaks with reasonable fluency, confidence, and acceptable pronunciation', points: 2 },
+        ],
+        hint: 'Background, interests, motivation, and what you hope to achieve during fellowship.',
       },
       {
         id: 2,
-        category: 'System Architecture & Engineering Trade-offs',
-        title: 'Diagnosing Production Bottlenecks',
+        category: 'Learning something difficult',
+        title: 'Learning something difficult',
         prompt:
-          'Describe a challenging technical bug or performance degradation you diagnosed. What tools did you use to isolate the root cause, and what architectural safeguards did you implement to prevent regression?',
-        hint: 'Highlight observability, testing strategy, and how you weighed performance against maintainability.',
+          'Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?',
+        max_points: 15,
+        criteria: [
+          { id: 'q2_c1', criterion: 'Clearly describes the situation or problem', points: 4 },
+          { id: 'q2_c2', criterion: 'Logically explains the steps taken to learn or solve it, and shares the result', points: 5 },
+          { id: 'q2_c3', criterion: 'Uses appropriate vocabulary and sentence structure to describe the experience', points: 3 },
+          { id: 'q2_c4', criterion: 'Maintains smooth delivery and coherence', points: 3 },
+        ],
+        hint: 'Clearly describe the challenge, your step-by-step approach, and the tangible outcome.',
       },
       {
         id: 3,
-        category: 'Collaboration & Delivery Execution',
-        title: 'Handling Conflicting Priorities & Technical Debt',
+        category: 'Asking a supervisor for clarification',
+        title: 'Asking a supervisor for clarification',
         prompt:
-          'When working under tight release deadlines with ambiguous specifications, how do you balance velocity versus architectural quality? Share a concrete example.',
-        hint: 'Discuss stakeholder communication, scope negotiation, and intentional management of technical debt.',
+          'Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?',
+        max_points: 25,
+        criteria: [
+          { id: 'q3_c1', criterion: 'Recognizes the importance of asking for clarification promptly rather than guessing or staying silent', points: 5 },
+          { id: 'q3_c2', criterion: 'Explains the problem or confusion clearly', points: 7 },
+          { id: 'q3_c3', criterion: 'Demonstrates how they would ask specific, polite questions (e.g. provides a sample phrase or message)', points: 7 },
+          { id: 'q3_c4', criterion: 'Uses professional, respectful English suitable for a workplace setting', points: 4 },
+          { id: 'q3_c5', criterion: 'Speaks coherently with good flow and confidence', points: 2 },
+        ],
+        hint: 'Ask promptly, formulate specific polite clarification questions, and use professional English.',
+      },
+      {
+        id: 4,
+        category: 'Teamwork and communication challenges',
+        title: 'Teamwork and communication challenges',
+        prompt:
+          'Describe a situation where you had to work with others (e.g., a university project, an organization, or a competition) and encountered a miscommunication or disagreement. How did you address it, and what did you learn?',
+        max_points: 20,
+        criteria: [
+          { id: 'q4_c1', criterion: 'Provides a clear and relevant context/example', points: 4 },
+          { id: 'q4_c2', criterion: 'Clearly explains their role in the situation', points: 4 },
+          { id: 'q4_c3', criterion: 'Explains the communication challenge and the actions taken to address or resolve it constructively', points: 6 },
+          { id: 'q4_c4', criterion: 'Reflects on lessons learned', points: 3 },
+          { id: 'q4_c5', criterion: 'Speaks clearly, logically, and professionally', points: 3 },
+        ],
+        hint: 'Share specific context, your role, constructive actions taken, and reflection on lessons learned.',
+      },
+      {
+        id: 5,
+        category: 'Communicating a potential delay',
+        title: 'Communicating a potential delay',
+        prompt:
+          'Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?',
+        max_points: 25,
+        criteria: [
+          { id: 'q5_c1', criterion: 'Communicates early and proactively rather than waiting until the deadline passes', points: 6 },
+          { id: 'q5_c2', criterion: 'States the delay honestly without making excuses', points: 5 },
+          { id: 'q5_c3', criterion: 'Proposes a revised deadline, partial deliverable, or solution', points: 7 },
+          { id: 'q5_c4', criterion: 'Demonstrates accountability and professionalism', points: 5 },
+          { id: 'q5_c5', criterion: 'Speaks clearly, logically, and respectfully in workplace English', points: 2 },
+        ],
+        hint: 'Proactive notification, honest framing, proposing realistic alternative timeline or solution.',
       },
     ];
-  }, []);
+  }, [rubric]);
 
   // Sync completed state if session in backend is already completed
   useEffect(() => {
@@ -251,16 +343,58 @@ export const InterviewPage: React.FC = () => {
 
     const timer = setInterval(() => {
       setRecordingSeconds((s) => {
-        if (s >= 120) {
+        if (s >= maxResponseSeconds) {
           stopRecordingAnswer();
-          return 120;
+          return maxResponseSeconds;
         }
         return s + 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [uiStage, interviewPhase, isPaused]);
+  }, [uiStage, interviewPhase, isPaused, maxResponseSeconds]);
+
+  // Speech Recognition helpers
+  const startSpeechRecognition = () => {
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
+        let currentTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript + ' ';
+        }
+        setTranscripts((prev) => ({
+          ...prev,
+          [currentQIndex]: currentTranscript.trim(),
+        }));
+      };
+
+      recognition.onerror = (e: any) => {
+        console.warn('Speech recognition notice:', e);
+      };
+
+      recognition.start();
+      speechRecognitionRef.current = recognition;
+    } catch (err) {
+      console.warn('Speech recognition not available:', err);
+    }
+  };
+
+  const stopSpeechRecognition = () => {
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch (e) {}
+      speechRecognitionRef.current = null;
+    }
+  };
 
   // Start Recording Answer with MediaRecorder
   const startRecordingAnswer = () => {
@@ -308,6 +442,7 @@ export const InterviewPage: React.FC = () => {
       setRecordingSeconds(0);
       setIsPaused(false);
       setInterviewPhase('recording');
+      startSpeechRecognition();
       toast('Recording response...', { icon: '🔴' });
     } catch (err) {
       console.error('Failed to start MediaRecorder:', err);
@@ -330,6 +465,7 @@ export const InterviewPage: React.FC = () => {
 
   // Stop Recording Answer
   const stopRecordingAnswer = () => {
+    stopSpeechRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -337,7 +473,11 @@ export const InterviewPage: React.FC = () => {
 
   // Re-record current question answer
   const handleRerecord = () => {
-    setPrepCountdown(15);
+    if (!allowRerecord) {
+      toast.error('Single-take interview policy: re-recording is disabled.');
+      return;
+    }
+    setPrepCountdown(prepBufferSeconds);
     setInterviewPhase('prep');
   };
 
@@ -379,19 +519,23 @@ export const InterviewPage: React.FC = () => {
 
       const saveRes = await aiInterviewService.saveRecording(inviteToken, compositeBlob);
 
-      await aiInterviewService.sendMessage(
+      // Submit final prompt to notify AI and trigger Cloudflare evaluation
+      const sendRes = await aiInterviewService.sendMessage(
         inviteToken,
-        `[Video Assessment Completed: Candidate submitted ${questions.length} video responses]`,
+        `[Video Assessment Completed: Candidate submitted all ${questions.length} video responses. Ready for Cloudflare AI rubric evaluation.]`,
       );
 
-      return saveRes;
+      return { saveRes, evaluation: sendRes?.summary_evaluation };
     },
     onSuccess: (data) => {
       setIsUploadingRecording(false);
-      setFinalVideoUrl(data.recording_url);
+      setFinalVideoUrl(data.saveRes.recording_url);
+      if (data.evaluation) {
+        setEvaluationResult(data.evaluation);
+      }
       setUiStage('completed');
       queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
-      toast.success('Interview video saved and submitted to review database!');
+      toast.success('Interview video saved and evaluated by admissions AI!');
     },
     onError: (err: any) => {
       setIsUploadingRecording(false);
@@ -408,10 +552,24 @@ export const InterviewPage: React.FC = () => {
   // Next Question / Finish Interview
   const handleConfirmNext = () => {
     stopSpeech();
+    stopSpeechRecognition();
+
+    // Transmit speech transcript if captured
+    const q = questions[currentQIndex];
+    const candidateText = transcripts[currentQIndex]?.trim();
+    if (inviteToken) {
+      const responseMsg = candidateText
+        ? `[Candidate Response to Q${q.id} - ${q.category}]: ${candidateText}`
+        : `[Candidate completed video response to Q${q.id} - ${q.category}]`;
+      aiInterviewService.sendMessage(inviteToken, responseMsg).catch((err) => {
+        console.warn('Could not post candidate response transcript:', err);
+      });
+    }
+
     if (currentQIndex < questions.length - 1) {
       const nextIndex = currentQIndex + 1;
       setCurrentQIndex(nextIndex);
-      setPrepCountdown(15);
+      setPrepCountdown(prepBufferSeconds);
       setInterviewPhase('prep');
     } else {
       saveInterviewMutation.mutate();
@@ -425,7 +583,7 @@ export const InterviewPage: React.FC = () => {
       return;
     }
     setUiStage('interview');
-    setPrepCountdown(15);
+    setPrepCountdown(prepBufferSeconds);
     setInterviewPhase('prep');
   };
 
@@ -662,7 +820,8 @@ export const InterviewPage: React.FC = () => {
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                   <span>
                     REC {Math.floor(recordingSeconds / 60)}:
-                    {(recordingSeconds % 60).toString().padStart(2, '0')} / 02:00
+                    {(recordingSeconds % 60).toString().padStart(2, '0')} / {Math.floor(maxResponseSeconds / 60)}:
+                    {(maxResponseSeconds % 60).toString().padStart(2, '0')}
                   </span>
                 </div>
               )}
@@ -817,13 +976,20 @@ export const InterviewPage: React.FC = () => {
 
                 {interviewPhase === 'review' && (
                   <>
-                    <button
-                      onClick={handleRerecord}
-                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition flex items-center gap-2 border border-slate-700"
-                    >
-                      <RotateCcw className="w-4 h-4 text-purple-400" />
-                      <span>Re-record Answer</span>
-                    </button>
+                    {allowRerecord ? (
+                      <button
+                        onClick={handleRerecord}
+                        className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition flex items-center gap-2 border border-slate-700"
+                      >
+                        <RotateCcw className="w-4 h-4 text-purple-400" />
+                        <span>Re-record Answer</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-950/40 border border-purple-800/40 text-purple-300 text-xs font-semibold">
+                        <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span>Single-Take Finalized &bull; 1 take per prompt</span>
+                      </div>
+                    )}
 
                     <button
                       onClick={handleConfirmNext}
@@ -833,7 +999,7 @@ export const InterviewPage: React.FC = () => {
                       {isUploadingRecording ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                          <span>Saving to Database...</span>
+                          <span>Saving & AI Evaluating...</span>
                         </>
                       ) : currentQIndex < questions.length - 1 ? (
                         <>
@@ -930,9 +1096,14 @@ export const InterviewPage: React.FC = () => {
                     <span className="px-3 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-full text-2xs font-extrabold uppercase tracking-wider">
                       {currentQ.category}
                     </span>
-                    <span className="text-xs font-bold text-slate-400">
-                      Question {currentQIndex + 1} of {questions.length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-2xs font-bold">
+                        {currentQ.max_points} Points
+                      </span>
+                      <span className="text-xs font-bold text-slate-400">
+                        Q{currentQIndex + 1} of {questions.length}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="text-base sm:text-lg font-black text-white leading-snug">
@@ -943,12 +1114,46 @@ export const InterviewPage: React.FC = () => {
                     {currentQ.prompt}
                   </div>
 
-                  <div className="p-3 bg-purple-950/20 border border-purple-800/30 rounded-xl">
-                    <span className="text-2xs font-bold text-purple-300 uppercase tracking-wide block mb-1">
-                      Key Guidance & Focus Points:
-                    </span>
-                    <p className="text-xs text-slate-300">{currentQ.hint}</p>
-                  </div>
+                  {/* Rubric Criteria Checklist */}
+                  {currentQ.criteria && currentQ.criteria.length > 0 && (
+                    <div className="p-3 bg-purple-950/20 border border-purple-800/30 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xs font-bold text-purple-300 uppercase tracking-wide">
+                          Scoring Rubric Breakdown ({currentQ.max_points} pts):
+                        </span>
+                        <span className="text-3xs text-slate-400">Accent Fair Evaluation</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {currentQ.criteria.map((c, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-2 text-2xs p-1.5 px-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-slate-300"
+                          >
+                            <span className="truncate">{c.criterion}</span>
+                            <span className="shrink-0 font-bold text-purple-300 bg-purple-900/40 px-2 py-0.5 rounded border border-purple-700/50">
+                              {c.points} pts
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live Speech Recognition Preview */}
+                  {transcripts[currentQIndex] && (
+                    <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 text-2xs space-y-1 animate-in fade-in">
+                      <div className="flex items-center justify-between text-3xs font-bold uppercase tracking-wider text-purple-400">
+                        <span>Speech Transcription Preview</span>
+                        <span className="text-emerald-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                          Live
+                        </span>
+                      </div>
+                      <p className="text-slate-200 italic line-clamp-3">
+                        "{transcripts[currentQIndex]}"
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress Indicators for All Questions */}
@@ -1014,14 +1219,14 @@ export const InterviewPage: React.FC = () => {
             </div>
 
             {/* Recorded Video Playback Player */}
-            <div className="max-w-2xl mx-auto w-full mt-6 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl text-left">
+            <div className="max-w-3xl mx-auto w-full mt-6 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl text-left">
               <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                   <Video className="w-4 h-4 text-purple-400" />
                   <span>Submitted Candidate Recording</span>
                 </div>
                 <span className="text-2xs font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                  Ready for Review
+                  Saved &amp; Encrypted
                 </span>
               </div>
 
@@ -1043,29 +1248,212 @@ export const InterviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Evaluation / Committee Review Notice */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mt-4 text-left">
-              <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
-                <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
-                  Responses Captured
-                </span>
-                <span className="text-lg font-black text-white">3 Video Prompts</span>
-              </div>
+            {/* AI Evaluation Report (If Evaluated) */}
+            {(() => {
+              const activeEval = evaluationResult || session?.summary_evaluation;
+              if (!activeEval) {
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mt-4 text-left">
+                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
+                        Responses Captured
+                      </span>
+                      <span className="text-lg font-black text-white">{questions.length} Video Prompts</span>
+                    </div>
 
-              <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
-                <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
-                  Evaluation Engine
-                </span>
-                <span className="text-lg font-black text-purple-400">Technical Screener</span>
-              </div>
+                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
+                        Evaluation Engine
+                      </span>
+                      <span className="text-lg font-black text-purple-400">Cloudflare Workers AI</span>
+                    </div>
 
-              <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
-                <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
-                  Status
-                </span>
-                <span className="text-lg font-black text-emerald-400">In Review Queue</span>
-              </div>
-            </div>
+                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
+                        Status
+                      </span>
+                      <span className="text-lg font-black text-emerald-400">Evaluating in Queue...</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              const isStrong = (activeEval.overall_score ?? 0) >= 80;
+              const isSuitable = (activeEval.overall_score ?? 0) >= 70 && (activeEval.overall_score ?? 0) < 80;
+
+              return (
+                <div className="max-w-3xl mx-auto w-full mt-4 bg-slate-900/90 border border-purple-500/30 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xl">
+                  {/* Top Score Banner */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <span className="text-2xs font-extrabold uppercase tracking-wider text-purple-400">
+                          Cloudflare AI Proctor Evaluation
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-black text-white">AI Assessment Scorecard</h2>
+                      <div className="mt-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                            isStrong
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : isSuitable
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          <Award className="w-3.5 h-3.5" />
+                          <span>{activeEval.recommendation || 'Assessment Completed'}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right bg-slate-950/80 p-4 px-6 rounded-2xl border border-slate-800 shrink-0">
+                      <span className="text-2xs font-extrabold uppercase text-slate-400 block mb-0.5">
+                        Overall Score
+                      </span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl sm:text-4xl font-black text-purple-400">
+                          {activeEval.overall_score}
+                        </span>
+                        <span className="text-sm font-bold text-slate-500">/100</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3 Core Metric Pillars */}
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                      <span className="text-3xs font-extrabold uppercase text-slate-400 block mb-1">
+                        Technical Acumen
+                      </span>
+                      <span className="text-lg font-black text-purple-300">
+                        {activeEval.technical_acumen}/10
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                      <span className="text-3xs font-extrabold uppercase text-slate-400 block mb-1">
+                        Communication
+                      </span>
+                      <span className="text-lg font-black text-purple-300">
+                        {activeEval.communication}/10
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                      <span className="text-3xs font-extrabold uppercase text-slate-400 block mb-1">
+                        Problem Solving
+                      </span>
+                      <span className="text-lg font-black text-purple-300">
+                        {activeEval.problem_solving}/10
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Executive Summary */}
+                  {activeEval.executive_summary && (
+                    <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1.5">
+                      <span className="text-2xs font-extrabold uppercase text-slate-400 block">
+                        Executive Summary
+                      </span>
+                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                        {activeEval.executive_summary}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Strengths & Growth Areas */}
+                  {(activeEval.key_strengths?.length || activeEval.areas_for_growth?.length) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {activeEval.key_strengths && activeEval.key_strengths.length > 0 && (
+                        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                          <span className="text-2xs font-extrabold uppercase text-emerald-400 block">
+                            Key Strengths
+                          </span>
+                          <ul className="space-y-1 text-xs text-slate-300">
+                            {activeEval.key_strengths.map((s, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                                <span>{s}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {activeEval.areas_for_growth && activeEval.areas_for_growth.length > 0 && (
+                        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                          <span className="text-2xs font-extrabold uppercase text-amber-400 block">
+                            Areas for Growth
+                          </span>
+                          <ul className="space-y-1 text-xs text-slate-300">
+                            {activeEval.areas_for_growth.map((g, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                                <span>{g}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Itemized Question Rubric Breakdown */}
+                  {activeEval.question_evaluations && activeEval.question_evaluations.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <span className="text-2xs font-extrabold uppercase text-slate-400 block">
+                        Itemized Rubric Criteria Breakdown
+                      </span>
+                      <div className="space-y-3">
+                        {activeEval.question_evaluations.map((qe, qIdx) => (
+                          <div
+                            key={qIdx}
+                            className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-white">
+                                Q{qe.question_id}: {qe.theme}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-purple-950/80 text-purple-300 border border-purple-800 font-mono">
+                                {qe.score} / {qe.max_points ?? qe.max_score ?? 20} pts
+                              </span>
+                            </div>
+
+                            {qe.feedback && (
+                              <p className="text-2xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 italic leading-relaxed">
+                                &ldquo;{qe.feedback}&rdquo;
+                              </p>
+                            )}
+
+                            {((qe.criteria_scores && qe.criteria_scores.length > 0) ||
+                              (qe.criteria && qe.criteria.length > 0)) && (
+                              <div className="space-y-1 pt-1">
+                                {(qe.criteria_scores || qe.criteria || []).map(
+                                  (cs: CriterionScore, cIdx: number) => (
+                                    <div
+                                      key={cIdx}
+                                      className="flex items-center justify-between text-2xs p-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300"
+                                    >
+                                      <span className="truncate pr-2 font-medium">{cs.criterion}</span>
+                                      <span className="shrink-0 font-bold text-purple-400 font-mono">
+                                        {cs.score} / {cs.max_points ?? cs.max_score ?? 5} pts
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Action Buttons */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1074,6 +1462,12 @@ export const InterviewPage: React.FC = () => {
                 className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl transition shadow-lg shadow-purple-600/30"
               >
                 Return to Candidate Dashboard
+              </button>
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-extrabold rounded-2xl transition"
+              >
+                Open Reviewer Admin Portal
               </button>
             </div>
           </div>

@@ -5,7 +5,99 @@ import { adminService, type CreateProgramPayload, type CreateTrackPayload } from
 import { programService } from '@/services/programService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import type { MCQQuestion, Track, ApplicationStageItem, CreateQuestionSetPayload } from '@/services/types';
+import type {
+  MCQQuestion,
+  Track,
+  ApplicationStageItem,
+  CreateQuestionSetPayload,
+  Program,
+  AIInterviewRubric,
+  AIInterviewQuestionItem,
+  RubricCriterion,
+  CriterionScore,
+} from '@/services/types';
+
+const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
+  name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
+  instructions:
+    'Evaluate responses according to the structured 5-question rubric. Do not penalize Indonesian regional accent if communication is clear. Scoring Scale: 80–100 Strong (clear communication, confident, concise, handles unexpected questions well), 70–79 Suitable (answers reasonably well, occasional hesitation, acceptable clarity), 60–69 Borderline (struggles to articulate ideas, frequent pauses, lacks structure), <60 Below expected standard (poor vocabulary, very difficult to understand, fails to address prompt).',
+  scoring_guideline:
+    'Evaluate responses according to the structured 5-question rubric. Do not penalize Indonesian regional accent if communication is clear. Scoring Scale: 80–100 Strong (clear communication, confident, concise, handles unexpected questions well), 70–79 Suitable (answers reasonably well, occasional hesitation, acceptable clarity), 60–69 Borderline (struggles to articulate ideas, frequent pauses, lacks structure), <60 Below expected standard (poor vocabulary, very difficult to understand, fails to address prompt).',
+  preparation_time_seconds: 60,
+  response_time_seconds: 90,
+  allow_rerecord: false,
+  total_points: 100,
+  questions: [
+    {
+      id: 1,
+      theme: 'Self-introduction and motivation',
+      question:
+        'Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?',
+      max_points: 15,
+      criteria: [
+        { id: 'q1_c1', criterion: 'Understands the prompt and gives a relevant response', points: 4 },
+        { id: 'q1_c2', criterion: 'Provides a clear, structured introduction (background, interests, strengths)', points: 5 },
+        { id: 'q1_c3', criterion: 'Explains why they want to join and what they hope to achieve', points: 4 },
+        { id: 'q1_c4', criterion: 'Speaks with reasonable fluency, confidence, and acceptable pronunciation', points: 2 },
+      ],
+    },
+    {
+      id: 2,
+      theme: 'Learning something difficult',
+      question:
+        'Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?',
+      max_points: 15,
+      criteria: [
+        { id: 'q2_c1', criterion: 'Clearly describes the situation or problem', points: 4 },
+        { id: 'q2_c2', criterion: 'Logically explains the steps taken to learn or solve it, and shares the result', points: 5 },
+        { id: 'q2_c3', criterion: 'Uses appropriate vocabulary and sentence structure to describe the experience', points: 3 },
+        { id: 'q2_c4', criterion: 'Maintains smooth delivery and coherence', points: 3 },
+      ],
+    },
+    {
+      id: 3,
+      theme: 'Asking a supervisor for clarification',
+      question:
+        'Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?',
+      max_points: 25,
+      criteria: [
+        { id: 'q3_c1', criterion: 'Recognizes the importance of asking for clarification promptly rather than guessing or staying silent', points: 5 },
+        { id: 'q3_c2', criterion: 'Explains the problem or confusion clearly', points: 7 },
+        { id: 'q3_c3', criterion: 'Demonstrates how they would ask specific, polite questions (e.g. provides a sample phrase or message)', points: 7 },
+        { id: 'q3_c4', criterion: 'Uses professional, respectful English suitable for a workplace setting', points: 4 },
+        { id: 'q3_c5', criterion: 'Speaks coherently with good flow and confidence', points: 2 },
+      ],
+    },
+    {
+      id: 4,
+      theme: 'Teamwork and communication challenges',
+      question:
+        'Describe a situation where you had to work with others (e.g., a university project, an organization, or a competition) and encountered a miscommunication or disagreement. How did you address it, and what did you learn?',
+      max_points: 20,
+      criteria: [
+        { id: 'q4_c1', criterion: 'Provides a clear and relevant context/example', points: 4 },
+        { id: 'q4_c2', criterion: 'Clearly explains their role in the situation', points: 4 },
+        { id: 'q4_c3', criterion: 'Explains the communication challenge and the actions taken to address or resolve it constructively', points: 6 },
+        { id: 'q4_c4', criterion: 'Reflects on lessons learned', points: 3 },
+        { id: 'q4_c5', criterion: 'Speaks clearly, logically, and professionally', points: 3 },
+      ],
+    },
+    {
+      id: 5,
+      theme: 'Communicating a potential delay',
+      question:
+        'Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?',
+      max_points: 25,
+      criteria: [
+        { id: 'q5_c1', criterion: 'Communicates early and proactively rather than waiting until the deadline passes', points: 6 },
+        { id: 'q5_c2', criterion: 'States the delay honestly without making excuses', points: 5 },
+        { id: 'q5_c3', criterion: 'Proposes a revised deadline, partial deliverable, or solution', points: 7 },
+        { id: 'q5_c4', criterion: 'Demonstrates accountability and professionalism', points: 5 },
+        { id: 'q5_c5', criterion: 'Speaks clearly, logically, and respectfully in workplace English', points: 2 },
+      ],
+    },
+  ],
+};
 import {
   Users,
   Search,
@@ -81,6 +173,21 @@ export const DashboardPage: React.FC = () => {
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [openedQuestionSetId, setOpenedQuestionSetId] = useState<string | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+
+  // AI Interview Rubric Editor State
+  const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
+  const [rubricTargetProgram, setRubricTargetProgram] = useState<Program | null>(null);
+  const [rubricForm, setRubricForm] = useState<AIInterviewRubric>(DEFAULT_LIT_RUBRIC);
+
+  const handleOpenRubricModal = (targetProg: Program) => {
+    setRubricTargetProgram(targetProg);
+    if (targetProg.ai_interview_rubric && targetProg.ai_interview_rubric.questions?.length > 0) {
+      setRubricForm(targetProg.ai_interview_rubric);
+    } else {
+      setRubricForm(DEFAULT_LIT_RUBRIC);
+    }
+    setIsRubricModalOpen(true);
+  };
 
   // Active Program selection
   const [activeProgramSlug, setActiveProgramSlug] = useState('lit2026');
@@ -415,6 +522,96 @@ export const DashboardPage: React.FC = () => {
       toast.error(err?.response?.data?.error || err?.message || 'Failed to create program');
     },
   });
+
+  const updateProgramRubricMutation = useMutation({
+    mutationFn: ({ programId, rubric }: { programId: string; rubric: AIInterviewRubric }) =>
+      adminService.updateProgramRubric(programId, rubric),
+    onSuccess: (updated) => {
+      toast.success(`AI Interview Rubric for "${updated.name}" saved!`);
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-program-pipeline', activeProgramSlug] });
+      setIsRubricModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to update AI interview rubric');
+    },
+  });
+
+  // Rubric editing helpers
+  const rubricTotalPts = (rubricForm.questions || []).reduce(
+    (sum, q) => sum + (Number(q.max_points) || 0),
+    0
+  );
+
+  const handleAddRubricQuestion = () => {
+    const nextId = (rubricForm.questions?.length || 0) + 1;
+    setRubricForm((prev) => ({
+      ...prev,
+      questions: [
+        ...(prev.questions || []),
+        {
+          id: nextId,
+          theme: `Competency ${nextId}: Core Skill Assessment`,
+          question: '',
+          max_points: 20,
+          criteria: [
+            { id: `q${nextId}_c1`, criterion: 'Understands prompt and articulates solution with clear logic', points: 10 },
+            { id: `q${nextId}_c2`, criterion: 'Professional delivery, coherence, and appropriate vocabulary', points: 10 },
+          ],
+        },
+      ],
+    }));
+  };
+
+  const handleDeleteRubricQuestion = (qIndex: number) => {
+    setRubricForm((prev) => ({
+      ...prev,
+      questions: prev.questions.filter((_, idx) => idx !== qIndex),
+    }));
+  };
+
+  const handleUpdateRubricQuestion = (qIndex: number, field: keyof AIInterviewQuestionItem, value: any) => {
+    setRubricForm((prev) => {
+      const updated = [...prev.questions];
+      updated[qIndex] = { ...updated[qIndex], [field]: value };
+      return { ...prev, questions: updated };
+    });
+  };
+
+  const handleAddRubricCriterion = (qIndex: number) => {
+    setRubricForm((prev) => {
+      const updated = [...prev.questions];
+      const q = updated[qIndex];
+      const nextCritId = `q${q.id}_c${(q.criteria?.length || 0) + 1}`;
+      q.criteria = [...(q.criteria || []), { id: nextCritId, criterion: 'Demonstrates clear proficiency and structured reasoning', points: 5 }];
+      return { ...prev, questions: updated };
+    });
+  };
+
+  const handleDeleteRubricCriterion = (qIndex: number, cIndex: number) => {
+    setRubricForm((prev) => {
+      const updated = [...prev.questions];
+      const q = updated[qIndex];
+      q.criteria = (q.criteria || []).filter((_, idx) => idx !== cIndex);
+      return { ...prev, questions: updated };
+    });
+  };
+
+  const handleUpdateRubricCriterion = (
+    qIndex: number,
+    cIndex: number,
+    field: keyof RubricCriterion,
+    value: any
+  ) => {
+    setRubricForm((prev) => {
+      const updated = [...prev.questions];
+      const q = updated[qIndex];
+      const newCrit = [...(q.criteria || [])];
+      newCrit[cIndex] = { ...newCrit[cIndex], [field]: value };
+      q.criteria = newCrit;
+      return { ...prev, questions: updated };
+    });
+  };
 
   // Track Mutations
   const createTrackMutation = useMutation({
@@ -1047,27 +1244,36 @@ export const DashboardPage: React.FC = () => {
                               </td>
 
                               <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setActiveProgramSlug(prog.slug);
-                                      setCurrentView('pipeline');
-                                    }}
-                                    className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
-                                  >
-                                    <span>Manage</span>
-                                    <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
-                                  </button>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setActiveProgramSlug(prog.slug);
+                                        setCurrentView('pipeline');
+                                      }}
+                                      className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
+                                    >
+                                      <span>Manage</span>
+                                      <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
+                                    </button>
 
-                                  <a
-                                    href={getPublicProgramUrl(prog.slug)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
-                                    title="Open public overview page"
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                  </a>
+                                    <button
+                                      onClick={() => handleOpenRubricModal(prog)}
+                                      className="px-3 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-kulkul-purple text-xs font-bold border border-purple-200 transition flex items-center gap-1.5 shadow-2xs"
+                                      title="Configure AI Interview Questions & Rubric"
+                                    >
+                                      <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
+                                      <span>Rubric</span>
+                                    </button>
+
+                                    <a
+                                      href={getPublicProgramUrl(prog.slug)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
+                                      title="Open public overview page"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
 
                                   <button
                                     onClick={() => {
@@ -1397,6 +1603,18 @@ export const DashboardPage: React.FC = () => {
                 >
                   <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
                   <span>Add Track</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const currentProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program;
+                    if (currentProg) handleOpenRubricModal(currentProg);
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200 text-kulkul-purple text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
+                  title="Configure AI Interview Questions, Prompts & Rubric"
+                >
+                  <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <span>AI Rubric & Prompts</span>
                 </button>
 
                 {[
@@ -2621,8 +2839,371 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* ================================================================================= */}
-        {/* DRAWER: APPLICANT INSPECTION DRAWER */}
+        {/* MODAL 4: AI INTERVIEW QUESTIONS & RUBRIC CONFIGURATION MODAL */}
         {/* ================================================================================= */}
+        {isRubricModalOpen && rubricTargetProgram && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between pb-4 border-b border-slate-100 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200 shrink-0">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-extrabold text-slate-900">
+                        AI Interview Questions & Rubric Settings
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-purple-100 text-purple-800">
+                        {rubricTargetProgram.name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Configure autonomous video screening questions, prep buffer, response duration, and scoring rubric criteria.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`px-3 py-1 rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 border ${
+                      rubricTotalPts === 100
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-amber-50 text-amber-700 border-amber-300'
+                    }`}
+                  >
+                    <span>Total: {rubricTotalPts} / 100 Pts</span>
+                    {rubricTotalPts === 100 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                  </div>
+
+                  <button
+                    onClick={() => setIsRubricModalOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Preset Banner */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-purple-50/70 border border-purple-200/80 rounded-2xl shrink-0">
+                <div className="text-xs text-purple-950 font-medium flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-kulkul-purple shrink-0" />
+                  <span>
+                    Need standard configuration? Populate with the 5 questions and 100-point rubric from <strong>Workflow.pdf</strong>.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRubricForm(DEFAULT_LIT_RUBRIC);
+                    toast.success('Loaded LIT 2026 standard rubric from Workflow.pdf (5 questions, 100 points)!');
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-purple-100/60 text-kulkul-purple text-xs font-bold border border-purple-200 shadow-2xs transition shrink-0 flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-kulkul-orange" />
+                  <span>Load LIT Standard Rubric</span>
+                </button>
+              </div>
+
+              {/* Scrollable Form Body */}
+              <div className="overflow-y-auto pr-1 space-y-6 flex-1">
+                {/* General Settings Section */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-kulkul-purple" />
+                    <span>Screening Chamber & Timing Parameters</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                        Preparation Buffer
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={5}
+                          max={300}
+                          value={rubricForm.preparation_time_seconds ?? 60}
+                          onChange={(e) =>
+                            setRubricForm({
+                              ...rubricForm,
+                              preparation_time_seconds: parseInt(e.target.value) || 60,
+                            })
+                          }
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-mono"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-slate-400">
+                          sec
+                        </span>
+                      </div>
+                      <span className="text-3xs text-slate-400 mt-1 block">Workflow.pdf default: 60s</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                        Max Response Duration
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={15}
+                          max={600}
+                          value={rubricForm.response_time_seconds ?? 90}
+                          onChange={(e) =>
+                            setRubricForm({
+                              ...rubricForm,
+                              response_time_seconds: parseInt(e.target.value) || 90,
+                            })
+                          }
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-mono"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-slate-400">
+                          sec
+                        </span>
+                      </div>
+                      <span className="text-3xs text-slate-400 mt-1 block">Workflow.pdf default: 90s</span>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                      <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                        Re-recording Policy
+                      </label>
+                      <label className="flex items-center gap-2 mt-1 cursor-pointer bg-white p-2 px-3 rounded-xl border border-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={rubricForm.allow_rerecord ?? false}
+                          onChange={(e) =>
+                            setRubricForm({
+                              ...rubricForm,
+                              allow_rerecord: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-kulkul-purple rounded"
+                        />
+                        <span className="text-xs font-semibold text-slate-700">
+                          Allow Re-record (Unchecked = Single Take)
+                        </span>
+                      </label>
+                      <span className="text-3xs text-slate-400 mt-1 block">Workflow.pdf: One take only</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                      AI Evaluator Instructions & Accent Fairness Guidelines
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={rubricForm.instructions || rubricForm.scoring_guideline || ''}
+                      onChange={(e) =>
+                        setRubricForm({
+                          ...rubricForm,
+                          instructions: e.target.value,
+                          scoring_guideline: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. Do not penalize Indonesian regional accent if communication is clear..."
+                      className="w-full p-3.5 rounded-xl border border-slate-200 text-xs bg-white leading-relaxed focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    />
+                  </div>
+                </div>
+
+                {/* Structured Questions & Criteria Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-kulkul-purple" />
+                        <span>AI Video Prompts & Criteria ({rubricForm.questions?.length || 0} Questions)</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Each prompt is delivered sequentially to the candidate, transcribed, and scored against itemized criteria.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddRubricQuestion}
+                      className="px-3.5 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-kulkul-purple text-xs font-bold border border-purple-200 transition flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
+                      <span>Add Question</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {(rubricForm.questions || []).map((q, qIdx) => (
+                      <div
+                        key={qIdx}
+                        className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 relative hover:border-purple-300 transition"
+                      >
+                        {/* Question Header */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+                            <span className="w-7 h-7 rounded-xl bg-purple-100 text-purple-900 font-black text-xs flex items-center justify-center shrink-0">
+                              0{qIdx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              value={q.theme}
+                              onChange={(e) => handleUpdateRubricQuestion(qIdx, 'theme', e.target.value)}
+                              placeholder="Theme / Competency area..."
+                              className="w-full sm:w-80 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-kulkul-purple"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-2xs font-bold text-slate-500 uppercase">Max Points:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={q.max_points}
+                                onChange={(e) =>
+                                  handleUpdateRubricQuestion(qIdx, 'max_points', parseInt(e.target.value) || 0)
+                                }
+                                className="w-16 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-purple-900 text-center font-mono"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRubricQuestion(qIdx)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="Delete Question"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Question Prompt Textarea */}
+                        <div>
+                          <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                            Question Prompt Spoken by AI to Candidate
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={q.question}
+                            onChange={(e) => handleUpdateRubricQuestion(qIdx, 'question', e.target.value)}
+                            placeholder="Enter the spoken technical or situational prompt..."
+                            className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-slate-50/50 leading-relaxed focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          />
+                        </div>
+
+                        {/* Criteria Sub-table */}
+                        <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-3.5 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xs font-extrabold uppercase tracking-wider text-purple-900">
+                              Itemized Scoring Rubric Criteria ({q.criteria?.length || 0})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAddRubricCriterion(qIdx)}
+                              className="text-2xs font-bold text-kulkul-purple hover:underline flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Criterion</span>
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            {(q.criteria || []).map((crit, cIdx) => (
+                              <div key={crit.id || cIdx} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={crit.criterion}
+                                  onChange={(e) =>
+                                    handleUpdateRubricCriterion(qIdx, cIdx, 'criterion', e.target.value)
+                                  }
+                                  placeholder="Criterion description (e.g. Clearly describes situation or problem)..."
+                                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-kulkul-purple"
+                                />
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={50}
+                                    value={crit.points}
+                                    onChange={(e) =>
+                                      handleUpdateRubricCriterion(
+                                        qIdx,
+                                        cIdx,
+                                        'points',
+                                        parseInt(e.target.value) || 0
+                                      )
+                                    }
+                                    className="w-14 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-purple-900 text-center font-mono bg-white"
+                                  />
+                                  <span className="text-3xs text-slate-500 font-medium">pts</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRubricCriterion(qIdx, cIdx)}
+                                  className="p-1 text-slate-400 hover:text-red-500 rounded transition"
+                                  title="Delete criterion"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4 shrink-0">
+                <div className="text-xs text-slate-500">
+                  Total Allocated: <strong className="text-slate-900">{rubricTotalPts} points</strong>
+                  {rubricTotalPts !== 100 && (
+                    <span className="text-amber-600 ml-2 font-medium">
+                      (Recommended standard is 100 points)
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsRubricModalOpen(false)}
+                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!rubricTargetProgram) return;
+                      updateProgramRubricMutation.mutate({
+                        programId: rubricTargetProgram.id,
+                        rubric: {
+                          ...rubricForm,
+                          total_points: rubricTotalPts,
+                        },
+                      });
+                    }}
+                    disabled={updateProgramRubricMutation.isPending}
+                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-kulkul-orange" />
+                    <span>
+                      {updateProgramRubricMutation.isPending ? 'Saving Rubric...' : 'Save Rubric Configuration'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {selectedApplicantId && (
           <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end">
             <div className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
@@ -2834,21 +3415,45 @@ export const DashboardPage: React.FC = () => {
                       </div>
 
                       {applicantDetail.ai_screen.summary_evaluation && (
-                        <div className="stitch-card bg-purple-50/50 p-5 border border-purple-200 space-y-3">
-                          <div className="flex items-center justify-between">
+                        <div className="stitch-card bg-purple-50/50 p-5 border border-purple-200 space-y-4">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <span className="text-xs font-bold uppercase text-purple-900 tracking-wider">
                               AI Screening Scorecard
                             </span>
-                            <span className="text-sm font-extrabold text-purple-900 bg-purple-100 px-3 py-0.5 rounded-full">
-                              Score: {applicantDetail.ai_screen.summary_evaluation.overall_score}/100
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-extrabold text-purple-900 bg-purple-100 px-3 py-0.5 rounded-full">
+                                Score: {applicantDetail.ai_screen.summary_evaluation.overall_score}/100
+                              </span>
+                              {applicantDetail.ai_screen.summary_evaluation.recommendation && (
+                                <span
+                                  className={`text-2xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                                    applicantDetail.ai_screen.summary_evaluation.recommendation
+                                      .toLowerCase()
+                                      .includes('strong')
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                      : applicantDetail.ai_screen.summary_evaluation.recommendation
+                                          .toLowerCase()
+                                          .includes('suitable')
+                                      ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                      : applicantDetail.ai_screen.summary_evaluation.recommendation
+                                          .toLowerCase()
+                                          .includes('borderline')
+                                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                      : 'bg-rose-100 text-rose-800 border-rose-300'
+                                  }`}
+                                >
+                                  {applicantDetail.ai_screen.summary_evaluation.recommendation}
+                                </span>
+                              )}
+                            </div>
                           </div>
+
                           <p className="text-xs text-purple-950 leading-relaxed font-medium">
                             {applicantDetail.ai_screen.summary_evaluation.executive_summary}
                           </p>
 
                           {/* Metric breakdown */}
-                          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-purple-100 text-2xs">
+                          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-purple-100 text-2xs">
                             <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
                               <span className="text-slate-400 block font-bold uppercase">Technical</span>
                               <span className="text-sm font-black text-purple-900">
@@ -2868,6 +3473,67 @@ export const DashboardPage: React.FC = () => {
                               </span>
                             </div>
                           </div>
+
+                          {/* Itemized Question & Rubric Evaluation */}
+                          {applicantDetail.ai_screen.summary_evaluation.question_evaluations &&
+                            applicantDetail.ai_screen.summary_evaluation.question_evaluations.length > 0 && (
+                              <div className="pt-3 border-t border-purple-200/80 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-2xs font-extrabold uppercase text-purple-900 tracking-wider">
+                                    Itemized Rubric Criteria Breakdown ({applicantDetail.ai_screen.summary_evaluation.question_evaluations.length} Questions)
+                                  </span>
+                                  <span className="text-3xs text-purple-600 font-mono">Cloudflare AI Proctor</span>
+                                </div>
+
+                                <div className="space-y-3">
+                                  {applicantDetail.ai_screen.summary_evaluation.question_evaluations.map((qe, qIdx) => (
+                                    <div
+                                      key={qIdx}
+                                      className="bg-white p-3.5 rounded-2xl border border-purple-100 shadow-2xs space-y-2"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-bold text-slate-900">
+                                          Q{qe.question_id}: {qe.theme}
+                                        </span>
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-purple-100 text-purple-900 font-mono shrink-0">
+                                          {qe.score} / {qe.max_points ?? qe.max_score ?? 20} pts
+                                        </span>
+                                      </div>
+
+                                      {qe.feedback && (
+                                        <p className="text-2xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed italic">
+                                          "{qe.feedback}"
+                                        </p>
+                                      )}
+
+                                      {((qe.criteria_scores && qe.criteria_scores.length > 0) ||
+                                        (qe.criteria && qe.criteria.length > 0)) && (
+                                        <div className="space-y-1 pt-1">
+                                          <span className="text-3xs font-extrabold uppercase text-slate-400 block">
+                                            Criteria Scores:
+                                          </span>
+                                          {(qe.criteria_scores || qe.criteria || []).map(
+                                            (cs: CriterionScore, cIdx: number) => (
+                                              <div
+                                                key={cIdx}
+                                                className="flex items-center justify-between text-2xs p-1.5 px-2.5 rounded-lg bg-purple-50/40 border border-purple-100/60"
+                                              >
+                                                <span className="text-slate-700 font-medium truncate pr-2">
+                                                  {cs.criterion}
+                                                </span>
+                                                <span className="shrink-0 font-bold text-purple-900 font-mono">
+                                                  {cs.score} / {cs.max_points ?? cs.max_score ?? 5} pts
+                                                </span>
+                                              </div>
+                                            )
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                         </div>
                       )}
 

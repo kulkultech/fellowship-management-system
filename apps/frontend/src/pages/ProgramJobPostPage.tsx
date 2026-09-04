@@ -172,12 +172,8 @@ export const ProgramJobPostPage: React.FC = () => {
               </div>
             </div>
 
-            {/* CTA & Admissions Status Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 text-center sm:text-left">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                <span>Admissions open &middot; Select your specialization track below to start your application</span>
-              </div>
+            {/* CTA Bar */}
+            <div className="flex items-center justify-end pt-4 border-t border-slate-100">
               <a
                 href="#available-tracks"
                 className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
@@ -193,13 +189,9 @@ export const ProgramJobPostPage: React.FC = () => {
         <div id="available-tracks" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-extrabold text-kulkul-purple flex items-center gap-2">
-                <Layers className="w-6 h-6 text-kulkul-orange" />
+              <h2 className="text-2xl font-extrabold text-kulkul-purple">
                 Available Fellowship Tracks
               </h2>
-              <p className="text-sm text-slate-600 mt-1">
-                Select a specialization track below. Each track features dedicated logic assessments and AI technical screenings.
-              </p>
             </div>
             <span className="hidden sm:inline-block px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full">
               {tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open
@@ -236,10 +228,6 @@ export const ProgramJobPostPage: React.FC = () => {
                           </span>
                         </div>
                       </div>
-
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
-                        Open for Applications
-                      </span>
                     </div>
 
                     <p className="text-sm text-slate-600 leading-relaxed">
@@ -277,10 +265,7 @@ export const ProgramJobPostPage: React.FC = () => {
                   </div>
 
                   {/* Action Button */}
-                  <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between gap-4">
-                    <span className="text-xs text-slate-500 font-medium">
-                      Takes ~{track.logic_test_duration_minutes + 15} mins total
-                    </span>
+                  <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
                     <button
                       onClick={() => handleApplyTrack(track.slug)}
                       className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"

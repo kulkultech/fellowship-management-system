@@ -8,6 +8,8 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kulkul/backend/internal/model"
 )
 
 //go:embed lit_questions_data.json
@@ -163,6 +165,8 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 		}
 	}
 
+	litRubricJSON, _ := json.Marshal(model.DefaultLITRubric())
+
 	for _, p := range programs {
 		var progID string
 		seedProgQuery := `
@@ -170,16 +174,17 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 				organization_id, slug, name, description,
 				open_date, end_date, logic_test_duration_minutes,
 				logic_test_passing_score, allow_retake, status,
-				enable_mcq, enable_ai_interview, created_at, updated_at
+				enable_mcq, enable_ai_interview, ai_interview_rubric, created_at, updated_at
 			)
-			VALUES ($1::uuid, $2, $3, $4, now() - INTERVAL '1 day', now() + INTERVAL '180 days', 35, 70, false, 'published', true, true, now(), now())
+			VALUES ($1::uuid, $2, $3, $4, now() - INTERVAL '1 day', now() + INTERVAL '180 days', 35, 70, false, 'published', true, true, $5::jsonb, now(), now())
 			ON CONFLICT (organization_id, slug) DO UPDATE SET
 				name = EXCLUDED.name,
 				description = EXCLUDED.description,
+				ai_interview_rubric = EXCLUDED.ai_interview_rubric,
 				updated_at = now()
 			RETURNING id::text
 		`
-		if err := pool.QueryRow(ctx, seedProgQuery, rsaOrgID, p.Slug, p.Name, p.Description).Scan(&progID); err != nil {
+		if err := pool.QueryRow(ctx, seedProgQuery, rsaOrgID, p.Slug, p.Name, p.Description, string(litRubricJSON)).Scan(&progID); err != nil {
 			logger.Warn("seed_lit: error upserting program", slog.String("slug", p.Slug), slog.Any("error", err))
 			continue
 		}
@@ -199,17 +204,18 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 				INSERT INTO program_tracks (
 					program_id, question_set_id, slug, name, description,
 					enable_mcq, logic_test_duration_minutes, logic_test_passing_score,
-					allow_retake, enable_ai_interview, created_at, updated_at
+					allow_retake, enable_ai_interview, ai_interview_rubric, created_at, updated_at
 				)
-				VALUES ($1::uuid, $2::uuid, $3, $4, $5, true, 35, 70, false, true, now(), now())
+				VALUES ($1::uuid, $2::uuid, $3, $4, $5, true, 35, 70, false, true, $6::jsonb, now(), now())
 				ON CONFLICT (program_id, slug) DO UPDATE SET
 					question_set_id = EXCLUDED.question_set_id,
 					name = EXCLUDED.name,
 					description = EXCLUDED.description,
+					ai_interview_rubric = EXCLUDED.ai_interview_rubric,
 					updated_at = now()
 				RETURNING id::text
 			`
-			if err := pool.QueryRow(ctx, seedTrackQuery, progID, tr.QuestionSetID, tr.Slug, tr.Name, tr.Description).Scan(&trackID); err != nil {
+			if err := pool.QueryRow(ctx, seedTrackQuery, progID, tr.QuestionSetID, tr.Slug, tr.Name, tr.Description, string(litRubricJSON)).Scan(&trackID); err != nil {
 				logger.Warn("seed_lit: error upserting track", slog.String("program", p.Slug), slog.String("track", tr.Slug), slog.Any("error", err))
 				continue
 			}

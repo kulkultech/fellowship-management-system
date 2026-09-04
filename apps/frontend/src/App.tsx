@@ -72,6 +72,7 @@ export function App() {
           <Route path="/lit2026/result/:testToken" element={<ResultPage />} />
           <Route path="/lit2026/interview/:inviteToken" element={<InterviewPage />} />
           <Route path="/interview/:inviteToken" element={<InterviewPage />} />
+          <Route path="/interviews/:inviteToken" element={<InterviewPage />} />
           <Route path="/programs/:orgSlug/:programSlug/interview/:inviteToken" element={<InterviewPage />} />
 
           {/* Admin & Reviewer Portal */}
