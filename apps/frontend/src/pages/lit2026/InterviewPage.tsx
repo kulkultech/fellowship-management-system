@@ -20,7 +20,6 @@ import {
   Clock,
   ChevronRight,
   ShieldCheck,
-  Radio,
   ArrowRight,
   Check,
   RefreshCw,
@@ -474,10 +473,6 @@ export const InterviewPage: React.FC = () => {
       {uiStage === 'lobby' && (
         <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center">
           <div className="text-center max-w-2xl mx-auto mb-8">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 mb-3">
-              <Radio className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-              AI Technical Video Screen
-            </span>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               Pre-Flight Chamber & Device Setup
             </h1>
