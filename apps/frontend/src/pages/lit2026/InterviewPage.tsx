@@ -15,8 +15,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Bot,
-  Volume2,
-  VolumeX,
   Clock,
   ChevronRight,
   ShieldCheck,
@@ -81,7 +79,6 @@ export const InterviewPage: React.FC = () => {
   const [prepCountdown, setPrepCountdown] = useState(prepBufferSeconds);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [isSpeakingQuestion, setIsSpeakingQuestion] = useState(false);
   const [transcripts, setTranscripts] = useState<Record<number, string>>({});
   const speechRecognitionRef = useRef<any>(null);
 
@@ -398,7 +395,15 @@ export const InterviewPage: React.FC = () => {
 
   // Start Recording Answer with MediaRecorder
   const startRecordingAnswer = () => {
+    stopSpeech();
     if (!stream) {
+      if (inviteToken === 'demo') {
+        setRecordingSeconds(0);
+        setIsPaused(false);
+        setInterviewPhase('recording');
+        toast('Recording response (Demo Mode)...', { icon: '🔴' });
+        return;
+      }
       toast.error('No active camera feed detected. Please allow camera access.');
       return;
     }
@@ -466,6 +471,19 @@ export const InterviewPage: React.FC = () => {
   // Stop Recording Answer
   const stopRecordingAnswer = () => {
     stopSpeechRecognition();
+    if (!stream && inviteToken === 'demo') {
+      const demoBlob = new Blob(['demo video recording'], { type: 'video/webm' });
+      setQuestionRecordings((prev) => ({
+        ...prev,
+        [currentQIndex]: {
+          blob: demoBlob,
+          url: '',
+          duration: recordingSeconds || 15,
+        },
+      }));
+      setInterviewPhase('review');
+      return;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -481,27 +499,10 @@ export const InterviewPage: React.FC = () => {
     setInterviewPhase('prep');
   };
 
-  // Read Prompt Aloud using Web Speech Synthesis
-  const speakQuestion = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.onstart = () => setIsSpeakingQuestion(true);
-      utterance.onend = () => setIsSpeakingQuestion(false);
-      utterance.onerror = () => setIsSpeakingQuestion(false);
-      window.speechSynthesis.speak(utterance);
-    } else {
-      toast('Text-to-speech not supported on this browser', { icon: 'ℹ️' });
-    }
-  };
-
-  // Stop speech if switching
+  // Cancel speech synthesis if active
   const stopSpeech = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      setIsSpeakingQuestion(false);
     }
   };
 
@@ -577,8 +578,9 @@ export const InterviewPage: React.FC = () => {
   };
 
   // Enter Chamber from Lobby
+  // Enter Chamber from Lobby
   const handleEnterChamber = () => {
-    if (!stream) {
+    if (!stream && inviteToken !== 'demo') {
       toast.error('Please enable camera and microphone permissions first.');
       return;
     }
@@ -590,11 +592,11 @@ export const InterviewPage: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-400 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-base font-bold text-slate-200">Connecting to Video Interview Chamber...</p>
-          <p className="text-xs text-slate-400 mt-1">Establishing WebRTC media stream</p>
+          <div className="w-12 h-12 border-4 border-kulkul-purple/20 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-base font-bold text-slate-900">Connecting to Video Interview Room...</p>
+          <p className="text-xs text-slate-500 mt-1">Establishing WebRTC media stream</p>
         </div>
       </div>
     );
@@ -603,16 +605,16 @@ export const InterviewPage: React.FC = () => {
   // Error state
   if (isError || !session) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center text-white shadow-2xl">
-          <AlertCircle className="w-14 h-14 text-rose-400 mx-auto mb-4 animate-bounce" />
-          <h2 className="text-xl font-black text-white mb-2">Interview Session Invalid</h2>
-          <p className="text-slate-400 text-sm mb-6">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="stitch-card max-w-md w-full bg-white border border-slate-200/90 rounded-3xl p-8 text-center text-slate-900 shadow-2xs">
+          <AlertCircle className="w-14 h-14 text-rose-500 mx-auto mb-4 animate-bounce" />
+          <h2 className="text-xl font-black text-slate-900 mb-2">Interview Session Invalid</h2>
+          <p className="text-slate-600 text-sm mb-6">
             The interview invitation token has expired or could not be found in the database.
           </p>
           <button
             onClick={() => navigate('/candidate/dashboard')}
-            className="w-full py-3 bg-purple-600 hover:bg-purple-500 font-bold rounded-2xl transition"
+            className="w-full py-3.5 bg-kulkul-purple hover:bg-kulkul-purple-hover font-bold text-white rounded-full transition shadow-sm"
           >
             Return to Candidate Dashboard
           </button>
@@ -624,26 +626,26 @@ export const InterviewPage: React.FC = () => {
   const currentQ = questions[currentQIndex];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       <Navbar />
 
       {/* STAGE 1: LOBBY & PRE-FLIGHT DIAGNOSTICS */}
       {uiStage === 'lobby' && (
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center">
+        <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center">
           <div className="text-center max-w-2xl mx-auto mb-8">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Pre-Flight Chamber & Device Setup
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Pre-Flight Device & Camera Setup
             </h1>
-            <p className="text-sm text-slate-400 mt-2">
-              Welcome, <span className="text-white font-semibold">{session.applicant_name}</span>. Test your
+            <p className="text-sm text-slate-500 mt-2">
+              Welcome, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Test your
               camera, microphone, and preview your video feed before entering the AI interview room.
             </p>
           </div>
 
           <div className="max-w-3xl mx-auto w-full">
             {/* Live Camera Preview Card */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl backdrop-blur-sm relative overflow-hidden">
-              <div className="relative aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/80 flex items-center justify-center">
+            <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs relative overflow-hidden space-y-6">
+              <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
                 {stream ? (
                   <video
                     ref={lobbyVideoRef}
@@ -655,9 +657,11 @@ export const InterviewPage: React.FC = () => {
                 ) : null}
 
                 {(!stream || isCameraOff) && (
-                  <div className="text-center p-6 text-slate-400">
-                    <VideoOff className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-                    <p className="text-sm font-semibold text-slate-300">
+                  <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                      <VideoOff className="w-6 h-6 text-slate-500" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">
                       {isCameraOff ? 'Camera Video Paused' : 'Camera Feed Not Connected'}
                     </p>
                     <p className="text-xs text-slate-500 mt-1 max-w-xs">
@@ -667,7 +671,7 @@ export const InterviewPage: React.FC = () => {
                       <button
                         onClick={startCamera}
                         disabled={isRequestingMedia}
-                        className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white rounded-xl transition"
+                        className="mt-4 px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-xs font-bold text-white shadow-xs transition"
                       >
                         {isRequestingMedia ? 'Requesting Access...' : 'Allow Camera & Mic'}
                       </button>
@@ -677,19 +681,19 @@ export const InterviewPage: React.FC = () => {
 
                 {/* Overlaid Device Status Badges */}
                 <div className="absolute top-3 left-3 flex items-center gap-2">
-                  <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                  <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                     Live Preview
                   </span>
-                  <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-medium text-slate-300 border border-slate-700">
+                  <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-medium text-white border border-white/20">
                     720p HD Stream
                   </span>
                 </div>
 
                 {/* Microphone Level Visualizer Bar in bottom */}
                 {stream && !isMicMuted && (
-                  <div className="absolute bottom-3 left-3 right-3 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 flex items-center gap-3 border border-slate-700/60">
-                    <Mic className="w-4 h-4 text-purple-400 shrink-0" />
+                  <div className="absolute bottom-3 left-3 right-3 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 flex items-center gap-3 border border-white/15">
+                    <Mic className="w-4 h-4 text-kulkul-orange shrink-0" />
                     <div className="flex-1 flex items-center gap-1 h-3">
                       {[...Array(24)].map((_, i) => {
                         const threshold = (i / 24) * 100;
@@ -704,13 +708,13 @@ export const InterviewPage: React.FC = () => {
                                   : i > 12
                                   ? 'bg-amber-400 h-4/5'
                                   : 'bg-emerald-400 h-3/4'
-                                : 'bg-slate-700/60 h-1/3'
+                                : 'bg-white/20 h-1/3'
                             }`}
                           />
                         );
                       })}
                     </div>
-                    <span className="text-2xs text-slate-300 font-mono w-8 text-right">
+                    <span className="text-2xs text-white font-mono w-8 text-right font-bold">
                       {audioLevel}%
                     </span>
                   </div>
@@ -718,51 +722,51 @@ export const InterviewPage: React.FC = () => {
               </div>
 
               {/* Controls bar */}
-              <div className="mt-4 flex items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-2.5">
                   <button
                     onClick={toggleCamera}
-                    className={`p-3 rounded-2xl border transition flex items-center gap-2 text-xs font-semibold ${
+                    className={`px-4 py-2 rounded-full border transition flex items-center gap-2 text-xs font-bold ${
                       isCameraOff
-                        ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
+                        ? 'bg-rose-50 border-rose-200 text-rose-700'
+                        : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    {isCameraOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                    {isCameraOff ? <VideoOff className="w-4 h-4 text-rose-600" /> : <Video className="w-4 h-4 text-slate-600" />}
                     <span>{isCameraOff ? 'Camera Off' : 'Camera On'}</span>
                   </button>
 
                   <button
                     onClick={toggleMic}
-                    className={`p-3 rounded-2xl border transition flex items-center gap-2 text-xs font-semibold ${
+                    className={`px-4 py-2 rounded-full border transition flex items-center gap-2 text-xs font-bold ${
                       isMicMuted
-                        ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
+                        ? 'bg-rose-50 border-rose-200 text-rose-700'
+                        : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    {isMicMuted ? <MicOff className="w-4 h-4 text-rose-600" /> : <Mic className="w-4 h-4 text-slate-600" />}
                     <span>{isMicMuted ? 'Muted' : 'Mic Active'}</span>
                   </button>
                 </div>
 
-                <div className="text-xs text-slate-400 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>Encrypted Peer Feed</span>
                 </div>
               </div>
 
               {/* Enter Interview Button */}
-              <div className="mt-6 pt-4 border-t border-slate-800">
+              <div className="pt-4 border-t border-slate-100">
                 <button
                   onClick={handleEnterChamber}
-                  disabled={!stream}
-                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-purple-600/30 transition transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  disabled={!stream && inviteToken !== 'demo'}
+                  className="w-full py-3.5 px-6 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
                   <span>Enter AI Video Interview Room</span>
-                  <ArrowRight className="w-5 h-5 text-white" />
+                  <ArrowRight className="w-4 h-4" />
                 </button>
-                {!stream && (
-                  <p className="text-2xs text-rose-400 text-center mt-2 font-medium">
+                {!stream && inviteToken !== 'demo' && (
+                  <p className="text-2xs text-rose-500 text-center mt-2 font-medium">
                     Camera permission required to enter
                   </p>
                 )}
@@ -776,14 +780,14 @@ export const InterviewPage: React.FC = () => {
       {uiStage === 'interview' && (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-6">
           {/* Top Session Progress Bar */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black">
-                <Bot className="w-6 h-6 text-purple-200" />
+              <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-black shadow-2xs">
+                <Bot className="w-5 h-5 text-kulkul-purple" />
               </div>
               <div>
-                <div className="text-sm font-black text-white">{session.program_name}</div>
-                <div className="text-xs text-slate-400 font-medium">
+                <div className="text-sm font-black text-slate-900 tracking-tight">{session.program_name}</div>
+                <div className="text-xs text-slate-500 font-medium">
                   {session.applicant_name} &middot; Question {currentQIndex + 1} of {questions.length}
                 </div>
               </div>
@@ -799,13 +803,13 @@ export const InterviewPage: React.FC = () => {
                     <div
                       className={`h-2 rounded-full transition-all ${
                         isPast
-                          ? 'bg-emerald-400'
+                          ? 'bg-emerald-500'
                           : isCurr
-                          ? 'bg-purple-500 animate-pulse'
-                          : 'bg-slate-800'
+                          ? 'bg-kulkul-purple animate-pulse'
+                          : 'bg-slate-200'
                       }`}
                     />
-                    <div className="text-3xs text-slate-500 font-mono mt-1 text-center">
+                    <div className="text-3xs text-slate-400 font-mono mt-1 text-center font-medium">
                       Q{q.id}
                     </div>
                   </div>
@@ -816,7 +820,7 @@ export const InterviewPage: React.FC = () => {
             {/* Recording / Phase Badge */}
             <div className="flex items-center gap-2">
               {interviewPhase === 'recording' && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs tracking-wider animate-pulse">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs tracking-wider animate-pulse shadow-2xs">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                   <span>
                     REC {Math.floor(recordingSeconds / 60)}:
@@ -827,29 +831,29 @@ export const InterviewPage: React.FC = () => {
               )}
 
               {interviewPhase === 'prep' && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs">
-                  <Clock className="w-3.5 h-3.5" />
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs shadow-2xs">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
                   <span>Prep Countdown: {prepCountdown}s</span>
                 </div>
               )}
 
               {interviewPhase === 'review' && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-300 font-bold text-xs">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple font-bold text-xs shadow-2xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-kulkul-purple" />
                   <span>Recorded &middot; Reviewing</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Main Stage Grid: Video Feed Left, AI & Question Right */}
+          {/* Main Stage Grid: Video Feed Left, Question Right */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-stretch">
             {/* Candidate Video Stage */}
-            <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col justify-between">
+            <div className="lg:col-span-7 stitch-card bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
               {/* Video Window */}
-              <div className="relative aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+              <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
                 {/* Live Stream View (Prep & Recording) */}
-                {interviewPhase !== 'review' && (
+                {interviewPhase !== 'review' && stream && (
                   <video
                     ref={liveVideoRef}
                     autoPlay
@@ -860,7 +864,7 @@ export const InterviewPage: React.FC = () => {
                 )}
 
                 {/* Review Player (When answer has been recorded) */}
-                {interviewPhase === 'review' && questionRecordings[currentQIndex] && (
+                {interviewPhase === 'review' && questionRecordings[currentQIndex]?.url && (
                   <video
                     ref={reviewVideoRef}
                     src={questionRecordings[currentQIndex].url}
@@ -871,21 +875,31 @@ export const InterviewPage: React.FC = () => {
                   />
                 )}
 
-                {isCameraOff && interviewPhase !== 'review' && (
-                  <div className="text-center p-6 text-slate-500">
-                    <VideoOff className="w-10 h-10 mx-auto mb-2 text-slate-600" />
-                    <p className="text-sm font-semibold">Camera is currently paused</p>
+                {/* Empty / Paused State */}
+                {((!stream && interviewPhase !== 'review') || isCameraOff) && (
+                  <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                      <VideoOff className="w-6 h-6 text-slate-500" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {isCameraOff ? 'Camera Paused' : 'Demo Mode Feed Active'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                      {isCameraOff
+                        ? 'Click the camera button below to unpause your video.'
+                        : 'Simulated candidate feed for preview and evaluation testing.'}
+                    </p>
                   </div>
                 )}
 
                 {/* Live REC Pill Overlay */}
                 {interviewPhase === 'recording' && (
                   <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <span className="px-3 py-1 bg-rose-600/90 text-white rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 shadow-lg shadow-rose-900/50">
+                    <span className="px-3.5 py-1 bg-rose-600 text-white rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 shadow-md shadow-rose-950/40">
                       <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                       RECORDING
                     </span>
-                    <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs text-slate-300 font-mono">
+                    <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs text-white font-mono border border-white/20">
                       {Math.floor(recordingSeconds / 60)}:
                       {(recordingSeconds % 60).toString().padStart(2, '0')}
                     </span>
@@ -893,15 +907,15 @@ export const InterviewPage: React.FC = () => {
                 )}
 
                 {/* Live Mic Level Waveform at bottom-left */}
-                {interviewPhase === 'recording' && !isMicMuted && (
-                  <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 flex items-center gap-2 border border-slate-700/80">
-                    <Mic className="w-3.5 h-3.5 text-purple-400" />
+                {interviewPhase === 'recording' && !isMicMuted && stream && (
+                  <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md rounded-full p-2 px-3.5 flex items-center gap-2.5 border border-white/15">
+                    <Mic className="w-3.5 h-3.5 text-kulkul-orange" />
                     <div className="flex items-center gap-0.5 h-3 w-16">
                       {[...Array(8)].map((_, i) => (
                         <div
                           key={i}
                           className={`flex-1 rounded-full transition-all duration-75 ${
-                            audioLevel > i * 12 ? 'bg-purple-400 h-full' : 'bg-slate-700 h-1'
+                            audioLevel > i * 12 ? 'bg-kulkul-orange h-full' : 'bg-white/25 h-1'
                           }`}
                         />
                       ))}
@@ -911,12 +925,12 @@ export const InterviewPage: React.FC = () => {
 
                 {/* Floating In-Stream Action Overlay (Camera/Mic Toggles) */}
                 {interviewPhase !== 'review' && (
-                  <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-xl p-1.5 border border-slate-700/60">
+                  <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full p-1.5 px-2 border border-white/15">
                     <button
                       onClick={toggleCamera}
                       title="Toggle Camera"
-                      className={`p-2 rounded-lg transition ${
-                        isCameraOff ? 'bg-rose-500 text-white' : 'hover:bg-slate-800 text-slate-300'
+                      className={`p-2 rounded-full transition ${
+                        isCameraOff ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
                       }`}
                     >
                       {isCameraOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
@@ -924,8 +938,8 @@ export const InterviewPage: React.FC = () => {
                     <button
                       onClick={toggleMic}
                       title="Toggle Microphone"
-                      className={`p-2 rounded-lg transition ${
-                        isMicMuted ? 'bg-rose-500 text-white' : 'hover:bg-slate-800 text-slate-300'
+                      className={`p-2 rounded-full transition ${
+                        isMicMuted ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
                       }`}
                     >
                       {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -935,16 +949,16 @@ export const InterviewPage: React.FC = () => {
               </div>
 
               {/* Bottom Video Controls Action Dock */}
-              <div className="mt-4 pt-2 flex flex-wrap items-center justify-between gap-3">
+              <div className="mt-5 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
                 {interviewPhase === 'prep' && (
                   <>
-                    <div className="text-xs text-slate-400 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-400" />
+                    <div className="text-xs text-slate-600 font-medium flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-600" />
                       <span>Take a moment to prepare your answer ({prepCountdown}s remaining)</span>
                     </div>
                     <button
                       onClick={startRecordingAnswer}
-                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-lg shadow-purple-600/30 transition transform active:scale-95"
+                      className="px-6 py-3 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98]"
                     >
                       <Play className="w-4 h-4 fill-white" />
                       <span>Start Recording Response Now</span>
@@ -954,19 +968,19 @@ export const InterviewPage: React.FC = () => {
 
                 {interviewPhase === 'recording' && (
                   <>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <button
                         onClick={togglePauseRecording}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition flex items-center gap-1.5"
+                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-full text-xs transition flex items-center gap-2 border border-slate-200"
                       >
-                        {isPaused ? <Play className="w-3.5 h-3.5" /> : <span className="w-2.5 h-2.5 bg-amber-400 rounded-xs" />}
+                        {isPaused ? <Play className="w-3.5 h-3.5 text-slate-700" /> : <span className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
                         <span>{isPaused ? 'Resume' : 'Pause'}</span>
                       </button>
-                      <span className="text-xs text-slate-400">Speak clearly towards your microphone</span>
+                      <span className="text-xs text-slate-500 font-medium">Speak clearly into your microphone</span>
                     </div>
                     <button
                       onClick={stopRecordingAnswer}
-                      className="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-lg shadow-rose-600/30 transition transform active:scale-95"
+                      className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98]"
                     >
                       <Square className="w-4 h-4 fill-white" />
                       <span>Stop & Review Response</span>
@@ -979,14 +993,14 @@ export const InterviewPage: React.FC = () => {
                     {allowRerecord ? (
                       <button
                         onClick={handleRerecord}
-                        className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition flex items-center gap-2 border border-slate-700"
+                        className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-full text-xs transition flex items-center gap-2 border border-slate-200 shadow-2xs"
                       >
-                        <RotateCcw className="w-4 h-4 text-purple-400" />
+                        <RotateCcw className="w-4 h-4 text-kulkul-purple" />
                         <span>Re-record Answer</span>
                       </button>
                     ) : (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-950/40 border border-purple-800/40 text-purple-300 text-xs font-semibold">
-                        <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-semibold">
+                        <ShieldCheck className="w-4 h-4 text-kulkul-purple shrink-0" />
                         <span>Single-Take Finalized &bull; 1 take per prompt</span>
                       </div>
                     )}
@@ -994,7 +1008,7 @@ export const InterviewPage: React.FC = () => {
                     <button
                       onClick={handleConfirmNext}
                       disabled={isUploadingRecording}
-                      className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-lg shadow-emerald-600/30 transition transform active:scale-95 disabled:opacity-50"
+                      className="px-7 py-3 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98] disabled:opacity-50"
                     >
                       {isUploadingRecording ? (
                         <>
@@ -1018,138 +1032,44 @@ export const InterviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* AI Evaluator Persona & Question Module */}
+            {/* Question Module (Right column) */}
             <div className="lg:col-span-5 flex flex-col gap-4">
-              {/* AI Interviewer Persona Header Card */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center font-black shadow-inner">
-                        <Bot className="w-6 h-6 text-white" />
-                      </div>
-                      <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-black text-white flex items-center gap-2">
-                        <span>LIT AI Technical Proctor</span>
-                      </div>
-                      <div className="text-2xs text-purple-400 font-semibold tracking-wide">
-                        Autonomous Screening Evaluator
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Text-to-speech button */}
-                  <button
-                    onClick={() =>
-                      isSpeakingQuestion
-                        ? stopSpeech()
-                        : speakQuestion(`${currentQ.title}. ${currentQ.prompt}`)
-                    }
-                    className={`p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border ${
-                      isSpeakingQuestion
-                        ? 'bg-purple-600 text-white border-purple-400 animate-pulse'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                    }`}
-                  >
-                    {isSpeakingQuestion ? (
-                      <>
-                        <VolumeX className="w-4 h-4 text-white" />
-                        <span>Mute AI</span>
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="w-4 h-4 text-purple-400" />
-                        <span>Read Aloud</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* AI Activity Status Pill */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-2xs">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        interviewPhase === 'recording'
-                          ? 'bg-purple-400 animate-pulse'
-                          : 'bg-slate-500'
-                      }`}
-                    />
-                    <span>
-                      {interviewPhase === 'prep'
-                        ? 'AI waiting for candidate to begin response'
-                        : interviewPhase === 'recording'
-                        ? 'AI actively listening & transcribing delivery'
-                        : 'AI ready to save answer recording'}
-                    </span>
-                  </div>
-                  <span className="text-slate-500 font-mono">Stage 2</span>
-                </div>
-              </div>
-
               {/* Question Card */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl flex-1 flex flex-col justify-between space-y-4">
-                <div className="space-y-3">
+              <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs flex-1 flex flex-col justify-between space-y-5">
+                <div className="space-y-3.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-3 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-full text-2xs font-extrabold uppercase tracking-wider">
+                    <span className="px-3.5 py-1 bg-purple-50 text-kulkul-purple border border-purple-200 rounded-full text-2xs font-extrabold uppercase tracking-wider">
                       {currentQ.category}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-2xs font-bold">
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold">
                         {currentQ.max_points} Points
                       </span>
-                      <span className="text-xs font-bold text-slate-400">
+                      <span className="text-xs font-bold text-slate-500">
                         Q{currentQIndex + 1} of {questions.length}
                       </span>
                     </div>
                   </div>
 
-                  <h3 className="text-base sm:text-lg font-black text-white leading-snug">
+                  <h3 className="text-lg font-black text-slate-900 leading-snug tracking-tight">
                     {currentQ.title}
                   </h3>
 
-                  <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 text-sm text-slate-200 leading-relaxed font-medium">
+                  <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-200 text-sm text-slate-800 leading-relaxed font-medium shadow-2xs">
                     {currentQ.prompt}
                   </div>
 
-                  {/* Rubric Criteria Checklist */}
-                  {currentQ.criteria && currentQ.criteria.length > 0 && (
-                    <div className="p-3 bg-purple-950/20 border border-purple-800/30 rounded-xl space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xs font-bold text-purple-300 uppercase tracking-wide">
-                          Scoring Rubric Breakdown ({currentQ.max_points} pts):
-                        </span>
-                        <span className="text-3xs text-slate-400">Accent Fair Evaluation</span>
-                      </div>
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                        {currentQ.criteria.map((c, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between gap-2 text-2xs p-1.5 px-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-slate-300"
-                          >
-                            <span className="truncate">{c.criterion}</span>
-                            <span className="shrink-0 font-bold text-purple-300 bg-purple-900/40 px-2 py-0.5 rounded border border-purple-700/50">
-                              {c.points} pts
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Live Speech Recognition Preview */}
                   {transcripts[currentQIndex] && (
-                    <div className="p-3 bg-slate-950/90 rounded-xl border border-purple-500/30 text-2xs space-y-1 animate-in fade-in">
-                      <div className="flex items-center justify-between text-3xs font-bold uppercase tracking-wider text-purple-400">
+                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-2xs space-y-1 animate-in fade-in">
+                      <div className="flex items-center justify-between text-3xs font-bold uppercase tracking-wider text-kulkul-purple">
                         <span>Speech Transcription Preview</span>
-                        <span className="text-emerald-400 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        <span className="text-emerald-600 flex items-center gap-1 font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                           Live
                         </span>
                       </div>
-                      <p className="text-slate-200 italic line-clamp-3">
+                      <p className="text-slate-800 italic line-clamp-3 font-medium">
                         "{transcripts[currentQIndex]}"
                       </p>
                     </div>
@@ -1157,36 +1077,36 @@ export const InterviewPage: React.FC = () => {
                 </div>
 
                 {/* Progress Indicators for All Questions */}
-                <div className="border-t border-slate-800 pt-4 space-y-2">
-                  <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider block">
+                <div className="border-t border-slate-100 pt-4 space-y-2.5">
+                  <span className="text-2xs font-extrabold uppercase text-slate-400 tracking-wider block">
                     Assessment Questions Overview
                   </span>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {questions.map((q, idx) => (
                       <div
                         key={q.id}
-                        className={`p-2 rounded-xl text-xs flex items-center justify-between ${
+                        className={`p-3 rounded-2xl text-xs flex items-center justify-between transition ${
                           idx === currentQIndex
-                            ? 'bg-purple-600/20 border border-purple-500/40 text-purple-200 font-bold'
+                            ? 'bg-purple-50 border border-purple-300 text-kulkul-purple font-bold shadow-2xs'
                             : questionRecordings[idx]
-                            ? 'bg-emerald-950/20 border border-emerald-500/30 text-emerald-300'
-                            : 'bg-slate-950/50 text-slate-500'
+                            ? 'bg-emerald-50/80 border border-emerald-200 text-emerald-800 font-medium'
+                            : 'bg-slate-50 text-slate-500 border border-slate-200/70'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <span className="font-mono text-2xs">0{q.id}.</span>
+                          <span className="font-mono text-2xs font-bold">0{q.id}.</span>
                           <span className="truncate">{q.title}</span>
                         </div>
                         {questionRecordings[idx] ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-400 text-2xs font-semibold shrink-0">
-                            <Check className="w-3 h-3" /> Recorded
+                          <span className="inline-flex items-center gap-1 text-emerald-600 text-2xs font-bold shrink-0">
+                            <Check className="w-3.5 h-3.5" /> Recorded
                           </span>
                         ) : idx === currentQIndex ? (
-                          <span className="text-purple-400 text-2xs font-semibold shrink-0 animate-pulse">
+                          <span className="text-kulkul-purple text-2xs font-extrabold shrink-0 animate-pulse">
                             Active
                           </span>
                         ) : (
-                          <span className="text-slate-600 text-2xs shrink-0">Pending</span>
+                          <span className="text-slate-400 text-2xs shrink-0 font-medium">Pending</span>
                         )}
                       </div>
                     ))}
@@ -1201,31 +1121,31 @@ export const InterviewPage: React.FC = () => {
       {/* STAGE 3: INTERVIEW COMPLETED & DATABASE VERIFICATION SCREEN */}
       {uiStage === 'completed' && (
         <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center gap-6">
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-2xs text-center space-y-6">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 mb-2">
                 Stored in Database
               </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Video Interview Successfully Recorded
               </h1>
-              <p className="text-sm text-slate-400 max-w-xl mx-auto mt-2">
-                Thank you, <span className="text-white font-semibold">{session.applicant_name}</span>. Your technical responses have been encrypted, verified, and saved to the review database for the fellowship admissions committee.
+              <p className="text-sm text-slate-600 max-w-xl mx-auto mt-2">
+                Thank you, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Your technical responses have been encrypted, verified, and saved to the review database for the fellowship admissions committee.
               </p>
             </div>
 
             {/* Recorded Video Playback Player */}
-            <div className="max-w-3xl mx-auto w-full mt-6 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl text-left">
-              <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-                  <Video className="w-4 h-4 text-purple-400" />
+            <div className="max-w-3xl mx-auto w-full mt-6 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs text-left">
+              <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                  <Video className="w-4 h-4 text-kulkul-purple" />
                   <span>Submitted Candidate Recording</span>
                 </div>
-                <span className="text-2xs font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                <span className="text-2xs font-mono text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-bold">
                   Saved &amp; Encrypted
                 </span>
               </div>
@@ -1240,8 +1160,8 @@ export const InterviewPage: React.FC = () => {
                     className="w-full h-full object-contain"
                   />
                 ) : (
-                  <div className="text-center p-6 text-slate-500">
-                    <Video className="w-10 h-10 mx-auto mb-2 text-slate-600" />
+                  <div className="text-center p-6 text-slate-400">
+                    <Video className="w-10 h-10 mx-auto mb-2 text-slate-500" />
                     <p className="text-xs">Video recording archive registered in database.</p>
                   </div>
                 )}
@@ -1254,25 +1174,25 @@ export const InterviewPage: React.FC = () => {
               if (!activeEval) {
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mt-4 text-left">
-                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
                       <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
                         Responses Captured
                       </span>
-                      <span className="text-lg font-black text-white">{questions.length} Video Prompts</span>
+                      <span className="text-lg font-black text-slate-900">{questions.length} Video Prompts</span>
                     </div>
 
-                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
                       <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
                         Evaluation Engine
                       </span>
-                      <span className="text-lg font-black text-purple-400">Cloudflare Workers AI</span>
+                      <span className="text-lg font-black text-kulkul-purple">Cloudflare Workers AI</span>
                     </div>
 
-                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
                       <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
                         Status
                       </span>
-                      <span className="text-lg font-black text-emerald-400">Evaluating in Queue...</span>
+                      <span className="text-lg font-black text-emerald-600">Evaluating in Queue...</span>
                     </div>
                   </div>
                 );
@@ -1282,25 +1202,25 @@ export const InterviewPage: React.FC = () => {
               const isSuitable = (activeEval.overall_score ?? 0) >= 70 && (activeEval.overall_score ?? 0) < 80;
 
               return (
-                <div className="max-w-3xl mx-auto w-full mt-4 bg-slate-900/90 border border-purple-500/30 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xl">
+                <div className="max-w-3xl mx-auto w-full mt-4 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xs">
                   {/* Top Score Banner */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <Sparkles className="w-4 h-4 text-purple-400" />
-                        <span className="text-2xs font-extrabold uppercase tracking-wider text-purple-400">
+                        <Sparkles className="w-4 h-4 text-kulkul-purple" />
+                        <span className="text-2xs font-extrabold uppercase tracking-wider text-kulkul-purple">
                           Cloudflare AI Proctor Evaluation
                         </span>
                       </div>
-                      <h2 className="text-xl font-black text-white">AI Assessment Scorecard</h2>
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight">AI Assessment Scorecard</h2>
                       <div className="mt-2">
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                             isStrong
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : isSuitable
-                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200'
                           }`}
                         >
                           <Award className="w-3.5 h-3.5" />
@@ -1309,44 +1229,44 @@ export const InterviewPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="text-left sm:text-right bg-slate-950/80 p-4 px-6 rounded-2xl border border-slate-800 shrink-0">
-                      <span className="text-2xs font-extrabold uppercase text-slate-400 block mb-0.5">
+                    <div className="text-left sm:text-right bg-purple-50/60 p-4 px-6 rounded-2xl border border-purple-200 shrink-0">
+                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-0.5">
                         Overall Score
                       </span>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl sm:text-4xl font-black text-purple-400">
+                        <span className="text-3xl sm:text-4xl font-black text-kulkul-purple">
                           {activeEval.overall_score}
                         </span>
-                        <span className="text-sm font-bold text-slate-500">/100</span>
+                        <span className="text-sm font-bold text-slate-400">/100</span>
                       </div>
                     </div>
                   </div>
 
                   {/* 3 Core Metric Pillars */}
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
-                      <span className="text-3xs font-extrabold uppercase text-slate-400 block mb-1">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
+                      <span className="text-3xs font-extrabold uppercase text-slate-500 block mb-1">
                         Technical Acumen
                       </span>
-                      <span className="text-lg font-black text-purple-300">
+                      <span className="text-lg font-black text-kulkul-purple">
                         {activeEval.technical_acumen}/10
                       </span>
                     </div>
 
-                    <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
-                      <span className="text-3xs font-extrabold uppercase text-slate-400 block mb-1">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
+                      <span className="text-3xs font-extrabold uppercase text-slate-500 block mb-1">
                         Communication
                       </span>
-                      <span className="text-lg font-black text-purple-300">
+                      <span className="text-lg font-black text-kulkul-purple">
                         {activeEval.communication}/10
                       </span>
                     </div>
 
-                    <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
-                      <span className="text-3xs font-extrabold uppercase text-slate-400 block mb-1">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
+                      <span className="text-3xs font-extrabold uppercase text-slate-500 block mb-1">
                         Problem Solving
                       </span>
-                      <span className="text-lg font-black text-purple-300">
+                      <span className="text-lg font-black text-kulkul-purple">
                         {activeEval.problem_solving}/10
                       </span>
                     </div>
@@ -1354,11 +1274,11 @@ export const InterviewPage: React.FC = () => {
 
                   {/* Executive Summary */}
                   {activeEval.executive_summary && (
-                    <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1.5">
-                      <span className="text-2xs font-extrabold uppercase text-slate-400 block">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5 shadow-2xs">
+                      <span className="text-2xs font-extrabold uppercase text-slate-500 block">
                         Executive Summary
                       </span>
-                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
                         {activeEval.executive_summary}
                       </p>
                     </div>
@@ -1368,14 +1288,14 @@ export const InterviewPage: React.FC = () => {
                   {(activeEval.key_strengths?.length || activeEval.areas_for_growth?.length) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {activeEval.key_strengths && activeEval.key_strengths.length > 0 && (
-                        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
-                          <span className="text-2xs font-extrabold uppercase text-emerald-400 block">
+                        <div className="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-200 space-y-2 shadow-2xs">
+                          <span className="text-2xs font-extrabold uppercase text-emerald-800 block">
                             Key Strengths
                           </span>
-                          <ul className="space-y-1 text-xs text-slate-300">
+                          <ul className="space-y-1 text-xs text-slate-700">
                             {activeEval.key_strengths.map((s, idx) => (
                               <li key={idx} className="flex items-start gap-2">
-                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                                 <span>{s}</span>
                               </li>
                             ))}
@@ -1384,14 +1304,14 @@ export const InterviewPage: React.FC = () => {
                       )}
 
                       {activeEval.areas_for_growth && activeEval.areas_for_growth.length > 0 && (
-                        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
-                          <span className="text-2xs font-extrabold uppercase text-amber-400 block">
+                        <div className="p-5 bg-amber-50/50 rounded-2xl border border-amber-200 space-y-2 shadow-2xs">
+                          <span className="text-2xs font-extrabold uppercase text-amber-800 block">
                             Areas for Growth
                           </span>
-                          <ul className="space-y-1 text-xs text-slate-300">
+                          <ul className="space-y-1 text-xs text-slate-700">
                             {activeEval.areas_for_growth.map((g, idx) => (
                               <li key={idx} className="flex items-start gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
                                 <span>{g}</span>
                               </li>
                             ))}
@@ -1404,41 +1324,41 @@ export const InterviewPage: React.FC = () => {
                   {/* Itemized Question Rubric Breakdown */}
                   {activeEval.question_evaluations && activeEval.question_evaluations.length > 0 && (
                     <div className="space-y-3 pt-2">
-                      <span className="text-2xs font-extrabold uppercase text-slate-400 block">
+                      <span className="text-2xs font-extrabold uppercase text-slate-500 block">
                         Itemized Rubric Criteria Breakdown
                       </span>
                       <div className="space-y-3">
                         {activeEval.question_evaluations.map((qe, qIdx) => (
                           <div
                             key={qIdx}
-                            className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2"
+                            className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs"
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-white">
+                              <span className="text-xs font-bold text-slate-900">
                                 Q{qe.question_id}: {qe.theme}
                               </span>
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-purple-950/80 text-purple-300 border border-purple-800 font-mono">
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 font-mono">
                                 {qe.score} / {qe.max_points ?? qe.max_score ?? 20} pts
                               </span>
                             </div>
 
                             {qe.feedback && (
-                              <p className="text-2xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 italic leading-relaxed">
+                              <p className="text-2xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/80 italic leading-relaxed">
                                 &ldquo;{qe.feedback}&rdquo;
                               </p>
                             )}
 
                             {((qe.criteria_scores && qe.criteria_scores.length > 0) ||
                               (qe.criteria && qe.criteria.length > 0)) && (
-                              <div className="space-y-1 pt-1">
+                              <div className="space-y-1.5 pt-1">
                                 {(qe.criteria_scores || qe.criteria || []).map(
                                   (cs: CriterionScore, cIdx: number) => (
                                     <div
                                       key={cIdx}
-                                      className="flex items-center justify-between text-2xs p-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300"
+                                      className="flex items-center justify-between text-2xs p-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-700"
                                     >
                                       <span className="truncate pr-2 font-medium">{cs.criterion}</span>
-                                      <span className="shrink-0 font-bold text-purple-400 font-mono">
+                                      <span className="shrink-0 font-bold text-kulkul-purple font-mono">
                                         {cs.score} / {cs.max_points ?? cs.max_score ?? 5} pts
                                       </span>
                                     </div>
@@ -1459,13 +1379,13 @@ export const InterviewPage: React.FC = () => {
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate('/candidate/dashboard')}
-                className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl transition shadow-lg shadow-purple-600/30"
+                className="w-full sm:w-auto px-8 py-3.5 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full transition shadow-sm hover:shadow active:scale-[0.98]"
               >
                 Return to Candidate Dashboard
               </button>
               <button
                 onClick={() => navigate('/admin/dashboard')}
-                className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-extrabold rounded-2xl transition"
+                className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-full transition shadow-2xs active:scale-[0.98]"
               >
                 Open Reviewer Admin Portal
               </button>
