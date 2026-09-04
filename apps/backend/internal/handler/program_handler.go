@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
@@ -25,6 +26,8 @@ type ProgramHandler struct {
 	applicantRepo   *repository.ApplicantRepository
 	submissionRepo  *repository.SubmissionRepository
 	aiInterviewRepo *repository.AIInterviewRepository
+	emailSvc        email.Service
+	frontendURL     string
 }
 
 func NewProgramHandler(
@@ -35,7 +38,12 @@ func NewProgramHandler(
 	applicantRepo *repository.ApplicantRepository,
 	submissionRepo *repository.SubmissionRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
+	emailSvc email.Service,
+	frontendURL string,
 ) *ProgramHandler {
+	if frontendURL == "" {
+		frontendURL = "https://fellowhire.kul.to"
+	}
 	return &ProgramHandler{
 		orgRepo:         orgRepo,
 		programRepo:     programRepo,
@@ -44,6 +52,8 @@ func NewProgramHandler(
 		applicantRepo:   applicantRepo,
 		submissionRepo:  submissionRepo,
 		aiInterviewRepo: aiInterviewRepo,
+		emailSvc:        emailSvc,
+		frontendURL:     strings.TrimRight(frontendURL, "/"),
 	}
 }
 
@@ -434,6 +444,23 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageTestInProgress)
+
+	if h.emailSvc != nil {
+		duration := program.LogicTestDurationMinutes
+		passingScore := program.LogicTestPassingScore
+		trackName := ""
+		if targetTrack != nil {
+			trackName = targetTrack.Name
+			if targetTrack.LogicTestDurationMinutes > 0 {
+				duration = targetTrack.LogicTestDurationMinutes
+			}
+			if targetTrack.LogicTestPassingScore > 0 {
+				passingScore = targetTrack.LogicTestPassingScore
+			}
+		}
+		testURL := fmt.Sprintf("%s/lit2026/test/%s", h.frontendURL, newSub.TestToken)
+		_ = h.emailSvc.SendApplicationReceivedEmail(applicant.Email, applicant.FullName, program.Name, trackName, testURL, duration, passingScore)
+	}
 
 	httpx.JSON(w, http.StatusCreated, ApplyResponse{
 		ApplicantID: applicant.ID.String(),

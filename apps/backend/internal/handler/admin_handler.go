@@ -2,15 +2,19 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/auth"
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
@@ -26,6 +30,8 @@ type AdminHandler struct {
 	aiInterviewRepo *repository.AIInterviewRepository
 	programRepo     *repository.ProgramRepository
 	orgRepo         *repository.OrgRepository
+	emailSvc        email.Service
+	frontendURL     string
 }
 
 func NewAdminHandler(
@@ -37,7 +43,12 @@ func NewAdminHandler(
 	aiInterviewRepo *repository.AIInterviewRepository,
 	programRepo *repository.ProgramRepository,
 	orgRepo *repository.OrgRepository,
+	emailSvc email.Service,
+	frontendURL string,
 ) *AdminHandler {
+	if frontendURL == "" {
+		frontendURL = "https://fellowhire.kul.to"
+	}
 	return &AdminHandler{
 		applicantRepo:   applicantRepo,
 		submissionRepo:  submissionRepo,
@@ -47,6 +58,8 @@ func NewAdminHandler(
 		aiInterviewRepo: aiInterviewRepo,
 		programRepo:     programRepo,
 		orgRepo:         orgRepo,
+		emailSvc:        emailSvc,
+		frontendURL:     strings.TrimRight(frontendURL, "/"),
 	}
 }
 
@@ -309,6 +322,76 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 		}
 		httpx.Error(w, http.StatusInternalServerError, "failed to update applicant stage")
 		return
+	}
+
+	if h.emailSvc != nil {
+		if req.Stage == model.StageApprovedForLive {
+			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+			if err == nil && applicant != nil && applicant.Email != "" {
+				progName := "KulKul Fellowship"
+				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+					progName = prog.Name
+				}
+				trackName := ""
+				if applicant.TrackID != nil {
+					if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+						trackName = tr.Name
+					}
+				}
+				dashboardURL := fmt.Sprintf("%s", h.frontendURL)
+				_ = h.emailSvc.SendFinalInterviewInvitationEmail(
+					applicant.Email,
+					applicant.FullName,
+					progName,
+					trackName,
+					dashboardURL,
+					applicant.Notes,
+				)
+			}
+		} else if req.Stage == model.StageAIInterviewInvited {
+			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+			if err == nil && applicant != nil && applicant.Email != "" {
+				progName := "KulKul Fellowship"
+				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+					progName = prog.Name
+				}
+				trackName := ""
+				if applicant.TrackID != nil {
+					if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+						trackName = tr.Name
+					}
+				}
+				interview, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), applicantID)
+				var inviteToken string
+				var expiresAt time.Time
+				if err == nil && interview != nil && interview.InvitationToken != "" {
+					inviteToken = interview.InvitationToken
+					expiresAt = interview.InvitationExpiresAt
+				} else {
+					tokenBytes := make([]byte, 16)
+					_, _ = rand.Read(tokenBytes)
+					inviteToken = hex.EncodeToString(tokenBytes)
+					expiresAt = time.Now().Add(7 * 24 * time.Hour)
+					_, _ = h.aiInterviewRepo.CreateInvitationWithTrack(
+						r.Context(),
+						applicant.ID,
+						applicant.ProgramID,
+						applicant.TrackID,
+						inviteToken,
+						expiresAt,
+					)
+				}
+				interviewURL := fmt.Sprintf("%s/lit2026/interview/%s", h.frontendURL, inviteToken)
+				_ = h.emailSvc.SendAIInterviewInvitationEmail(
+					applicant.Email,
+					applicant.FullName,
+					progName,
+					trackName,
+					interviewURL,
+					expiresAt,
+				)
+			}
+		}
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{

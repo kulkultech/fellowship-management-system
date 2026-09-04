@@ -23,6 +23,19 @@ type Config struct {
 	GoogleOAuth        OAuthConfig
 	Storage            StorageConfig
 	Cloudflare         CloudflareConfig
+	SES                SESConfig
+}
+
+type SESConfig struct {
+	Region          string
+	AccessKeyID     string
+	SecretAccessKey string
+	FromEmail       string
+	FrontendURL     string
+}
+
+func (s SESConfig) Enabled() bool {
+	return s.AccessKeyID != "" && s.SecretAccessKey != ""
 }
 
 type CloudflareConfig struct {
@@ -121,6 +134,13 @@ func Load() (*Config, error) {
 			AccountID: getString("CLOUDFLARE_ACCOUNT_ID", ""),
 			APIKey:    getString("CLOUDFLARE_API_KEY", ""),
 			APIToken:  getString("CLOUDFLARE_API_TOKEN", getString("CLOUDFLARE_API_KEY", "")),
+		},
+		SES: SESConfig{
+			Region:          getString("AWS_SES_REGION", "ap-south-1"),
+			AccessKeyID:     getString("AWS_SES_ACCESS_KEY_ID", ""),
+			SecretAccessKey: getString("AWS_SES_SECRET_ACCESS_KEY", ""),
+			FromEmail:       getString("EMAIL_FROM", "support@fellowhire.kul.to"),
+			FrontendURL:     getString("FRONTEND_URL", "https://fellowhire.kul.to"),
 		},
 	}
 

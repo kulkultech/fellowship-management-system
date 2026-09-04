@@ -17,6 +17,7 @@ import (
 	"github.com/kulkul/backend/internal/ai"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/config"
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/handler"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/repository"
@@ -24,6 +25,9 @@ import (
 
 func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handler {
 	authSvc := auth.NewService(cfg.JWTSecret, cfg.JWTTTL)
+
+	// Email Service (AWS SES)
+	emailSvc := email.NewService(cfg.SES, logger)
 
 	// Repositories
 	userRepo := repository.NewUserRepository(pool)
@@ -41,11 +45,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
-	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
-	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo)
-	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo)
+	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
+	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
+	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator)
-	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo)
+	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
 	var googleOAuth *auth.GoogleOAuth

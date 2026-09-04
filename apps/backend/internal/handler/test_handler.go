@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
@@ -23,6 +25,8 @@ type TestHandler struct {
 	trackRepo       *repository.TrackRepository
 	applicantRepo   *repository.ApplicantRepository
 	aiInterviewRepo *repository.AIInterviewRepository
+	emailSvc        email.Service
+	frontendURL     string
 }
 
 func NewTestHandler(
@@ -33,7 +37,12 @@ func NewTestHandler(
 	trackRepo *repository.TrackRepository,
 	applicantRepo *repository.ApplicantRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
+	emailSvc email.Service,
+	frontendURL string,
 ) *TestHandler {
+	if frontendURL == "" {
+		frontendURL = "https://fellowhire.kul.to"
+	}
 	return &TestHandler{
 		submissionRepo:  submissionRepo,
 		mcqRepo:         mcqRepo,
@@ -42,6 +51,8 @@ func NewTestHandler(
 		trackRepo:       trackRepo,
 		applicantRepo:   applicantRepo,
 		aiInterviewRepo: aiInterviewRepo,
+		emailSvc:        emailSvc,
+		frontendURL:     strings.TrimRight(frontendURL, "/"),
 	}
 }
 
@@ -310,6 +321,34 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestFailed)
+	}
+
+	if h.emailSvc != nil {
+		applicant, _ := h.applicantRepo.GetByID(r.Context(), submission.ApplicantID)
+		if applicant != nil && applicant.Email != "" {
+			trackName := ""
+			if submission.TrackID != nil {
+				if tr, err := h.trackRepo.GetByID(r.Context(), *submission.TrackID); err == nil && tr != nil {
+					trackName = tr.Name
+				}
+			}
+			resultURL := fmt.Sprintf("%s/lit2026/result/%s", h.frontendURL, submission.TestToken)
+			aiInterviewURL := ""
+			if inviteToken != nil {
+				aiInterviewURL = fmt.Sprintf("%s/lit2026/interview/%s", h.frontendURL, *inviteToken)
+			}
+
+			// Trigger 3: Email after logic test submission
+			_ = h.emailSvc.SendLogicTestSubmittedEmail(applicant.Email, applicant.FullName, program.Name, trackName, resultURL)
+
+			// Trigger 4: Email of the result of the logic test (passed or not)
+			_ = h.emailSvc.SendLogicTestResultEmail(applicant.Email, applicant.FullName, program.Name, trackName, scorePercentage, passingScore, passed, resultURL, aiInterviewURL)
+
+			// Trigger 5: AI interview invitation if passed & invited
+			if passed && inviteToken != nil && inviteExpires != nil {
+				_ = h.emailSvc.SendAIInterviewInvitationEmail(applicant.Email, applicant.FullName, program.Name, trackName, aiInterviewURL, *inviteExpires)
+			}
+		}
 	}
 
 	httpx.JSON(w, http.StatusOK, SubmitTestResponse{

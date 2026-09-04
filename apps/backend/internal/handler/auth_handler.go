@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/kulkul/backend/internal/auth"
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
@@ -19,6 +20,7 @@ type AuthHandler struct {
 	userRepo   *repository.UserRepository
 	orgRepo    *repository.OrgRepository
 	authSvc    *auth.Service
+	emailSvc   email.Service
 	cookieOpts auth.CookieOptions
 }
 
@@ -26,6 +28,7 @@ func NewAuthHandler(
 	userRepo *repository.UserRepository,
 	orgRepo *repository.OrgRepository,
 	authSvc *auth.Service,
+	emailSvc email.Service,
 	ttl time.Duration,
 	secure bool,
 	domain string,
@@ -34,6 +37,7 @@ func NewAuthHandler(
 		userRepo: userRepo,
 		orgRepo:  orgRepo,
 		authSvc:  authSvc,
+		emailSvc: emailSvc,
 		cookieOpts: auth.CookieOptions{
 			Secure: secure,
 			Domain: domain,
@@ -124,6 +128,10 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		}
 		httpx.Error(w, http.StatusInternalServerError, "failed to create admin user")
 		return
+	}
+
+	if h.emailSvc != nil {
+		_ = h.emailSvc.SendRegistrationEmail(user.Email, user.Name, org.Name, "")
 	}
 
 	httpx.JSON(w, http.StatusCreated, map[string]any{
