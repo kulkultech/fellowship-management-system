@@ -294,6 +294,47 @@ func buildRegistrationEmail(userName, companyName, loginURL, frontendURL, suppor
 	return
 }
 
+// 1b. Company Registration Approved Email Template
+func buildCompanyApprovedEmail(userName, companyName, loginURL, frontendURL, supportEmail string) (subject string, html string, text string) {
+	if userName == "" {
+		userName = "Admin"
+	}
+	subject = fmt.Sprintf("Your Company Registration for %s has been Approved! - FellowHire", companyName)
+
+	body := fmt.Sprintf(`
+    <span class="badge badge-green">Workspace Activated</span>
+    <h2>Your Company Workspace is Ready!</h2>
+    <p>Dear <strong>%s</strong>,</p>
+    <p>Great news! Your company registration for <strong>%s</strong> has been reviewed and <strong style="color: #16a34a;">approved</strong> by the FellowHire platform administration team.</p>
+    
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">Organization Name</span>
+        <span class="info-value">%s</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Workspace Status</span>
+        <span class="info-value" style="color: #16a34a; font-weight: 700;">Active &amp; Approved</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Portal Access</span>
+        <span class="info-value">Full Organization Admin</span>
+      </div>
+    </div>
+
+    <p>You can now log in to manage fellowship assessment programs, review applicant pipelines, configure custom question banks, and conduct AI-assisted technical interviews.</p>
+
+    <div class="btn-container">
+      <a href="%s" class="btn">Log In to Employer Dashboard</a>
+    </div>
+  `, template.HTMLEscapeString(userName), template.HTMLEscapeString(companyName), template.HTMLEscapeString(companyName), loginURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Your company registration for '%s' has been approved on FellowHire!\n\nStatus: Active & Approved\n\nLog in to your workspace: %s\n\nSupport: %s",
+		companyName, loginURL, supportEmail)
+	return
+}
+
 // 2. Candidate Application Submitted (Before Logic Test) Email Template
 func buildApplicationReceivedEmail(candidateName, programName, trackName, testURL, frontendURL, supportEmail string, durationMinutes, passingScore int) (subject string, html string, text string) {
 	subject = fmt.Sprintf("Application Confirmed: %s - Next Step: Timed Assessment", programName)

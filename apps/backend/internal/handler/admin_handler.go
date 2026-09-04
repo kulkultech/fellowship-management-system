@@ -992,6 +992,16 @@ func (h *AdminHandler) ApproveCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.emailSvc != nil && updated != nil && updated.ContactEmail != "" {
+		loginURL := fmt.Sprintf("%s/admin/login", h.frontendURL)
+		_ = h.emailSvc.SendCompanyApprovedEmail(
+			updated.ContactEmail,
+			updated.Name,
+			updated.Name,
+			loginURL,
+		)
+	}
+
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message": "Company approved successfully",
 		"company": updated,

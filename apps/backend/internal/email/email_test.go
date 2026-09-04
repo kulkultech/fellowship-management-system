@@ -27,6 +27,19 @@ func TestEmailTemplates(t *testing.T) {
 		}
 	})
 
+	t.Run("CompanyApprovedEmail", func(t *testing.T) {
+		subj, html, text := buildCompanyApprovedEmail("Alex Rivera", "Acme Corp", "https://fellowhire.kul.to/admin/login", frontendURL, supportEmail)
+		if !strings.Contains(subj, "Approved") || !strings.Contains(subj, "Acme Corp") {
+			t.Errorf("expected subject to contain Approved and Acme Corp, got %s", subj)
+		}
+		if !strings.Contains(html, "Active &amp; Approved") {
+			t.Errorf("expected html to contain Active & Approved status")
+		}
+		if !strings.Contains(text, "approved") {
+			t.Errorf("expected text to mention approved")
+		}
+	})
+
 	t.Run("ApplicationReceivedEmail", func(t *testing.T) {
 		subj, html, _ := buildApplicationReceivedEmail("Jane Doe", "LIT 2026", "Fullstack Track", "https://fellowhire.kul.to/lit2026/test/abc", frontendURL, supportEmail, 30, 70)
 		if !strings.Contains(subj, "LIT 2026") {
