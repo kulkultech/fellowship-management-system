@@ -196,7 +196,6 @@ export const CandidateDashboardPage: React.FC = () => {
     <DashboardLayout
       portalType="candidate"
       title={`Welcome back, ${candidateName}!`}
-      subtitle="Track your evaluation journey, launch timed assessments, and inspect AI screening feedback."
       candidateEmail={authUser?.email}
       onCandidateSignOut={handleSignOut}
       navItems={navItems}
