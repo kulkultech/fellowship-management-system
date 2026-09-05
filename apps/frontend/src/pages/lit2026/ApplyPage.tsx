@@ -82,6 +82,15 @@ export const ApplyPage: React.FC = () => {
   const [resumeFileSize, setResumeFileSize] = useState('');
   const [uploadingResume, setUploadingResume] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedData, setSubmittedData] = useState<{
+    candidateName: string;
+    email: string;
+    trackName: string;
+    programName: string;
+    testToken?: string;
+    durationMinutes: number;
+  } | null>(null);
 
   const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -267,16 +276,21 @@ export const ApplyPage: React.FC = () => {
         return;
       }
 
-      if (res.stage === 'registered') {
-        toast.success(res.message || 'Application submitted successfully!');
-        navigate('/candidate/dashboard');
-        return;
-      }
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      const trackName = formData.chosenCourse || currentTrack?.name || 'Selected Track';
+      const programName = program?.name || 'Fellowship Program';
 
-      toast.success(res.message || 'Application received! Starting your logic test.');
-      if (res.test_token) {
-        navigate(`/lit2026/test/${res.test_token}`);
-      }
+      setSubmittedData({
+        candidateName: fullName,
+        email: formData.email.trim(),
+        trackName,
+        programName,
+        testToken: res.test_token,
+        durationMinutes,
+      });
+      setIsSubmitted(true);
+      toast.success('Application submitted! Test link sent to your email.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onError: (err: any) => {
       const msg = err.response?.data?.message || err.message || 'Failed to submit application';
@@ -446,6 +460,88 @@ export const ApplyPage: React.FC = () => {
                   &larr; Back to Program Overview
                 </Link>
                 <span>No password required &middot; Fast 1-click sign-in</span>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isSubmitted && submittedData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
+        <Navbar />
+
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-2xl w-full">
+            <div className="stitch-card bg-white p-8 sm:p-12 text-center border border-slate-200 shadow-xl rounded-3xl space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+
+              <div>
+                <span className="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider">
+                  Registration Received
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-4 tracking-tight">
+                  Thank You for Applying, {submittedData.candidateName}!
+                </h1>
+                <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-lg mx-auto leading-relaxed">
+                  Your application for <span className="font-bold text-slate-900">{submittedData.programName} &mdash; {submittedData.trackName}</span> has been successfully recorded.
+                </p>
+              </div>
+
+              {/* Email Notification Highlight Box */}
+              <div className="p-6 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-left space-y-3">
+                <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                  <Mail className="w-5 h-5 text-kulkul-purple shrink-0" />
+                  <span>Unique Logic Assessment Link Sent via Email</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  We have dispatched your unique assessment invitation and instructions to{' '}
+                  <span className="font-bold text-slate-900">{submittedData.email}</span>.
+                </p>
+                <div className="pt-2 border-t border-purple-100 flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-kulkul-purple" />
+                    <span>Duration: {submittedData.durationMinutes} Minutes</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>Passing Score: {currentTrack?.logic_test_passing_score || program?.logic_test_passing_score || 70}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left">
+                <p className="font-medium text-slate-700 mb-1">Important details:</p>
+                <ul className="list-disc list-inside space-y-1 text-slate-600">
+                  <li>Find a quiet, distraction-free environment with a reliable internet connection.</li>
+                  <li>Check your Spam or Promotions tab if the email doesn't appear in your inbox within a few minutes.</li>
+                  <li>You can track your application status anytime on your Candidate Dashboard.</li>
+                </ul>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={() => navigate('/candidate/dashboard')}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <span>Go to Candidate Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                {submittedData.testToken && (
+                  <button
+                    onClick={() => navigate(`/lit2026/test/${submittedData.testToken}`)}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition text-center"
+                  >
+                    Start Assessment Now
+                  </button>
+                )}
               </div>
             </div>
           </div>

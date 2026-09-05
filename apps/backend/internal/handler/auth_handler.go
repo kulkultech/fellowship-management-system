@@ -95,12 +95,12 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 	req.AdminEmail = strings.ToLower(strings.TrimSpace(req.AdminEmail))
 	req.AdminName = strings.TrimSpace(req.AdminName)
 
-	if req.CompanyName == "" || req.CompanySlug == "" || req.AdminEmail == "" || req.AdminPassword == "" {
-		httpx.Error(w, http.StatusBadRequest, "company name, slug, admin email, and password are required")
+	if req.CompanyName == "" || req.CompanySlug == "" || req.AdminEmail == "" {
+		httpx.Error(w, http.StatusBadRequest, "company name, slug, and admin email are required")
 		return
 	}
 
-	if len(req.AdminPassword) < 6 {
+	if req.AdminPassword != "" && len(req.AdminPassword) < 6 {
 		httpx.Error(w, http.StatusBadRequest, "admin password must be at least 6 characters")
 		return
 	}
@@ -112,22 +112,36 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Hash admin password
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.AdminPassword), bcrypt.DefaultCost)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to secure password")
-		return
-	}
-
-	// 3. Create Admin User
-	user, err := h.userRepo.Create(r.Context(), req.AdminEmail, string(hash), req.AdminName, "org_admin", &org.ID)
-	if err != nil {
-		if errors.Is(err, repository.ErrUserAlreadyExists) {
-			httpx.Error(w, http.StatusConflict, "an account with this email already exists")
+	// 2. Resolve or Create Admin User
+	var user *model.User
+	existingUser, err := h.userRepo.GetByEmail(r.Context(), req.AdminEmail)
+	if err == nil && existingUser != nil {
+		// Update user org and role
+		if err := h.userRepo.UpdateOrgAndRole(r.Context(), existingUser.ID, &org.ID, "org_admin", req.AdminName); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to link admin account")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "failed to create admin user")
-		return
+		user = existingUser
+		if req.AdminName != "" {
+			user.Name = req.AdminName
+		}
+		user.OrganizationID = &org.ID
+		user.Role = "org_admin"
+	} else {
+		hashStr := ""
+		if req.AdminPassword != "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(req.AdminPassword), bcrypt.DefaultCost)
+			if err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "failed to secure password")
+				return
+			}
+			hashStr = string(hash)
+		}
+		user, err = h.userRepo.Create(r.Context(), req.AdminEmail, hashStr, req.AdminName, "org_admin", &org.ID)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to create admin user")
+			return
+		}
 	}
 
 	if h.emailSvc != nil {

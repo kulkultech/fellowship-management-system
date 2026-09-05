@@ -19,14 +19,12 @@ import {
   ChevronRight,
   ShieldCheck,
   ArrowRight,
-  Check,
   RefreshCw,
-  Award,
   Sparkles,
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import type { EvaluationSummary, CriterionScore } from '@/services/types';
+import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
 
 interface RecordedItem {
@@ -109,6 +107,7 @@ export const InterviewPage: React.FC = () => {
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationSummary | null>(null);
+  void evaluationResult;
 
   // Sync evaluation if session already evaluated
   useEffect(() => {
@@ -1485,212 +1484,53 @@ export const InterviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* AI Evaluation Report (If Evaluated) */}
-            {(() => {
-              const activeEval = evaluationResult || session?.summary_evaluation;
-              if (!activeEval) {
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mt-4 text-left">
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
-                        Responses Captured
-                      </span>
-                      <span className="text-lg font-black text-slate-900">{questions.length} Video Prompts</span>
-                    </div>
-
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
-                        Evaluation Engine
-                      </span>
-                      <span className="text-lg font-black text-kulkul-purple">Cloudflare Workers AI</span>
-                    </div>
-
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-1">
-                        Status
-                      </span>
-                      <span className="text-lg font-black text-emerald-600">Evaluating in Queue...</span>
-                    </div>
-                  </div>
-                );
-              }
-
-              const isStrong = (activeEval.overall_score ?? 0) >= 80;
-              const isSuitable = (activeEval.overall_score ?? 0) >= 70 && (activeEval.overall_score ?? 0) < 80;
-
-              return (
-                <div className="max-w-3xl mx-auto w-full mt-4 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xs">
-                  {/* Top Score Banner */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Sparkles className="w-4 h-4 text-kulkul-purple" />
-                        <span className="text-2xs font-extrabold uppercase tracking-wider text-kulkul-purple">
-                          Cloudflare AI Proctor Evaluation
-                        </span>
-                      </div>
-                      <h2 className="text-xl font-black text-slate-900 tracking-tight">AI Assessment Scorecard</h2>
-                      <div className="mt-2">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                            isStrong
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : isSuitable
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
-                          }`}
-                        >
-                          <Award className="w-3.5 h-3.5" />
-                          <span>{activeEval.recommendation || 'Assessment Completed'}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-left sm:text-right bg-purple-50/60 p-4 px-6 rounded-2xl border border-purple-200 shrink-0">
-                      <span className="text-2xs font-extrabold uppercase text-slate-500 block mb-0.5">
-                        Overall Score
-                      </span>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl sm:text-4xl font-black text-kulkul-purple">
-                          {activeEval.overall_score}
-                        </span>
-                        <span className="text-sm font-bold text-slate-400">/100</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3 Core Metric Pillars */}
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                      <span className="text-3xs font-extrabold uppercase text-slate-500 block mb-1">
-                        Technical Acumen
-                      </span>
-                      <span className="text-lg font-black text-kulkul-purple">
-                        {activeEval.technical_acumen}/10
-                      </span>
-                    </div>
-
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                      <span className="text-3xs font-extrabold uppercase text-slate-500 block mb-1">
-                        Communication
-                      </span>
-                      <span className="text-lg font-black text-kulkul-purple">
-                        {activeEval.communication}/10
-                      </span>
-                    </div>
-
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs">
-                      <span className="text-3xs font-extrabold uppercase text-slate-500 block mb-1">
-                        Problem Solving
-                      </span>
-                      <span className="text-lg font-black text-kulkul-purple">
-                        {activeEval.problem_solving}/10
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Executive Summary */}
-                  {activeEval.executive_summary && (
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5 shadow-2xs">
-                      <span className="text-2xs font-extrabold uppercase text-slate-500 block">
-                        Executive Summary
-                      </span>
-                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                        {activeEval.executive_summary}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Strengths & Growth Areas */}
-                  {(activeEval.key_strengths?.length || activeEval.areas_for_growth?.length) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {activeEval.key_strengths && activeEval.key_strengths.length > 0 && (
-                        <div className="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-200 space-y-2 shadow-2xs">
-                          <span className="text-2xs font-extrabold uppercase text-emerald-800 block">
-                            Key Strengths
-                          </span>
-                          <ul className="space-y-1 text-xs text-slate-700">
-                            {activeEval.key_strengths.map((s, idx) => (
-                              <li key={idx} className="flex items-start gap-2">
-                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                                <span>{s}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {activeEval.areas_for_growth && activeEval.areas_for_growth.length > 0 && (
-                        <div className="p-5 bg-amber-50/50 rounded-2xl border border-amber-200 space-y-2 shadow-2xs">
-                          <span className="text-2xs font-extrabold uppercase text-amber-800 block">
-                            Areas for Growth
-                          </span>
-                          <ul className="space-y-1 text-xs text-slate-700">
-                            {activeEval.areas_for_growth.map((g, idx) => (
-                              <li key={idx} className="flex items-start gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
-                                <span>{g}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Itemized Question Rubric Breakdown */}
-                  {activeEval.question_evaluations && activeEval.question_evaluations.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      <span className="text-2xs font-extrabold uppercase text-slate-500 block">
-                        Itemized Rubric Criteria Breakdown
-                      </span>
-                      <div className="space-y-3">
-                        {activeEval.question_evaluations.map((qe, qIdx) => (
-                          <div
-                            key={qIdx}
-                            className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-slate-900">
-                                Q{qe.question_id}: {qe.theme}
-                              </span>
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 font-mono">
-                                {qe.score} / {qe.max_points ?? qe.max_score ?? 20} pts
-                              </span>
-                            </div>
-
-                            {qe.feedback && (
-                              <p className="text-2xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/80 italic leading-relaxed">
-                                &ldquo;{qe.feedback}&rdquo;
-                              </p>
-                            )}
-
-                            {((qe.criteria_scores && qe.criteria_scores.length > 0) ||
-                              (qe.criteria && qe.criteria.length > 0)) && (
-                              <div className="space-y-1.5 pt-1">
-                                {(qe.criteria_scores || qe.criteria || []).map(
-                                  (cs: CriterionScore, cIdx: number) => (
-                                    <div
-                                      key={cIdx}
-                                      className="flex items-center justify-between text-2xs p-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-700"
-                                    >
-                                      <span className="truncate pr-2 font-medium">{cs.criterion}</span>
-                                      <span className="shrink-0 font-bold text-kulkul-purple font-mono">
-                                        {cs.score} / {cs.max_points ?? cs.max_score ?? 5} pts
-                                      </span>
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {/* What Happens Next / Admissions Review Information */}
+            <div className="max-w-3xl mx-auto w-full mt-6 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xs">
+              <div className="border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="w-4 h-4 text-kulkul-purple" />
+                  <span className="text-2xs font-extrabold uppercase tracking-wider text-kulkul-purple">
+                    Fellowship Evaluation Pipeline
+                  </span>
                 </div>
-              );
-            })()}
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">What Happens Next?</h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Our admissions committee is currently processing your interview submission. Here is what to expect:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-bold text-sm">
+                    1
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">Admissions Review</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Our technical reviewers and evaluators will review your video responses and communication depth.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                    2
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">Email Notification</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    You will receive an official decision email with details about your cohort acceptance and next steps.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                    3
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">Track on Dashboard</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Check your live admissions progress anytime by visiting your personal Candidate Dashboard.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Action Buttons */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1708,13 +1548,13 @@ export const InterviewPage: React.FC = () => {
                 onClick={() => navigate('/candidate/dashboard')}
                 className="w-full sm:w-auto px-8 py-3.5 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full transition shadow-sm hover:shadow active:scale-[0.98]"
               >
-                Return to Candidate Dashboard
+                Go to Candidate Dashboard
               </button>
               <button
-                onClick={() => navigate('/admin/dashboard')}
+                onClick={() => navigate('/')}
                 className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-full transition shadow-2xs active:scale-[0.98]"
               >
-                Open Reviewer Admin Portal
+                Back to Homepage
               </button>
             </div>
           </div>

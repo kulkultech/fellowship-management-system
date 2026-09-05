@@ -100,6 +100,36 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash, name, 
 	return &u, nil
 }
 
+func (r *UserRepository) UpdateOrgAndRole(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, role, name string) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, u := range r.memUsers {
+			if u.ID == userID {
+				u.OrganizationID = orgID
+				u.Role = role
+				if name != "" {
+					u.Name = name
+				}
+				u.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrUserNotFound
+	}
+
+	query := `
+		UPDATE users
+		SET organization_id = $1, role = $2, name = CASE WHEN $3 <> '' THEN $3 ELSE name END, updated_at = now()
+		WHERE id = $4
+	`
+	_, err := r.pool.Exec(ctx, query, orgID, role, name, userID)
+	if err != nil {
+		return fmt.Errorf("user_repo: update org and role: %w", err)
+	}
+	return nil
+}
+
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	if r.pool == nil {
 		r.mu.RLock()

@@ -174,7 +174,10 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		// Mock profile for local development without active GCP OAuth Client secret
 		mockEmail := "admin@rsa.org"
 		mockName := "RSA Reviewer Admin"
-		if strings.Contains(returnTo, "candidate") || strings.Contains(returnTo, "apply") || strings.Contains(returnTo, "lit2026") || strings.Contains(returnTo, "programs") {
+		if strings.Contains(returnTo, "register-company") || strings.Contains(returnTo, "company") {
+			mockEmail = "hr.partner@innovatech.io"
+			mockName = "Innovatech Talent Lead"
+		} else if strings.Contains(returnTo, "candidate") || strings.Contains(returnTo, "apply") || strings.Contains(returnTo, "lit2026") || strings.Contains(returnTo, "programs") {
 			mockEmail = "candidate@example.com"
 			mockName = "Sample Candidate"
 		}
