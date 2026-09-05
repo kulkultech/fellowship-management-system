@@ -40,8 +40,8 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 		return nil
 	}
 
-	// Clean up any stale programs (e.g. lit-sda)
-	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1::uuid AND slug NOT IN ('lit2026')", rsaOrgID)
+	// Clean up any stale program (lit-sda)
+	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1::uuid AND slug = 'lit-sda'", rsaOrgID)
 
 	var data QuestionBankData
 	if err := json.Unmarshal(litQuestionsJSON, &data); err != nil {

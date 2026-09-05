@@ -150,11 +150,17 @@ export const ResultPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="stitch-card bg-white p-6 sm:p-8 text-center">
-            <FileCheck className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-            <h2 className="text-lg font-bold text-slate-900">Submission Recorded</h2>
-            <p className="text-slate-600 text-sm mt-1 max-w-md mx-auto">
-              Your assessment responses have been officially saved. The RSA review committee will evaluate all candidate submissions.
+          <div className="stitch-card bg-white p-6 sm:p-8 text-center space-y-3 border border-slate-100 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+              <FileCheck className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-extrabold text-slate-900">
+              {isPassed ? 'Assessment Benchmark Achieved!' : 'Assessment Completed & Recorded'}
+            </h2>
+            <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed">
+              {isPassed
+                ? 'Congratulations! Your assessment responses have been officially submitted to the admissions committee for review.'
+                : 'Your assessment responses have been officially recorded and submitted to the admissions review committee.'}
             </p>
           </div>
         )}

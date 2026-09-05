@@ -396,21 +396,34 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If both MCQ and AI stages are disabled, mark registered directly
+	if !enableMCQ && !enableAI {
+		_ = h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageRegistered)
+		httpx.JSON(w, http.StatusCreated, ApplyResponse{
+			ApplicantID: applicant.ID.String(),
+			Stage:       model.StageRegistered,
+			Message:     "Application received successfully! Our admissions committee will review your profile.",
+		})
+		return
+	}
+
 	// If MCQ stage is disabled and AI Interview is enabled, direct straight to AI interview
 	if !enableMCQ && enableAI {
 		aiToken := generateToken(24)
 		expires := time.Now().Add(7 * 24 * time.Hour)
 		ai, err := h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), applicant.ID, program.ID, trackIDPtr, aiToken, expires)
-		if err == nil && ai != nil {
-			_ = h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageAIInterviewInvited)
-			httpx.JSON(w, http.StatusCreated, ApplyResponse{
-				ApplicantID:            applicant.ID.String(),
-				Stage:                  model.StageAIInterviewInvited,
-				AIInterviewInviteToken: ai.InvitationToken,
-				Message:                "Application received. Proceed directly to the AI Technical Screening.",
-			})
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to create ai interview session: %v", err))
 			return
 		}
+		_ = h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageAIInterviewInvited)
+		httpx.JSON(w, http.StatusCreated, ApplyResponse{
+			ApplicantID:            applicant.ID.String(),
+			Stage:                  model.StageAIInterviewInvited,
+			AIInterviewInviteToken: ai.InvitationToken,
+			Message:                "Application received. Proceed directly to the AI Technical Screening.",
+		})
+		return
 	}
 
 	// Check if there is an existing active submission

@@ -137,7 +137,9 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Tracks</div>
-                  <div className="text-sm font-extrabold text-slate-900 truncate">{tracks.length} Available</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">
+                    {tracks.length > 0 ? `${tracks.length} Available` : 'General (Direct)'}
+                  </div>
                 </div>
               </div>
 
@@ -147,7 +149,9 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Assessment</div>
-                  <div className="text-sm font-extrabold text-slate-900 truncate">Timed Logic MCQ</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">
+                    {program.enable_mcq ? `Timed Logic (${program.logic_test_duration_minutes}m)` : 'Not Required'}
+                  </div>
                 </div>
               </div>
 
@@ -157,7 +161,9 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Technical Screen</div>
-                  <div className="text-sm font-extrabold text-slate-900 truncate">Conversational AI</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">
+                    {program.enable_ai_interview ? 'Conversational AI' : 'Not Required'}
+                  </div>
                 </div>
               </div>
 
@@ -174,13 +180,21 @@ export const ProgramJobPostPage: React.FC = () => {
 
             {/* CTA Bar */}
             <div className="flex items-center justify-end pt-4 border-t border-slate-100">
-              <a
-                href="#available-tracks"
+              <button
+                type="button"
+                onClick={() => {
+                  if (tracks.length > 0) {
+                    const el = document.getElementById('available-tracks');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    navigate(`/programs/${orgSlug}/${programSlug}/apply`);
+                  }
+                }}
                 className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
               >
-                <span>Select Track & Apply</span>
+                <span>{tracks.length > 0 ? 'Select Track & Apply' : 'Apply Now'}</span>
                 <ArrowRight className="w-4 h-4" />
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -190,21 +204,88 @@ export const ProgramJobPostPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-extrabold text-kulkul-purple">
-                Available Fellowship Tracks
+                {tracks.length > 0 ? 'Available Fellowship Tracks' : 'Program Assessment Pipeline'}
               </h2>
             </div>
-            <span className="hidden sm:inline-block px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full">
-              {tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open
-            </span>
+            {tracks.length > 0 ? (
+              <span className="hidden sm:inline-block px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full">
+                {tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open
+              </span>
+            ) : (
+              <span className="hidden sm:inline-block px-3 py-1 bg-slate-100 text-slate-700 text-xs font-extrabold rounded-full">
+                Single General Track &middot; Direct Entry
+              </span>
+            )}
           </div>
 
           {tracks.length === 0 ? (
-            <div className="stitch-card p-8 bg-white text-center">
-              <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-700">No tracks currently configured</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Please check back soon or contact the program administrator.
-              </p>
+            <div className="stitch-card p-6 sm:p-7 bg-white hover:border-kulkul-purple/40 hover:shadow-xl transition duration-200 flex flex-col justify-between group">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-kulkul-purple to-kulkul-purple-hover text-white flex items-center justify-center font-extrabold text-sm shadow-md">
+                      01
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-kulkul-purple transition">
+                        {program.name} (General Program Entry)
+                      </h3>
+                      <span className="text-xs font-semibold text-slate-400">
+                        Direct Program Assessment &middot; No specialization track selection needed
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {program.description || 'Direct entry program assessment. Complete candidate intake details and proceed to your evaluation session.'}
+                </p>
+
+                {/* Evaluation Specs */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <Clock className="w-4 h-4 text-kulkul-orange shrink-0" />
+                    <div className="text-xs">
+                      <span className="text-slate-400 block text-2xs uppercase font-bold">Logic Test</span>
+                      <span className="font-bold text-slate-800">
+                        {program.enable_mcq ? `${program.logic_test_duration_minutes} Mins` : 'Not Required'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <Award className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="text-xs">
+                      <span className="text-slate-400 block text-2xs uppercase font-bold">Benchmark</span>
+                      <span className="font-bold text-slate-800">
+                        {program.enable_mcq ? `${program.logic_test_passing_score}% Score` : 'Direct Review'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-1">
+                    <Bot className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <div className="text-xs">
+                      <span className="text-slate-400 block text-2xs uppercase font-bold">AI Screen</span>
+                      <span className="font-bold text-slate-800">
+                        {program.enable_ai_interview ? 'Enabled' : 'Not Required'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/programs/${orgSlug}/${programSlug}/apply`)}
+                  className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"
+                >
+                  <span>Apply to {program.name}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5">

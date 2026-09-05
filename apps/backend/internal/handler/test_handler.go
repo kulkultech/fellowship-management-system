@@ -110,11 +110,16 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(questions) == 0 {
-		questions, err = h.mcqRepo.ListByProgram(r.Context(), program.ID)
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "failed to load questions")
-			return
+		questions, _ = h.mcqRepo.ListByProgram(r.Context(), program.ID)
+	}
+	if len(questions) == 0 && h.questionSetRepo != nil {
+		if sets, _ := h.questionSetRepo.List(r.Context(), &program.ID, &program.OrganizationID); len(sets) > 0 {
+			questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), sets[0].ID)
 		}
+	}
+	if len(questions) == 0 {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load questions for test session")
+		return
 	}
 
 	// Calculate expiration based on started_at + duration
@@ -224,11 +229,16 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(questions) == 0 {
-		questions, err = h.mcqRepo.ListByProgram(r.Context(), program.ID)
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "failed to load questions for grading")
-			return
+		questions, _ = h.mcqRepo.ListByProgram(r.Context(), program.ID)
+	}
+	if len(questions) == 0 && h.questionSetRepo != nil {
+		if sets, _ := h.questionSetRepo.List(r.Context(), &program.ID, &program.OrganizationID); len(sets) > 0 {
+			questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), sets[0].ID)
 		}
+	}
+	if len(questions) == 0 {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load questions for grading")
+		return
 	}
 
 	var req SubmitTestRequest

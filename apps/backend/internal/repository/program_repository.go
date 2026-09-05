@@ -23,39 +23,72 @@ type ProgramRepository struct {
 	memPrograms map[string]*model.Program
 }
 
-func DefaultApplicationStages() []model.ApplicationStageItem {
-	return []model.ApplicationStageItem{
-		{
-			StepNumber:  1,
-			Title:       "Specialization Track & Intake Application",
-			Description: "Choose your target specialization track and submit your academic background, IT major, and contact details.",
-		},
-		{
-			StepNumber:  2,
-			Title:       "Track-Specific Timed Logic Assessment",
-			Description: "Solve timed logic and technical domain MCQs calibrated for your chosen specialization track.",
-		},
-		{
-			StepNumber:  3,
+func BuildApplicationStages(enableMCQ, enableAI bool, hasTracks bool) []model.ApplicationStageItem {
+	var stages []model.ApplicationStageItem
+	step := 1
+
+	trackTitle := "Candidate Intake Application"
+	trackDesc := "Submit your academic background, IT major, and contact details."
+	if hasTracks {
+		trackTitle = "Specialization Track & Intake Application"
+		trackDesc = "Choose your target specialization track and submit your academic background, IT major, and contact details."
+	}
+	stages = append(stages, model.ApplicationStageItem{
+		StepNumber:  step,
+		Title:       trackTitle,
+		Description: trackDesc,
+	})
+	step++
+
+	if enableMCQ {
+		mcqTitle := "Timed Logic & Technical Assessment"
+		mcqDesc := "Solve timed logic and technical domain MCQs calibrated for candidate benchmarking."
+		if hasTracks {
+			mcqTitle = "Track-Specific Timed Logic Assessment"
+			mcqDesc = "Solve timed logic and technical domain MCQs calibrated for your chosen specialization track."
+		}
+		stages = append(stages, model.ApplicationStageItem{
+			StepNumber:  step,
+			Title:       mcqTitle,
+			Description: mcqDesc,
+		})
+		step++
+	}
+
+	if enableAI {
+		stages = append(stages, model.ApplicationStageItem{
+			StepNumber:  step,
 			Title:       "Conversational AI Technical Screen",
 			Description: "Engage in an interactive conversational AI screening session evaluating technical depth and problem-solving.",
-		},
-		{
-			StepNumber:  4,
-			Title:       "Submission & Application Confirmation Email",
-			Description: "Candidate completes submission and receives an official application confirmation email.",
-		},
-		{
-			StepNumber:  5,
-			Title:       "Admissions Committee Review & Scoring",
-			Description: "The reviewer committee evaluates combined MCQ scores, AI transcripts, and candidate qualifications.",
-		},
-		{
-			StepNumber:  6,
-			Title:       "Approval & Final Interview Scheduling",
-			Description: "Approved candidates receive an official fellowship invitation and link to schedule their final interview with the host organization.",
-		},
+		})
+		step++
 	}
+
+	stages = append(stages, model.ApplicationStageItem{
+		StepNumber:  step,
+		Title:       "Submission & Application Confirmation",
+		Description: "Candidate completes assessment submission and receives an official application confirmation update.",
+	})
+	step++
+
+	stages = append(stages, model.ApplicationStageItem{
+		StepNumber:  step,
+		Title:       "Admissions Committee Review & Scoring",
+		Description: "The reviewer committee evaluates assessment scores, candidate qualifications, and screening responses.",
+	})
+	step++
+
+	stages = append(stages, model.ApplicationStageItem{
+		StepNumber:  step,
+		Title:       "Approval & Final Interview Scheduling",
+		Description: "Approved candidates receive an official invitation and link to schedule their final interview with the host organization.",
+	})
+
+	return stages
+}
+
+func DefaultApplicationStages() []model.ApplicationStageItem {
+	return BuildApplicationStages(true, true, true)
 }
 
 func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
@@ -98,7 +131,7 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 
 func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*model.Program, error) {
 	if len(p.ApplicationStages) == 0 {
-		p.ApplicationStages = DefaultApplicationStages()
+		p.ApplicationStages = BuildApplicationStages(p.EnableMCQ, p.EnableAIInterview, false)
 	}
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
@@ -419,6 +452,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				if rubric != nil {
 					p.AIInterviewRubric = rubric
 				}
+				p.ApplicationStages = BuildApplicationStages(enableMCQ, enableAI, false)
 				p.UpdatedAt = time.Now()
 				return p, nil
 			}
@@ -430,6 +464,11 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 	if questions == nil {
 		questionsJSON = []byte("[]")
 	}
+
+	var trackCount int
+	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM program_tracks WHERE program_id = $1`, id).Scan(&trackCount)
+	stages := BuildApplicationStages(enableMCQ, enableAI, trackCount > 0)
+	stagesJSON, _ := json.Marshal(stages)
 
 	var query string
 	var args []any
@@ -443,6 +482,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				ai_interview_instructions = $4,
 				ai_interview_questions = $5,
 				ai_interview_rubric = $6,
+				application_stages = $7,
 				updated_at = now()
 			WHERE id = $1
 			RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
@@ -451,7 +491,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				status, created_at, updated_at
 		`
-		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON}
+		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON, stagesJSON}
 	} else {
 		query = `
 			UPDATE programs
@@ -459,6 +499,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				enable_ai_interview = $3,
 				ai_interview_instructions = $4,
 				ai_interview_questions = $5,
+				application_stages = $6,
 				updated_at = now()
 			WHERE id = $1
 			RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
@@ -467,7 +508,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				status, created_at, updated_at
 		`
-		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON}
+		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, stagesJSON}
 	}
 
 	var p model.Program

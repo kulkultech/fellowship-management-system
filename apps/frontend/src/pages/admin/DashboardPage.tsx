@@ -129,6 +129,8 @@ import {
   Download,
   PlusCircle,
   Upload,
+  Sliders,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -585,6 +587,53 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     },
   });
 
+  // Pipeline Modules Config State & Mutation
+  const [isPipelineConfigModalOpen, setIsPipelineConfigModalOpen] = useState(false);
+  const [pipelineConfigProgId, setPipelineConfigProgId] = useState<string>('');
+  const [pipelineConfigProgName, setPipelineConfigProgName] = useState<string>('');
+  const [pipelineConfigEnableMCQ, setPipelineConfigEnableMCQ] = useState(true);
+  const [pipelineConfigEnableAI, setPipelineConfigEnableAI] = useState(true);
+  const [pipelineConfigDuration, setPipelineConfigDuration] = useState(30);
+  const [pipelineConfigPassingScore, setPipelineConfigPassingScore] = useState(70);
+
+  const handleOpenPipelineConfig = (prog: Program) => {
+    setPipelineConfigProgId(prog.id);
+    setPipelineConfigProgName(prog.name);
+    setPipelineConfigEnableMCQ(prog.enable_mcq ?? true);
+    setPipelineConfigEnableAI(prog.enable_ai_interview ?? true);
+    setPipelineConfigDuration(prog.logic_test_duration_minutes || 30);
+    setPipelineConfigPassingScore(prog.logic_test_passing_score || 70);
+    setIsPipelineConfigModalOpen(true);
+  };
+
+  const updatePipelineConfigMutation = useMutation({
+    mutationFn: (payload: {
+      programId: string;
+      enable_mcq: boolean;
+      enable_ai_interview: boolean;
+      logic_test_duration_minutes: number;
+      logic_test_passing_score: number;
+    }) =>
+      adminService.updatePipelineConfig(payload.programId, {
+        enable_mcq: payload.enable_mcq,
+        enable_ai_interview: payload.enable_ai_interview,
+        logic_test_duration_minutes: payload.logic_test_duration_minutes,
+        logic_test_passing_score: payload.logic_test_passing_score,
+        allow_retake: false,
+        ai_interview_instructions: '',
+        ai_interview_questions: [],
+      }),
+    onSuccess: (updated) => {
+      toast.success(`Pipeline modules for "${updated.name}" updated!`);
+      setIsPipelineConfigModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-program-pipeline', activeProgramSlug] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err.message || 'Failed to update pipeline modules');
+    },
+  });
+
   // Rubric editing helpers
   const rubricTotalPts = (rubricForm.questions || []).reduce(
     (sum, q) => sum + (Number(q.max_points) || 0),
@@ -1009,7 +1058,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               })),
               {
                 id: `add-track-${p.slug}`,
-                label: 'Add Specialization Track',
+                label: 'Add Track (Optional)',
                 icon: Plus,
                 onClick: () => {
                   handleOpenCreateTrack(p.slug);
@@ -1287,8 +1336,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-2xs font-mono text-slate-400 mt-0.5">
-                                      /{prog.slug}
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <span className="text-2xs font-mono text-slate-400">/{prog.slug}</span>
+                                      {prog.enable_mcq && (
+                                        <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                                          MCQ
+                                        </span>
+                                      )}
+                                      {prog.enable_ai_interview && (
+                                        <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-200">
+                                          AI
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1304,10 +1363,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left" onClick={(e) => e.stopPropagation()}>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
-                                  <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
-                                  <span>{prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : '0')} Tracks</span>
-                                </span>
+                                {(() => {
+                                  const count = prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : 0);
+                                  return count > 0 ? (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                                      <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
+                                      <span>{count} Tracks</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                      <Layers className="w-3 h-3 text-slate-400" />
+                                      <span>0 Tracks (Optional)</span>
+                                    </span>
+                                  );
+                                })()}
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
@@ -1328,6 +1397,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                     >
                                       <span>Manage</span>
                                       <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenPipelineConfig(prog)}
+                                      className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                                      title="Configure Logic Test & AI Screening Modules"
+                                    >
+                                      <Sliders className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>Modules</span>
                                     </button>
 
                                     <button
@@ -1673,10 +1752,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <button
                   onClick={() => handleOpenCreateTrack(activeProgramSlug)}
                   className="px-3.5 py-1.5 rounded-full bg-white hover:bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
-                  title="Create new specialization track for this program"
+                  title="Create new specialization track for this program (Optional)"
                 >
                   <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
-                  <span>Add Track</span>
+                  <span>Add Track (Optional)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const currentProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program;
+                    if (currentProg) handleOpenPipelineConfig(currentProg);
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
+                  title="Configure Logic Test & AI Interview modules for this program"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <span>Pipeline Modules</span>
                 </button>
 
                 <button
@@ -1711,6 +1802,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 ))}
               </div>
             </div>
+
+            {/* Direct General Admission Notice when 0 tracks exist */}
+            {programTracks.length === 0 && (
+              <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-700 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-bold shrink-0">
+                    <Sparkles className="w-4 h-4 text-kulkul-purple" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-800">Single General Track Active:</span>{' '}
+                    <span className="text-slate-600">
+                      Candidates apply directly to this program without choosing specialization tracks. Tracks are 100% optional and can be added anytime.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleOpenCreateTrack(activeProgramSlug)}
+                  className="px-3.5 py-1.5 rounded-xl bg-white border border-purple-200 text-kulkul-purple hover:bg-purple-50 font-bold transition whitespace-nowrap shadow-2xs text-2xs"
+                >
+                  + Add Track (Optional)
+                </button>
+              </div>
+            )}
 
             {/* Candidates Table */}
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
@@ -3010,6 +3124,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  if (!newProgEnableMCQ && !newProgEnableAI) {
+                    toast.error('Please enable at least one screening module (Logic Test or AI Video Interview)');
+                    return;
+                  }
                   createProgramMutation.mutate({
                     slug: newProgSlug.toLowerCase().trim(),
                     name: newProgName.trim(),
@@ -3223,6 +3341,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Section 3: Specialization Tracks Note */}
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-kulkul-purple shrink-0 mt-0.5" />
+                  <div className="text-xs text-slate-600">
+                    <div className="font-bold text-slate-800 mb-0.5">Specialization Tracks are Optional</div>
+                    <div>
+                      You do not have to configure tracks. If left without tracks, your program will operate with a direct general admission track. Specialization tracks can be added later if your cohort requires customized learning paths.
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action Buttons Footer */}
@@ -4012,6 +4141,165 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition disabled:opacity-50"
                   >
                     {updateOrgMutation.isPending ? 'Saving...' : 'Save Profile'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* MODAL: PIPELINE MODULES CONFIGURATION (LOGIC TEST & AI INTERVIEW SELECTION) */}
+        {/* ================================================================================= */}
+        {isPipelineConfigModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200 shadow-2xs">
+                    <Sliders className="w-5 h-5 text-kulkul-purple" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900">
+                      Pipeline Modules
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium truncate max-w-[280px]">
+                      {pipelineConfigProgName}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsPipelineConfigModalOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!pipelineConfigEnableMCQ && !pipelineConfigEnableAI) {
+                    toast.error('Please enable at least one screening module (Logic Test or AI Interview)');
+                    return;
+                  }
+                  updatePipelineConfigMutation.mutate({
+                    programId: pipelineConfigProgId,
+                    enable_mcq: pipelineConfigEnableMCQ,
+                    enable_ai_interview: pipelineConfigEnableAI,
+                    logic_test_duration_minutes: pipelineConfigDuration,
+                    logic_test_passing_score: pipelineConfigPassingScore,
+                  });
+                }}
+                className="space-y-5"
+              >
+                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-2xl p-3.5 leading-relaxed">
+                  Choose which screening stages your applicants must complete. You can choose only the <span className="font-bold text-slate-800">Logic Test</span>, only the <span className="font-bold text-slate-800">AI Interview</span>, or <span className="font-bold text-slate-800">both</span>.
+                </div>
+
+                <div className="space-y-3">
+                  {/* Module 1: Logic Test */}
+                  <div
+                    onClick={() => setPipelineConfigEnableMCQ(!pipelineConfigEnableMCQ)}
+                    className={`flex items-start gap-3.5 p-4 rounded-2xl border transition cursor-pointer ${
+                      pipelineConfigEnableMCQ
+                        ? 'bg-purple-50/40 border-purple-200 ring-1 ring-kulkul-purple/20'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      id="modalConfigEnableMCQ"
+                      checked={pipelineConfigEnableMCQ}
+                      onChange={(e) => setPipelineConfigEnableMCQ(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 mt-0.5 text-kulkul-purple rounded border-slate-300 focus:ring-kulkul-purple"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="modalConfigEnableMCQ" className="text-sm font-bold text-slate-800 block cursor-pointer">
+                        Timed Logic Test (MCQ)
+                      </label>
+                      <span className="text-xs text-slate-500 block mt-0.5">
+                        Candidates complete a randomized multiple-choice assessment with automated scoring against a passing benchmark.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* MCQ Configuration Sub-fields */}
+                  {pipelineConfigEnableMCQ && (
+                    <div className="grid grid-cols-2 gap-3 pl-8 animate-in fade-in duration-150">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Duration (Mins)
+                        </label>
+                        <input
+                          type="number"
+                          min={5}
+                          max={180}
+                          value={pipelineConfigDuration}
+                          onChange={(e) => setPipelineConfigDuration(parseInt(e.target.value) || 30)}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
+                        />
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Pass Score (%)
+                        </label>
+                        <input
+                          type="number"
+                          min={10}
+                          max={100}
+                          value={pipelineConfigPassingScore}
+                          onChange={(e) => setPipelineConfigPassingScore(parseInt(e.target.value) || 70)}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Module 2: AI Video Interview */}
+                  <div
+                    onClick={() => setPipelineConfigEnableAI(!pipelineConfigEnableAI)}
+                    className={`flex items-start gap-3.5 p-4 rounded-2xl border transition cursor-pointer ${
+                      pipelineConfigEnableAI
+                        ? 'bg-purple-50/40 border-purple-200 ring-1 ring-kulkul-purple/20'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      id="modalConfigEnableAI"
+                      checked={pipelineConfigEnableAI}
+                      onChange={(e) => setPipelineConfigEnableAI(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 mt-0.5 text-kulkul-orange rounded border-slate-300 focus:ring-kulkul-purple"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="modalConfigEnableAI" className="text-sm font-bold text-slate-800 block cursor-pointer">
+                        AI Video Interview
+                      </label>
+                      <span className="text-xs text-slate-500 block mt-0.5">
+                        Interactive audio/video interview evaluated by AI against rubric competencies, recording video to Cloudflare R2.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsPipelineConfigModalOpen(false)}
+                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatePipelineConfigMutation.isPending}
+                    className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{updatePipelineConfigMutation.isPending ? 'Updating...' : 'Save Pipeline Modules'}</span>
                   </button>
                 </div>
               </form>

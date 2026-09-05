@@ -38,11 +38,6 @@ const FINAL_YEAR_SEMESTERS = [
   'Recent IT Graduate (Within 1 Year)',
 ];
 
-const SCHOLARSHIP_COURSES = [
-  { label: 'Full Stack Developer', value: 'Full Stack Developer', trackSlug: 'fullstack' },
-  { label: 'QA Automation', value: 'QA Automation', trackSlug: 'qa-automation' },
-];
-
 const REFERRAL_SOURCES = [
   'Referral',
   'LIT Network Social Media',
@@ -59,7 +54,7 @@ export const ApplyPage: React.FC = () => {
 
   const queryParams = new URLSearchParams(location.search);
   const trackSlugFromQuery = queryParams.get('track') || '';
-  const initialTrackSlug = params.trackSlug || trackSlugFromQuery || 'fullstack';
+  const initialTrackSlug = params.trackSlug || trackSlugFromQuery || '';
 
   const [selectedTrackSlug, setSelectedTrackSlug] = useState<string>(initialTrackSlug);
 
@@ -73,7 +68,7 @@ export const ApplyPage: React.FC = () => {
     university: '',
     major: '',
     semester: '',
-    chosenCourse: initialTrackSlug === 'qa-automation' ? 'QA Automation' : 'Full Stack Developer',
+    chosenCourse: '',
     referralSource: '',
     resumeUrl: '',
     profilePictureUrl: '',
@@ -165,15 +160,6 @@ export const ApplyPage: React.FC = () => {
     }
   }, [location.search]);
 
-  // Sync course selection with track
-  const handleCourseChange = (course: string) => {
-    const matched = SCHOLARSHIP_COURSES.find((c) => c.value === course);
-    setFormData((prev) => ({ ...prev, chosenCourse: course }));
-    if (matched) {
-      setSelectedTrackSlug(matched.trackSlug);
-    }
-  };
-
   const { data: programData } = useQuery({
     queryKey: ['program', orgSlug, programSlug],
     queryFn: () => programService.getProgram(orgSlug, programSlug),
@@ -182,9 +168,39 @@ export const ApplyPage: React.FC = () => {
   const program = programData?.program;
   const tracks = program?.tracks || [];
 
-  const currentTrack = tracks.find((t) => t.slug === selectedTrackSlug) || tracks[0];
+  // Sync track selection with available tracks or fallback to general program
+  useEffect(() => {
+    if (tracks.length > 0) {
+      const matched = tracks.find((t) => t.slug === selectedTrackSlug) || tracks[0];
+      if (matched) {
+        setSelectedTrackSlug(matched.slug);
+        setFormData((prev) => ({
+          ...prev,
+          chosenCourse: prev.chosenCourse && tracks.some((t) => t.name === prev.chosenCourse) ? prev.chosenCourse : matched.name,
+        }));
+      }
+    } else if (program) {
+      setSelectedTrackSlug('');
+      setFormData((prev) => ({
+        ...prev,
+        chosenCourse: program.name || 'General Program Track',
+      }));
+    }
+  }, [tracks, program]);
 
-  const durationMinutes = currentTrack?.logic_test_duration_minutes || program?.logic_test_duration_minutes || 35;
+  // Sync course selection with track
+  const handleCourseChange = (course: string) => {
+    const matched = tracks.find((c) => c.name === course);
+    setFormData((prev) => ({ ...prev, chosenCourse: course }));
+    if (matched) {
+      setSelectedTrackSlug(matched.slug);
+    }
+  };
+
+  const currentTrack = tracks.find((t) => t.slug === selectedTrackSlug) || (tracks.length > 0 ? tracks[0] : null);
+  const enableMCQ = currentTrack ? (currentTrack.enable_mcq ?? true) : (program?.enable_mcq ?? true);
+  const enableAI = currentTrack ? (currentTrack.enable_ai_interview ?? true) : (program?.enable_ai_interview ?? true);
+  const durationMinutes = currentTrack?.logic_test_duration_minutes || program?.logic_test_duration_minutes || 30;
 
   const applyMutation = useMutation({
     mutationFn: () => {
@@ -226,6 +242,12 @@ export const ApplyPage: React.FC = () => {
       if (res.stage === 'ai_interview_invited' && res.ai_interview_invite_token) {
         toast.success(res.message || 'Proceeding to AI Technical Screening!');
         navigate(`/lit2026/interview/${res.ai_interview_invite_token}`);
+        return;
+      }
+
+      if (res.stage === 'registered') {
+        toast.success(res.message || 'Application submitted successfully!');
+        navigate(`/programs/${orgSlug}/${programSlug}`);
         return;
       }
 
@@ -279,8 +301,8 @@ export const ApplyPage: React.FC = () => {
       toast.error('Current Semester is mandatory (Final year)');
       return;
     }
-    if (!formData.chosenCourse) {
-      toast.error('Chosen course for the scholarship is mandatory');
+    if (tracks.length > 0 && !formData.chosenCourse) {
+      toast.error('Chosen specialization track is mandatory');
       return;
     }
     if (!formData.referralSource) {
@@ -506,31 +528,34 @@ export const ApplyPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Section: Scholarship & Program Preferences */}
-              <div className="border-b border-slate-100 pb-2 pt-3">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Scholarship & Program Details</h2>
-              </div>
+              {/* Section: Specialization Track (Optional / Only if tracks configured) */}
+              {tracks.length > 0 && (
+                <>
+                  <div className="border-b border-slate-100 pb-2 pt-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Specialization Track</h2>
+                  </div>
 
-              {/* Chosen course for the scholarship */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Chosen Course for the Scholarship <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.chosenCourse}
-                  onChange={(e) => handleCourseChange(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white font-semibold text-slate-900"
-                >
-                  <option value="" disabled>Select scholarship course</option>
-                  {SCHOLARSHIP_COURSES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-                <p className="text-2xs text-slate-400 mt-1 pl-1">
-                  Your logic and technical questions will be calibrated for the chosen track.
-                </p>
-              </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Chosen Specialization Track <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.chosenCourse}
+                      onChange={(e) => handleCourseChange(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white font-semibold text-slate-900"
+                    >
+                      <option value="" disabled>Select specialization track</option>
+                      {tracks.map((t) => (
+                        <option key={t.slug || t.id} value={t.name}>{t.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-2xs text-slate-400 mt-1 pl-1">
+                      Your logic and technical questions will be calibrated for the chosen track.
+                    </p>
+                  </div>
+                </>
+              )}
 
               {/* How do you hear about us? */}
               <div>
@@ -653,7 +678,13 @@ export const ApplyPage: React.FC = () => {
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-kulkul-orange shrink-0 mt-0.5" />
               <p className="text-2xs text-slate-600 leading-relaxed">
-                By submitting this application, you will be redirected immediately into the timed {durationMinutes}-minute {formData.chosenCourse || 'logic'} test. Ensure a stable internet connection.
+                {enableMCQ ? (
+                  `By submitting this application, you will be redirected immediately into the timed ${durationMinutes}-minute logic test. Ensure a stable internet connection.`
+                ) : enableAI ? (
+                  'By submitting this application, you will proceed directly to the conversational AI Technical Screening. Please ensure a quiet environment with a working microphone and camera.'
+                ) : (
+                  'By submitting this application, your profile will be sent directly to the admissions committee for review.'
+                )}
               </p>
             </div>
 
@@ -670,7 +701,13 @@ export const ApplyPage: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <span>Begin {formData.chosenCourse || 'Fellowship'} Assessment</span>
+                  <span>
+                    {enableMCQ
+                      ? `Begin ${formData.chosenCourse && tracks.length > 0 ? `${formData.chosenCourse} Assessment` : 'Logic & Technical Assessment'}`
+                      : enableAI
+                      ? 'Submit & Begin AI Technical Screen'
+                      : 'Submit Application'}
+                  </span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
