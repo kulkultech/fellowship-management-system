@@ -23,6 +23,9 @@ import {
   RefreshCw,
   Award,
   Sparkles,
+  Volume2,
+  VolumeX,
+  MessageSquareQuote,
 } from 'lucide-react';
 import type { EvaluationSummary, CriterionScore } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -81,6 +84,17 @@ export const InterviewPage: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [transcripts, setTranscripts] = useState<Record<number, string>>({});
   const speechRecognitionRef = useRef<any>(null);
+
+  // Conversational AI Voice & Follow-up State
+  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [activeFollowUp, setActiveFollowUp] = useState<{
+    questionText: string;
+    followUpCount: number;
+    parentQuestionIndex: number;
+  } | null>(null);
+  const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
+  const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
   // Sync prep countdown when rubric arrives
   useEffect(() => {
@@ -206,10 +220,12 @@ export const InterviewPage: React.FC = () => {
   const handleResetDemo = async () => {
     if (!inviteToken) return;
     setIsResetting(true);
+    stopSpeech();
     try {
       await aiInterviewService.resetSession(inviteToken);
       await queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
       setCurrentQIndex(0);
+      setActiveFollowUp(null);
       setInterviewPhase('prep');
       setPrepCountdown(prepBufferSeconds);
       setRecordingSeconds(0);
@@ -525,10 +541,84 @@ export const InterviewPage: React.FC = () => {
     setInterviewPhase('prep');
   };
 
+  // Load and cache natural voice for AI Interviewer
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    const updateVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return;
+      const preferred =
+        voices.find(
+          (v) =>
+            v.lang.startsWith('en') &&
+            (v.name.includes('Natural') ||
+              v.name.includes('Google') ||
+              v.name.includes('Samantha') ||
+              v.name.includes('Daniel') ||
+              v.name.includes('Karen') ||
+              v.name.includes('Moira')),
+        ) || voices.find((v) => v.lang.startsWith('en'));
+      if (preferred) {
+        selectedVoiceRef.current = preferred;
+      }
+    };
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+  }, []);
+
   // Cancel speech synthesis if active
   const stopSpeech = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      setIsAiSpeaking(false);
+    }
+  };
+
+  // Speak AI text with Web Speech Synthesis
+  const speakAI = (text: string) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    if (isVoiceMuted) {
+      setIsAiSpeaking(false);
+      return;
+    }
+
+    const cleanText = text
+      .replace(/\[.*?\]/g, '')
+      .replace(/[\*#_`]/g, '')
+      .trim();
+    if (!cleanText) return;
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      if (selectedVoiceRef.current) {
+        utterance.voice = selectedVoiceRef.current;
+      }
+      utterance.onstart = () => setIsAiSpeaking(true);
+      utterance.onend = () => setIsAiSpeaking(false);
+      utterance.onerror = () => setIsAiSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis error:', e);
+      setIsAiSpeaking(false);
+    }
+  };
+
+  // Toggle AI Voice Mute
+  const toggleVoiceMute = () => {
+    if (!isVoiceMuted) {
+      stopSpeech();
+      setIsVoiceMuted(true);
+      toast('AI Interviewer voice muted', { icon: '🔇' });
+    } else {
+      setIsVoiceMuted(false);
+      toast.success('AI Interviewer voice unmuted');
+      const currentPrompt = activeFollowUp ? activeFollowUp.questionText : currentQ?.prompt;
+      if (currentPrompt) {
+        setTimeout(() => speakAI(currentPrompt), 100);
+      }
     }
   };
 
@@ -550,6 +640,7 @@ export const InterviewPage: React.FC = () => {
       const sendRes = await aiInterviewService.sendMessage(
         inviteToken,
         `[Video Assessment Completed: Candidate submitted all ${questions.length} video responses. Ready for Cloudflare AI rubric evaluation.]`,
+        currentQIndex,
       );
 
       return { saveRes, evaluation: sendRes?.summary_evaluation };
@@ -576,30 +667,87 @@ export const InterviewPage: React.FC = () => {
     },
   });
 
-  // Next Question / Finish Interview
-  const handleConfirmNext = () => {
+  // Next Question / Conversational Turn Confirmation
+  const handleConfirmNext = async () => {
     stopSpeech();
     stopSpeechRecognition();
 
-    // Transmit speech transcript if captured
     const q = questions[currentQIndex];
-    const candidateText = transcripts[currentQIndex]?.trim();
-    if (inviteToken) {
-      const responseMsg = candidateText
-        ? `[Candidate Response to Q${q.id} - ${q.category}]: ${candidateText}`
-        : `[Candidate completed video response to Q${q.id} - ${q.category}]`;
-      aiInterviewService.sendMessage(inviteToken, responseMsg).catch((err) => {
-        console.warn('Could not post candidate response transcript:', err);
-      });
-    }
+    const candidateText =
+      transcripts[currentQIndex]?.trim() ||
+      (isDemo
+        ? 'I have experience in building modern applications with testing and proactive communication.'
+        : '[Candidate completed video response]');
 
-    if (currentQIndex < questions.length - 1) {
-      const nextIndex = currentQIndex + 1;
-      setCurrentQIndex(nextIndex);
-      setPrepCountdown(prepBufferSeconds);
-      setInterviewPhase('prep');
-    } else {
-      saveInterviewMutation.mutate();
+    if (!inviteToken) return;
+    setIsEvaluatingAnswer(true);
+
+    try {
+      const responseMsg = activeFollowUp
+        ? `[Candidate Response to Follow-Up on Q${q.id}]: ${candidateText}`
+        : `[Candidate Response to Q${q.id} - ${q.category}]: ${candidateText}`;
+
+      const res = await aiInterviewService.sendMessage(inviteToken, responseMsg, currentQIndex);
+
+      if (res.is_follow_up) {
+        // AI asks conversational follow-up!
+        const followUpText = res.ai_message;
+        setActiveFollowUp({
+          questionText: followUpText,
+          followUpCount: res.follow_up_count || 1,
+          parentQuestionIndex: currentQIndex,
+        });
+
+        toast('AI Interviewer asked a follow-up question', { icon: '🤖' });
+
+        // Reset phase for candidate to answer the follow-up
+        setPrepCountdown(20);
+        setInterviewPhase('prep');
+        setRecordingSeconds(0);
+        setTranscripts((prev) => ({ ...prev, [currentQIndex]: '' }));
+
+        // Speak the follow-up question aloud
+        speakAI(followUpText);
+      } else {
+        // Candidate response was good/sufficient! Clear active follow up
+        setActiveFollowUp(null);
+
+        if (res.is_completed || currentQIndex >= questions.length - 1) {
+          toast.success('All questions completed! Saving interview...');
+          speakAI('Thank you for completing all interview questions. Saving your session now.');
+          saveInterviewMutation.mutate();
+        } else {
+          toast.success('Answer accepted! Moving to next question.');
+          const nextIndex =
+            res.current_question_index !== undefined && res.current_question_index > currentQIndex
+              ? res.current_question_index
+              : currentQIndex + 1;
+
+          setCurrentQIndex(nextIndex);
+          setPrepCountdown(prepBufferSeconds);
+          setInterviewPhase('prep');
+          setRecordingSeconds(0);
+
+          const nextQ = questions[nextIndex];
+          if (nextQ) {
+            speakAI(`Question ${nextIndex + 1}: ${nextQ.prompt}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error submitting response turn:', err);
+      toast.error('Proceeding to next question...');
+      setActiveFollowUp(null);
+      if (currentQIndex < questions.length - 1) {
+        const nextIndex = currentQIndex + 1;
+        setCurrentQIndex(nextIndex);
+        setPrepCountdown(prepBufferSeconds);
+        setInterviewPhase('prep');
+      } else {
+        saveInterviewMutation.mutate();
+      }
+    } finally {
+      setIsEvaluatingAnswer(false);
     }
   };
 
@@ -612,6 +760,11 @@ export const InterviewPage: React.FC = () => {
     setUiStage('interview');
     setPrepCountdown(prepBufferSeconds);
     setInterviewPhase('prep');
+    setActiveFollowUp(null);
+    const firstQ = questions[0];
+    if (firstQ) {
+      speakAI(`Welcome to your interview. Let's start with Question 1: ${firstQ.prompt}`);
+    }
   };
 
   // Loading state
@@ -878,16 +1031,31 @@ export const InterviewPage: React.FC = () => {
               )}
 
               {interviewPhase === 'prep' && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs shadow-2xs">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Prep Countdown: {prepCountdown}s</span>
+                <div
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold text-xs shadow-2xs ${
+                    activeFollowUp
+                      ? 'bg-amber-100 border border-amber-300 text-amber-900'
+                      : 'bg-amber-50 border border-amber-200 text-amber-800'
+                  }`}
+                >
+                  {activeFollowUp ? (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                      <span>Follow-Up Prep: {prepCountdown}s</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Prep Countdown: {prepCountdown}s</span>
+                    </>
+                  )}
                 </div>
               )}
 
               {interviewPhase === 'review' && (
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple font-bold text-xs shadow-2xs">
                   <CheckCircle2 className="w-3.5 h-3.5 text-kulkul-purple" />
-                  <span>Recorded &middot; Reviewing</span>
+                  <span>{activeFollowUp ? 'Follow-Up Recorded' : 'Recorded &middot; Reviewing'}</span>
                 </div>
               )}
             </div>
@@ -1040,7 +1208,8 @@ export const InterviewPage: React.FC = () => {
                     {allowRerecord ? (
                       <button
                         onClick={handleRerecord}
-                        className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-full text-xs transition flex items-center gap-2 border border-slate-200 shadow-2xs"
+                        disabled={isEvaluatingAnswer || isUploadingRecording}
+                        className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-full text-xs transition flex items-center gap-2 border border-slate-200 shadow-2xs disabled:opacity-50"
                       >
                         <RotateCcw className="w-4 h-4 text-kulkul-purple" />
                         <span>Re-record Answer</span>
@@ -1054,13 +1223,23 @@ export const InterviewPage: React.FC = () => {
 
                     <button
                       onClick={handleConfirmNext}
-                      disabled={isUploadingRecording}
+                      disabled={isUploadingRecording || isEvaluatingAnswer}
                       className="px-7 py-3 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98] disabled:opacity-50"
                     >
-                      {isUploadingRecording ? (
+                      {isEvaluatingAnswer ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                          <span>AI Assessing Answer...</span>
+                        </>
+                      ) : isUploadingRecording ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin text-white" />
                           <span>Saving & AI Evaluating...</span>
+                        </>
+                      ) : activeFollowUp ? (
+                        <>
+                          <span>Submit Follow-Up Response</span>
+                          <ChevronRight className="w-4 h-4" />
                         </>
                       ) : currentQIndex < questions.length - 1 ? (
                         <>
@@ -1083,7 +1262,86 @@ export const InterviewPage: React.FC = () => {
             <div className="lg:col-span-5 flex flex-col gap-4">
               {/* Question Card */}
               <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs flex-1 flex flex-col justify-between space-y-5">
-                <div className="space-y-3.5">
+                <div className="space-y-4">
+                  {/* AI Interviewer Conversational Status & Audio Bar */}
+                  <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`relative w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition ${
+                          isAiSpeaking
+                            ? 'bg-kulkul-purple text-white shadow-xs ring-2 ring-kulkul-purple/40'
+                            : 'bg-purple-100 text-kulkul-purple'
+                        }`}
+                      >
+                        <Bot className="w-4 h-4" />
+                        {isAiSpeaking && (
+                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-ping" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 truncate">
+                          <span>AI Interviewer</span>
+                          {isAiSpeaking && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple text-3xs font-extrabold uppercase shrink-0">
+                              Speaking
+                              <span className="flex items-center gap-0.5 h-2">
+                                <span className="w-0.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-0.5 h-2.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-0.5 h-2 bg-kulkul-purple rounded-full animate-bounce" />
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-3xs text-slate-500 font-medium truncate">
+                          {isEvaluatingAnswer
+                            ? 'Analyzing candidate response depth...'
+                            : isAiSpeaking
+                            ? 'Reading prompt aloud'
+                            : activeFollowUp
+                            ? 'Follow-up clarification active'
+                            : 'Conversational Voice Ready'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Audio Controls */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isAiSpeaking ? (
+                        <button
+                          onClick={stopSpeech}
+                          className="px-2 py-1 rounded-full text-3xs font-bold bg-purple-100 hover:bg-purple-200 text-kulkul-purple transition"
+                          title="Skip voice playback"
+                        >
+                          Skip Voice
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const promptToSpeak = activeFollowUp
+                              ? activeFollowUp.questionText
+                              : currentQ?.prompt;
+                            if (promptToSpeak) speakAI(promptToSpeak);
+                          }}
+                          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-200 transition"
+                          title="Listen to question again"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={toggleVoiceMute}
+                        className={`p-1.5 rounded-full transition ${
+                          isVoiceMuted
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'text-slate-600 hover:bg-slate-200'
+                        }`}
+                        title={isVoiceMuted ? 'Unmute AI voice' : 'Mute AI voice'}
+                      >
+                        {isVoiceMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between gap-2">
                     <span className="px-3.5 py-1 bg-purple-50 text-kulkul-purple border border-purple-200 rounded-full text-2xs font-extrabold uppercase tracking-wider">
                       {currentQ.category}
@@ -1102,9 +1360,37 @@ export const InterviewPage: React.FC = () => {
                     {currentQ.title}
                   </h3>
 
-                  <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-200 text-sm text-slate-800 leading-relaxed font-medium shadow-2xs">
-                    {currentQ.prompt}
-                  </div>
+                  {/* Active Question Prompt or Follow-Up Prompt */}
+                  {activeFollowUp ? (
+                    <div className="p-5 bg-gradient-to-br from-amber-50 to-orange-50/60 rounded-2xl border-2 border-amber-300 text-slate-900 shadow-2xs space-y-3 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center justify-between">
+                        <span className="px-3 py-1 rounded-full bg-amber-500 text-white text-3xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
+                          <Sparkles className="w-3 h-3" />
+                          Follow-Up Question ({activeFollowUp.followUpCount} of 2)
+                        </span>
+                        <span className="text-2xs font-bold text-amber-900">Clarification Needed</span>
+                      </div>
+
+                      <p className="text-sm font-bold text-slate-900 leading-relaxed">
+                        {activeFollowUp.questionText}
+                      </p>
+
+                      <div className="text-2xs text-amber-900/90 bg-amber-100/70 rounded-xl p-2.5 flex items-start gap-2">
+                        <MessageSquareQuote className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                        <span>
+                          The AI interviewer would like you to elaborate on this specific detail before advancing to the next rubric question.
+                        </span>
+                      </div>
+
+                      <div className="pt-2 border-t border-amber-200/80 text-3xs text-slate-600">
+                        <span className="font-bold text-slate-700">Primary Rubric Topic:</span> {currentQ.prompt}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-200 text-sm text-slate-800 leading-relaxed font-medium shadow-2xs">
+                      {currentQ.prompt}
+                    </div>
+                  )}
 
                   {/* Live Speech Recognition Preview */}
                   {transcripts[currentQIndex] && (
@@ -1134,7 +1420,9 @@ export const InterviewPage: React.FC = () => {
                         key={q.id}
                         className={`p-3 rounded-2xl text-xs flex items-center justify-between transition ${
                           idx === currentQIndex
-                            ? 'bg-purple-50 border border-purple-300 text-kulkul-purple font-bold shadow-2xs'
+                            ? activeFollowUp
+                              ? 'bg-amber-50 border border-amber-300 text-amber-900 font-bold shadow-2xs'
+                              : 'bg-purple-50 border border-purple-300 text-kulkul-purple font-bold shadow-2xs'
                             : questionRecordings[idx]
                             ? 'bg-emerald-50/80 border border-emerald-200 text-emerald-800 font-medium'
                             : 'bg-slate-50 text-slate-500 border border-slate-200/70'
@@ -1144,14 +1432,21 @@ export const InterviewPage: React.FC = () => {
                           <span className="font-mono text-2xs font-bold">0{q.id}.</span>
                           <span className="truncate">{q.title}</span>
                         </div>
-                        {questionRecordings[idx] ? (
+                        {questionRecordings[idx] && idx !== currentQIndex ? (
                           <span className="inline-flex items-center gap-1 text-emerald-600 text-2xs font-bold shrink-0">
                             <Check className="w-3.5 h-3.5" /> Recorded
                           </span>
                         ) : idx === currentQIndex ? (
-                          <span className="text-kulkul-purple text-2xs font-extrabold shrink-0 animate-pulse">
-                            Active
-                          </span>
+                          activeFollowUp ? (
+                            <span className="text-amber-800 text-2xs font-black shrink-0 animate-pulse flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-amber-600" />
+                              Follow-Up {activeFollowUp.followUpCount}/2
+                            </span>
+                          ) : (
+                            <span className="text-kulkul-purple text-2xs font-extrabold shrink-0 animate-pulse">
+                              Active
+                            </span>
+                          )
                         ) : (
                           <span className="text-slate-400 text-2xs shrink-0 font-medium">Pending</span>
                         )}

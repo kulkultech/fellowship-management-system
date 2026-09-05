@@ -42,18 +42,42 @@ type cloudflareMessage struct {
 }
 
 type cloudflareChatResponse struct {
-	Result struct {
-		Response string `json:"response"`
-		Choices  []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	} `json:"result"`
-	Success bool `json:"success"`
+	Result  json.RawMessage `json:"result"`
+	Success bool            `json:"success"`
 	Errors  []struct {
 		Message string `json:"message"`
 	} `json:"errors"`
+}
+
+func extractCloudflareResultText(rawResult json.RawMessage) string {
+	if len(rawResult) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(rawResult, &s); err == nil && s != "" {
+		return s
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(rawResult, &obj); err == nil {
+		if respStr, ok := obj["response"].(string); ok && respStr != "" {
+			return respStr
+		}
+		if respObj, ok := obj["response"]; ok && respObj != nil {
+			if b, err := json.Marshal(respObj); err == nil {
+				return string(b)
+			}
+		}
+		if choices, ok := obj["choices"].([]any); ok && len(choices) > 0 {
+			if firstChoice, ok := choices[0].(map[string]any); ok {
+				if msg, ok := firstChoice["message"].(map[string]any); ok {
+					if content, ok := msg["content"].(string); ok {
+						return content
+					}
+				}
+			}
+		}
+	}
+	return string(rawResult)
 }
 
 // EvaluateTranscript evaluates the candidate's interview transcript against the rubric using Cloudflare Workers AI.
@@ -123,10 +147,7 @@ You MUST reply ONLY with a valid, raw JSON object matching the requested schema.
 		return e.fallbackEvaluate(rubric, transcript), nil
 	}
 
-	aiText := cfResp.Result.Response
-	if aiText == "" && len(cfResp.Result.Choices) > 0 {
-		aiText = cfResp.Result.Choices[0].Message.Content
-	}
+	aiText := extractCloudflareResultText(cfResp.Result)
 
 	summary, err := e.parseAIResponse(aiText, rubric)
 	if err != nil {
@@ -353,4 +374,142 @@ func (e *CloudflareEvaluator) fallbackEvaluate(rubric *model.AIInterviewRubric, 
 		ExecutiveSummary:    fmt.Sprintf("Candidate completed all %d rubric prompts. Demonstrated strong communication capability and workplace readiness.", len(rubric.Questions)),
 		QuestionEvaluations: qEvals,
 	}
+}
+
+type FollowUpResult struct {
+	IsSufficient bool   `json:"is_sufficient"`
+	FollowUp     string `json:"follow_up"`
+	Feedback     string `json:"feedback,omitempty"`
+}
+
+// AssessAnswerAndGenerateFollowUp evaluates the candidate's response for a specific rubric question.
+// If the answer is lacking depth or misses key criteria, it returns a natural follow-up question.
+func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
+	ctx context.Context,
+	question model.AIInterviewQuestionItem,
+	conversationForQuestion []model.ChatMessage,
+	followUpCount int,
+) (isSufficient bool, followUp string, feedback string, err error) {
+	// Safety cap: Never ask more than 2 follow-ups on the same rubric question
+	if followUpCount >= 2 {
+		return true, "", "Maximum follow-ups reached for this question.", nil
+	}
+
+	// Extract candidate text
+	var totalCandidateWords int
+	for _, msg := range conversationForQuestion {
+		if msg.Role == "candidate" {
+			words := strings.Fields(msg.Message)
+			totalCandidateWords += len(words)
+		}
+	}
+
+	// Immediate fallback if candidate provided almost no words (e.g. "yes", "idk", "ok")
+	if totalCandidateWords < 8 {
+		followUpQ := fmt.Sprintf("Could you tell me a bit more about that? Specifically, regarding %s, could you walk me through your experience or thoughts in more detail?", strings.ToLower(question.Theme))
+		return false, followUpQ, "Answer is too brief to evaluate.", nil
+	}
+
+	if !e.config.Enabled() {
+		// Fallback heuristic: If candidate provided over 25 words, consider it sufficient
+		if totalCandidateWords >= 25 {
+			return true, "", "Sufficient word count and coverage.", nil
+		}
+		followUpQ := fmt.Sprintf("That is helpful context! Could you elaborate further on how you approached this, and what specific steps or outcomes were involved?", strings.ToLower(question.Theme))
+		return false, followUpQ, "Answer could use more concrete detail.", nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("RUBRIC QUESTION (%s):\nPrompt: \"%s\"\n\nEvaluation Criteria:\n", question.Theme, question.Question))
+	for _, c := range question.Criteria {
+		sb.WriteString(fmt.Sprintf("- %s (%d pts)\n", c.Criterion, c.Points))
+	}
+	sb.WriteString("\nCONVERSATION ON THIS QUESTION SO FAR:\n")
+	for _, m := range conversationForQuestion {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", strings.ToUpper(m.Role), m.Message))
+	}
+	sb.WriteString("\nEvaluate if the candidate's response is sufficient, or if a follow-up clarification question is needed. Return JSON: {\"is_sufficient\": boolean, \"follow_up\": string, \"feedback\": string}")
+
+	reqCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/meta/llama-3.1-8b-instruct", e.config.AccountID)
+
+	reqBody := cloudflareChatRequest{
+		Messages: []cloudflareMessage{
+			{
+				Role: "system",
+				Content: `You are an encouraging, professional admissions interviewer for a talent fellowship.
+You are actively listening to the candidate.
+Your task: Determine if the candidate's answer is SUFFICIENT for the current interview question and its criteria, or if it needs a FOLLOW-UP QUESTION.
+
+Guidelines:
+1. Fairness: Do NOT penalize Indonesian accent, modest vocabulary, or conversational pauses. If the candidate conveyed meaningful information addressing the prompt, mark is_sufficient: true.
+2. When to ask a follow-up: Only if the answer is notably incomplete, missing the core part of the prompt (e.g. mentioned what happened but omitted what they learned, or gave vague generalizations without a real example), set is_sufficient: false.
+3. Natural Voice: The follow-up question will be SPOKEN aloud to the candidate. Keep it friendly, encouraging, and brief (1-2 sentences maximum). Example: "Thanks for sharing that! Could you give me a specific example of a time you had to do that?"
+4. Output format: Return ONLY raw JSON: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
+			},
+			{
+				Role:    "user",
+				Content: sb.String(),
+			},
+		},
+		MaxTokens:   256,
+		Temperature: 0.3,
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return true, "", "marshal error", nil
+	}
+
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return true, "", "request build error", nil
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(httpReq)
+	if err != nil {
+		e.logger.Warn("Cloudflare follow-up check failed, using heuristic fallback", slog.Any("error", err))
+		if totalCandidateWords >= 25 {
+			return true, "", "Heuristic fallback: sufficient words.", nil
+		}
+		followUpQ := fmt.Sprintf("Could you give me a concrete example or share more details about your approach to %s?", strings.ToLower(question.Theme))
+		return false, followUpQ, "Heuristic fallback follow-up", nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return true, "", "non-200 from AI, treating as sufficient", nil
+	}
+
+	var cfResp cloudflareChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
+		return true, "", "decode error", nil
+	}
+
+	aiText := extractCloudflareResultText(cfResp.Result)
+
+	// Parse JSON from response
+	var result FollowUpResult
+	// Strip markdown fences if present
+	cleanText := strings.TrimSpace(aiText)
+	if idx := strings.Index(cleanText, "{"); idx != -1 {
+		if endIdx := strings.LastIndex(cleanText, "}"); endIdx != -1 && endIdx > idx {
+			cleanText = cleanText[idx : endIdx+1]
+		}
+	}
+
+	if err := json.Unmarshal([]byte(cleanText), &result); err != nil {
+		e.logger.Warn("Could not parse follow-up JSON, treating as sufficient", slog.String("text", aiText))
+		return true, "", "JSON parse fallback", nil
+	}
+
+	if !result.IsSufficient && strings.TrimSpace(result.FollowUp) == "" {
+		result.FollowUp = fmt.Sprintf("Could you tell me a little more about your experience with %s?", strings.ToLower(question.Theme))
+	}
+
+	return result.IsSufficient, strings.TrimSpace(result.FollowUp), result.Feedback, nil
 }

@@ -218,14 +218,18 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 }
 
 type SendMessageRequest struct {
-	Message string `json:"message"`
+	Message              string `json:"message"`
+	CurrentQuestionIndex int    `json:"current_question_index"`
 }
 
 type SendMessageResponse struct {
-	AIMessage         string                   `json:"ai_message"`
-	IsCompleted       bool                     `json:"is_completed"`
-	SummaryEvaluation *model.EvaluationSummary `json:"summary_evaluation,omitempty"`
-	ScorecardScore    int                      `json:"scorecard_score"`
+	AIMessage            string                   `json:"ai_message"`
+	IsFollowUp           bool                     `json:"is_follow_up"`
+	CurrentQuestionIndex int                      `json:"current_question_index"`
+	FollowUpCount        int                      `json:"follow_up_count"`
+	IsCompleted          bool                     `json:"is_completed"`
+	SummaryEvaluation    *model.EvaluationSummary `json:"summary_evaluation,omitempty"`
+	ScorecardScore       int                      `json:"scorecard_score"`
 }
 
 func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
@@ -258,13 +262,6 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		Timestamp: now,
 	})
 
-	candidateTurns := 0
-	for _, m := range aiSession.Transcript {
-		if m.Role == "candidate" {
-			candidateTurns++
-		}
-	}
-
 	// Resolve rubric
 	var rubric *model.AIInterviewRubric
 	if aiSession.TrackID != nil {
@@ -275,42 +272,93 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	if rubric == nil && program != nil {
 		rubric = program.AIInterviewRubric
 	}
-	if rubric == nil {
+	if rubric == nil || len(rubric.Questions) == 0 {
 		rubric = model.DefaultLITRubric()
 	}
 
-	// Extract questions pool
-	var questions []string
-	if rubric != nil && len(rubric.Questions) > 0 {
-		questions = make([]string, len(rubric.Questions))
-		for i, q := range rubric.Questions {
-			questions[i] = q.Question
-		}
-	} else {
-		questions = []string{
-			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
-			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
-			"Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?",
-			"Describe a situation where you had to work with others and encountered a miscommunication or disagreement. How did you address it, and what did you learn?",
-			"Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?",
+	// Handle video recording completion sentinel signal
+	isCompletionSentinel := strings.HasPrefix(req.Message, "[Video Assessment Completed")
+
+	qIdx := req.CurrentQuestionIndex
+	if qIdx < 0 {
+		qIdx = 0
+	}
+	if qIdx >= len(rubric.Questions) {
+		qIdx = len(rubric.Questions) - 1
+	}
+	currentQ := rubric.Questions[qIdx]
+
+	// Find conversation turns for the current question
+	var conversationForCurrentQ []model.ChatMessage
+	lastMainQIndex := -1
+	for i := len(aiSession.Transcript) - 1; i >= 0; i-- {
+		msg := aiSession.Transcript[i]
+		if msg.Role == "ai" && strings.Contains(msg.Message, currentQ.Question) {
+			lastMainQIndex = i
+			break
 		}
 	}
 
-	var aiReply string
+	followUpCount := 0
+	if lastMainQIndex != -1 {
+		for i := lastMainQIndex; i < len(aiSession.Transcript); i++ {
+			msg := aiSession.Transcript[i]
+			conversationForCurrentQ = append(conversationForCurrentQ, msg)
+			if i > lastMainQIndex && msg.Role == "ai" {
+				followUpCount++
+			}
+		}
+	} else {
+		start := len(aiSession.Transcript) - 4
+		if start < 0 {
+			start = 0
+		}
+		conversationForCurrentQ = aiSession.Transcript[start:]
+	}
+
+	var isFollowUp bool
 	var isCompleted bool
+	var aiReply string
 	var summary *model.EvaluationSummary
 	score := 0
+	nextQIndex := qIdx
 
-	// Check if there is a next question
-	if candidateTurns < len(questions) {
-		nextQ := questions[candidateTurns]
-		aiReply = fmt.Sprintf("Thank you for your response! Next question:\n\n%s", nextQ)
-	} else {
-		// All questions answered -> complete interview & evaluate with Cloudflare Workers AI
+	if isCompletionSentinel {
+		// Video upload finished -> complete interview
 		isCompleted = true
-		aiReply = "Thank you for completing your video technical evaluation! Our AI evaluation engine has analyzed your responses against the assessment rubric."
-		nowComplete := time.Now()
+		aiReply = "Thank you for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric."
+	} else {
+		// Evaluate if answer is sufficient or if follow-up clarification is needed
+		if followUpCount < 2 && h.aiEvaluator != nil {
+			isSufficient, followUp, _, err := h.aiEvaluator.AssessAnswerAndGenerateFollowUp(
+				r.Context(),
+				currentQ,
+				conversationForCurrentQ,
+				followUpCount,
+			)
+			if err == nil && !isSufficient && strings.TrimSpace(followUp) != "" {
+				isFollowUp = true
+				aiReply = followUp
+				followUpCount++
+			}
+		}
 
+		if !isFollowUp {
+			// Answer is sufficient (or max follow-ups reached) -> progress to next question
+			nextQIndex = qIdx + 1
+			if nextQIndex < len(rubric.Questions) {
+				nextQ := rubric.Questions[nextQIndex]
+				aiReply = fmt.Sprintf("Thank you for your response! Next question:\n\n%s", nextQ.Question)
+				isCompleted = false
+			} else {
+				isCompleted = true
+				aiReply = "Thank you for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric."
+			}
+		}
+	}
+
+	if isCompleted {
+		nowComplete := time.Now()
 		if h.aiEvaluator != nil {
 			summary, err = h.aiEvaluator.EvaluateTranscript(r.Context(), rubric, aiSession.Transcript)
 		}
@@ -344,10 +392,13 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	}
 
 	httpx.JSON(w, http.StatusOK, SendMessageResponse{
-		AIMessage:         aiReply,
-		IsCompleted:       isCompleted,
-		SummaryEvaluation: summary,
-		ScorecardScore:    score,
+		AIMessage:            aiReply,
+		IsFollowUp:           isFollowUp,
+		CurrentQuestionIndex: nextQIndex,
+		FollowUpCount:        followUpCount,
+		IsCompleted:          isCompleted,
+		SummaryEvaluation:    summary,
+		ScorecardScore:       score,
 	})
 }
 

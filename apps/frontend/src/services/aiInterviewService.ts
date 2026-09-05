@@ -3,6 +3,9 @@ import type { AIInterviewSession, EvaluationSummary } from './types';
 
 export interface SendMessageResult {
   ai_message: string;
+  is_follow_up?: boolean;
+  current_question_index?: number;
+  follow_up_count?: number;
   is_completed: boolean;
   summary_evaluation?: EvaluationSummary;
   scorecard_score: number;
@@ -20,8 +23,11 @@ export const aiInterviewService = {
     return data;
   },
 
-  sendMessage: async (inviteToken: string, message: string): Promise<SendMessageResult> => {
-    const { data } = await apiClient.post<SendMessageResult>(`/interviews/${inviteToken}/message`, { message });
+  sendMessage: async (inviteToken: string, message: string, currentQuestionIndex?: number): Promise<SendMessageResult> => {
+    const { data } = await apiClient.post<SendMessageResult>(`/interviews/${inviteToken}/message`, {
+      message,
+      current_question_index: currentQuestionIndex,
+    });
     return data;
   },
 
