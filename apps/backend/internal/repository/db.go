@@ -154,6 +154,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS major TEXT;
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS semester TEXT;
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS referral_source TEXT;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
 	CREATE INDEX IF NOT EXISTS idx_applicants_program ON applicants(program_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_track ON applicants(track_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_stage ON applicants(current_stage);

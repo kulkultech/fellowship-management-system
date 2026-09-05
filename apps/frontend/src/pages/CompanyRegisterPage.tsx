@@ -13,6 +13,7 @@ import {
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { authService } from '../services/authService';
+import { uploadService } from '../services/uploadService';
 
 export const CompanyRegisterPage: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
@@ -28,6 +29,7 @@ export const CompanyRegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Auto-generate slug from name
   const handleNameChange = (name: string) => {
@@ -37,23 +39,29 @@ export const CompanyRegisterPage: React.FC = () => {
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Logo file size must be under 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Logo file size must be under 5MB');
       return;
     }
 
     setError('');
+    setUploadingLogo(true);
     setLogoFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setLogoURL(base64);
-    };
-    reader.readAsDataURL(file);
+
+    try {
+      const res = await uploadService.uploadFile(file, 'logos');
+      setLogoURL(res.url);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to upload logo to Cloudflare R2');
+      setLogoURL('');
+      setLogoFileName('');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleRemoveLogo = () => {
@@ -236,7 +244,12 @@ export const CompanyRegisterPage: React.FC = () => {
                 </div>
 
                 <div>
-                  {logoURL ? (
+                  {uploadingLogo ? (
+                    <div className="p-8 rounded-2xl bg-purple-50/50 border border-purple-200 flex flex-col items-center justify-center gap-3 animate-pulse">
+                      <div className="w-8 h-8 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
+                      <span className="text-xs font-bold text-kulkul-purple">Uploading to Cloudflare R2...</span>
+                    </div>
+                  ) : logoURL ? (
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <img
@@ -245,8 +258,8 @@ export const CompanyRegisterPage: React.FC = () => {
                           className="w-14 h-14 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
                         />
                         <div>
-                          <div className="text-sm font-bold text-slate-900">{logoFileName || 'Uploaded Logo'}</div>
-                          <span className="text-2xs font-semibold text-emerald-600">Ready to upload</span>
+                          <div className="text-sm font-bold text-slate-900">{logoFileName || 'Company Logo'}</div>
+                          <span className="text-2xs font-semibold text-emerald-600">Saved to Cloudflare R2</span>
                         </div>
                       </div>
                       <button
@@ -266,7 +279,7 @@ export const CompanyRegisterPage: React.FC = () => {
                       <span className="text-sm font-bold text-slate-800 group-hover:text-kulkul-purple transition">
                         Click to upload your company logo
                       </span>
-                      <span className="text-xs text-slate-400 mt-1">SVG, PNG, JPG, or WebP up to 2MB</span>
+                      <span className="text-xs text-slate-400 mt-1">SVG, PNG, JPG, or WebP up to 5MB</span>
                       <input
                         type="file"
                         accept="image/png, image/jpeg, image/svg+xml, image/webp"

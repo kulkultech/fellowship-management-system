@@ -31,8 +31,9 @@ type Applicant struct {
 	DateOfBirth    string         `json:"date_of_birth,omitempty"`
 	Phone          string         `json:"phone,omitempty"`
 	GitHubURL      string         `json:"github_url,omitempty"`
-	LinkedInURL    string         `json:"linkedin_url,omitempty"`
-	ResumeURL      string         `json:"resume_url,omitempty"`
+	LinkedInURL       string         `json:"linkedin_url,omitempty"`
+	ResumeURL         string         `json:"resume_url,omitempty"`
+	ProfilePictureURL string         `json:"profile_picture_url,omitempty"`
 	University     string         `json:"university,omitempty"`
 	Major          string         `json:"major,omitempty"`
 	Semester       string         `json:"semester,omitempty"`

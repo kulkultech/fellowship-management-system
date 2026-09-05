@@ -59,6 +59,9 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 				if a.ResumeURL != "" {
 					app.ResumeURL = a.ResumeURL
 				}
+				if a.ProfilePictureURL != "" {
+					app.ProfilePictureURL = a.ProfilePictureURL
+				}
 				app.UpdatedAt = time.Now()
 				return app, false, nil
 			}
@@ -75,9 +78,9 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 	query := `
 		INSERT INTO applicants (
 			organization_id, program_id, track_id, email, full_name, first_name, last_name,
-			date_of_birth, phone, github_url, linkedin_url, resume_url, university, major,
+			date_of_birth, phone, github_url, linkedin_url, resume_url, profile_picture_url, university, major,
 			semester, referral_source, current_stage, notes, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now(), now())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, now(), now())
 		ON CONFLICT (program_id, email) DO UPDATE SET
 			full_name = EXCLUDED.full_name,
 			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), applicants.first_name),
@@ -87,6 +90,7 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 			github_url = COALESCE(NULLIF(EXCLUDED.github_url, ''), applicants.github_url),
 			linkedin_url = COALESCE(NULLIF(EXCLUDED.linkedin_url, ''), applicants.linkedin_url),
 			resume_url = COALESCE(NULLIF(EXCLUDED.resume_url, ''), applicants.resume_url),
+			profile_picture_url = COALESCE(NULLIF(EXCLUDED.profile_picture_url, ''), applicants.profile_picture_url),
 			university = COALESCE(NULLIF(EXCLUDED.university, ''), applicants.university),
 			major = COALESCE(NULLIF(EXCLUDED.major, ''), applicants.major),
 			semester = COALESCE(NULLIF(EXCLUDED.semester, ''), applicants.semester),
@@ -96,7 +100,7 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		RETURNING id, organization_id, program_id, track_id, email, full_name,
 			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
-			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(notes, ''), created_at, updated_at,
 			(xmax = 0) AS is_inserted
@@ -105,13 +109,13 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 	var isInserted bool
 	err := r.pool.QueryRow(ctx, query,
 		a.OrganizationID, a.ProgramID, a.TrackID, a.Email, a.FullName, a.FirstName, a.LastName,
-		a.DateOfBirth, a.Phone, a.GitHubURL, a.LinkedInURL, a.ResumeURL, a.University, a.Major,
+		a.DateOfBirth, a.Phone, a.GitHubURL, a.LinkedInURL, a.ResumeURL, a.ProfilePictureURL, a.University, a.Major,
 		a.Semester, a.ReferralSource, a.CurrentStage, a.Notes,
 	).Scan(
 		&res.ID, &res.OrganizationID, &res.ProgramID, &res.TrackID, &res.Email, &res.FullName,
 		&res.FirstName, &res.LastName, &res.DateOfBirth,
 		&res.Phone, &res.GitHubURL, &res.LinkedInURL,
-		&res.ResumeURL, &res.University, &res.Major,
+		&res.ResumeURL, &res.ProfilePictureURL, &res.University, &res.Major,
 		&res.Semester, &res.ReferralSource,
 		&res.CurrentStage, &res.Notes,
 		&res.CreatedAt, &res.UpdatedAt, &isInserted,
@@ -137,7 +141,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		SELECT id, organization_id, program_id, track_id, email, full_name,
 			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
-			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
@@ -148,7 +152,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
 		&a.FirstName, &a.LastName, &a.DateOfBirth,
 		&a.Phone, &a.GitHubURL, &a.LinkedInURL,
-		&a.ResumeURL, &a.University, &a.Major,
+		&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.Notes,
 		&a.CreatedAt, &a.UpdatedAt,
@@ -209,7 +213,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 		SELECT id, organization_id, program_id, track_id, email, full_name,
 			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
-			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
@@ -229,7 +233,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
 			&a.FirstName, &a.LastName, &a.DateOfBirth,
 			&a.Phone, &a.GitHubURL, &a.LinkedInURL,
-			&a.ResumeURL, &a.University, &a.Major,
+			&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.Notes,
 			&a.CreatedAt, &a.UpdatedAt,
@@ -259,7 +263,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 		SELECT id, organization_id, program_id, track_id, email, full_name,
 			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
-			COALESCE(resume_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(notes, ''), created_at, updated_at
 		FROM applicants
@@ -279,7 +283,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
 			&a.FirstName, &a.LastName, &a.DateOfBirth,
 			&a.Phone, &a.GitHubURL, &a.LinkedInURL,
-			&a.ResumeURL, &a.University, &a.Major,
+			&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.Notes,
 			&a.CreatedAt, &a.UpdatedAt,

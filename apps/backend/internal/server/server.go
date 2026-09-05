@@ -21,6 +21,7 @@ import (
 	"github.com/kulkul/backend/internal/handler"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/repository"
+	"github.com/kulkul/backend/pkg/storage"
 )
 
 func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handler {
@@ -43,12 +44,20 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	// AI Evaluator
 	aiEvaluator := ai.NewCloudflareEvaluator(cfg.Cloudflare, logger)
 
+	// Storage Service (Cloudflare R2 with Local fallback)
+	store, err := storage.New(cfg.Storage)
+	if err != nil {
+		logger.Error("failed to initialize storage provider, falling back to local", slog.Any("error", err))
+		store, _ = storage.NewLocalStorage(cfg.Storage.LocalPath)
+	}
+
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
-	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator)
+	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator, store)
+	uploadHandler := handler.NewUploadHandler(store, logger)
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
@@ -101,7 +110,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	workDir, _ := os.Getwd()
 	uploadsDir := filepath.Join(workDir, "uploads")
 	_ = os.MkdirAll(uploadsDir, 0755)
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadsDir))))
+
+	// Unified media streaming & serving routes (Cloudflare R2 with local fallback)
+	r.Get("/uploads/*", uploadHandler.ServeMedia)
+	r.Head("/uploads/*", uploadHandler.ServeMedia)
+	r.Post("/uploads", uploadHandler.Upload)
 
 	r.Route("/api/v1", func(api chi.Router) {
 		// Health & Probes
@@ -111,6 +124,13 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			h.Get("/liveness", healthHandler.Liveness)
 			h.Get("/ready", healthHandler.Readiness)
 			h.Get("/readiness", healthHandler.Readiness)
+		})
+
+		// Public Media Upload & Streaming (Cloudflare R2)
+		api.Route("/uploads", func(u chi.Router) {
+			u.Post("/", uploadHandler.Upload)
+			u.Get("/*", uploadHandler.ServeMedia)
+			u.Head("/*", uploadHandler.ServeMedia)
 		})
 
 		// Public Auth & Company Registration

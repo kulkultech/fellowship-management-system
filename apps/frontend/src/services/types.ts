@@ -132,6 +132,7 @@ export interface ApplyRequest {
   referral_source: string;
   github_url?: string;
   resume_url?: string;
+  profile_picture_url?: string;
   notes?: string;
 }
 

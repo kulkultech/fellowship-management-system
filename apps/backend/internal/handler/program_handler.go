@@ -251,9 +251,10 @@ type ApplyRequest struct {
 	Major          string `json:"major"`
 	Semester       string `json:"semester"`
 	ReferralSource string `json:"referral_source"`
-	GitHubURL      string `json:"github_url"`
-	ResumeURL      string `json:"resume_url"`
-	Notes          string `json:"notes"`
+	GitHubURL         string `json:"github_url"`
+	ResumeURL         string `json:"resume_url"`
+	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
+	Notes             string `json:"notes"`
 }
 
 type ApplyResponse struct {
@@ -379,10 +380,11 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		LastName:       req.LastName,
 		DateOfBirth:    req.DateOfBirth,
 		Phone:          req.Phone,
-		GitHubURL:      req.GitHubURL,
-		LinkedInURL:    req.LinkedInURL,
-		ResumeURL:      req.ResumeURL,
-		University:     req.University,
+		GitHubURL:         req.GitHubURL,
+		LinkedInURL:       req.LinkedInURL,
+		ResumeURL:         req.ResumeURL,
+		ProfilePictureURL: req.ProfilePictureURL,
+		University:        req.University,
 		Major:          req.Major,
 		Semester:       req.Semester,
 		ReferralSource: req.ReferralSource,

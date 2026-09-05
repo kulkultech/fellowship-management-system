@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
+import { uploadService } from '@/services/uploadService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import {
@@ -15,6 +16,7 @@ import {
   Upload,
   X,
   GraduationCap,
+  Camera,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -74,36 +76,76 @@ export const ApplyPage: React.FC = () => {
     chosenCourse: initialTrackSlug === 'qa-automation' ? 'QA Automation' : 'Full Stack Developer',
     referralSource: '',
     resumeUrl: '',
+    profilePictureUrl: '',
     notes: '',
   });
 
   const [customMajor, setCustomMajor] = useState('');
   const [resumeFileName, setResumeFileName] = useState('');
   const [resumeFileSize, setResumeFileSize] = useState('');
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const handleResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Resume file size must be under 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Resume file size must be under 10MB');
       return;
     }
 
     setResumeFileName(file.name);
     setResumeFileSize((file.size / 1024).toFixed(1) + ' KB');
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setFormData((prev) => ({ ...prev, resumeUrl: base64 }));
-    };
-    reader.readAsDataURL(file);
+    setUploadingResume(true);
+
+    try {
+      const res = await uploadService.uploadFile(file, 'resumes');
+      setFormData((prev) => ({ ...prev, resumeUrl: res.url }));
+      toast.success('Resume uploaded to Cloudflare R2');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to upload resume to Cloudflare R2');
+      setResumeFileName('');
+      setResumeFileSize('');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleProfilePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (PNG, JPG, WebP)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Profile photo must be under 5MB');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const res = await uploadService.uploadFile(file, 'profiles');
+      setFormData((prev) => ({ ...prev, profilePictureUrl: res.url }));
+      toast.success('Profile photo uploaded to Cloudflare R2');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to upload profile photo to Cloudflare R2');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleRemoveResume = () => {
     setResumeFileName('');
     setResumeFileSize('');
     setFormData((prev) => ({ ...prev, resumeUrl: '' }));
+  };
+
+  const handleRemoveProfilePhoto = () => {
+    setFormData((prev) => ({ ...prev, profilePictureUrl: '' }));
   };
 
   // Pre-fill from query params if passed from AuthModal
@@ -166,6 +208,7 @@ export const ApplyPage: React.FC = () => {
         semester: formData.semester,
         referral_source: formData.referralSource,
         resume_url: formData.resumeUrl,
+        profile_picture_url: formData.profilePictureUrl,
         notes: formData.notes,
       });
     },
@@ -507,12 +550,68 @@ export const ApplyPage: React.FC = () => {
                 </select>
               </div>
 
+              {/* Profile Photo Upload */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Candidate Profile Photo <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                </label>
+                {uploadingPhoto ? (
+                  <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-200 flex items-center justify-center gap-2 animate-pulse">
+                    <div className="w-5 h-5 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
+                    <span className="text-xs font-bold text-kulkul-purple">Uploading photo to Cloudflare R2...</span>
+                  </div>
+                ) : formData.profilePictureUrl ? (
+                  <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={formData.profilePictureUrl}
+                        alt="Profile avatar"
+                        className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">Profile Photo</div>
+                        <div className="text-2xs text-emerald-600 font-semibold">Stored on Cloudflare R2</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveProfilePhoto}
+                      className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+                      title="Remove photo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
+                    <Camera className="w-5 h-5 text-slate-400 group-hover:text-kulkul-purple transition" />
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
+                        Click to upload profile photo
+                      </div>
+                      <div className="text-2xs text-slate-400">JPG, PNG, WebP up to 5MB (Cloudflare R2)</div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handleProfilePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
               {/* Resume File Upload (Optional) */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   Resume / CV <span className="text-xs font-normal text-slate-400 lowercase">(file upload)</span>
                 </label>
-                {formData.resumeUrl ? (
+                {uploadingResume ? (
+                  <div className="p-5 rounded-xl bg-purple-50/50 border border-purple-200 flex flex-col items-center justify-center gap-2 animate-pulse">
+                    <div className="w-6 h-6 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
+                    <span className="text-xs font-bold text-kulkul-purple">Uploading resume to Cloudflare R2...</span>
+                  </div>
+                ) : formData.resumeUrl ? (
                   <div className="flex items-center justify-between p-3.5 px-4 rounded-xl bg-kulkul-purple/5 border border-kulkul-purple/20">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-kulkul-purple/10 flex items-center justify-center text-kulkul-purple font-bold">
@@ -520,7 +619,7 @@ export const ApplyPage: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-900 line-clamp-1">{resumeFileName || 'Resume.pdf'}</div>
-                        <div className="text-2xs text-slate-500">{resumeFileSize || 'Uploaded'}</div>
+                        <div className="text-2xs text-emerald-600 font-semibold">{resumeFileSize ? `${resumeFileSize} • Stored on Cloudflare R2` : 'Stored on Cloudflare R2'}</div>
                       </div>
                     </div>
                     <button
@@ -538,10 +637,10 @@ export const ApplyPage: React.FC = () => {
                     <span className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
                       Click to upload Resume / CV
                     </span>
-                    <span className="text-2xs text-slate-400 mt-0.5">PDF, DOC, DOCX up to 5MB</span>
+                    <span className="text-2xs text-slate-400 mt-0.5">PDF up to 10MB (Cloudflare R2)</span>
                     <input
                       type="file"
-                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      accept=".pdf,application/pdf"
                       onChange={handleResumeUpload}
                       className="hidden"
                     />

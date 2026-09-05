@@ -18,6 +18,7 @@ import (
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
+	"github.com/kulkul/backend/pkg/storage"
 )
 
 type AIInterviewHandler struct {
@@ -26,6 +27,7 @@ type AIInterviewHandler struct {
 	programRepo     *repository.ProgramRepository
 	trackRepo       *repository.TrackRepository
 	aiEvaluator     *ai.CloudflareEvaluator
+	storage         storage.Storage
 }
 
 func NewAIInterviewHandler(
@@ -34,6 +36,7 @@ func NewAIInterviewHandler(
 	programRepo *repository.ProgramRepository,
 	trackRepo *repository.TrackRepository,
 	aiEvaluator *ai.CloudflareEvaluator,
+	store storage.Storage,
 ) *AIInterviewHandler {
 	return &AIInterviewHandler{
 		aiInterviewRepo: aiInterviewRepo,
@@ -41,6 +44,7 @@ func NewAIInterviewHandler(
 		programRepo:     programRepo,
 		trackRepo:       trackRepo,
 		aiEvaluator:     aiEvaluator,
+		storage:         store,
 	}
 }
 
@@ -366,9 +370,9 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		// Limit to 64MB for video recording uploads
-		if err := r.ParseMultipartForm(64 << 20); err != nil {
-			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart video form")
+		// Limit to 100MB for video recording uploads
+		if err := r.ParseMultipartForm(100 << 20); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart video form or file too large")
 			return
 		}
 
@@ -376,29 +380,40 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		if err == nil && file != nil {
 			defer file.Close()
 
-			uploadDir := "./uploads/recordings"
-			_ = os.MkdirAll(uploadDir, 0755)
-
 			ext := filepath.Ext(header.Filename)
 			if ext == "" {
 				ext = ".webm"
 			}
 			filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
-			destPath := filepath.Join(uploadDir, filename)
+			objectKey := "recordings/" + filename
 
-			dest, err := os.Create(destPath)
-			if err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "failed to save recording file on server")
-				return
-			}
-			defer dest.Close()
-
-			if _, err := io.Copy(dest, file); err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "failed to write recording file data")
-				return
+			mediaType := header.Header.Get("Content-Type")
+			if mediaType == "" {
+				mediaType = "video/webm"
 			}
 
-			recordingURL = "/uploads/recordings/" + filename
+			if h.storage != nil {
+				recordingURL, err = h.storage.Upload(r.Context(), objectKey, file, header.Size, mediaType)
+				if err != nil {
+					httpx.Error(w, http.StatusInternalServerError, "failed to save recording file to storage")
+					return
+				}
+			} else {
+				uploadDir := "./uploads/recordings"
+				_ = os.MkdirAll(uploadDir, 0755)
+				destPath := filepath.Join(uploadDir, filename)
+				dest, err := os.Create(destPath)
+				if err != nil {
+					httpx.Error(w, http.StatusInternalServerError, "failed to save recording file on server")
+					return
+				}
+				defer dest.Close()
+				if _, err := io.Copy(dest, file); err != nil {
+					httpx.Error(w, http.StatusInternalServerError, "failed to write recording file data")
+					return
+				}
+				recordingURL = "/uploads/recordings/" + filename
+			}
 		}
 	}
 
