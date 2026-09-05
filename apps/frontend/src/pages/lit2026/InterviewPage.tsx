@@ -25,7 +25,6 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
-  MessageSquareQuote,
 } from 'lucide-react';
 import type { EvaluationSummary, CriterionScore } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -541,27 +540,78 @@ export const InterviewPage: React.FC = () => {
     setInterviewPhase('prep');
   };
 
-  // Load and cache natural voice for AI Interviewer
+  // Load and cache natural human-like voice for AI Interviewer
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
+
+    const scoreVoice = (v: SpeechSynthesisVoice): number => {
+      let score = 0;
+      const name = v.name.toLowerCase();
+      const lang = v.lang.toLowerCase();
+
+      // Must be English
+      if (!lang.startsWith('en')) return -1000;
+
+      // Penalize robotic, novelty, or low-fidelity synth voices
+      if (
+        name.includes('albert') ||
+        name.includes('bad news') ||
+        name.includes('bahh') ||
+        name.includes('bells') ||
+        name.includes('boing') ||
+        name.includes('bubbles') ||
+        name.includes('cellos') ||
+        name.includes('deranged') ||
+        name.includes('good news') ||
+        name.includes('hysterical') ||
+        name.includes('pipe organ') ||
+        name.includes('trinoids') ||
+        name.includes('whisper') ||
+        name.includes('zarvox') ||
+        name.includes('junior') ||
+        name.includes('ralph') ||
+        name.includes('fred')
+      ) {
+        return -1000;
+      }
+
+      // Premium, Natural, Enhanced neural voices (macOS / Windows / Chrome)
+      if (name.includes('natural')) score += 120;
+      if (name.includes('enhanced')) score += 110;
+      if (name.includes('premium')) score += 100;
+      if (name.includes('neural')) score += 95;
+      if (name.includes('siri')) score += 85;
+      if (name.includes('google')) score += 75;
+
+      // Preferred natural female & male personas
+      if (name.includes('samantha')) score += 60;
+      if (name.includes('ava')) score += 58;
+      if (name.includes('allison')) score += 55;
+      if (name.includes('jenny')) score += 54;
+      if (name.includes('zoe')) score += 52;
+      if (name.includes('serena')) score += 50;
+      if (name.includes('karen')) score += 45;
+      if (name.includes('victoria')) score += 45;
+      if (name.includes('moira')) score += 40;
+      if (name.includes('daniel')) score += 40;
+      if (name.includes('alex')) score += 25;
+
+      // en-US or en-GB regional accents
+      if (lang === 'en-us') score += 15;
+      if (lang === 'en-gb') score += 10;
+
+      return score;
+    };
+
     const updateVoices = () => {
       const voices = window.speechSynthesis.getVoices();
       if (!voices || voices.length === 0) return;
-      const preferred =
-        voices.find(
-          (v) =>
-            v.lang.startsWith('en') &&
-            (v.name.includes('Natural') ||
-              v.name.includes('Google') ||
-              v.name.includes('Samantha') ||
-              v.name.includes('Daniel') ||
-              v.name.includes('Karen') ||
-              v.name.includes('Moira')),
-        ) || voices.find((v) => v.lang.startsWith('en'));
-      if (preferred) {
-        selectedVoiceRef.current = preferred;
+      const ranked = [...voices].sort((a, b) => scoreVoice(b) - scoreVoice(a));
+      if (ranked.length > 0 && scoreVoice(ranked[0]) > -500) {
+        selectedVoiceRef.current = ranked[0];
       }
     };
+
     updateVoices();
     window.speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
@@ -586,12 +636,14 @@ export const InterviewPage: React.FC = () => {
     const cleanText = text
       .replace(/\[.*?\]/g, '')
       .replace(/[\*#_`]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
     if (!cleanText) return;
 
     try {
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 1.0;
+      // Conversational pacing: slightly relaxed 0.94 rate sounds significantly more natural and human
+      utterance.rate = 0.94;
       utterance.pitch = 1.0;
       if (selectedVoiceRef.current) {
         utterance.voice = selectedVoiceRef.current;
@@ -1031,31 +1083,16 @@ export const InterviewPage: React.FC = () => {
               )}
 
               {interviewPhase === 'prep' && (
-                <div
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold text-xs shadow-2xs ${
-                    activeFollowUp
-                      ? 'bg-amber-100 border border-amber-300 text-amber-900'
-                      : 'bg-amber-50 border border-amber-200 text-amber-800'
-                  }`}
-                >
-                  {activeFollowUp ? (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-                      <span>Follow-Up Prep: {prepCountdown}s</span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Prep Countdown: {prepCountdown}s</span>
-                    </>
-                  )}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs shadow-2xs">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Prep Countdown: {prepCountdown}s</span>
                 </div>
               )}
 
               {interviewPhase === 'review' && (
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple font-bold text-xs shadow-2xs">
                   <CheckCircle2 className="w-3.5 h-3.5 text-kulkul-purple" />
-                  <span>{activeFollowUp ? 'Follow-Up Recorded' : 'Recorded &middot; Reviewing'}</span>
+                  <span>Recorded &middot; Reviewing</span>
                 </div>
               )}
             </div>
@@ -1065,106 +1102,108 @@ export const InterviewPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-stretch">
             {/* Candidate Video Stage */}
             <div className="lg:col-span-7 stitch-card bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
-              {/* Video Window */}
-              <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
-                {/* Live Stream View (Prep & Recording) */}
-                {interviewPhase !== 'review' && stream && (
-                  <video
-                    ref={liveVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
-                  />
-                )}
+              {/* Video Window Centered vertically and horizontally */}
+              <div className="flex-1 flex items-center justify-center w-full my-auto">
+                <div className="relative aspect-video w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
+                  {/* Live Stream View (Prep & Recording) */}
+                  {interviewPhase !== 'review' && stream && (
+                    <video
+                      ref={liveVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
+                    />
+                  )}
 
-                {/* Review Player (When answer has been recorded) */}
-                {interviewPhase === 'review' && questionRecordings[currentQIndex]?.url && (
-                  <video
-                    ref={reviewVideoRef}
-                    src={questionRecordings[currentQIndex].url}
-                    controls
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain bg-black"
-                  />
-                )}
+                  {/* Review Player (When answer has been recorded) */}
+                  {interviewPhase === 'review' && questionRecordings[currentQIndex]?.url && (
+                    <video
+                      ref={reviewVideoRef}
+                      src={questionRecordings[currentQIndex].url}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-contain bg-black"
+                    />
+                  )}
 
-                {/* Empty / Paused State */}
-                {((!stream && interviewPhase !== 'review') || isCameraOff) && (
-                  <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
-                      <VideoOff className="w-6 h-6 text-slate-500" />
+                  {/* Empty / Paused State */}
+                  {((!stream && interviewPhase !== 'review') || isCameraOff) && (
+                    <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                        <VideoOff className="w-6 h-6 text-slate-500" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {isCameraOff ? 'Camera Paused' : 'Demo Mode Feed Active'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                        {isCameraOff
+                          ? 'Click the camera button below to unpause your video.'
+                          : 'Simulated candidate feed for preview and evaluation testing.'}
+                      </p>
                     </div>
-                    <p className="text-sm font-bold text-slate-800">
-                      {isCameraOff ? 'Camera Paused' : 'Demo Mode Feed Active'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                      {isCameraOff
-                        ? 'Click the camera button below to unpause your video.'
-                        : 'Simulated candidate feed for preview and evaluation testing.'}
-                    </p>
-                  </div>
-                )}
+                  )}
 
-                {/* Live REC Pill Overlay */}
-                {interviewPhase === 'recording' && (
-                  <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <span className="px-3.5 py-1 bg-rose-600 text-white rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 shadow-md shadow-rose-950/40">
-                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                      RECORDING
-                    </span>
-                    <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs text-white font-mono border border-white/20">
-                      {Math.floor(recordingSeconds / 60)}:
-                      {(recordingSeconds % 60).toString().padStart(2, '0')}
-                    </span>
-                  </div>
-                )}
-
-                {/* Live Mic Level Waveform at bottom-left */}
-                {interviewPhase === 'recording' && !isMicMuted && stream && (
-                  <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md rounded-full p-2 px-3.5 flex items-center gap-2.5 border border-white/15">
-                    <Mic className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <div className="flex items-center gap-0.5 h-3 w-16">
-                      {[...Array(8)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`flex-1 rounded-full transition-all duration-75 ${
-                            audioLevel > i * 12 ? 'bg-kulkul-orange h-full' : 'bg-white/25 h-1'
-                          }`}
-                        />
-                      ))}
+                  {/* Live REC Pill Overlay */}
+                  {interviewPhase === 'recording' && (
+                    <div className="absolute top-4 left-4 flex items-center gap-2">
+                      <span className="px-3.5 py-1 bg-rose-600 text-white rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 shadow-md shadow-rose-950/40">
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                        RECORDING
+                      </span>
+                      <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs text-white font-mono border border-white/20">
+                        {Math.floor(recordingSeconds / 60)}:
+                        {(recordingSeconds % 60).toString().padStart(2, '0')}
+                      </span>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Floating In-Stream Action Overlay (Camera/Mic Toggles) */}
-                {interviewPhase !== 'review' && (
-                  <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full p-1.5 px-2 border border-white/15">
-                    <button
-                      onClick={toggleCamera}
-                      title="Toggle Camera"
-                      className={`p-2 rounded-full transition ${
-                        isCameraOff ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
-                      }`}
-                    >
-                      {isCameraOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={toggleMic}
-                      title="Toggle Microphone"
-                      className={`p-2 rounded-full transition ${
-                        isMicMuted ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
-                      }`}
-                    >
-                      {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                    </button>
-                  </div>
-                )}
+                  {/* Live Mic Level Waveform at bottom-left */}
+                  {interviewPhase === 'recording' && !isMicMuted && stream && (
+                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md rounded-full p-2 px-3.5 flex items-center gap-2.5 border border-white/15">
+                      <Mic className="w-3.5 h-3.5 text-kulkul-orange" />
+                      <div className="flex items-center gap-0.5 h-3 w-16">
+                        {[...Array(8)].map((_, i) => (
+                          <div
+                            key={i}
+                            className={`flex-1 rounded-full transition-all duration-75 ${
+                              audioLevel > i * 12 ? 'bg-kulkul-orange h-full' : 'bg-white/25 h-1'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Floating In-Stream Action Overlay (Camera/Mic Toggles) */}
+                  {interviewPhase !== 'review' && (
+                    <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full p-1.5 px-2 border border-white/15">
+                      <button
+                        onClick={toggleCamera}
+                        title="Toggle Camera"
+                        className={`p-2 rounded-full transition ${
+                          isCameraOff ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
+                        }`}
+                      >
+                        {isCameraOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={toggleMic}
+                        title="Toggle Microphone"
+                        className={`p-2 rounded-full transition ${
+                          isMicMuted ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
+                        }`}
+                      >
+                        {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Bottom Video Controls Action Dock */}
-              <div className="mt-5 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
+              <div className="mt-4 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 shrink-0">
                 {interviewPhase === 'prep' && (
                   <>
                     <div className="text-xs text-slate-600 font-medium flex items-center gap-2">
@@ -1263,7 +1302,7 @@ export const InterviewPage: React.FC = () => {
               {/* Question Card */}
               <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs flex-1 flex flex-col justify-between space-y-5">
                 <div className="space-y-4">
-                  {/* AI Interviewer Conversational Status & Audio Bar */}
+                  {/* AI Interviewer Header & Audio Bar */}
                   <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
@@ -1278,38 +1317,27 @@ export const InterviewPage: React.FC = () => {
                           <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-ping" />
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 truncate">
-                          <span>AI Interviewer</span>
-                          {isAiSpeaking && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple text-3xs font-extrabold uppercase shrink-0">
-                              Speaking
-                              <span className="flex items-center gap-0.5 h-2">
-                                <span className="w-0.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                <span className="w-0.5 h-2.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                <span className="w-0.5 h-2 bg-kulkul-purple rounded-full animate-bounce" />
-                              </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold text-slate-900 truncate">AI Interviewer</span>
+                        {isAiSpeaking && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple text-3xs font-extrabold uppercase shrink-0">
+                            Speaking
+                            <span className="flex items-center gap-0.5 h-2">
+                              <span className="w-0.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
+                              <span className="w-0.5 h-2.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
+                              <span className="w-0.5 h-2 bg-kulkul-purple rounded-full animate-bounce" />
                             </span>
-                          )}
-                        </div>
-                        <p className="text-3xs text-slate-500 font-medium truncate">
-                          {isEvaluatingAnswer
-                            ? 'Analyzing candidate response depth...'
-                            : isAiSpeaking
-                            ? 'Reading prompt aloud'
-                            : activeFollowUp
-                            ? 'Follow-up clarification active'
-                            : 'Conversational Voice Ready'}
-                        </p>
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* Audio Controls */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {isAiSpeaking ? (
                         <button
                           onClick={stopSpeech}
-                          className="px-2 py-1 rounded-full text-3xs font-bold bg-purple-100 hover:bg-purple-200 text-kulkul-purple transition"
+                          className="px-2.5 py-1 rounded-full text-3xs font-bold bg-purple-100 hover:bg-purple-200 text-kulkul-purple transition"
                           title="Skip voice playback"
                         >
                           Skip Voice
@@ -1322,10 +1350,10 @@ export const InterviewPage: React.FC = () => {
                               : currentQ?.prompt;
                             if (promptToSpeak) speakAI(promptToSpeak);
                           }}
-                          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-200 transition"
+                          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition"
                           title="Listen to question again"
                         >
-                          <Volume2 className="w-4 h-4" />
+                          <RotateCcw className="w-4 h-4" />
                         </button>
                       )}
                       <button
@@ -1333,11 +1361,11 @@ export const InterviewPage: React.FC = () => {
                         className={`p-1.5 rounded-full transition ${
                           isVoiceMuted
                             ? 'bg-rose-100 text-rose-700'
-                            : 'text-slate-600 hover:bg-slate-200'
+                            : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                         }`}
                         title={isVoiceMuted ? 'Unmute AI voice' : 'Mute AI voice'}
                       >
-                        {isVoiceMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                        {isVoiceMuted ? <VolumeX className="w-4 h-4 text-rose-600" /> : <Volume2 className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -1360,37 +1388,10 @@ export const InterviewPage: React.FC = () => {
                     {currentQ.title}
                   </h3>
 
-                  {/* Active Question Prompt or Follow-Up Prompt */}
-                  {activeFollowUp ? (
-                    <div className="p-5 bg-gradient-to-br from-amber-50 to-orange-50/60 rounded-2xl border-2 border-amber-300 text-slate-900 shadow-2xs space-y-3 animate-in fade-in slide-in-from-top-2">
-                      <div className="flex items-center justify-between">
-                        <span className="px-3 py-1 rounded-full bg-amber-500 text-white text-3xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
-                          <Sparkles className="w-3 h-3" />
-                          Follow-Up Question ({activeFollowUp.followUpCount} of 2)
-                        </span>
-                        <span className="text-2xs font-bold text-amber-900">Clarification Needed</span>
-                      </div>
-
-                      <p className="text-sm font-bold text-slate-900 leading-relaxed">
-                        {activeFollowUp.questionText}
-                      </p>
-
-                      <div className="text-2xs text-amber-900/90 bg-amber-100/70 rounded-xl p-2.5 flex items-start gap-2">
-                        <MessageSquareQuote className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                        <span>
-                          The AI interviewer would like you to elaborate on this specific detail before advancing to the next rubric question.
-                        </span>
-                      </div>
-
-                      <div className="pt-2 border-t border-amber-200/80 text-3xs text-slate-600">
-                        <span className="font-bold text-slate-700">Primary Rubric Topic:</span> {currentQ.prompt}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-200 text-sm text-slate-800 leading-relaxed font-medium shadow-2xs">
-                      {currentQ.prompt}
-                    </div>
-                  )}
+                  {/* Active Question / Follow-up Prompt */}
+                  <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-200 text-sm text-slate-800 leading-relaxed font-medium shadow-2xs">
+                    {activeFollowUp ? activeFollowUp.questionText : currentQ.prompt}
+                  </div>
 
                   {/* Live Speech Recognition Preview */}
                   {transcripts[currentQIndex] && (
@@ -1407,52 +1408,6 @@ export const InterviewPage: React.FC = () => {
                       </p>
                     </div>
                   )}
-                </div>
-
-                {/* Progress Indicators for All Questions */}
-                <div className="border-t border-slate-100 pt-4 space-y-2.5">
-                  <span className="text-2xs font-extrabold uppercase text-slate-400 tracking-wider block">
-                    Assessment Questions Overview
-                  </span>
-                  <div className="space-y-2">
-                    {questions.map((q, idx) => (
-                      <div
-                        key={q.id}
-                        className={`p-3 rounded-2xl text-xs flex items-center justify-between transition ${
-                          idx === currentQIndex
-                            ? activeFollowUp
-                              ? 'bg-amber-50 border border-amber-300 text-amber-900 font-bold shadow-2xs'
-                              : 'bg-purple-50 border border-purple-300 text-kulkul-purple font-bold shadow-2xs'
-                            : questionRecordings[idx]
-                            ? 'bg-emerald-50/80 border border-emerald-200 text-emerald-800 font-medium'
-                            : 'bg-slate-50 text-slate-500 border border-slate-200/70'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="font-mono text-2xs font-bold">0{q.id}.</span>
-                          <span className="truncate">{q.title}</span>
-                        </div>
-                        {questionRecordings[idx] && idx !== currentQIndex ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-600 text-2xs font-bold shrink-0">
-                            <Check className="w-3.5 h-3.5" /> Recorded
-                          </span>
-                        ) : idx === currentQIndex ? (
-                          activeFollowUp ? (
-                            <span className="text-amber-800 text-2xs font-black shrink-0 animate-pulse flex items-center gap-1">
-                              <Sparkles className="w-3 h-3 text-amber-600" />
-                              Follow-Up {activeFollowUp.followUpCount}/2
-                            </span>
-                          ) : (
-                            <span className="text-kulkul-purple text-2xs font-extrabold shrink-0 animate-pulse">
-                              Active
-                            </span>
-                          )
-                        ) : (
-                          <span className="text-slate-400 text-2xs shrink-0 font-medium">Pending</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>
