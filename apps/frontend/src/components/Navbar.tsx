@@ -15,7 +15,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   showAdminNav = false,
   showNavLinks = false,
 }) => {
-  const { logout } = useAuth();
+  const { logout, isLoading: isAuthLoading } = useAuth();
   const { user, isAuthenticated } = useAuthStore();
   const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -95,8 +95,54 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Sign Out</span>
               </button>
             </div>
+          ) : isAuthenticated && user ? (
+            /* Candidate or Authenticated User on Public / Interview / Test / Candidate Pages */
+            <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+              {/* Dashboard Action Link */}
+              <Link
+                to="/candidate/dashboard"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs transition active:scale-[0.98]"
+              >
+                <User className="w-4 h-4 text-kulkul-orange" />
+                <span>My Dashboard</span>
+              </Link>
+
+              {(user.role === 'org_admin' || user.role === 'superadmin') && (
+                <Link
+                  to={user.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard'}
+                  className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold text-slate-600 hover:text-kulkul-purple hover:bg-slate-100 transition"
+                  title="Switch to Company Management Workspace"
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Admin</span>
+                </Link>
+              )}
+
+              {/* User Identity Pill */}
+              <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+                <div className="w-6 h-6 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-xs font-black">
+                  {(user.name || user.email || 'C').charAt(0).toUpperCase()}
+                </div>
+                <span className="max-w-[130px] lg:max-w-[180px] truncate">
+                  {user.name || user.email}
+                </span>
+              </div>
+
+              {/* Sign Out Action */}
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-base font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm hover:shadow-md transition active:scale-[0.98] inline-flex items-center gap-2"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4 text-white" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : isAuthLoading ? (
+            /* Subtle skeleton loading placeholder while session is checked */
+            <div className="h-10 w-28 bg-slate-100 rounded-full animate-pulse shrink-0" />
           ) : (
-            /* Sign In Dropdown Action */
+            /* Sign In Dropdown Action (Only shown when NOT authenticated) */
             <div className="relative shrink-0" ref={dropdownRef}>
               <button
                 onClick={() => setSignInDropdownOpen((prev) => !prev)}

@@ -5,6 +5,7 @@ import { programService } from '@/services/programService';
 import { uploadService } from '@/services/uploadService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ArrowRight,
   AlertCircle,
@@ -17,6 +18,7 @@ import {
   X,
   GraduationCap,
   Camera,
+  CheckCircle2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -143,22 +145,42 @@ export const ApplyPage: React.FC = () => {
     setFormData((prev) => ({ ...prev, profilePictureUrl: '' }));
   };
 
-  // Pre-fill from query params if passed from AuthModal
+  const { user, isLoading: isAuthLoading } = useAuth();
+
+  const handleGoogleSignIn = () => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const returnTo = location.pathname + location.search;
+    window.location.href = `${apiBase}/auth/oauth/google?return_to=${encodeURIComponent(returnTo)}`;
+  };
+
+  // Pre-fill from authenticated user or query params
   useEffect(() => {
-    const emailParam = queryParams.get('email');
-    const nameParam = queryParams.get('name');
-    if (emailParam || nameParam) {
-      const nameParts = (nameParam || '').trim().split(' ');
+    if (user?.email) {
+      const nameParts = (user.name || '').trim().split(' ');
       const fName = nameParts[0] || '';
       const lName = nameParts.slice(1).join(' ') || '';
       setFormData((prev) => ({
         ...prev,
-        email: emailParam || prev.email,
-        firstName: fName || prev.firstName,
-        lastName: lName || prev.lastName,
+        email: user.email,
+        firstName: prev.firstName || fName,
+        lastName: prev.lastName || lName,
       }));
+    } else {
+      const emailParam = queryParams.get('email');
+      const nameParam = queryParams.get('name');
+      if (emailParam || nameParam) {
+        const nameParts = (nameParam || '').trim().split(' ');
+        const fName = nameParts[0] || '';
+        const lName = nameParts.slice(1).join(' ') || '';
+        setFormData((prev) => ({
+          ...prev,
+          email: emailParam || prev.email,
+          firstName: fName || prev.firstName,
+          lastName: lName || prev.lastName,
+        }));
+      }
     }
-  }, [location.search]);
+  }, [user, location.search]);
 
   const { data: programData } = useQuery({
     queryKey: ['program', orgSlug, programSlug],
@@ -247,7 +269,7 @@ export const ApplyPage: React.FC = () => {
 
       if (res.stage === 'registered') {
         toast.success(res.message || 'Application submitted successfully!');
-        navigate(`/programs/${orgSlug}/${programSlug}`);
+        navigate('/candidate/dashboard');
         return;
       }
 
@@ -312,6 +334,127 @@ export const ApplyPage: React.FC = () => {
 
     applyMutation.mutate();
   };
+
+  // Loading state while checking authentication
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-kulkul-purple/30 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-sm font-bold text-kulkul-purple">Verifying candidate session...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Google Sign-In Gate: Candidate must sign in with Google first before accessing the application form
+  if (!user?.email) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <Navbar />
+
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-xl w-full">
+            {/* Main Gate Card */}
+            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
+              {/* Program & Track Context Badge */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold uppercase tracking-wide">
+                  <GraduationCap className="w-4 h-4 text-kulkul-orange" />
+                  <span>Candidate Registration</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  Apply to {program?.name || 'Fellowship Program'}
+                </h1>
+                {currentTrack && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                    <span>Selected Track:</span>
+                    <span className="font-extrabold text-kulkul-purple">{currentTrack.name}</span>
+                  </div>
+                )}
+                <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md mx-auto">
+                  Please sign in with your Google account to begin. Your verified Google account connects your application directly to your personal Candidate Dashboard for tracking assessments and AI interviews.
+                </p>
+              </div>
+
+              {/* Three Simple Steps */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
+                <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 flex flex-col justify-between">
+                  <div className="w-6 h-6 rounded-full bg-kulkul-purple text-white text-xs font-extrabold flex items-center justify-center mb-2">
+                    1
+                  </div>
+                  <div className="text-xs font-bold text-slate-900">Google Sign-In</div>
+                  <div className="text-2xs text-slate-500 mt-0.5">Instant identity & email verification</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                  <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-extrabold flex items-center justify-center mb-2">
+                    2
+                  </div>
+                  <div className="text-xs font-bold text-slate-900">Fill Application</div>
+                  <div className="text-2xs text-slate-500 mt-0.5">Academic info & resume upload</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                  <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-extrabold flex items-center justify-center mb-2">
+                    3
+                  </div>
+                  <div className="text-xs font-bold text-slate-900">Screening & Tests</div>
+                  <div className="text-2xs text-slate-500 mt-0.5">Timed logic test & AI conversation</div>
+                </div>
+              </div>
+
+              {/* Google OAuth Action Button */}
+              <div className="pt-3">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  className="w-full flex items-center justify-center gap-3.5 py-4 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border-2 border-slate-200 hover:border-kulkul-purple/50 rounded-2xl text-sm sm:text-base font-extrabold text-slate-800 shadow-md hover:shadow-lg transition duration-150"
+                >
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                    />
+                  </svg>
+                  <span>Continue with Google to Begin Application</span>
+                </button>
+              </div>
+
+              {/* Footer navigation */}
+              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+                <Link
+                  to={`/programs/${orgSlug}/${programSlug}`}
+                  className="font-bold text-kulkul-purple hover:underline"
+                >
+                  &larr; Back to Program Overview
+                </Link>
+                <span>No password required &middot; Fast 1-click sign-in</span>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -413,7 +556,7 @@ export const ApplyPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Email Address */}
+              {/* Email Address (Locked & Verified via Google) */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   Email Address <span className="text-red-500">*</span>
@@ -423,14 +566,18 @@ export const ApplyPage: React.FC = () => {
                   <input
                     type="email"
                     required
+                    readOnly
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="e.g. jane.doe@university.ac.id"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                    className="w-full pl-11 pr-36 py-3 rounded-xl border border-slate-200 bg-slate-50/90 text-sm font-semibold text-slate-800 cursor-not-allowed select-none focus:outline-none"
+                    placeholder="candidate@example.com"
                   />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Verified Google</span>
+                  </div>
                 </div>
-                <p className="text-2xs text-slate-400 mt-1 pl-1">
-                  Test link and evaluation updates will be dispatched to this email.
+                <p className="text-2xs text-slate-500 mt-1 pl-1 font-medium">
+                  Verified with your Google account. All assessments, invitations, and scorecards are synced with your Candidate Dashboard.
                 </p>
               </div>
 

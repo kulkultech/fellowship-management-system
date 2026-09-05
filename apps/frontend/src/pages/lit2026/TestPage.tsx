@@ -11,11 +11,13 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { Footer } from '@/components/Footer';
+import { useAuthStore } from '@/hooks/useAuthStore';
 import toast from 'react-hot-toast';
 
 export const TestPage: React.FC = () => {
   const { testToken } = useParams<{ testToken: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -148,7 +150,17 @@ export const TestPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-3 sm:gap-6">
+              {/* Candidate Info (if authenticated) */}
+              {user?.email && (
+                <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
+                  <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-black">
+                    {(user.name || user.email || 'C').charAt(0).toUpperCase()}
+                  </div>
+                  <span className="max-w-[130px] truncate">{user.name || user.email}</span>
+                </div>
+              )}
+
               {/* Countdown Clock */}
               <div
                 className={`flex items-center gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border font-mono font-bold text-sm sm:text-base shadow-xs ${

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -89,7 +90,11 @@ func (h *OAuthHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	if h.google == nil {
 		// If Google OAuth credentials are not set in environment, mock direct callback for development
-		http.Redirect(w, r, "/api/v1/auth/oauth/google/callback?state="+state+"&code=mock_dev_code", http.StatusTemporaryRedirect)
+		redirectURL := "/api/v1/auth/oauth/google/callback?state=" + state + "&code=mock_dev_code"
+		if returnTo != "" {
+			redirectURL += "&return_to=" + url.QueryEscape(returnTo)
+		}
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -133,6 +138,9 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			SameSite: sameSite,
 		})
 	}
+	if returnTo == "" {
+		returnTo = r.URL.Query().Get("return_to")
+	}
 
 	// Verify state token
 	stateValid := false
@@ -166,7 +174,7 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		// Mock profile for local development without active GCP OAuth Client secret
 		mockEmail := "admin@rsa.org"
 		mockName := "RSA Reviewer Admin"
-		if strings.Contains(returnTo, "candidate") {
+		if strings.Contains(returnTo, "candidate") || strings.Contains(returnTo, "apply") || strings.Contains(returnTo, "lit2026") || strings.Contains(returnTo, "programs") {
 			mockEmail = "candidate@example.com"
 			mockName = "Sample Candidate"
 		}
