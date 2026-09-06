@@ -1,8 +1,31 @@
+import { useEffect, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import toast from 'react-hot-toast';
 
-export function ProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+interface ProtectedRouteProps {
+  allowedRoles?: ('superadmin' | 'org_admin' | 'reviewer' | 'candidate')[];
+  redirectTo?: string;
+}
+
+export function ProtectedRoute({ allowedRoles, redirectTo }: ProtectedRouteProps = {}) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const toastShownRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user && allowedRoles && allowedRoles.length > 0) {
+      const isSuperadmin = user.role === 'superadmin';
+      const isAllowed = isSuperadmin || allowedRoles.includes(user.role);
+      if (!isAllowed && !toastShownRef.current) {
+        toastShownRef.current = true;
+        if (user.role === 'candidate') {
+          toast.error('Access restricted: Candidate accounts cannot access the admin portal.');
+        } else {
+          toast.error('Access restricted: Insufficient administrative permissions.');
+        }
+      }
+    }
+  }, [isLoading, isAuthenticated, user, allowedRoles]);
 
   if (isLoading) {
     return (
@@ -15,5 +38,20 @@ export function ProtectedRoute() {
     );
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/admin/login" replace />;
+  if (!isAuthenticated || !user) {
+    return <Navigate to={redirectTo || '/admin/login'} replace />;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const isSuperadmin = user.role === 'superadmin';
+    const isAllowed = isSuperadmin || allowedRoles.includes(user.role);
+    if (!isAllowed) {
+      if (user.role === 'candidate') {
+        return <Navigate to="/candidate/dashboard" replace />;
+      }
+      return <Navigate to={redirectTo || '/admin/dashboard'} replace />;
+    }
+  }
+
+  return <Outlet />;
 }

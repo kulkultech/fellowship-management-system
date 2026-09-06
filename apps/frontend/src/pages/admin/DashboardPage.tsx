@@ -169,6 +169,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const { user } = useAuthStore();
   const isSuperadmin = user?.role === 'superadmin';
 
+  // Guard: Immediately redirect candidates away from company admin dashboard
+  useEffect(() => {
+    if (user && user.role === 'candidate') {
+      toast.error('Access restricted: Candidate accounts cannot access the admin portal.');
+      navigate('/candidate/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
   // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program'
   const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program'>(initialView);

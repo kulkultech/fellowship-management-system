@@ -42,3 +42,32 @@ func Authenticator(authSvc *auth.Service) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+// RequireRole verifies that the authenticated user possesses one of the allowed roles.
+// Users with role "superadmin" automatically bypass role restrictions.
+func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := GetUser(r.Context())
+			if !ok || claims == nil {
+				httpx.Error(w, http.StatusUnauthorized, "unauthorized: session missing")
+				return
+			}
+
+			// superadmin has full access across all administrative routes
+			if claims.Role == "superadmin" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			for _, role := range allowedRoles {
+				if claims.Role == role {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			httpx.Error(w, http.StatusForbidden, "forbidden: candidate and unauthorized accounts cannot access admin resources")
+		})
+	}
+}

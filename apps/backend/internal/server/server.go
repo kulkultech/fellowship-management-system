@@ -177,6 +177,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Get("/candidate/applications", candidateHandler.GetCandidateApplications)
 
 			protected.Route("/admin", func(adm chi.Router) {
+				// Require org_admin or reviewer (superadmin auto-allowed)
+				adm.Use(middleware.RequireRole("org_admin", "reviewer"))
+
 				// Programs & Config
 				adm.Get("/programs", adminHandler.ListPrograms)
 				adm.Post("/programs", adminHandler.CreateProgram)
@@ -209,10 +212,13 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Get("/applicants/{id}", adminHandler.GetApplicantDetail)
 				adm.Post("/applicants/{id}/stage", adminHandler.UpdateApplicantStage)
 
-				// Superadmin Company Approvals
-				adm.Get("/companies", adminHandler.ListCompanies)
-				adm.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
-				adm.Post("/companies/{id}/reject", adminHandler.RejectCompany)
+				// Superadmin Exclusive: Company Approvals
+				adm.Group(func(super chi.Router) {
+					super.Use(middleware.RequireRole("superadmin"))
+					super.Get("/companies", adminHandler.ListCompanies)
+					super.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
+					super.Post("/companies/{id}/reject", adminHandler.RejectCompany)
+				})
 
 				// Organization Profile
 				adm.Get("/organization", adminHandler.GetCurrentOrganization)

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '@/services/adminService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
+import { useAuthStore } from '@/hooks/useAuthStore';
 import {
   Building2,
   CheckCircle2,
@@ -23,6 +24,17 @@ import toast from 'react-hot-toast';
 
 export const SuperadminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  // Guard: Restrict superadmin workspace to superadmin role only
+  useEffect(() => {
+    if (user && user.role !== 'superadmin') {
+      toast.error('Access restricted to platform administrators.');
+      navigate(user.role === 'candidate' ? '/candidate/dashboard' : '/admin/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
   const [activeTab, setActiveTab] = useState<'companies' | 'programs' | 'telemetry'>('companies');
   const [companyStatusFilter, setCompanyStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
