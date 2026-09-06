@@ -1478,14 +1478,7 @@ export const InterviewPage: React.FC = () => {
       {uiStage === 'completed' && (
         <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center gap-6">
           <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-2xs text-center space-y-6">
-            <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-
             <div>
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 mb-2">
-                Stored in Database
-              </span>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Video Interview Successfully Recorded
               </h1>
@@ -1521,9 +1514,6 @@ export const InterviewPage: React.FC = () => {
                   <Video className="w-4 h-4 text-kulkul-purple" />
                   <span>Submitted Candidate Recording</span>
                 </div>
-                <span className="text-2xs font-mono text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-bold">
-                  Saved &amp; Encrypted
-                </span>
               </div>
 
               <div className="aspect-video bg-black flex items-center justify-center">
@@ -1547,12 +1537,6 @@ export const InterviewPage: React.FC = () => {
             {/* What Happens Next / Admissions Review Information */}
             <div className="max-w-3xl mx-auto w-full mt-6 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xs">
               <div className="border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Sparkles className="w-4 h-4 text-kulkul-purple" />
-                  <span className="text-2xs font-extrabold uppercase tracking-wider text-kulkul-purple">
-                    Fellowship Evaluation Pipeline
-                  </span>
-                </div>
                 <h2 className="text-xl font-black text-slate-900 tracking-tight">What Happens Next?</h2>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
                   Our admissions committee is currently processing your interview submission. Here is what to expect:
