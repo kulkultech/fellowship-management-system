@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -62,6 +63,9 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 				if a.ProfilePictureURL != "" {
 					app.ProfilePictureURL = a.ProfilePictureURL
 				}
+				if a.CustomResponses != nil {
+					app.CustomResponses = a.CustomResponses
+				}
 				app.UpdatedAt = time.Now()
 				return app, false, nil
 			}
@@ -75,12 +79,17 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		return a, true, nil
 	}
 
+	customResponsesJSON, _ := json.Marshal(a.CustomResponses)
+	if a.CustomResponses == nil {
+		customResponsesJSON = []byte("{}")
+	}
+
 	query := `
 		INSERT INTO applicants (
 			organization_id, program_id, track_id, email, full_name, first_name, last_name,
 			date_of_birth, phone, github_url, linkedin_url, resume_url, profile_picture_url, university, major,
-			semester, referral_source, current_stage, notes, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, now(), now())
+			semester, referral_source, current_stage, notes, custom_responses, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, now(), now())
 		ON CONFLICT (program_id, email) DO UPDATE SET
 			full_name = EXCLUDED.full_name,
 			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), applicants.first_name),
@@ -96,21 +105,25 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 			semester = COALESCE(NULLIF(EXCLUDED.semester, ''), applicants.semester),
 			referral_source = COALESCE(NULLIF(EXCLUDED.referral_source, ''), applicants.referral_source),
 			track_id = COALESCE(EXCLUDED.track_id, applicants.track_id),
+			custom_responses = CASE WHEN EXCLUDED.custom_responses = '{}'::jsonb THEN applicants.custom_responses ELSE EXCLUDED.custom_responses END,
 			updated_at = now()
 		RETURNING id, organization_id, program_id, track_id, email, full_name,
 			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
 			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
-			current_stage, COALESCE(notes, ''), created_at, updated_at,
+			current_stage, COALESCE(notes, ''),
+			COALESCE(custom_responses, '{}'::jsonb),
+			created_at, updated_at,
 			(xmax = 0) AS is_inserted
 	`
 	var res model.Applicant
+	var rawCustomResponses []byte
 	var isInserted bool
 	err := r.pool.QueryRow(ctx, query,
 		a.OrganizationID, a.ProgramID, a.TrackID, a.Email, a.FullName, a.FirstName, a.LastName,
 		a.DateOfBirth, a.Phone, a.GitHubURL, a.LinkedInURL, a.ResumeURL, a.ProfilePictureURL, a.University, a.Major,
-		a.Semester, a.ReferralSource, a.CurrentStage, a.Notes,
+		a.Semester, a.ReferralSource, a.CurrentStage, a.Notes, customResponsesJSON,
 	).Scan(
 		&res.ID, &res.OrganizationID, &res.ProgramID, &res.TrackID, &res.Email, &res.FullName,
 		&res.FirstName, &res.LastName, &res.DateOfBirth,
@@ -118,11 +131,13 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		&res.ResumeURL, &res.ProfilePictureURL, &res.University, &res.Major,
 		&res.Semester, &res.ReferralSource,
 		&res.CurrentStage, &res.Notes,
+		&rawCustomResponses,
 		&res.CreatedAt, &res.UpdatedAt, &isInserted,
 	)
 	if err != nil {
 		return nil, false, fmt.Errorf("applicant_repo: create or get: %w", err)
 	}
+	_ = json.Unmarshal(rawCustomResponses, &res.CustomResponses)
 	return &res, isInserted, nil
 }
 
@@ -143,11 +158,14 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
 			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
-			current_stage, COALESCE(notes, ''), created_at, updated_at
+			current_stage, COALESCE(notes, ''),
+			COALESCE(custom_responses, '{}'::jsonb),
+			created_at, updated_at
 		FROM applicants
 		WHERE id = $1
 	`
 	var a model.Applicant
+	var rawCustomResponses []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
 		&a.FirstName, &a.LastName, &a.DateOfBirth,
@@ -155,6 +173,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.Notes,
+		&rawCustomResponses,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -163,6 +182,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 	if err != nil {
 		return nil, fmt.Errorf("applicant_repo: get by id: %w", err)
 	}
+	_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
 	return &a, nil
 }
 
@@ -215,7 +235,9 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
 			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
-			current_stage, COALESCE(notes, ''), created_at, updated_at
+			current_stage, COALESCE(notes, ''),
+			COALESCE(custom_responses, '{}'::jsonb),
+			created_at, updated_at
 		FROM applicants
 		WHERE program_id = $1 AND ($2 = '' OR current_stage = $2)
 		ORDER BY created_at DESC
@@ -229,6 +251,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 	var list []model.Applicant
 	for rows.Next() {
 		var a model.Applicant
+		var rawCustomResponses []byte
 		if err := rows.Scan(
 			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
 			&a.FirstName, &a.LastName, &a.DateOfBirth,
@@ -236,10 +259,12 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.Notes,
+			&rawCustomResponses,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan: %w", err)
 		}
+		_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
 		list = append(list, a)
 	}
 	return list, rows.Err()
@@ -265,7 +290,9 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
 			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
-			current_stage, COALESCE(notes, ''), created_at, updated_at
+			current_stage, COALESCE(notes, ''),
+			COALESCE(custom_responses, '{}'::jsonb),
+			created_at, updated_at
 		FROM applicants
 		WHERE LOWER(email) = $1
 		ORDER BY created_at DESC
@@ -279,6 +306,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 	var list []model.Applicant
 	for rows.Next() {
 		var a model.Applicant
+		var rawCustomResponses []byte
 		if err := rows.Scan(
 			&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
 			&a.FirstName, &a.LastName, &a.DateOfBirth,
@@ -286,10 +314,12 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.Notes,
+			&rawCustomResponses,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan by email: %w", err)
 		}
+		_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
 		list = append(list, a)
 	}
 	return list, rows.Err()

@@ -72,6 +72,32 @@ export interface ApplicationStageItem {
   description: string;
 }
 
+export type FormFieldType = 'text' | 'textarea' | 'select' | 'radio' | 'url' | 'number' | 'file';
+
+export interface StandardFieldConfig {
+  enabled: boolean;
+  required: boolean;
+  options?: string[];
+}
+
+export interface CustomFormField {
+  id: string;
+  label: string;
+  type: FormFieldType;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  help_text?: string;
+}
+
+export interface ApplicationFormSchema {
+  title?: string;
+  description?: string;
+  submit_button_text?: string;
+  fields: Record<string, StandardFieldConfig>;
+  custom_fields: CustomFormField[];
+}
+
 export interface Program {
   id: string;
   organization_id?: string;
@@ -90,6 +116,7 @@ export interface Program {
   ai_interview_questions?: string[];
   ai_interview_rubric?: AIInterviewRubric;
   application_stages?: ApplicationStageItem[];
+  application_form_schema?: ApplicationFormSchema;
   status?: string;
   is_open?: boolean;
   tracks?: Track[];
@@ -134,6 +161,7 @@ export interface ApplyRequest {
   resume_url?: string;
   profile_picture_url?: string;
   notes?: string;
+  custom_responses?: Record<string, any>;
 }
 
 export interface ApplyResponse {
@@ -387,6 +415,7 @@ export interface ApplicantDetailResponse {
     referral_source?: string;
     current_stage: string;
     notes?: string;
+    custom_responses?: Record<string, any>;
     created_at: string;
   };
   track?: {

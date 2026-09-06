@@ -37,9 +37,10 @@ type Applicant struct {
 	University     string         `json:"university,omitempty"`
 	Major          string         `json:"major,omitempty"`
 	Semester       string         `json:"semester,omitempty"`
-	ReferralSource string         `json:"referral_source,omitempty"`
-	CurrentStage   ApplicantStage `json:"current_stage"`
-	Notes          string         `json:"notes,omitempty"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	ReferralSource string                 `json:"referral_source,omitempty"`
+	CustomResponses map[string]interface{} `json:"custom_responses,omitempty"`
+	CurrentStage   ApplicantStage         `json:"current_stage"`
+	Notes          string                 `json:"notes,omitempty"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
 }

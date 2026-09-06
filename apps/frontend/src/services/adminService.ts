@@ -73,6 +73,11 @@ export const adminService = {
     return data;
   },
 
+  updateProgramFormSchema: async (programId: string, schema: import('./types').ApplicationFormSchema): Promise<Program> => {
+    const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/form`, schema);
+    return data;
+  },
+
   listProgramQuestions: async (programId: string): Promise<MCQQuestion[]> => {
     const { data } = await apiClient.get<{ questions: MCQQuestion[] }>(`/admin/programs/${programId}/questions`);
     return data.questions || [];

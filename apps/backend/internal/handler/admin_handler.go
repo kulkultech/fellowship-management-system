@@ -289,6 +289,7 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 			"referral_source": applicant.ReferralSource,
 			"current_stage":   applicant.CurrentStage,
 			"notes":           applicant.Notes,
+			"custom_responses": applicant.CustomResponses,
 			"created_at":      applicant.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 		"track":      trackDetail,
@@ -641,6 +642,29 @@ func (h *AdminHandler) UpdateProgramStages(w http.ResponseWriter, r *http.Reques
 	updated, err := h.programRepo.UpdateStages(r.Context(), id, req.Stages)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update application stages")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+func (h *AdminHandler) UpdateProgramFormSchema(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req model.ApplicationFormSchema
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	updated, err := h.programRepo.UpdateFormSchema(r.Context(), id, &req)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update application form schema")
 		return
 	}
 

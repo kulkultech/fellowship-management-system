@@ -5,6 +5,7 @@ import { adminService, type CreateProgramPayload, type CreateTrackPayload } from
 import { programService } from '@/services/programService';
 import { uploadService } from '@/services/uploadService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
+import { ApplicationFormBuilder } from '@/components/admin/ApplicationFormBuilder';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type {
   MCQQuestion,
@@ -178,8 +179,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [user, navigate]);
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -1010,6 +1011,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       ? 'questions'
       : currentView === 'stages'
       ? `stages-${activeProgramSlug}`
+      : currentView === 'form_builder'
+      ? `form-builder-${activeProgramSlug}`
       : currentView === 'ai_rubric'
       ? `ai-rubric-${activeProgramSlug}`
       : selectedTrackFilter
@@ -1079,6 +1082,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 onClick: () => {
                   setActiveProgramSlug(p.slug);
                   setCurrentView('stages');
+                },
+              },
+              {
+                id: `form-builder-${p.slug}`,
+                label: 'Application Form',
+                icon: FileText,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('form_builder');
                 },
               },
               {
@@ -1226,6 +1238,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? `${activeQuestionSet?.name || 'Assessment'} Question Bank`
           : currentView === 'stages'
           ? 'Application & Assessment Stages'
+          : currentView === 'form_builder'
+          ? 'Application Form Builder'
           : currentView === 'ai_rubric'
           ? 'AI Rubric & Prompts'
           : program?.name || 'Candidate Pipeline'
@@ -1237,6 +1251,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? 'Configure timed domain multiple choice questions, passing score benchmarks, and scorecard explanations.'
           : currentView === 'stages'
           ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
+          : currentView === 'form_builder'
+          ? 'Configure standard candidate intake fields and custom questionnaire for this program.'
           : undefined
       }
       companyName={orgProfile?.name || user?.organization?.name || 'Remote Skills Academy'}
@@ -1757,6 +1773,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 >
                   <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
                   <span>Pipeline Modules</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setCurrentView('form_builder');
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
+                  title="Configure candidate intake fields and custom questions"
+                >
+                  <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <span>Application Form</span>
                 </button>
 
                 <button
@@ -3367,6 +3394,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         )}
 
         {/* ================================================================================= */}
+        {/* VIEW 8: APPLICATION FORM BUILDER */}
+        {/* ================================================================================= */}
+        {currentView === 'form_builder' && (
+          <div className="animate-in fade-in duration-200">
+            <ApplicationFormBuilder
+              program={allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0]}
+              onBack={() => setCurrentView('pipeline')}
+              onSaved={() => {
+                queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+                queryClient.invalidateQueries({ queryKey: ['program-stats', activeProgramSlug] });
+              }}
+            />
+          </div>
+        )}
+
+        {/* ================================================================================= */}
         {/* MODAL 3: CREATE NEW QUESTION SET MODAL */}
         {/* ================================================================================= */}
         {isCreateQuestionSetModalOpen && (
@@ -3975,6 +4018,50 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </a>
                             </div>
                           )}
+
+                          {applicantDetail?.applicant.github_url && (
+                            <div className="sm:col-span-2">
+                              <span className="text-slate-400 block font-medium">GitHub Profile</span>
+                              <a
+                                href={applicantDetail.applicant.github_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-kulkul-purple hover:underline font-bold"
+                              >
+                                {applicantDetail.applicant.github_url}
+                              </a>
+                            </div>
+                          )}
+
+                          {applicantDetail?.applicant.custom_responses &&
+                            Object.keys(applicantDetail.applicant.custom_responses).length > 0 && (
+                              <div className="sm:col-span-2 pt-3 border-t border-slate-200/80 space-y-2">
+                                <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider block">
+                                  Custom Form Responses
+                                </span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {Object.entries(applicantDetail.applicant.custom_responses).map(([k, val]) => (
+                                    <div
+                                      key={k}
+                                      className={
+                                        typeof val === 'string' && val.length > 40 ? 'sm:col-span-2' : ''
+                                      }
+                                    >
+                                      <span className="text-slate-400 block font-medium capitalize">
+                                        {k.replace(/_/g, ' ')}
+                                      </span>
+                                      <span className="font-bold text-slate-900 break-words">
+                                        {typeof val === 'boolean'
+                                          ? val
+                                            ? 'Yes'
+                                            : 'No'
+                                          : String(val || '-')}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                         </div>
                       </div>
                     </div>

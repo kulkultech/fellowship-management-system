@@ -92,11 +92,12 @@ type ProgramPublicResponse struct {
 		LogicTestPassingScore    int               `json:"logic_test_passing_score"`
 		AllowRetake              bool              `json:"allow_retake"`
 		EnableAIInterview        bool                     `json:"enable_ai_interview"`
-		AIInterviewInstructions  string                   `json:"ai_interview_instructions,omitempty"`
-		AIInterviewQuestions     []string                 `json:"ai_interview_questions,omitempty"`
+		AIInterviewInstructions  string                       `json:"ai_interview_instructions,omitempty"`
+		AIInterviewQuestions     []string                     `json:"ai_interview_questions,omitempty"`
 		ApplicationStages        []model.ApplicationStageItem `json:"application_stages"`
-		IsOpen                   bool                     `json:"is_open"`
-		Tracks                   []TrackPublicItem        `json:"tracks"`
+		ApplicationFormSchema    *model.ApplicationFormSchema `json:"application_form_schema,omitempty"`
+		IsOpen                   bool                         `json:"is_open"`
+		Tracks                   []TrackPublicItem            `json:"tracks"`
 	} `json:"program"`
 }
 
@@ -158,6 +159,7 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	if len(resp.Program.ApplicationStages) == 0 {
 		resp.Program.ApplicationStages = repository.DefaultApplicationStages()
 	}
+	resp.Program.ApplicationFormSchema = program.ApplicationFormSchema
 	resp.Program.IsOpen = program.IsOpen()
 
 	// Load tracks
@@ -237,24 +239,25 @@ func (h *ProgramHandler) GetTrackDetail(w http.ResponseWriter, r *http.Request) 
 }
 
 type ApplyRequest struct {
-	TrackSlug      string `json:"track_slug,omitempty"`
-	TrackID        string `json:"track_id,omitempty"`
-	ChosenCourse   string `json:"chosen_course,omitempty"`
-	FirstName      string `json:"first_name"`
-	LastName       string `json:"last_name"`
-	FullName       string `json:"full_name"`
-	DateOfBirth    string `json:"date_of_birth"`
-	Phone          string `json:"phone"`
-	Email          string `json:"email"`
-	LinkedInURL    string `json:"linkedin_url"`
-	University     string `json:"university"`
-	Major          string `json:"major"`
-	Semester       string `json:"semester"`
-	ReferralSource string `json:"referral_source"`
-	GitHubURL         string `json:"github_url"`
-	ResumeURL         string `json:"resume_url"`
-	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
-	Notes             string `json:"notes"`
+	TrackSlug         string                 `json:"track_slug,omitempty"`
+	TrackID           string                 `json:"track_id,omitempty"`
+	ChosenCourse      string                 `json:"chosen_course,omitempty"`
+	FirstName         string                 `json:"first_name"`
+	LastName          string                 `json:"last_name"`
+	FullName          string                 `json:"full_name"`
+	DateOfBirth       string                 `json:"date_of_birth"`
+	Phone             string                 `json:"phone"`
+	Email             string                 `json:"email"`
+	LinkedInURL       string                 `json:"linkedin_url"`
+	University        string                 `json:"university"`
+	Major             string                 `json:"major"`
+	Semester          string                 `json:"semester"`
+	ReferralSource    string                 `json:"referral_source"`
+	GitHubURL         string                 `json:"github_url"`
+	ResumeURL         string                 `json:"resume_url"`
+	ProfilePictureURL string                 `json:"profile_picture_url,omitempty"`
+	Notes             string                 `json:"notes"`
+	CustomResponses   map[string]interface{} `json:"custom_responses,omitempty"`
 }
 
 type ApplyResponse struct {
@@ -307,6 +310,9 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	req.Semester = strings.TrimSpace(req.Semester)
 	req.ReferralSource = strings.TrimSpace(req.ReferralSource)
 	req.ChosenCourse = strings.TrimSpace(req.ChosenCourse)
+	req.LinkedInURL = strings.TrimSpace(req.LinkedInURL)
+	req.GitHubURL = strings.TrimSpace(req.GitHubURL)
+	req.ResumeURL = strings.TrimSpace(req.ResumeURL)
 
 	if req.FirstName == "" && req.FullName != "" {
 		parts := strings.Fields(req.FullName)
@@ -325,9 +331,60 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.FirstName == "" || req.LastName == "" || req.Email == "" || req.Phone == "" || req.DateOfBirth == "" || req.University == "" || req.Major == "" || req.Semester == "" || req.ReferralSource == "" {
-		httpx.Error(w, http.StatusBadRequest, "all mandatory fields (First Name, Last Name, Date of Birth, Phone, Email, University, Major, Semester, Referral Source) must be filled")
+	// Always require identity fields
+	if req.FirstName == "" || req.LastName == "" || req.Email == "" {
+		httpx.Error(w, http.StatusBadRequest, "First Name, Last Name, and Email are required")
 		return
+	}
+
+	// Resolve schema for dynamic field requirements
+	schema := program.ApplicationFormSchema
+	if schema == nil {
+		if program.Slug == "lit2026" {
+			schema = model.DefaultRSAFormSchema()
+		} else {
+			schema = model.DefaultCompanyFormSchema()
+		}
+	}
+
+	type stdCheck struct {
+		key   string
+		val   string
+		label string
+	}
+	stdChecks := []stdCheck{
+		{"phone", req.Phone, "Phone Number"},
+		{"date_of_birth", req.DateOfBirth, "Date of Birth"},
+		{"university", req.University, "University"},
+		{"major", req.Major, "Major"},
+		{"semester", req.Semester, "Semester"},
+		{"referral_source", req.ReferralSource, "Referral Source"},
+		{"resume", req.ResumeURL, "Resume / CV"},
+		{"linkedin_url", req.LinkedInURL, "LinkedIn Profile URL"},
+		{"github_url", req.GitHubURL, "GitHub Profile URL"},
+	}
+
+	for _, sc := range stdChecks {
+		if cfg, exists := schema.Fields[sc.key]; exists && cfg.Enabled && cfg.Required {
+			if sc.val == "" {
+				httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("%s is mandatory", sc.label))
+				return
+			}
+		}
+	}
+
+	// Validate custom fields
+	if req.CustomResponses == nil {
+		req.CustomResponses = make(map[string]interface{})
+	}
+	for _, cf := range schema.CustomFields {
+		if cf.Required {
+			val, exists := req.CustomResponses[cf.ID]
+			if !exists || val == nil || fmt.Sprintf("%v", val) == "" {
+				httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("%s is mandatory", cf.Label))
+				return
+			}
+		}
 	}
 
 	// Resolve Track
@@ -371,25 +428,26 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	applicant, _, err := h.applicantRepo.CreateOrGet(r.Context(), &model.Applicant{
-		OrganizationID: org.ID,
-		ProgramID:      program.ID,
-		TrackID:        trackIDPtr,
-		Email:          req.Email,
-		FullName:       req.FullName,
-		FirstName:      req.FirstName,
-		LastName:       req.LastName,
-		DateOfBirth:    req.DateOfBirth,
-		Phone:          req.Phone,
+		OrganizationID:    org.ID,
+		ProgramID:         program.ID,
+		TrackID:           trackIDPtr,
+		Email:             req.Email,
+		FullName:          req.FullName,
+		FirstName:         req.FirstName,
+		LastName:          req.LastName,
+		DateOfBirth:       req.DateOfBirth,
+		Phone:             req.Phone,
 		GitHubURL:         req.GitHubURL,
 		LinkedInURL:       req.LinkedInURL,
 		ResumeURL:         req.ResumeURL,
 		ProfilePictureURL: req.ProfilePictureURL,
 		University:        req.University,
-		Major:          req.Major,
-		Semester:       req.Semester,
-		ReferralSource: req.ReferralSource,
-		CurrentStage:   model.StageTestInProgress,
-		Notes:          req.Notes,
+		Major:             req.Major,
+		Semester:          req.Semester,
+		ReferralSource:    req.ReferralSource,
+		CurrentStage:      model.StageTestInProgress,
+		Notes:             req.Notes,
+		CustomResponses:   req.CustomResponses,
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to record application")
