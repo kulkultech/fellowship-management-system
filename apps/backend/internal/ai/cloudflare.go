@@ -415,7 +415,7 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 		if totalCandidateWords >= 25 {
 			return true, "", "Sufficient word count and coverage.", nil
 		}
-		followUpQ := fmt.Sprintf("That is helpful context! Could you elaborate further on how you approached this, and what specific steps or outcomes were involved?", strings.ToLower(question.Theme))
+		followUpQ := fmt.Sprintf("That is helpful context! Regarding %s, could you elaborate further on how you approached this, and what specific steps or outcomes were involved?", strings.ToLower(question.Theme))
 		return false, followUpQ, "Answer could use more concrete detail.", nil
 	}
 
