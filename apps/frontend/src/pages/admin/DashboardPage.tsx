@@ -1407,25 +1407,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
                                     </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenPipelineConfig(prog)}
-                                      className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-                                      title="Configure Logic Test & AI Screening Modules"
-                                    >
-                                      <Sliders className="w-3.5 h-3.5 text-slate-500" />
-                                      <span>Modules</span>
-                                    </button>
-
-                                    <button
-                                      onClick={() => handleOpenRubricPage(prog)}
-                                      className="px-3 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-kulkul-purple text-xs font-bold border border-purple-200 transition flex items-center gap-1.5 shadow-2xs"
-                                      title="Configure AI Interview Questions & Rubric"
-                                    >
-                                      <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
-                                      <span>Rubric</span>
-                                    </button>
-
                                     <a
                                       href={getPublicProgramUrl(prog.slug)}
                                       target="_blank"
