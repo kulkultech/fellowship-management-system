@@ -478,15 +478,8 @@ export const ApplyPage: React.FC = () => {
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
             <div className="stitch-card bg-white p-8 sm:p-12 text-center border border-slate-200 shadow-xl rounded-3xl space-y-6 animate-in fade-in zoom-in duration-300">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-
               <div>
-                <span className="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider">
-                  Registration Received
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-4 tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Thank You for Applying, {submittedData.candidateName}!
                 </h1>
                 <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-lg mx-auto leading-relaxed">
@@ -504,16 +497,6 @@ export const ApplyPage: React.FC = () => {
                   We have dispatched your unique assessment invitation and instructions to{' '}
                   <span className="font-bold text-slate-900">{submittedData.email}</span>.
                 </p>
-                <div className="pt-2 border-t border-purple-100 flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-kulkul-purple" />
-                    <span>Duration: {submittedData.durationMinutes} Minutes</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>Passing Score: {currentTrack?.logic_test_passing_score || program?.logic_test_passing_score || 70}%</span>
-                  </div>
-                </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left">
@@ -526,7 +509,7 @@ export const ApplyPage: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="pt-4 flex items-center justify-center">
                 <button
                   onClick={() => navigate('/candidate/dashboard')}
                   className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2"
@@ -534,14 +517,6 @@ export const ApplyPage: React.FC = () => {
                   <span>Go to Candidate Dashboard</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                {submittedData.testToken && (
-                  <button
-                    onClick={() => navigate(`/lit2026/test/${submittedData.testToken}`)}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition text-center"
-                  >
-                    Start Assessment Now
-                  </button>
-                )}
               </div>
             </div>
           </div>
