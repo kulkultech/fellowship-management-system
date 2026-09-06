@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { AuthResponse, CompanyRegistrationPayload, User } from './types';
+import type { AuthResponse, CompanyRegistrationPayload, UpdateProfilePayload, User } from './types';
 
 export const authService = {
   login: async (email: string, password: string): Promise<AuthResponse> => {
@@ -18,6 +18,11 @@ export const authService = {
 
   me: async (): Promise<User> => {
     const { data } = await apiClient.get<User>('/auth/me');
+    return data;
+  },
+
+  updateProfile: async (payload: UpdateProfilePayload): Promise<User> => {
+    const { data } = await apiClient.put<User>('/auth/profile', payload);
     return data;
   },
 };

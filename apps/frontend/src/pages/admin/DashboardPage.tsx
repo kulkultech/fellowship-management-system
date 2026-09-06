@@ -125,7 +125,6 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
-  Building2,
   Video,
   Download,
   PlusCircle,
@@ -247,57 +246,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   }, [allPrograms, orgSlug, activeProgramSlug]);
 
-  // Organization Profile Edit State
-  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
-  const [editOrgForm, setEditOrgForm] = useState({
-    name: user?.organization?.name || '',
-    contact_email: user?.organization?.contact_email || '',
-    logo_url: user?.organization?.logo_url || '',
-  });
-
   // Fetch current organization details
-  const { data: orgProfile, refetch: refetchOrgProfile } = useQuery({
+  const { data: orgProfile } = useQuery({
     queryKey: ['admin-organization-profile'],
     queryFn: () => adminService.getOrganization(),
-  });
-
-  useEffect(() => {
-    if (orgProfile) {
-      setEditOrgForm({
-        name: orgProfile.name || '',
-        contact_email: orgProfile.contact_email || '',
-        logo_url: orgProfile.logo_url || '',
-      });
-    }
-  }, [orgProfile]);
-
-  const updateOrgMutation = useMutation({
-    mutationFn: (payload: { name: string; contact_email: string; logo_url: string }) =>
-      adminService.updateOrganization(payload),
-    onSuccess: (updated) => {
-      toast.success('Organization profile updated successfully!');
-      refetchOrgProfile();
-      setIsEditProfileModalOpen(false);
-      if (user && user.organization) {
-        useAuthStore.setState({
-          user: {
-            ...user,
-            organization: {
-              ...user.organization,
-              id: updated.id,
-              name: updated.name,
-              slug: updated.slug,
-              logo_url: updated.logo_url,
-              contact_email: updated.contact_email,
-              status: (updated.status || user.organization.status) as any,
-            },
-          },
-        });
-      }
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to update organization profile');
-    },
   });
 
   // Load Active Program Details
@@ -1276,7 +1228,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         else if (id === 'questions') setCurrentView('questions');
       }}
       headerActions={headerActions}
-      onEditProfile={() => setIsEditProfileModalOpen(true)}
     >
 
         {/* ================================================================================= */}
@@ -4101,126 +4052,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================================================================================= */}
-        {/* MODAL: EDIT ORGANIZATION PROFILE & LOGO */}
-        {/* ================================================================================= */}
-        {isEditProfileModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-kulkul-purple flex items-center justify-center">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900">Organization Profile</h2>
-                    <p className="text-xs text-slate-500">Update company identity, contact email, and logo</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsEditProfileModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  updateOrgMutation.mutate(editOrgForm);
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Organization / Company Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editOrgForm.name}
-                    onChange={(e) => setEditOrgForm({ ...editOrgForm, name: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
-                    placeholder="e.g. Remote Skills Academy (RSA)"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Contact Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={editOrgForm.contact_email}
-                    onChange={(e) => setEditOrgForm({ ...editOrgForm, contact_email: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
-                    placeholder="e.g. admissions@rsa.org"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Company Logo URL
-                  </label>
-                  <input
-                    type="url"
-                    value={editOrgForm.logo_url}
-                    onChange={(e) => setEditOrgForm({ ...editOrgForm, logo_url: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-mono text-xs"
-                    placeholder="https://example.com/logo.png"
-                  />
-                  <p className="text-2xs text-slate-400 mt-1">
-                    Direct image link (PNG, SVG, JPG) to display on workspace badges and admissions portal.
-                  </p>
-                </div>
-
-                {/* Logo Live Preview */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center overflow-hidden shadow-2xs">
-                    {editOrgForm.logo_url ? (
-                      <img
-                        src={editOrgForm.logo_url}
-                        alt="Logo Preview"
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <Building2 className="w-6 h-6 text-slate-400" />
-                    )}
-                  </div>
-                  <div className="text-xs">
-                    <span className="font-bold text-slate-800 block">Logo Live Preview</span>
-                    <span className="text-2xs text-slate-500">
-                      {editOrgForm.logo_url ? 'Active logo configured' : 'Default building avatar active'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditProfileModalOpen(false)}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={updateOrgMutation.isPending}
-                    className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition disabled:opacity-50"
-                  >
-                    {updateOrgMutation.isPending ? 'Saving...' : 'Save Profile'}
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         )}

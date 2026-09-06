@@ -9,8 +9,10 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
+  Pencil,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { EditProfileModal } from '@/components/EditProfileModal';
 
 export interface SubChildNavItem {
   id: string;
@@ -73,12 +75,21 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   candidateEmail,
   onCandidateSignOut,
-  onEditProfile: _onEditProfile,
+  onEditProfile,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const { user, logout: authLogout } = useAuth();
   const navigate = useNavigate();
+
+  const handleOpenEditProfile = () => {
+    if (onEditProfile) {
+      onEditProfile();
+    } else {
+      setIsEditProfileModalOpen(true);
+    }
+  };
 
   const toggleExpand = (id: string, defaultExpanded: boolean) => {
     setExpandedMap((prev) => {
@@ -164,18 +175,36 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
             {/* Candidate User Pill */}
             {portalType === 'candidate' && candidateEmail && (
-              <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
-                <UserIcon className="w-4 h-4 text-kulkul-purple" />
-                <span>{candidateEmail}</span>
-              </div>
+              <button
+                type="button"
+                onClick={handleOpenEditProfile}
+                className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 transition cursor-pointer"
+                title="Click to edit profile"
+              >
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                ) : (
+                  <UserIcon className="w-4 h-4 text-kulkul-purple" />
+                )}
+                <span>{user?.name || candidateEmail}</span>
+              </button>
             )}
 
             {/* Admin User Pill */}
             {user && portalType !== 'candidate' && (
-              <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
-                <UserIcon className="w-4 h-4 text-kulkul-purple" />
-                <span>{user.email}</span>
-              </div>
+              <button
+                type="button"
+                onClick={handleOpenEditProfile}
+                className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 transition cursor-pointer"
+                title="Click to edit profile"
+              >
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                ) : (
+                  <UserIcon className="w-4 h-4 text-kulkul-purple" />
+                )}
+                <span>{user.name || user.email}</span>
+              </button>
             )}
 
             {/* Sign Out Button (Only shown when logged in) */}
@@ -420,12 +449,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </nav>
           </div>
 
-          {/* Bottom Section: Footer / Organization Context (Clickable to Edit Profile) */}
-          <div className="p-4 border-t border-slate-100 bg-slate-50/70">
-            {portalType === 'company_admin' && (
-              <div className="flex items-center gap-3 p-1">
-                <div className="w-9 h-9 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs overflow-hidden border border-kulkul-purple/20">
-                  {companyLogoUrl ? (
+          {/* Bottom Section: Footer / User Identity & Profile (Clickable to Edit Profile) */}
+          <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50/70">
+            <button
+              type="button"
+              onClick={handleOpenEditProfile}
+              className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-white border border-transparent hover:border-slate-200/80 shadow-2xs hover:shadow-sm transition-all group text-left relative cursor-pointer"
+              title="Click to edit your profile and settings"
+            >
+              {/* Avatar / Logo with hover edit badge */}
+              <div className="relative shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden border border-kulkul-purple/20">
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.name || 'Profile'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : portalType === 'company_admin' && companyLogoUrl ? (
                     <img
                       src={companyLogoUrl}
                       alt={companyName || 'Company'}
@@ -434,54 +478,41 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         (e.target as HTMLElement).style.display = 'none';
                       }}
                     />
+                  ) : portalType === 'superadmin' ? (
+                    <ShieldCheck className="w-5 h-5 text-kulkul-orange" />
                   ) : (
-                    <Building2 className="w-4 h-4 text-kulkul-orange" />
+                    <UserIcon className="w-5 h-5 text-kulkul-orange" />
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-slate-900 truncate">
-                    {companyName || 'Host Organization'}
-                  </div>
-                  <div className="text-2xs text-emerald-600 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>Workspace Active</span>
-                  </div>
-                </div>
+                {/* Sleek Edit Pencil Badge */}
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-kulkul-purple text-white rounded-full flex items-center justify-center border border-white shadow-xs group-hover:scale-110 group-hover:bg-kulkul-orange transition">
+                  <Pencil className="w-2.5 h-2.5" />
+                </span>
               </div>
-            )}
 
-            {portalType === 'superadmin' && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                  <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
+              {/* Name & Subtitle / Context */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-black text-slate-900 truncate group-hover:text-kulkul-purple transition">
+                    {user?.name || (portalType === 'candidate' && candidateEmail ? candidateEmail.split('@')[0] : 'My Profile')}
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-slate-800 truncate">
-                    KulKul Platform Admin
-                  </div>
-                  <div className="text-2xs text-emerald-600 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>System Online</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {portalType === 'candidate' && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                  <UserIcon className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-slate-800 truncate">
-                    {candidateEmail || 'Candidate Account'}
-                  </div>
-                  <div className="text-2xs text-slate-400 truncate">
-                    Active Intake Session
-                  </div>
+                <div className="text-2xs text-slate-500 font-medium truncate flex items-center gap-1 mt-0.5">
+                  {portalType === 'company_admin' && (
+                    <span className="truncate">{companyName || user?.organization?.name || 'Company Admin'}</span>
+                  )}
+                  {portalType === 'superadmin' && (
+                    <span className="text-kulkul-purple font-bold">Platform Superadmin</span>
+                  )}
+                  {portalType === 'candidate' && (
+                    <span className="truncate">{candidateEmail || user?.email || 'Candidate'}</span>
+                  )}
+                  {portalType !== 'company_admin' && portalType !== 'superadmin' && portalType !== 'candidate' && (
+                    <span className="truncate">{user?.role || 'Active Session'}</span>
+                  )}
                 </div>
               </div>
-            )}
+            </button>
           </div>
         </aside>
 
@@ -515,6 +546,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <div className="w-full">{children}</div>
         </main>
       </div>
+
+      {/* Universal Edit Profile & Account Modal */}
+      <EditProfileModal
+        isOpen={isEditProfileModalOpen}
+        onClose={() => setIsEditProfileModalOpen(false)}
+        portalType={portalType}
+        candidateEmail={candidateEmail}
+      />
     </div>
   );
 };

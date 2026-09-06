@@ -62,11 +62,12 @@ type RegisterCompanyRequest struct {
 }
 
 type OrganizationInfo struct {
-	ID      string `json:"id"`
-	Slug    string `json:"slug"`
-	Name    string `json:"name"`
-	LogoURL string `json:"logo_url,omitempty"`
-	Status  string `json:"status"`
+	ID           string `json:"id"`
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	LogoURL      string `json:"logo_url,omitempty"`
+	ContactEmail string `json:"contact_email,omitempty"`
+	Status       string `json:"status"`
 }
 
 type UserResponse struct {
@@ -75,7 +76,17 @@ type UserResponse struct {
 	Organization   *OrganizationInfo `json:"organization,omitempty"`
 	Email          string            `json:"email"`
 	Name           string            `json:"name"`
+	AvatarURL      string            `json:"avatar_url"`
 	Role           string            `json:"role"`
+}
+
+type UpdateProfileRequest struct {
+	Name                string  `json:"name"`
+	AvatarURL           string  `json:"avatar_url"`
+	Password            *string `json:"password,omitempty"`
+	CompanyName         *string `json:"company_name,omitempty"`
+	CompanyLogoURL      *string `json:"company_logo_url,omitempty"`
+	CompanyContactEmail *string `json:"company_contact_email,omitempty"`
 }
 
 type AuthResponse struct {
@@ -190,11 +201,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		org, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
 		if err == nil && org != nil {
 			orgInfo = &OrganizationInfo{
-				ID:      org.ID.String(),
-				Slug:    org.Slug,
-				Name:    org.Name,
-				LogoURL: org.LogoURL,
-				Status:  string(org.Status),
+				ID:           org.ID.String(),
+				Slug:         org.Slug,
+				Name:         org.Name,
+				LogoURL:      org.LogoURL,
+				ContactEmail: org.ContactEmail,
+				Status:       string(org.Status),
 			}
 
 			// Reject login if company is still pending approval or rejected
@@ -236,6 +248,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Organization:   orgInfo,
 			Email:          user.Email,
 			Name:           user.Name,
+			AvatarURL:      user.AvatarURL,
 			Role:           user.Role,
 		},
 		CSRFToken: csrfToken,
@@ -269,11 +282,12 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		org, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
 		if err == nil && org != nil {
 			orgInfo = &OrganizationInfo{
-				ID:      org.ID.String(),
-				Slug:    org.Slug,
-				Name:    org.Name,
-				LogoURL: org.LogoURL,
-				Status:  string(org.Status),
+				ID:           org.ID.String(),
+				Slug:         org.Slug,
+				Name:         org.Name,
+				LogoURL:      org.LogoURL,
+				ContactEmail: org.ContactEmail,
+				Status:       string(org.Status),
 			}
 		}
 	}
@@ -284,6 +298,90 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		Organization:   orgInfo,
 		Email:          user.Email,
 		Name:           user.Name,
+		AvatarURL:      user.AvatarURL,
+		Role:           user.Role,
+	})
+}
+
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var passwordHash *string
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		pwd := strings.TrimSpace(*req.Password)
+		if len(pwd) < 6 {
+			httpx.Error(w, http.StatusBadRequest, "password must be at least 6 characters")
+			return
+		}
+		hash, err := auth.HashPassword(pwd)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
+		passwordHash = &hash
+	}
+
+	user, err := h.userRepo.UpdateProfile(r.Context(), claims.UserID, req.Name, req.AvatarURL, passwordHash)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update profile")
+		return
+	}
+
+	// If user is associated with an organization and company fields are provided, update company
+	var orgInfo *OrganizationInfo
+	if user.OrganizationID != nil {
+		currentOrg, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
+		if err == nil && currentOrg != nil {
+			newOrgName := currentOrg.Name
+			if req.CompanyName != nil && strings.TrimSpace(*req.CompanyName) != "" {
+				newOrgName = strings.TrimSpace(*req.CompanyName)
+			}
+			newContactEmail := currentOrg.ContactEmail
+			if req.CompanyContactEmail != nil && strings.TrimSpace(*req.CompanyContactEmail) != "" {
+				newContactEmail = strings.TrimSpace(*req.CompanyContactEmail)
+			}
+			newLogoURL := currentOrg.LogoURL
+			if req.CompanyLogoURL != nil {
+				newLogoURL = strings.TrimSpace(*req.CompanyLogoURL)
+			}
+
+			updatedOrg, err := h.orgRepo.Update(r.Context(), currentOrg.ID, newOrgName, newContactEmail, newLogoURL)
+			if err == nil && updatedOrg != nil {
+				orgInfo = &OrganizationInfo{
+					ID:           updatedOrg.ID.String(),
+					Slug:         updatedOrg.Slug,
+					Name:         updatedOrg.Name,
+					LogoURL:      updatedOrg.LogoURL,
+					ContactEmail: updatedOrg.ContactEmail,
+					Status:       string(updatedOrg.Status),
+				}
+			}
+		}
+	}
+
+	var orgIDStr *string
+	if user.OrganizationID != nil {
+		s := user.OrganizationID.String()
+		orgIDStr = &s
+	}
+
+	httpx.JSON(w, http.StatusOK, UserResponse{
+		ID:             user.ID.String(),
+		OrganizationID: orgIDStr,
+		Organization:   orgInfo,
+		Email:          user.Email,
+		Name:           user.Name,
+		AvatarURL:      user.AvatarURL,
 		Role:           user.Role,
 	})
 }

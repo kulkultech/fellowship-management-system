@@ -329,7 +329,17 @@ export interface User {
   organization?: Organization;
   email: string;
   name: string;
+  avatar_url?: string;
   role: 'superadmin' | 'org_admin' | 'reviewer' | 'candidate';
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  avatar_url?: string;
+  password?: string;
+  company_name?: string;
+  company_logo_url?: string;
+  company_contact_email?: string;
 }
 
 export interface AuthResponse {

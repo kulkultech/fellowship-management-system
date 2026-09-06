@@ -174,6 +174,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Use(middleware.CSRF)
 
 			protected.Get("/auth/me", authHandler.Me)
+			protected.Put("/auth/profile", authHandler.UpdateProfile)
 			protected.Get("/candidate/applications", candidateHandler.GetCandidateApplications)
 
 			protected.Route("/admin", func(adm chi.Router) {
