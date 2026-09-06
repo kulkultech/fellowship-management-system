@@ -1089,6 +1089,19 @@ func (h *AdminHandler) ListQuestionSets(w http.ResponseWriter, r *http.Request) 
 		orgUUID = claims.OrganizationID
 	}
 
+	// For superadmin, allow filtering by ?org_id= or ?organization_id=
+	if claims != nil && (claims.Role == "superadmin" || claims.OrganizationID == nil) {
+		if queryOrg := r.URL.Query().Get("org_id"); queryOrg != "" {
+			if parsed, err := uuid.Parse(queryOrg); err == nil {
+				orgUUID = &parsed
+			}
+		} else if queryOrg := r.URL.Query().Get("organization_id"); queryOrg != "" {
+			if parsed, err := uuid.Parse(queryOrg); err == nil {
+				orgUUID = &parsed
+			}
+		}
+	}
+
 	sets, err := h.questionSetRepo.List(r.Context(), progUUID, orgUUID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list question sets")

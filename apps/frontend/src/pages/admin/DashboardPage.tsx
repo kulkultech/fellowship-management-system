@@ -237,6 +237,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   // Current company slug
   const orgSlug = user?.organization?.slug || 'rsa';
 
+  useEffect(() => {
+    if (allPrograms.length > 0) {
+      if (!allPrograms.some((p) => p.slug === activeProgramSlug)) {
+        setActiveProgramSlug(allPrograms[0].slug);
+      }
+    } else if (orgSlug !== 'rsa') {
+      setActiveProgramSlug('');
+    }
+  }, [allPrograms, orgSlug, activeProgramSlug]);
+
   // Organization Profile Edit State
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [editOrgForm, setEditOrgForm] = useState({
@@ -308,8 +318,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Load All Question Sets (Question Banks)
   const { data: allQuestionSets = [], refetch: refetchQuestionSets } = useQuery({
-    queryKey: ['admin-question-sets', programId],
-    queryFn: () => adminService.listQuestionSets(programId),
+    queryKey: ['admin-question-sets', orgSlug],
+    queryFn: () => adminService.listQuestionSets(),
   });
 
   // Selected Question Set ID for Question Bank Editor
@@ -320,6 +330,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       if (!selectedQuestionSetId || !allQuestionSets.some((s) => s.id === selectedQuestionSetId)) {
         setSelectedQuestionSetId(allQuestionSets[0].id);
       }
+    } else {
+      setSelectedQuestionSetId('');
     }
   }, [allQuestionSets, selectedQuestionSetId]);
 
@@ -2084,7 +2096,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       <Copy className="w-3.5 h-3.5" />
                                     </button>
 
-                                    {allQuestionSets.length > 1 && (
+                                    {allQuestionSets.length >= 1 && (
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -3357,17 +3369,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </div>
                     </div>
                   )}
-                </div>
-
-                {/* Section 3: Specialization Tracks Note */}
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-kulkul-purple shrink-0 mt-0.5" />
-                  <div className="text-xs text-slate-600">
-                    <div className="font-bold text-slate-800 mb-0.5">Specialization Tracks are Optional</div>
-                    <div>
-                      You do not have to configure tracks. If left without tracks, your program will operate with a direct general admission track. Specialization tracks can be added later if your cohort requires customized learning paths.
-                    </div>
-                  </div>
                 </div>
 
                 {/* Action Buttons Footer */}

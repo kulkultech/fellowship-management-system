@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,7 @@ type QuestionSetRepository struct {
 
 func NewQuestionSetRepository(pool *pgxpool.Pool) *QuestionSetRepository {
 	progID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	rsaOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	set1ID := uuid.MustParse("00000000-0000-0000-0000-000000000021") // Fullstack
 	set2ID := uuid.MustParse("00000000-0000-0000-0000-000000000022") // QA
 	set3ID := uuid.MustParse("00000000-0000-0000-0000-000000000023") // General Logic
@@ -95,6 +97,7 @@ func NewQuestionSetRepository(pool *pgxpool.Pool) *QuestionSetRepository {
 	// Seed In-Memory Sets
 	repo.memSets[set1ID] = &model.QuestionSet{
 		ID:              set1ID,
+		OrganizationID:  &rsaOrgID,
 		ProgramID:       &progID,
 		Name:            "Fullstack Software Engineering Assessment",
 		Description:     "Comprehensive problem-solving test bank evaluating JavaScript DOM, React, REST APIs, and core algorithms.",
@@ -112,6 +115,7 @@ func NewQuestionSetRepository(pool *pgxpool.Pool) *QuestionSetRepository {
 
 	repo.memSets[set2ID] = &model.QuestionSet{
 		ID:              set2ID,
+		OrganizationID:  &rsaOrgID,
 		ProgramID:       &progID,
 		Name:            "QA & Test Automation Screening",
 		Description:     "Hands-on test bank evaluating Cypress, API testing, regression workflows, edge cases, and QA methodologies.",
@@ -168,6 +172,7 @@ func NewQuestionSetRepository(pool *pgxpool.Pool) *QuestionSetRepository {
 	}
 	repo.memSets[set3ID] = &model.QuestionSet{
 		ID:              set3ID,
+		OrganizationID:  &rsaOrgID,
 		ProgramID:       &progID,
 		Name:            "General Logic & Cognitive Assessment",
 		Description:     "Standardized cognitive problem solving, numerical patterns, and logical deductions.",
@@ -192,6 +197,16 @@ func (r *QuestionSetRepository) List(ctx context.Context, programID *uuid.UUID, 
 		defer r.mu.RUnlock()
 		list := make([]model.QuestionSet, 0, len(r.memSets))
 		for _, s := range r.memSets {
+			if orgID != nil {
+				if s.OrganizationID == nil || *s.OrganizationID != *orgID {
+					continue
+				}
+			}
+			if programID != nil {
+				if s.ProgramID != nil && *s.ProgramID != *programID {
+					continue
+				}
+			}
 			clone := *s
 			qs := r.memQuestions[s.ID]
 			clone.TotalQuestions = len(qs)
@@ -201,7 +216,28 @@ func (r *QuestionSetRepository) List(ctx context.Context, programID *uuid.UUID, 
 		return list, nil
 	}
 
-	query := `
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if orgID != nil {
+		conditions = append(conditions, fmt.Sprintf("qs.organization_id = $%d", argIdx))
+		args = append(args, *orgID)
+		argIdx++
+	}
+
+	if programID != nil {
+		conditions = append(conditions, fmt.Sprintf("(qs.program_id = $%d OR qs.program_id IS NULL)", argIdx))
+		args = append(args, *programID)
+		argIdx++
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query := fmt.Sprintf(`
 		SELECT
 			qs.id, qs.organization_id, qs.program_id, qs.name, qs.description,
 			qs.category, qs.duration_minutes, qs.passing_score, qs.created_at, qs.updated_at,
@@ -210,16 +246,18 @@ func (r *QuestionSetRepository) List(ctx context.Context, programID *uuid.UUID, 
 		FROM question_sets qs
 		LEFT JOIN mcq_questions q ON q.question_set_id = qs.id
 		LEFT JOIN program_tracks t ON t.question_set_id = qs.id
+		%s
 		GROUP BY qs.id
 		ORDER BY qs.created_at ASC
-	`
-	rows, err := r.pool.Query(ctx, query)
+	`, whereClause)
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("qset_repo: list: %w", err)
 	}
 	defer rows.Close()
 
-	var sets []model.QuestionSet
+	sets := make([]model.QuestionSet, 0)
 	for rows.Next() {
 		var s model.QuestionSet
 		var qCount, tCount int
@@ -238,15 +276,6 @@ func (r *QuestionSetRepository) List(ctx context.Context, programID *uuid.UUID, 
 		s.TotalQuestions = qCount
 		s.TracksCount = tCount
 		sets = append(sets, s)
-	}
-
-	// If database question_sets table is empty, auto-seed with pre-configured default question sets
-	if len(sets) == 0 {
-		for _, memSet := range r.memSets {
-			_, _ = r.Create(ctx, memSet)
-		}
-		// Re-fetch after seeding
-		return r.List(ctx, programID, orgID)
 	}
 
 	// Also fetch questions for each set
