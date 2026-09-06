@@ -14,7 +14,6 @@ import {
   Sliders,
   FileText,
   Upload,
-  Sparkles,
   RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -244,11 +243,11 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
     });
   };
 
-  const handleResetToDefault = (type: 'rsa' | 'company') => {
-    const defaultData = type === 'rsa' ? DEFAULT_RSA_SCHEMA : DEFAULT_COMPANY_SCHEMA;
-    if (confirm(`Reset form configuration to ${type === 'rsa' ? 'RSA (Remote Skills Academy)' : 'General Company'} preset?`)) {
+  const handleResetToDefault = () => {
+    const defaultData = program.slug === 'lit2026' ? DEFAULT_RSA_SCHEMA : DEFAULT_COMPANY_SCHEMA;
+    if (confirm('Reset form configuration to default template?')) {
       setSchema(JSON.parse(JSON.stringify(defaultData)));
-      toast.success(`Reset to ${type === 'rsa' ? 'RSA' : 'General Company'} template`);
+      toast.success('Reset form to default template');
     }
   };
 
@@ -304,21 +303,12 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
           </div>
 
           <button
-            onClick={() => handleResetToDefault('company')}
+            onClick={handleResetToDefault}
             className="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
-            title="Reset to clean company default format"
+            title="Reset to default format"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-            <span>Company Default</span>
-          </button>
-
-          <button
-            onClick={() => handleResetToDefault('rsa')}
-            className="px-3.5 py-2 rounded-full border border-purple-200 bg-purple-50/50 hover:bg-purple-100 text-kulkul-purple text-xs font-bold transition flex items-center gap-1.5"
-            title="Reset to RSA LIT 2026 Academic Fellowship preset"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-            <span>RSA LIT Preset</span>
+            <span>Reset to Default</span>
           </button>
 
           <button
