@@ -24,6 +24,7 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
+  FileText,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -1009,8 +1010,59 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Interview Rules & Readiness Guidelines */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-left space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
+                      <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
+                    </div>
+                    <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                      Interview Rules & Guidelines
+                    </h2>
+                  </div>
+                  <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                    Read Before Entering
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
+                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <div>
+                      <strong className="text-slate-800 block mb-0.5">Camera Always On</strong>
+                      <span>Keep your camera active with your face clearly visible and centered in frame throughout.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
+                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <div>
+                      <strong className="text-slate-800 block mb-0.5">Quiet Environment</strong>
+                      <span>Conduct the interview in a quiet, well-lit space without background noise or distractions.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
+                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <div>
+                      <strong className="text-slate-800 block mb-0.5">Authentic Responses</strong>
+                      <span>Speak naturally in your own words. External assistance, scripts, or coaching are not permitted.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
+                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">4</span>
+                    <div>
+                      <strong className="text-slate-800 block mb-0.5">Sequential Questions</strong>
+                      <span>Questions appear one at a time. Once you submit a response, you cannot revisit previous questions.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Enter Interview Button */}
-              <div className="pt-4 border-t border-slate-100">
+              <div className="pt-2 border-t border-slate-100">
                 <button
                   onClick={handleEnterChamber}
                   disabled={!stream && !isDemo}
