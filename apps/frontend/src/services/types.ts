@@ -297,7 +297,7 @@ export interface User {
   organization?: Organization;
   email: string;
   name: string;
-  role: 'superadmin' | 'org_admin' | 'reviewer';
+  role: 'superadmin' | 'org_admin' | 'reviewer' | 'candidate';
 }
 
 export interface AuthResponse {

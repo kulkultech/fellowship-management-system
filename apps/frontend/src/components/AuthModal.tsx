@@ -32,7 +32,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleGoogleSignIn = () => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-    window.location.href = `${apiBase}/auth/oauth/google`;
+    const returnTo = activeTab === 'company' ? '/admin/dashboard' : '/candidate/dashboard';
+    window.location.href = `${apiBase}/auth/oauth/google?return_to=${encodeURIComponent(returnTo)}`;
   };
 
   const handleParticipantContinue = (e: React.FormEvent) => {
