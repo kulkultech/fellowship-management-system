@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -76,6 +77,25 @@ func TestUploadHandler_UploadAndServe(t *testing.T) {
 	}
 	if !bytes.Equal(getW.Body.Bytes(), sampleImage) {
 		t.Errorf("served content mismatch")
+	}
+
+	// Test HTTP 206 Range request (crucial for video streaming & seeking)
+	rangeReq := httptest.NewRequest(http.MethodGet, "/uploads/"+testKey, nil)
+	rangeReq.Header.Set("Range", "bytes=0-3")
+	rangeW := httptest.NewRecorder()
+	r.ServeHTTP(rangeW, rangeReq)
+
+	if rangeW.Code != http.StatusPartialContent {
+		t.Fatalf("expected status 206 Partial Content, got %d", rangeW.Code)
+	}
+	if rangeW.Header().Get("Accept-Ranges") != "bytes" {
+		t.Errorf("expected Accept-Ranges: bytes, got: %s", rangeW.Header().Get("Accept-Ranges"))
+	}
+	if rangeW.Header().Get("Content-Range") != fmt.Sprintf("bytes 0-3/%d", len(sampleImage)) {
+		t.Errorf("unexpected Content-Range header: %s", rangeW.Header().Get("Content-Range"))
+	}
+	if !bytes.Equal(rangeW.Body.Bytes(), sampleImage[0:4]) {
+		t.Errorf("expected first 4 bytes, got %v", rangeW.Body.Bytes())
 	}
 }
 

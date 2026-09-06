@@ -462,6 +462,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     enabled: !!selectedApplicantId,
   });
 
+  // Auto-focus AI Interview tab if applicant completed/invited to AI interview or has no MCQ submission
+  useEffect(() => {
+    if (applicantDetail) {
+      if (
+        (!applicantDetail.submission && applicantDetail.ai_screen) ||
+        applicantDetail.applicant?.current_stage === 'ai_interview_completed' ||
+        applicantDetail.applicant?.current_stage === 'ai_interview_invited'
+      ) {
+        setActiveDrawerTab('ai');
+      }
+    }
+  }, [applicantDetail]);
+
   // Question Sets Mutations
   const createQuestionSetMutation = useMutation({
     mutationFn: (payload: CreateQuestionSetPayload) => adminService.createQuestionSet(payload),
@@ -3518,24 +3531,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               <div className="flex border-b border-slate-200 bg-white px-6">
                 <button
                   onClick={() => setActiveDrawerTab('answers')}
-                  className={`py-3 px-4 text-xs font-bold border-b-2 transition ${
+                  className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 ${
                     activeDrawerTab === 'answers'
                       ? 'border-kulkul-purple text-kulkul-purple'
                       : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  MCQ Answer Sheet
+                  <span>MCQ Answer Sheet</span>
+                  {applicantDetail?.submission && (
+                    <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-purple-100 text-purple-700">
+                      {applicantDetail.submission.total_score}%
+                    </span>
+                  )}
                 </button>
 
                 <button
                   onClick={() => setActiveDrawerTab('ai')}
-                  className={`py-3 px-4 text-xs font-bold border-b-2 transition ${
+                  className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 ${
                     activeDrawerTab === 'ai'
                       ? 'border-kulkul-purple text-kulkul-purple'
                       : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  AI Interview Transcript & Summary
+                  <span>AI Interview Assessment</span>
+                  {applicantDetail?.ai_screen?.recording_url && (
+                    <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Video
+                    </span>
+                  )}
+                  {applicantDetail?.ai_screen && applicantDetail.ai_screen.scorecard_score > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-purple-100 text-purple-700">
+                      {applicantDetail.ai_screen.scorecard_score}/100
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -3661,26 +3690,41 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                         {applicantDetail.ai_screen.recording_url ? (
                           <div className="space-y-3">
-                            <div className="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800">
+                            <div className="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 relative group">
                               <video
                                 src={applicantDetail.ai_screen.recording_url}
                                 controls
                                 playsInline
+                                preload="metadata"
                                 className="w-full h-full object-contain"
                               />
                             </div>
-                            <div className="flex items-center justify-between text-2xs text-slate-400 pt-1">
-                              <span>Playback Speed: 1.0x (controls available in player)</span>
-                              <a
-                                href={applicantDetail.ai_screen.recording_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                download
-                                className="inline-flex items-center gap-1.5 text-purple-400 hover:text-purple-300 font-semibold"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Download Recording</span>
-                              </a>
+                            <div className="flex items-center justify-between text-2xs text-slate-400 pt-1 flex-wrap gap-2">
+                              <span className="flex items-center gap-1.5 text-slate-400">
+                                <Video className="w-3.5 h-3.5 text-purple-400" />
+                                <span>HTML5 Range-Streamed Assessment Video</span>
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <a
+                                  href={applicantDetail.ai_screen.recording_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white font-semibold transition"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  <span>Open in New Tab</span>
+                                </a>
+                                <a
+                                  href={applicantDetail.ai_screen.recording_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download
+                                  className="inline-flex items-center gap-1.5 text-purple-400 hover:text-purple-300 font-semibold transition"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download Video</span>
+                                </a>
+                              </div>
                             </div>
                           </div>
                         ) : (

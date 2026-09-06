@@ -1,13 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -181,7 +182,7 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rc, contentType, size, err := h.storage.Get(r.Context(), key)
+	rc, contentType, _, err := h.storage.Get(r.Context(), key)
 	if err != nil {
 		h.logger.Warn("media not found", slog.String("key", key), slog.Any("error", err))
 		httpx.Error(w, http.StatusNotFound, "media file not found")
@@ -214,14 +215,21 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
-	if size > 0 {
-		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-	}
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Accept-Ranges", "bytes")
 
-	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, rc); err != nil {
-		h.logger.Debug("streaming media ended", slog.Any("error", err))
+	var seeker io.ReadSeeker
+	if s, ok := rc.(io.ReadSeeker); ok {
+		seeker = s
+	} else {
+		data, err := io.ReadAll(rc)
+		if err != nil {
+			h.logger.Error("failed to read media stream for range serving", slog.Any("error", err))
+			httpx.Error(w, http.StatusInternalServerError, "failed to read media")
+			return
+		}
+		seeker = bytes.NewReader(data)
 	}
+
+	http.ServeContent(w, r, filepath.Base(key), time.Time{}, seeker)
 }

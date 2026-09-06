@@ -52,23 +52,23 @@ func (s *R2Storage) Upload(ctx context.Context, key string, r io.Reader, size in
 		contentType = "application/octet-stream"
 	}
 
-	var bodyReader io.Reader = r
-	var contentLength int64 = size
+	var bodyBytes []byte
+	buf := &bytes.Buffer{}
+	n, err := io.Copy(buf, r)
+	if err != nil {
+		return "", fmt.Errorf("storage/r2: buffer stream: %w", err)
+	}
+	bodyBytes = buf.Bytes()
+	contentLength := n
 
-	// If size is unknown, buffer it into memory to determine Content-Length
-	if contentLength <= 0 {
-		buf := &bytes.Buffer{}
-		n, err := io.Copy(buf, r)
-		if err != nil {
-			return "", fmt.Errorf("storage/r2: buffer stream: %w", err)
-		}
-		bodyReader = buf
-		contentLength = n
+	// Mirror to local storage for zero-latency seeking and fast playback
+	if s.localFallback != nil {
+		_, _ = s.localFallback.Upload(ctx, cleanKey, bytes.NewReader(bodyBytes), contentLength, contentType)
 	}
 
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/r2/buckets/%s/objects/%s", s.accountID, s.bucket, cleanKey)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("storage/r2: create put request: %w", err)
 	}
@@ -95,6 +95,14 @@ func (s *R2Storage) Get(ctx context.Context, key string) (io.ReadCloser, string,
 	cleanKey := strings.TrimPrefix(key, "/")
 	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
 
+	// Check local fallback first for instant disk access and native io.ReadSeeker
+	if s.localFallback != nil {
+		rc, cType, cLen, localErr := s.localFallback.Get(ctx, cleanKey)
+		if localErr == nil {
+			return rc, cType, cLen, nil
+		}
+	}
+
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/r2/buckets/%s/objects/%s", s.accountID, s.bucket, cleanKey)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -114,18 +122,19 @@ func (s *R2Storage) Get(ctx context.Context, key string) (io.ReadCloser, string,
 		if contentType == "" {
 			contentType = "application/octet-stream"
 		}
+		// Cache locally if local fallback is enabled
+		if s.localFallback != nil {
+			data, readErr := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if readErr == nil {
+				_, _ = s.localFallback.Upload(ctx, cleanKey, bytes.NewReader(data), int64(len(data)), contentType)
+				return io.NopCloser(bytes.NewReader(data)), contentType, int64(len(data)), nil
+			}
+		}
 		return resp.Body, contentType, resp.ContentLength, nil
 	}
 
 	_ = resp.Body.Close()
-
-	// If not found on R2, check local fallback
-	if s.localFallback != nil {
-		rc, cType, cLen, localErr := s.localFallback.Get(ctx, cleanKey)
-		if localErr == nil {
-			return rc, cType, cLen, nil
-		}
-	}
 
 	return nil, "", 0, fmt.Errorf("storage/r2: object not found (status %d)", resp.StatusCode)
 }

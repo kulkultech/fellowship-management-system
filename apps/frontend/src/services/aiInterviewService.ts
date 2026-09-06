@@ -39,7 +39,9 @@ export const aiInterviewService = {
       return data;
     }
     const formData = new FormData();
-    formData.append('video', video, 'interview_recording.webm');
+    const isMp4 = video.type && video.type.includes('mp4');
+    const filename = isMp4 ? 'interview_recording.mp4' : 'interview_recording.webm';
+    formData.append('video', video, filename);
     const { data } = await apiClient.post<SaveRecordingResult>(`/interviews/${inviteToken}/recording`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
