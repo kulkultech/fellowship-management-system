@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiInterviewService } from '@/services/aiInterviewService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { AssessmentAccessGuard } from '@/components/AssessmentAccessGuard';
 import {
   Video,
   VideoOff,
@@ -855,7 +856,14 @@ export const InterviewPage: React.FC = () => {
   const currentQ = questions[currentQIndex];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
+    <AssessmentAccessGuard
+      requiredEmail={session.applicant_email}
+      candidateName={session.applicant_name}
+      assessmentType="ai_interview"
+      programName={session.program_name}
+      trackName={session.track_name}
+    >
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       <Navbar />
 
       {/* STAGE 1: LOBBY & PRE-FLIGHT DIAGNOSTICS */}
@@ -1563,5 +1571,6 @@ export const InterviewPage: React.FC = () => {
 
       <Footer />
     </div>
+    </AssessmentAccessGuard>
   );
 };

@@ -13,6 +13,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Footer } from '@/components/Footer';
+import { AssessmentAccessGuard } from '@/components/AssessmentAccessGuard';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import toast from 'react-hot-toast';
 
@@ -227,7 +228,14 @@ export const TestPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/60 flex flex-col">
+    <AssessmentAccessGuard
+      requiredEmail={testSession.candidate_email}
+      candidateName={testSession.candidate_name}
+      assessmentType="logic_test"
+      programName={testSession.program_name}
+      trackName={testSession.track_name}
+    >
+      <div className="min-h-screen bg-slate-50/60 flex flex-col">
       {/* Sticky Top Assessment Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
         <div className="w-full px-4 sm:px-8 lg:px-12">
@@ -403,5 +411,6 @@ export const TestPage: React.FC = () => {
       </main>
       <Footer />
     </div>
+    </AssessmentAccessGuard>
   );
 };

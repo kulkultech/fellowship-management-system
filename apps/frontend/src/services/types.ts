@@ -171,6 +171,8 @@ export interface ClientQuestion {
 
 export interface TestSession {
   submission_id: string;
+  candidate_email?: string;
+  candidate_name?: string;
   program_name: string;
   track_name?: string;
   duration_minutes: number;
@@ -199,6 +201,7 @@ export interface SubmitTestResponse {
 export interface TestResultResponse {
   submission_id: string;
   applicant_name: string;
+  candidate_email?: string;
   program_name: string;
   track_name?: string;
   total_score: number;
@@ -279,6 +282,7 @@ export interface EvaluationSummary {
 export interface AIInterviewSession {
   interview_id: string;
   applicant_name: string;
+  applicant_email?: string;
   program_name: string;
   track_name?: string;
   status: 'invited' | 'in_progress' | 'completed' | 'expired';

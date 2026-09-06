@@ -58,6 +58,8 @@ func NewTestHandler(
 
 type TestSessionResponse struct {
 	SubmissionID     string                 `json:"submission_id"`
+	CandidateEmail   string                 `json:"candidate_email"`
+	CandidateName    string                 `json:"candidate_name,omitempty"`
 	ProgramName      string                 `json:"program_name"`
 	TrackName        string                 `json:"track_name,omitempty"`
 	DurationMinutes  int                    `json:"duration_minutes"`
@@ -79,6 +81,13 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 		}
 		httpx.Error(w, http.StatusInternalServerError, "failed to fetch test session")
 		return
+	}
+
+	candidateEmail := ""
+	candidateName := ""
+	if applicant, err := h.applicantRepo.GetByID(r.Context(), submission.ApplicantID); err == nil && applicant != nil {
+		candidateEmail = applicant.Email
+		candidateName = applicant.FullName
 	}
 
 	program, err := h.programRepo.GetByID(r.Context(), submission.ProgramID)
@@ -155,6 +164,8 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusOK, TestSessionResponse{
 		SubmissionID:     submission.ID.String(),
+		CandidateEmail:   candidateEmail,
+		CandidateName:    candidateName,
 		ProgramName:      displayName,
 		TrackName:        trackName,
 		DurationMinutes:  durationMinutes,
@@ -374,6 +385,7 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 type TestResultResponse struct {
 	SubmissionID           string     `json:"submission_id"`
 	ApplicantName          string     `json:"applicant_name"`
+	CandidateEmail         string     `json:"candidate_email,omitempty"`
 	ProgramName            string     `json:"program_name"`
 	TrackName              string     `json:"track_name,omitempty"`
 	TotalScore             int        `json:"total_score"`
@@ -437,6 +449,7 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, TestResultResponse{
 		SubmissionID:           submission.ID.String(),
 		ApplicantName:          applicant.FullName,
+		CandidateEmail:         applicant.Email,
 		ProgramName:            program.Name,
 		TrackName:              trackName,
 		TotalScore:             submission.TotalScore,

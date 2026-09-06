@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { testService } from '@/services/testService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { AssessmentAccessGuard } from '@/components/AssessmentAccessGuard';
 import {
   CheckCircle2,
   XCircle,
@@ -57,7 +58,14 @@ export const ResultPage: React.FC = () => {
   const isPassed = result.passed;
 
   return (
-    <div className="min-h-screen bg-slate-50/60 flex flex-col">
+    <AssessmentAccessGuard
+      requiredEmail={result.candidate_email}
+      candidateName={result.applicant_name}
+      assessmentType="logic_test"
+      programName={result.program_name}
+      trackName={result.track_name}
+    >
+      <div className="min-h-screen bg-slate-50/60 flex flex-col">
       <Navbar />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
@@ -167,5 +175,6 @@ export const ResultPage: React.FC = () => {
       </main>
       <Footer />
     </div>
+    </AssessmentAccessGuard>
   );
 };

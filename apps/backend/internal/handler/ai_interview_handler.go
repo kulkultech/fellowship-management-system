@@ -51,6 +51,7 @@ func NewAIInterviewHandler(
 type AIInterviewSessionResponse struct {
 	InterviewID         string                   `json:"interview_id"`
 	ApplicantName       string                   `json:"applicant_name"`
+	ApplicantEmail      string                   `json:"applicant_email,omitempty"`
 	ProgramName         string                   `json:"program_name"`
 	TrackName           string                   `json:"track_name,omitempty"`
 	Status              model.AIInterviewStatus  `json:"status"`
@@ -146,10 +147,14 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 	}
 
 	applicantName := "KulKul Reviewer"
+	applicantEmail := ""
 	if aiSession.ApplicantID != uuid.Nil {
 		applicant, err := h.applicantRepo.GetByID(r.Context(), aiSession.ApplicantID)
-		if err == nil && applicant != nil && applicant.FullName != "" {
-			applicantName = applicant.FullName
+		if err == nil && applicant != nil {
+			if applicant.FullName != "" {
+				applicantName = applicant.FullName
+			}
+			applicantEmail = applicant.Email
 		}
 	}
 
@@ -204,6 +209,7 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 	httpx.JSON(w, http.StatusOK, AIInterviewSessionResponse{
 		InterviewID:         aiSession.ID.String(),
 		ApplicantName:       applicantName,
+		ApplicantEmail:      applicantEmail,
 		ProgramName:         displayName,
 		TrackName:           trackName,
 		Status:              aiSession.Status,

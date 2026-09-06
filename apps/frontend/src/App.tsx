@@ -69,7 +69,10 @@ export function App() {
           {/* Candidate Funnel: RSA - LIT 2026 & Generic AI Interview */}
           <Route path="/lit2026/apply" element={<ApplyPage />} />
           <Route path="/lit2026/test/:testToken" element={<TestPage />} />
+          <Route path="/test/:testToken" element={<TestPage />} />
+          <Route path="/tests/:testToken" element={<TestPage />} />
           <Route path="/lit2026/result/:testToken" element={<ResultPage />} />
+          <Route path="/result/:testToken" element={<ResultPage />} />
           <Route path="/lit2026/interview/:inviteToken" element={<InterviewPage />} />
           <Route path="/interview/:inviteToken" element={<InterviewPage />} />
           <Route path="/interviews/:inviteToken" element={<InterviewPage />} />
