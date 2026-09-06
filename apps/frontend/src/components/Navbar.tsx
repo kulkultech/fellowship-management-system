@@ -9,11 +9,13 @@ interface NavbarProps {
   subtitle?: string;
   showAdminNav?: boolean;
   showNavLinks?: boolean;
+  hideAdminButton?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   showAdminNav = false,
   showNavLinks = false,
+  hideAdminButton = false,
 }) => {
   const { logout, isLoading: isAuthLoading } = useAuth();
   const { user, isAuthenticated } = useAuthStore();
@@ -107,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>My Dashboard</span>
               </Link>
 
-              {(user.role === 'org_admin' || user.role === 'superadmin') && (
+              {!hideAdminButton && (user.role === 'org_admin' || user.role === 'superadmin') && (
                 <Link
                   to={user.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard'}
                   className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold text-slate-600 hover:text-kulkul-purple hover:bg-slate-100 transition"

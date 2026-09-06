@@ -268,12 +268,14 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			}
 			return u, nil
 		}
-		orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-		var userOrgID *uuid.UUID = &orgID
-		role := "org_admin"
+		role := "candidate"
+		var userOrgID *uuid.UUID = nil
 		if isSuperadmin {
 			role = "superadmin"
-			userOrgID = nil
+		} else if isRSA {
+			orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+			userOrgID = &orgID
+			role = "org_admin"
 		}
 		u := &model.User{
 			ID:             uuid.New(),
@@ -296,50 +298,42 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'superadmin', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
 			u.Role = "superadmin"
 			u.OrganizationID = nil
+		} else if !isSuperadmin && !isRSA {
+			// Ensure candidates are not mistakenly marked as org_admin of RSA
+			var isApprovedCompanyAdmin bool
+			if u.OrganizationID != nil {
+				_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1 AND slug <> 'rsa')", u.OrganizationID).Scan(&isApprovedCompanyAdmin)
+			}
+			if !isApprovedCompanyAdmin && u.Role != "candidate" {
+				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'candidate', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
+				u.Role = "candidate"
+				u.OrganizationID = nil
+			}
 		}
 		return u, nil
 	}
 
-	// 2. Resolve organization based on domain or RSA default
+	// 2. Resolve organization based on domain or approved company
 	var orgID *uuid.UUID
 	var foundID uuid.UUID
+	role := "candidate"
 
-	if isRSA {
+	if isSuperadmin {
+		role = "superadmin"
+		orgID = nil
+	} else if isRSA {
+		role = "org_admin"
 		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
 		}
-	} else if !isSuperadmin {
+	} else {
 		// Check if email domain matches any registered and approved organization's contact_email
 		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
+			role = "org_admin"
 		}
-	}
-
-	// Fallback to RSA if no specific org was resolved and not superadmin
-	if orgID == nil && !isSuperadmin {
-		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
-		if err == nil {
-			orgID = &foundID
-		} else {
-			// Auto-seed default RSA organization
-			err = r.pool.QueryRow(ctx, `
-				INSERT INTO organizations (slug, name, logo_url, status, contact_email, created_at, updated_at)
-				VALUES ('rsa', 'Remote Skills Academy', '', 'approved', 'contact@rsa.org', now(), now())
-				ON CONFLICT (slug) DO UPDATE SET logo_url = '', updated_at = now()
-				RETURNING id
-			`).Scan(&foundID)
-			if err == nil {
-				orgID = &foundID
-			}
-		}
-	}
-
-	role := "org_admin"
-	if isSuperadmin {
-		role = "superadmin"
-		orgID = nil
 	}
 
 	// 3. Atomically upsert user

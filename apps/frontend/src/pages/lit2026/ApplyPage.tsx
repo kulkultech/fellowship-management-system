@@ -353,7 +353,7 @@ export const ApplyPage: React.FC = () => {
   if (isAuthLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-        <Navbar />
+        <Navbar hideAdminButton={true} />
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="text-center">
             <div className="w-10 h-10 border-4 border-kulkul-purple/30 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
@@ -369,7 +369,7 @@ export const ApplyPage: React.FC = () => {
   if (!user?.email) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-        <Navbar />
+        <Navbar hideAdminButton={true} />
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-xl w-full">
@@ -473,7 +473,7 @@ export const ApplyPage: React.FC = () => {
   if (isSubmitted && submittedData) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
-        <Navbar />
+        <Navbar hideAdminButton={true} />
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
@@ -554,7 +554,7 @@ export const ApplyPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
+      <Navbar hideAdminButton={true} />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-2xl w-full">
