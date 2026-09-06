@@ -5,12 +5,10 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import {
   ShieldAlert,
-  Lock,
   Mail,
   UserX,
   ArrowRight,
   LogOut,
-  GraduationCap,
   Sparkles,
 } from 'lucide-react';
 
@@ -25,10 +23,7 @@ interface AssessmentAccessGuardProps {
 
 export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
   requiredEmail,
-  candidateName,
   assessmentType,
-  programName,
-  trackName,
   children,
 }) => {
   const { user, isLoading: isAuthLoading, logout } = useAuth();
@@ -85,12 +80,8 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-md w-full">
             <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
-              {/* Header Badge & Title */}
+              {/* Title & Description */}
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-xs font-extrabold uppercase tracking-wide">
-                  <Lock className="w-4 h-4 text-kulkul-orange" />
-                  <span>Candidate Sign-In Required</span>
-                </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Sign In to Continue
                 </h1>
@@ -98,24 +89,6 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
                   This {assessmentLabel.toLowerCase()} is private and reserved for invited applicants. Please sign in with your verified Google account to verify your identity.
                 </p>
               </div>
-
-              {/* Context Pill */}
-              {(programName || trackName) && (
-                <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-2xl text-left space-y-1">
-                  <div className="flex items-center gap-2 text-2xs font-bold uppercase tracking-wider text-kulkul-purple">
-                    <GraduationCap className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Assessment Program</span>
-                  </div>
-                  <p className="text-xs font-extrabold text-slate-800 truncate">
-                    {programName} {trackName ? `• ${trackName}` : ''}
-                  </p>
-                  {candidateName && (
-                    <p className="text-2xs text-slate-500">
-                      Invited Candidate: <span className="font-bold text-slate-700">{candidateName}</span>
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* Primary Sign In Button */}
               <div>
