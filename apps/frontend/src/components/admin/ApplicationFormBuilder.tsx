@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Eye,
   Settings,
-  HelpCircle,
   Sliders,
   FileText,
   Upload,
@@ -323,10 +322,8 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
       </div>
 
       {activeTab === 'editor' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Column: Standard Fields & Custom Questions */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Section: General Header & Copy */}
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Section: General Header & Copy */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                 <Settings className="w-4 h-4 text-kulkul-purple" />
@@ -726,49 +723,6 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Right Column: Schema Overview & Instructions */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
-              <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-kulkul-purple" />
-                Form Configuration Guide
-              </h3>
-
-              <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
-                <p>
-                  <strong>Multi-Company Isolation:</strong> Each company in the platform maintains its own bespoke application form. Updates here only affect candidates applying to <strong>{program.name}</strong>.
-                </p>
-                <p>
-                  <strong>RSA LIT 2026:</strong> If you are managing Remote Skills Academy, the academic fields (University, Major, Semester, Referral Source) match the fellowship requirements.
-                </p>
-                <p>
-                  <strong>Reviewer Dashboard:</strong> All answers submitted to custom questions will be instantly rendered in the reviewer dashboard under the candidate's profile drawer.
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100">
-                <span className="text-2xs font-extrabold uppercase text-slate-400 block mb-2">
-                  Form Summary
-                </span>
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Standard Fields:</span>
-                    <span className="font-bold text-slate-900">
-                      {Object.values(schema.fields || {}).filter((f) => f.enabled).length} Enabled
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Custom Questions:</span>
-                    <span className="font-bold text-kulkul-purple">
-                      {schema.custom_fields?.length || 0} Questions
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         /* Live Preview Tab */
