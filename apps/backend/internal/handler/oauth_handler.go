@@ -169,17 +169,25 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isCandidate := true
+	if strings.Contains(returnTo, "register-company") ||
+		strings.Contains(returnTo, "company") ||
+		strings.Contains(returnTo, "admin") ||
+		strings.Contains(returnTo, "superadmin") {
+		isCandidate = false
+	}
+
 	var profile auth.GoogleProfile
 	if code == "mock_dev_code" || h.google == nil {
 		// Mock profile for local development without active GCP OAuth Client secret
-		mockEmail := "admin@rsa.org"
-		mockName := "RSA Reviewer Admin"
+		mockEmail := "candidate@example.com"
+		mockName := "Sample Candidate"
 		if strings.Contains(returnTo, "register-company") || strings.Contains(returnTo, "company") {
 			mockEmail = "hr.partner@innovatech.io"
 			mockName = "Innovatech Talent Lead"
-		} else if strings.Contains(returnTo, "candidate") || strings.Contains(returnTo, "apply") || strings.Contains(returnTo, "lit2026") || strings.Contains(returnTo, "programs") {
-			mockEmail = "candidate@example.com"
-			mockName = "Sample Candidate"
+		} else if strings.Contains(returnTo, "admin") || strings.Contains(returnTo, "superadmin") {
+			mockEmail = "admin@rsa.org"
+			mockName = "RSA Reviewer Admin"
 		}
 		profile = auth.GoogleProfile{
 			Sub:   "1092837465928374",
@@ -200,6 +208,7 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		ProviderUserID: profile.Sub,
 		Email:          profile.Email,
 		Name:           profile.Name,
+		IsCandidate:    isCandidate,
 	})
 	if err != nil {
 		h.logger.Error("oauth user resolve failed", slog.Any("error", err), slog.String("email", profile.Email))
@@ -230,6 +239,8 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		redirectURL = returnTo
 	} else if user.Role == "superadmin" && strings.Contains(h.successURL, "/admin/dashboard") {
 		redirectURL = strings.Replace(h.successURL, "/admin/dashboard", "/superadmin/dashboard", 1)
+	} else if user.Role == "candidate" {
+		redirectURL = "/candidate/dashboard"
 	}
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }

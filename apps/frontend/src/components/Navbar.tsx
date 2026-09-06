@@ -15,6 +15,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   showAdminNav = false,
   showNavLinks = false,
+  hideAdminButton = false,
 }) => {
   const { logout, isLoading: isAuthLoading } = useAuth();
   const { user, isAuthenticated } = useAuthStore();
@@ -100,29 +101,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             /* Candidate or Authenticated User on Public / Interview / Test / Candidate Pages */
             <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
               {/* Role-Aware Dashboard Link */}
-              <Link
-                to={
-                  user.role === 'superadmin'
-                    ? '/superadmin/dashboard'
-                    : user.role === 'org_admin'
-                    ? '/admin/dashboard'
-                    : '/candidate/dashboard'
-                }
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs transition active:scale-[0.98]"
-              >
-                {user.role === 'candidate' ? (
-                  <User className="w-4 h-4 text-kulkul-orange" />
-                ) : (
-                  <Building2 className="w-4 h-4 text-kulkul-orange" />
-                )}
-                <span>
-                  {user.role === 'superadmin'
-                    ? 'Admin Workspace'
-                    : user.role === 'org_admin'
-                    ? 'Company Portal'
-                    : 'My Dashboard'}
-                </span>
-              </Link>
+              {(!hideAdminButton || user.role === 'candidate') && (
+                <Link
+                  to={
+                    user.role === 'superadmin'
+                      ? '/superadmin/dashboard'
+                      : user.role === 'org_admin'
+                      ? '/admin/dashboard'
+                      : '/candidate/dashboard'
+                  }
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs transition active:scale-[0.98]"
+                >
+                  {user.role === 'candidate' ? (
+                    <User className="w-4 h-4 text-kulkul-orange" />
+                  ) : (
+                    <Building2 className="w-4 h-4 text-kulkul-orange" />
+                  )}
+                  <span>
+                    {user.role === 'superadmin'
+                      ? 'Admin Workspace'
+                      : user.role === 'org_admin'
+                      ? 'Company Portal'
+                      : 'My Dashboard'}
+                  </span>
+                </Link>
+              )}
 
               {/* User Identity Pill */}
               <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">

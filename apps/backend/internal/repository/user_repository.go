@@ -195,6 +195,29 @@ type OAuthIdentity struct {
 	ProviderUserID string // Google "sub" claim
 	Email          string
 	Name           string
+	IsCandidate    bool   // True if the OAuth flow was initiated from candidate pages/forms
+}
+
+func isPublicEmailDomain(domain string) bool {
+	publicDomains := map[string]bool{
+		"gmail.com":      true,
+		"googlemail.com": true,
+		"yahoo.com":      true,
+		"ymail.com":      true,
+		"hotmail.com":    true,
+		"outlook.com":    true,
+		"live.com":       true,
+		"msn.com":        true,
+		"icloud.com":     true,
+		"me.com":         true,
+		"mac.com":        true,
+		"aol.com":        true,
+		"proton.me":      true,
+		"protonmail.com": true,
+		"mail.com":       true,
+		"zoho.com":       true,
+	}
+	return publicDomains[strings.ToLower(strings.TrimSpace(domain))]
 }
 
 func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdentity) (*model.User, error) {
@@ -265,6 +288,9 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			if isSuperadmin && u.Role != "superadmin" {
 				u.Role = "superadmin"
 				u.OrganizationID = nil
+			} else if id.IsCandidate && !isSuperadmin {
+				u.Role = "candidate"
+				u.OrganizationID = nil
 			}
 			return u, nil
 		}
@@ -272,7 +298,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		var userOrgID *uuid.UUID = nil
 		if isSuperadmin {
 			role = "superadmin"
-		} else if isRSA {
+		} else if !id.IsCandidate && isRSA {
 			orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 			userOrgID = &orgID
 			role = "org_admin"
@@ -298,6 +324,13 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'superadmin', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
 			u.Role = "superadmin"
 			u.OrganizationID = nil
+		} else if id.IsCandidate && !isSuperadmin {
+			// Explicit Candidate login: ensure role is candidate
+			if u.Role != "candidate" || u.OrganizationID != nil {
+				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'candidate', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
+				u.Role = "candidate"
+				u.OrganizationID = nil
+			}
 		} else if !isSuperadmin && !isRSA {
 			// Ensure candidates are not mistakenly marked as org_admin of RSA
 			var isApprovedCompanyAdmin bool
@@ -321,14 +354,18 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	if isSuperadmin {
 		role = "superadmin"
 		orgID = nil
+	} else if id.IsCandidate {
+		// Candidate signups are strictly candidates without an organization
+		role = "candidate"
+		orgID = nil
 	} else if isRSA {
 		role = "org_admin"
 		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
 		}
-	} else {
-		// Check if email domain matches any registered and approved organization's contact_email
+	} else if !isPublicEmailDomain(domain) {
+		// Only corporate custom domains (non-public webmail) can match an approved organization's domain
 		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
@@ -342,7 +379,8 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		VALUES ($1, $2, '', $3, $4, now(), now())
 		ON CONFLICT (email) DO UPDATE SET
 			name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END,
-			role = CASE WHEN EXCLUDED.role = 'superadmin' THEN 'superadmin' ELSE users.role END,
+			role = EXCLUDED.role,
+			organization_id = EXCLUDED.organization_id,
 			updated_at = now()
 		RETURNING id, organization_id, email, password_hash, name, role, created_at, updated_at
 	`

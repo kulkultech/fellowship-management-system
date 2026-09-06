@@ -203,6 +203,30 @@ export const CandidateDashboardPage: React.FC = () => {
       onNavChange={(id) => setActiveTab(id as any)}
     >
       <div className="space-y-8">
+        {/* Admin Session Notice Banner */}
+        {authUser?.role && authUser.role !== 'candidate' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">
+                  Administrative Session Active ({authUser.role})
+                </h4>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  You are signed in as <strong>{authUser.email}</strong>. If you want to test or experience the portal as a candidate, please switch to a candidate account.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="shrink-0 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-full font-bold text-xs shadow-sm transition active:scale-[0.98]"
+            >
+              Sign Out & Switch to Candidate
+            </button>
+          </div>
+        )}
           {/* ========================================================================= */}
           {/* TAB 1: MY APPLICATIONS */}
           {/* ========================================================================= */}
