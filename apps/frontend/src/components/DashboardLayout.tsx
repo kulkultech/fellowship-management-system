@@ -10,7 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { useAuthStore } from '@/hooks/useAuthStore';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface SubChildNavItem {
   id: string;
@@ -77,7 +77,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
-  const { user, logout } = useAuthStore();
+  const { user, logout: authLogout } = useAuth();
   const navigate = useNavigate();
 
   const toggleExpand = (id: string, defaultExpanded: boolean) => {
@@ -90,16 +90,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     });
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     if (portalType === 'candidate') {
       if (onCandidateSignOut) {
-        onCandidateSignOut();
+        await onCandidateSignOut();
       } else {
         localStorage.removeItem('candidate_email');
+        try {
+          await authLogout();
+        } catch {
+          // ignore
+        }
         navigate('/');
       }
     } else {
-      logout();
+      try {
+        await authLogout();
+      } catch (err) {
+        console.error('Sign out error:', err);
+      }
       navigate('/admin/login');
     }
   };

@@ -1,9 +1,23 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { useAuth } from '@/hooks/useAuth';
 
 export const LoginPage: React.FC = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      if (user.role === 'superadmin') {
+        navigate('/superadmin/dashboard', { replace: true });
+      } else if (user.role === 'org_admin' || user.role === 'reviewer') {
+        navigate('/admin/dashboard', { replace: true });
+      }
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
+
   const handleGoogleSignIn = () => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
     window.location.href = `${apiBase}/auth/oauth/google?return_to=/admin/dashboard`;
@@ -11,7 +25,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
+      <Navbar hideAdminButton />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">

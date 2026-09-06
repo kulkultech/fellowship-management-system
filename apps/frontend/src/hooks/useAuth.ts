@@ -32,10 +32,19 @@ export function useAuth() {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: () => authService.logout(),
-    onSuccess: () => {
+    mutationFn: async () => {
+      try {
+        await authService.logout();
+      } catch (err) {
+        console.warn('Backend logout call failed, clearing local auth state anyway:', err);
+      }
+    },
+    onSettled: () => {
       clearAuth();
+      queryClient.setQueryData(['auth', 'me'], null);
+      queryClient.removeQueries({ queryKey: ['auth'] });
       queryClient.clear();
+      localStorage.removeItem('candidate_email');
     },
   });
 
