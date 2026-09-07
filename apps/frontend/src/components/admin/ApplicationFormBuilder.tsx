@@ -262,16 +262,10 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Application Form Builder</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-2xs font-extrabold uppercase tracking-wider bg-purple-100 text-kulkul-purple">
-                {program.name}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Customize candidate intake fields and custom questionnaire for this program.
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-purple-100 text-kulkul-purple">
+              {program.name}
+            </span>
           </div>
         </div>
 

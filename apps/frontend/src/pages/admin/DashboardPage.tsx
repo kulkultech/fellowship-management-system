@@ -1224,12 +1224,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       subtitle={
         currentView === 'create_program'
           ? 'Set up a new fellowship or cohort with specialization tracks, screening modules, and candidate assessments.'
-          : currentView === 'questions'
-          ? 'Configure timed domain multiple choice questions, passing score benchmarks, and scorecard explanations.'
           : currentView === 'stages'
           ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
-          : currentView === 'form_builder'
-          ? 'Configure standard candidate intake fields and custom questionnaire for this program.'
           : undefined
       }
       companyName={orgProfile?.name || user?.organization?.name || 'Remote Skills Academy'}
@@ -1942,15 +1938,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <HelpCircle className="w-5 h-5 text-kulkul-purple" />
                       <span>Assessment Question Banks</span>
                     </h2>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Create and manage reusable sets of MCQ questions. Click any set to inspect and edit its questions.
-                    </p>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
-                      {allQuestionSets.length} {allQuestionSets.length === 1 ? 'Question Set' : 'Question Sets'}
-                    </span>
                     <button
                       type="button"
                       onClick={() => setIsCreateQuestionSetModalOpen(true)}
