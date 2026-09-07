@@ -403,16 +403,10 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                     <div key={key} className="p-4 bg-white hover:bg-slate-50/50 transition">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                            {cfg.enabled && (
-                              <span
-                                className={`text-3xs font-extrabold px-2 py-0.5 rounded-full ${
-                                  cfg.required ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {cfg.required ? 'Mandatory' : 'Optional'}
-                              </span>
+                            {cfg.enabled && cfg.required && (
+                              <span className="text-rose-500 font-bold text-sm leading-none" title="Required">*</span>
                             )}
                           </div>
                           <p className="text-3xs text-slate-400 mt-0.5">{meta.description}</p>
@@ -568,9 +562,14 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                       className="p-5 rounded-2xl border border-slate-200 bg-slate-50/40 space-y-4 transition hover:border-slate-300"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-2xs font-extrabold uppercase text-kulkul-purple bg-purple-100/70 px-2 py-0.5 rounded-md">
-                          Question #{idx + 1}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-2xs font-extrabold uppercase text-kulkul-purple bg-purple-100/70 px-2 py-0.5 rounded-md">
+                            Question #{idx + 1}
+                          </span>
+                          {field.required && (
+                            <span className="text-rose-500 font-bold text-sm leading-none" title="Required">*</span>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-3">
                           <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700">
