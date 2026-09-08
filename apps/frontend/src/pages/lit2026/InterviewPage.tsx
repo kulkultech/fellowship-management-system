@@ -1427,7 +1427,7 @@ export const InterviewPage: React.FC = () => {
                 className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2 text-xs cursor-pointer border border-amber-300"
               >
                 <Volume2 className="w-4 h-4" />
-                <span>Tap here to enable AI Interviewer Voice (Cloudflare Neural)</span>
+                <span>Tap here to enable AI Interviewer Voice</span>
               </button>
             </div>
           )}
@@ -1522,8 +1522,8 @@ export const InterviewPage: React.FC = () => {
 
           {/* Main Dual-Column Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-stretch min-h-[580px]">
-            {/* LEFT COLUMN: Candidate Live Studio Feed (5 cols) */}
-            <div className="lg:col-span-5 stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+            {/* LEFT COLUMN: Candidate Live Studio Feed (Bigger Video: 7 cols on lg, 8 cols on xl) */}
+            <div className="lg:col-span-7 xl:col-span-8 stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
               <div className="flex-1 flex flex-col justify-center">
                 {/* Live Camera Viewport */}
                 <div className="relative aspect-video w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
@@ -1652,8 +1652,8 @@ export const InterviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Real-Time Clean Chat Stream (7 cols) */}
-            <div className="lg:col-span-7 stitch-card bg-white border border-slate-200/90 rounded-3xl shadow-2xs flex flex-col h-[600px] overflow-hidden">
+            {/* RIGHT COLUMN: Real-Time Clean Chat Stream (Smaller Chat: 5 cols on lg, 4 cols on xl) */}
+            <div className="lg:col-span-5 xl:col-span-4 stitch-card bg-white border border-slate-200/90 rounded-3xl shadow-2xs flex flex-col h-[560px] lg:h-auto overflow-hidden">
               {/* Clean Chat Header */}
               <div className="p-3.5 sm:p-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -1694,7 +1694,7 @@ export const InterviewPage: React.FC = () => {
               </div>
 
               {/* Chat Messages Stream */}
-              <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5">
                 {chatMessages.map((msg) => {
                   const isAi = msg.sender === 'ai';
                   return (
@@ -1705,7 +1705,7 @@ export const InterviewPage: React.FC = () => {
                         </div>
                       )}
 
-                      <div className={`max-w-[85%] sm:max-w-[80%] space-y-1 ${isAi ? 'text-left' : 'text-right'}`}>
+                      <div className={`max-w-[88%] space-y-1 ${isAi ? 'text-left' : 'text-right'}`}>
                         <div className="flex items-center gap-2 px-1 text-3xs text-slate-400 font-medium">
                           <span>{isAi ? 'KulKul AI Interviewer' : 'You'}</span>
                           <span>&bull;</span>
@@ -1746,7 +1746,7 @@ export const InterviewPage: React.FC = () => {
                 {/* Streaming Candidate Speech Bubble (Real-Time In-Progress Turn) */}
                 {liveCandidateTranscript && (
                   <div className="flex items-start gap-2.5 justify-end animate-in fade-in duration-200">
-                    <div className="max-w-[85%] sm:max-w-[80%] space-y-1 text-right">
+                    <div className="max-w-[88%] space-y-1 text-right">
                       <div className="flex items-center gap-2 justify-end px-1 text-3xs text-emerald-600 font-bold">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                         <span>Speaking...</span>
