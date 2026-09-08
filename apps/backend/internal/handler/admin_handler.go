@@ -548,6 +548,44 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type UpdateProgramDetailsRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req UpdateProgramDetailsRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	trimmedName := strings.TrimSpace(req.Name)
+	if trimmedName == "" {
+		httpx.Error(w, http.StatusBadRequest, "program name cannot be empty")
+		return
+	}
+
+	updated, err := h.programRepo.UpdateDetails(r.Context(), id, trimmedName, strings.TrimSpace(req.Description))
+	if err != nil {
+		if errors.Is(err, repository.ErrProgramNotFound) {
+			httpx.Error(w, http.StatusNotFound, "program not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to update program details: %v", err))
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
 type UpdatePipelineConfigRequest struct {
 	EnableMCQ                bool                     `json:"enable_mcq"`
 	LogicTestDurationMinutes int                      `json:"logic_test_duration_minutes"`

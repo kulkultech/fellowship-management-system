@@ -446,6 +446,56 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	return &p, nil
 }
 
+func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, name, description string) (*model.Program, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, p := range r.memPrograms {
+			if p.ID == id {
+				p.Name = name
+				if description != "" {
+					p.Description = description
+				}
+				p.UpdatedAt = time.Now()
+				return p, nil
+			}
+		}
+		return nil, ErrProgramNotFound
+	}
+
+	query := `
+		UPDATE programs
+		SET name = $2,
+			description = $3,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			COALESCE(application_form_schema, 'null'::jsonb),
+			status, created_at, updated_at
+	`
+	var p model.Program
+	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	err := r.pool.QueryRow(ctx, query, id, name, description).Scan(
+		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&rawSchema,
+		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProgramNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: update details: %w", err)
+	}
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	return &p, nil
+}
+
 func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string) (*model.Program, error) {
 	return r.UpdatePipelineWithRubric(ctx, id, enableMCQ, enableAI, instructions, questions, nil)
 }

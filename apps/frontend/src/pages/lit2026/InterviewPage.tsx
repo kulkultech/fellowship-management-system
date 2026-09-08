@@ -10,13 +10,8 @@ import {
   VideoOff,
   Mic,
   MicOff,
-  Play,
-  Square,
-  RotateCcw,
-  CheckCircle2,
   AlertCircle,
   Bot,
-  Clock,
   ChevronRight,
   ShieldCheck,
   ArrowRight,
@@ -25,9 +20,23 @@ import {
   Volume2,
   VolumeX,
   FileText,
+  Send,
+  User,
+  Radio,
+  MessageSquare,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
+
+export interface ChatMessageItem {
+  id: string;
+  sender: 'ai' | 'candidate';
+  text: string;
+  timestamp: string;
+  questionIndex?: number;
+  category?: string;
+  isFollowUp?: boolean;
+}
 
 interface RecordedItem {
   blob: Blob;
@@ -180,7 +189,6 @@ export const InterviewPage: React.FC = () => {
   // Video Element Refs
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement | null>(null);
-  const reviewVideoRef = useRef<HTMLVideoElement | null>(null);
   const finalVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Audio Context & Analyser Ref
@@ -190,18 +198,24 @@ export const InterviewPage: React.FC = () => {
 
   // Rubric settings from backend session
   const rubric = session?.rubric;
-  const prepBufferSeconds = rubric?.preparation_time_seconds ?? 60;
-  const maxResponseSeconds = rubric?.response_time_seconds ?? 90;
-  const allowRerecord = rubric?.allow_rerecord ?? false;
 
   // Question & Interview Flow
   const [currentQIndex, setCurrentQIndex] = useState(0);
-  const [interviewPhase, setInterviewPhase] = useState<'prep' | 'recording' | 'review'>('prep');
-  const [prepCountdown, setPrepCountdown] = useState(prepBufferSeconds);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [transcripts, setTranscripts] = useState<Record<number, string>>({});
   const speechRecognitionRef = useRef<any>(null);
+
+  // Tick continuous session recording timer when in interview chamber
+  useEffect(() => {
+    let timer: any = null;
+    if (uiStage === 'interview') {
+      timer = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [uiStage]);
 
   // Conversational AI Voice & Follow-up State
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -216,12 +230,53 @@ export const InterviewPage: React.FC = () => {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioBlobUrlCacheRef = useRef<Map<string, string>>(new Map());
 
-  // Sync prep countdown when rubric arrives
+  // Gemini-Voice Conversational Chat & Streaming State
+  const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
+  const [liveCandidateTranscript, setLiveCandidateTranscript] = useState<string>('');
+  const [manualInputText, setManualInputText] = useState<string>('');
+  const [showTextInput, setShowTextInput] = useState<boolean>(false);
+
+  // References for zero-latency closures (VAD, speech barge-in, turn-taking)
+  const isAiSpeakingRef = useRef(false);
+  const isEvaluatingAnswerRef = useRef(false);
+  const currentQIndexRef = useRef(0);
+  const activeFollowUpRef = useRef<{
+    questionText: string;
+    followUpCount: number;
+    parentQuestionIndex: number;
+  } | null>(null);
+  const silenceTimeoutRef = useRef<any>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const uiStageRef = useRef<'lobby' | 'interview' | 'completed'>('lobby');
+  const stopSpeechRef = useRef<() => void>(() => {});
+
+  // Keep references synced with reactive state
   useEffect(() => {
-    if (rubric?.preparation_time_seconds && interviewPhase === 'prep') {
-      setPrepCountdown(rubric.preparation_time_seconds);
+    uiStageRef.current = uiStage;
+  }, [uiStage]);
+
+  useEffect(() => {
+    isAiSpeakingRef.current = isAiSpeaking;
+  }, [isAiSpeaking]);
+
+  useEffect(() => {
+    isEvaluatingAnswerRef.current = isEvaluatingAnswer;
+  }, [isEvaluatingAnswer]);
+
+  useEffect(() => {
+    currentQIndexRef.current = currentQIndex;
+  }, [currentQIndex]);
+
+  useEffect(() => {
+    activeFollowUpRef.current = activeFollowUp;
+  }, [activeFollowUp]);
+
+  // Auto-scroll chat thread to bottom on every message or live transcription chunk
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [rubric?.preparation_time_seconds]);
+  }, [chatMessages, liveCandidateTranscript, isAiSpeaking, isEvaluatingAnswer]);
 
   // Continuous Master Session Recorder (prevents container corruption)
   const sessionRecorderRef = useRef<MediaRecorder | null>(null);
@@ -229,8 +284,6 @@ export const InterviewPage: React.FC = () => {
   const sessionMimeTypeRef = useRef<string>('');
 
   // Per-Question Take Recorder & Preview State
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
   const [questionRecordings, setQuestionRecordings] = useState<Record<number, RecordedItem>>({});
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
@@ -347,13 +400,20 @@ export const InterviewPage: React.FC = () => {
     if (!inviteToken) return;
     setIsResetting(true);
     stopSpeech();
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch (_) {}
+      speechRecognitionRef.current = null;
+    }
+    setChatMessages([]);
+    setLiveCandidateTranscript('');
+    setManualInputText('');
     try {
       await aiInterviewService.resetSession(inviteToken);
       await queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
       setCurrentQIndex(0);
       setActiveFollowUp(null);
-      setInterviewPhase('prep');
-      setPrepCountdown(prepBufferSeconds);
       if (sessionRecorderRef.current && sessionRecorderRef.current.state !== 'inactive') {
         try {
           sessionRecorderRef.current.stop();
@@ -365,7 +425,6 @@ export const InterviewPage: React.FC = () => {
 
       setRecordingSeconds(0);
       setQuestionRecordings({});
-      setTranscripts({});
       setEvaluationResult(null);
       setFinalVideoUrl(null);
       setUiStage('lobby');
@@ -429,7 +488,13 @@ export const InterviewPage: React.FC = () => {
                 sum += dataArray[i];
               }
               const avg = sum / dataArray.length;
-              setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+              const level = Math.min(100, Math.round((avg / 128) * 100));
+              setAudioLevel(level);
+
+              // 0ms Vocal Volume Barge-in: If candidate speaks while AI is talking, immediately silence AI!
+              if (level > 32 && isAiSpeakingRef.current) {
+                stopSpeechRef.current();
+              }
             }
             animationFrameRef.current = requestAnimationFrame(updateVolume);
           };
@@ -478,7 +543,7 @@ export const InterviewPage: React.FC = () => {
     if (liveVideoRef.current && uiStage === 'interview') {
       liveVideoRef.current.srcObject = stream;
     }
-  }, [stream, uiStage, interviewPhase]);
+  }, [stream, uiStage]);
 
   // Toggle Camera
   const toggleCamera = () => {
@@ -502,271 +567,49 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  // Prep Countdown Timer
-  useEffect(() => {
-    if (uiStage !== 'interview' || interviewPhase !== 'prep') return;
-
-    if (prepCountdown > 0) {
-      const timer = setTimeout(() => {
-        setPrepCountdown((c) => c - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else {
-      startRecordingAnswer();
-    }
-  }, [uiStage, interviewPhase, prepCountdown]);
-
-  // Recording Timer
-  useEffect(() => {
-    if (uiStage !== 'interview' || interviewPhase !== 'recording' || isPaused) return;
-
-    const timer = setInterval(() => {
-      setRecordingSeconds((s) => {
-        if (s >= maxResponseSeconds) {
-          stopRecordingAnswer();
-          return maxResponseSeconds;
-        }
-        return s + 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [uiStage, interviewPhase, isPaused, maxResponseSeconds]);
-
-  // Speech Recognition helpers
-  const startSpeechRecognition = () => {
-    try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) return;
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event: any) => {
-        let currentTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript + ' ';
-        }
-        setTranscripts((prev) => ({
-          ...prev,
-          [currentQIndex]: currentTranscript.trim(),
-        }));
-      };
-
-      recognition.onerror = (e: any) => {
-        console.warn('Speech recognition notice:', e);
-      };
-
-      recognition.start();
-      speechRecognitionRef.current = recognition;
-    } catch (err) {
-      console.warn('Speech recognition not available:', err);
-    }
-  };
-
+  // Cancel any active speech recognition
   const stopSpeechRecognition = () => {
     if (speechRecognitionRef.current) {
       try {
         speechRecognitionRef.current.stop();
-      } catch (e) {}
+      } catch (_) {}
       speechRecognitionRef.current = null;
     }
   };
 
-  // Start Recording Answer with MediaRecorder
-  const startRecordingAnswer = () => {
-    stopSpeech();
-    if (!stream) {
-      if (inviteToken === 'demo') {
-        setRecordingSeconds(0);
-        setIsPaused(false);
-        setInterviewPhase('recording');
-        toast('Recording response (Demo Mode)...', { icon: '🔴' });
-        return;
-      }
-      toast.error('No active camera feed detected. Please allow camera access.');
-      return;
-    }
-
-    try {
-      recordedChunksRef.current = [];
-      const { mimeType } = getSupportedVideoMimeType();
-
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        const videoBlob = new Blob(recordedChunksRef.current, {
-          type: mimeType || 'video/webm',
-        });
-        const videoUrl = URL.createObjectURL(videoBlob);
-        setQuestionRecordings((prev) => ({
-          ...prev,
-          [currentQIndex]: {
-            blob: videoBlob,
-            url: videoUrl,
-            duration: recordingSeconds,
-          },
-        }));
-        setInterviewPhase('review');
-      };
-
-      recorder.start(1000);
-      mediaRecorderRef.current = recorder;
-      setRecordingSeconds(0);
-      setIsPaused(false);
-      setInterviewPhase('recording');
-      startSpeechRecognition();
-      toast('Recording response...', { icon: '🔴' });
-    } catch (err) {
-      console.error('Failed to start MediaRecorder:', err);
-      toast.error('Could not initialize video recorder on this browser.');
-      setInterviewPhase('review');
-    }
-  };
-
-  // Pause / Resume Recording
-  const togglePauseRecording = () => {
-    if (!mediaRecorderRef.current) return;
-    if (isPaused) {
-      mediaRecorderRef.current.resume();
-      setIsPaused(false);
-    } else {
-      mediaRecorderRef.current.pause();
-      setIsPaused(true);
-    }
-  };
-
-  // Stop Recording Answer
-  const stopRecordingAnswer = () => {
-    stopSpeechRecognition();
-    if (!stream && isDemo) {
-      (async () => {
-        const demoBlob = await recordSyntheticFallback();
-        const demoUrl = URL.createObjectURL(demoBlob);
-        setQuestionRecordings((prev) => ({
-          ...prev,
-          [currentQIndex]: {
-            blob: demoBlob,
-            url: demoUrl,
-            duration: recordingSeconds || 15,
-          },
-        }));
-        setInterviewPhase('review');
-      })();
-      return;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-  };
-
-  // Re-record current question answer
-  const handleRerecord = () => {
-    if (!allowRerecord) {
-      toast.error('Single-take interview policy: re-recording is disabled.');
-      return;
-    }
-    setPrepCountdown(prepBufferSeconds);
-    setInterviewPhase('prep');
-  };
-
-  // Load and cache natural human-like voice for AI Interviewer
-  useEffect(() => {
-    if (!('speechSynthesis' in window)) return;
-
-    const scoreVoice = (v: SpeechSynthesisVoice): number => {
-      let score = 0;
-      const name = v.name.toLowerCase();
-      const lang = v.lang.toLowerCase();
-
-      // Must be English
-      if (!lang.startsWith('en')) return -1000;
-
-      // Penalize robotic, novelty, or low-fidelity synth voices
-      if (
-        name.includes('albert') ||
-        name.includes('bad news') ||
-        name.includes('bahh') ||
-        name.includes('bells') ||
-        name.includes('boing') ||
-        name.includes('bubbles') ||
-        name.includes('cellos') ||
-        name.includes('deranged') ||
-        name.includes('good news') ||
-        name.includes('hysterical') ||
-        name.includes('pipe organ') ||
-        name.includes('trinoids') ||
-        name.includes('whisper') ||
-        name.includes('zarvox') ||
-        name.includes('junior') ||
-        name.includes('ralph') ||
-        name.includes('fred')
-      ) {
-        return -1000;
-      }
-
-      // Premium, Natural, Enhanced neural voices (macOS / Windows / Chrome)
-      if (name.includes('natural')) score += 120;
-      if (name.includes('enhanced')) score += 110;
-      if (name.includes('premium')) score += 100;
-      if (name.includes('neural')) score += 95;
-      if (name.includes('siri')) score += 85;
-      if (name.includes('google')) score += 75;
-
-      // Preferred natural female & male personas
-      if (name.includes('samantha')) score += 60;
-      if (name.includes('ava')) score += 58;
-      if (name.includes('allison')) score += 55;
-      if (name.includes('jenny')) score += 54;
-      if (name.includes('zoe')) score += 52;
-      if (name.includes('serena')) score += 50;
-      if (name.includes('karen')) score += 45;
-      if (name.includes('victoria')) score += 45;
-      if (name.includes('moira')) score += 40;
-      if (name.includes('daniel')) score += 40;
-      if (name.includes('alex')) score += 25;
-
-      // en-US or en-GB regional accents
-      if (lang === 'en-us') score += 15;
-      if (lang === 'en-gb') score += 10;
-
-      return score;
-    };
-
-    const updateVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      if (!voices || voices.length === 0) return;
-      const ranked = [...voices].sort((a, b) => scoreVoice(b) - scoreVoice(a));
-      if (ranked.length > 0 && scoreVoice(ranked[0]) > -500) {
-        selectedVoiceRef.current = ranked[0];
-      }
-    };
-
-    updateVoices();
-    window.speechSynthesis.onvoiceschanged = updateVoices;
-  }, []);
-
-  // Clean up cached audio object URLs on unmount
+  // Clean up cached audio object URLs and recognition on unmount
   useEffect(() => {
     return () => {
       stopSpeech();
+      stopSpeechRecognition();
       audioBlobUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
       audioBlobUrlCacheRef.current.clear();
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Cancel any active speech synthesis or audio playback
+  const stopSpeech = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsAiSpeaking(false);
+    isAiSpeakingRef.current = false;
+  };
+  stopSpeechRef.current = stopSpeech;
 
   // Fallback to Web Speech Synthesis if network is offline or TTS API is unreachable
   const fallbackToSpeechSynthesis = (cleanText: string) => {
     if (!('speechSynthesis' in window)) {
       setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       return;
     }
     try {
@@ -777,12 +620,22 @@ export const InterviewPage: React.FC = () => {
       if (selectedVoiceRef.current) {
         utterance.voice = selectedVoiceRef.current;
       }
-      utterance.onstart = () => setIsAiSpeaking(true);
-      utterance.onend = () => setIsAiSpeaking(false);
-      utterance.onerror = () => setIsAiSpeaking(false);
+      utterance.onstart = () => {
+        setIsAiSpeaking(true);
+        isAiSpeakingRef.current = true;
+      };
+      utterance.onend = () => {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+      };
+      utterance.onerror = () => {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+      };
       window.speechSynthesis.speak(utterance);
     } catch {
       setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
     }
   };
 
@@ -791,9 +644,13 @@ export const InterviewPage: React.FC = () => {
       const audio = new Audio(url);
       currentAudioRef.current = audio;
 
-      audio.onplay = () => setIsAiSpeaking(true);
+      audio.onplay = () => {
+        setIsAiSpeaking(true);
+        isAiSpeakingRef.current = true;
+      };
       audio.onended = () => {
         setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
         if (currentAudioRef.current === audio) {
           currentAudioRef.current = null;
         }
@@ -816,24 +673,12 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  // Cancel any active speech synthesis or audio playback
-  const stopSpeech = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current.currentTime = 0;
-      currentAudioRef.current = null;
-    }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsAiSpeaking(false);
-  };
-
   // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) with fallback to SpeechSynthesis
   const speakAI = async (text: string) => {
     stopSpeech();
     if (isVoiceMuted) {
       setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       return;
     }
 
@@ -853,6 +698,7 @@ export const InterviewPage: React.FC = () => {
 
     try {
       setIsAiSpeaking(true);
+      isAiSpeakingRef.current = true;
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
       const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
 
@@ -891,9 +737,9 @@ export const InterviewPage: React.FC = () => {
     } else {
       setIsVoiceMuted(false);
       toast.success('AI Interviewer voice unmuted');
-      const currentPrompt = activeFollowUp ? activeFollowUp.questionText : currentQ?.prompt;
-      if (currentPrompt) {
-        setTimeout(() => speakAI(currentPrompt), 100);
+      const lastAiMsg = [...chatMessages].reverse().find((m) => m.sender === 'ai');
+      if (lastAiMsg) {
+        setTimeout(() => speakAI(lastAiMsg.text), 100);
       }
     }
   };
@@ -903,8 +749,10 @@ export const InterviewPage: React.FC = () => {
     mutationFn: async () => {
       if (!inviteToken) throw new Error('Missing interview invite token');
       setIsUploadingRecording(true);
+      stopSpeech();
+      stopSpeechRecognition();
 
-      // Finalize continuous session recorder if active
+      // Finalize continuous master session recorder if active
       if (sessionRecorderRef.current && sessionRecorderRef.current.state !== 'inactive') {
         await new Promise<void>((resolve) => {
           if (!sessionRecorderRef.current) return resolve();
@@ -917,16 +765,9 @@ export const InterviewPage: React.FC = () => {
       if (sessionChunksRef.current.length > 0) {
         const mime = sessionMimeTypeRef.current || sessionChunksRef.current[0].type || 'video/webm';
         finalBlob = new Blob(sessionChunksRef.current, { type: mime });
-      } else {
-        // Fallback to latest individual take if master session recorder had no data
-        const takes = Object.values(questionRecordings);
-        const lastTake = takes[takes.length - 1]?.blob || takes[0]?.blob;
-        if (lastTake && lastTake.size > 0) {
-          finalBlob = lastTake;
-        }
       }
 
-      // If still empty (e.g. headless/demo without camera), generate real synthetic video
+      // If empty (e.g. demo mode without camera), generate synthetic video
       if (!finalBlob || finalBlob.size === 0) {
         finalBlob = await recordSyntheticFallback();
       }
@@ -936,8 +777,8 @@ export const InterviewPage: React.FC = () => {
       // Submit final prompt to notify AI and trigger Cloudflare evaluation
       const sendRes = await aiInterviewService.sendMessage(
         inviteToken,
-        `[Video Assessment Completed: Candidate submitted all ${questions.length} video responses. Ready for Cloudflare AI rubric evaluation.]`,
-        currentQIndex,
+        `[Video Assessment Completed: Candidate submitted all ${questions.length} conversational responses. Ready for Cloudflare AI rubric evaluation.]`,
+        currentQIndexRef.current,
       );
 
       return { saveRes, evaluation: sendRes?.summary_evaluation };
@@ -955,96 +796,209 @@ export const InterviewPage: React.FC = () => {
     onError: (err: any) => {
       setIsUploadingRecording(false);
       console.error('Error saving interview recording:', err);
-      toast.error('Failed to save video to database. Local backup preserved.');
-      const localItem = questionRecordings[currentQIndex] || Object.values(questionRecordings)[0];
-      if (localItem) {
-        setFinalVideoUrl(localItem.url);
-      }
+      toast.error('Failed to save video to database. Local session preserved.');
       setUiStage('completed');
     },
   });
 
-  // Next Question / Conversational Turn Confirmation
-  const handleConfirmNext = async () => {
+  // End-of-Utterance Turn Submission (Auto or Manual)
+  const commitCandidateTurn = async (candidateText: string) => {
+    const textToSubmit = candidateText.trim();
+    if (!textToSubmit || textToSubmit.length < 3) return;
+    if (isEvaluatingAnswerRef.current) return;
+
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+
+    // Stop speech if AI was somehow playing
     stopSpeech();
-    stopSpeechRecognition();
 
-    const q = questions[currentQIndex];
-    const candidateText =
-      transcripts[currentQIndex]?.trim() ||
-      (isDemo
-        ? 'I have experience in building modern applications with testing and proactive communication.'
-        : '[Candidate completed video response]');
+    // Clear live interim transcript and manual input
+    setLiveCandidateTranscript('');
+    setManualInputText('');
 
-    if (!inviteToken) return;
+    // Append candidate message to chat thread
+    const candMsg: ChatMessageItem = {
+      id: `cand-${Date.now()}`,
+      sender: 'candidate',
+      text: textToSubmit,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      questionIndex: currentQIndexRef.current,
+    };
+    setChatMessages((prev) => [...prev, candMsg]);
+
     setIsEvaluatingAnswer(true);
+    isEvaluatingAnswerRef.current = true;
+
+    // Reset speech recognition buffer for fresh next turn
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.abort();
+      } catch (_) {}
+    }
 
     try {
-      const responseMsg = activeFollowUp
-        ? `[Candidate Response to Follow-Up on Q${q.id}]: ${candidateText}`
-        : `[Candidate Response to Q${q.id} - ${q.category}]: ${candidateText}`;
+      const q = questions[currentQIndexRef.current];
+      const promptTag = activeFollowUpRef.current
+        ? `[Candidate Response to Follow-Up on Q${q.id}]: ${textToSubmit}`
+        : `[Candidate Response to Q${q.id} - ${q.category}]: ${textToSubmit}`;
 
-      const res = await aiInterviewService.sendMessage(inviteToken, responseMsg, currentQIndex);
+      if (!inviteToken) return;
+      const res = await aiInterviewService.sendMessage(inviteToken, promptTag, currentQIndexRef.current);
 
       if (res.is_follow_up) {
-        // AI asks conversational follow-up!
+        // AI asks conversational follow-up question
         const followUpText = res.ai_message;
+        const followUpMsg: ChatMessageItem = {
+          id: `ai-${Date.now()}`,
+          sender: 'ai',
+          text: followUpText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          questionIndex: currentQIndexRef.current,
+          category: q.category,
+          isFollowUp: true,
+        };
+        setChatMessages((prev) => [...prev, followUpMsg]);
         setActiveFollowUp({
           questionText: followUpText,
           followUpCount: res.follow_up_count || 1,
-          parentQuestionIndex: currentQIndex,
+          parentQuestionIndex: currentQIndexRef.current,
         });
+        activeFollowUpRef.current = {
+          questionText: followUpText,
+          followUpCount: res.follow_up_count || 1,
+          parentQuestionIndex: currentQIndexRef.current,
+        };
 
         toast('AI Interviewer asked a follow-up question', { icon: '🤖' });
-
-        // Reset phase for candidate to answer the follow-up
-        setPrepCountdown(20);
-        setInterviewPhase('prep');
-        setRecordingSeconds(0);
-        setTranscripts((prev) => ({ ...prev, [currentQIndex]: '' }));
-
-        // Speak the follow-up question aloud
         speakAI(followUpText);
       } else {
-        // Candidate response was good/sufficient! Clear active follow up
+        // Candidate response was accepted -> advance to next question
         setActiveFollowUp(null);
+        activeFollowUpRef.current = null;
 
-        if (res.is_completed || currentQIndex >= questions.length - 1) {
-          toast.success('All questions completed! Saving interview...');
-          speakAI('Thank you for completing all interview questions. Saving your session now.');
+        if (res.is_completed || currentQIndexRef.current >= questions.length - 1) {
+          const closingText =
+            'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
+          const completeMsg: ChatMessageItem = {
+            id: `ai-complete-${Date.now()}`,
+            sender: 'ai',
+            text: closingText,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+          setChatMessages((prev) => [...prev, completeMsg]);
+          speakAI(closingText);
+
+          // Finalize master session video recording & complete
           saveInterviewMutation.mutate();
         } else {
-          toast.success('Answer accepted! Moving to next question.');
           const nextIndex =
-            res.current_question_index !== undefined && res.current_question_index > currentQIndex
+            res.current_question_index !== undefined && res.current_question_index > currentQIndexRef.current
               ? res.current_question_index
-              : currentQIndex + 1;
+              : currentQIndexRef.current + 1;
 
           setCurrentQIndex(nextIndex);
-          setPrepCountdown(prepBufferSeconds);
-          setInterviewPhase('prep');
-          setRecordingSeconds(0);
+          currentQIndexRef.current = nextIndex;
 
           const nextQ = questions[nextIndex];
-          if (nextQ) {
-            speakAI(`Question ${nextIndex + 1}: ${nextQ.prompt}`);
-          }
+          const transitionText = `Thank you! Moving on to Question ${nextIndex + 1}: ${nextQ.prompt}`;
+          const nextMsg: ChatMessageItem = {
+            id: `ai-${Date.now()}`,
+            sender: 'ai',
+            text: transitionText,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            questionIndex: nextIndex,
+            category: nextQ.category,
+          };
+          setChatMessages((prev) => [...prev, nextMsg]);
+          speakAI(transitionText);
         }
       }
     } catch (err) {
-      console.error('Error submitting response turn:', err);
-      toast.error('Proceeding to next question...');
-      setActiveFollowUp(null);
-      if (currentQIndex < questions.length - 1) {
-        const nextIndex = currentQIndex + 1;
-        setCurrentQIndex(nextIndex);
-        setPrepCountdown(prepBufferSeconds);
-        setInterviewPhase('prep');
-      } else {
-        saveInterviewMutation.mutate();
-      }
+      console.error('Error submitting candidate turn:', err);
+      toast.error('Network delay processing turn. You can speak again or click Done Speaking.');
     } finally {
       setIsEvaluatingAnswer(false);
+      isEvaluatingAnswerRef.current = false;
+    }
+  };
+
+  // Continuous Speech Recognition with Instant Barge-In
+  const startSpeechRecognition = () => {
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
+      if (speechRecognitionRef.current) {
+        try {
+          speechRecognitionRef.current.abort();
+        } catch (_) {}
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + ' ';
+        }
+        const text = transcript.trim();
+
+        if (text.length > 0) {
+          // 1. Instant Speech Barge-in (Interruption):
+          // If AI is currently speaking, silence AI immediately!
+          if (isAiSpeakingRef.current) {
+            stopSpeech();
+          }
+
+          // 2. Stream live candidate transcript to active chat bubble
+          setLiveCandidateTranscript(text);
+
+          // 3. Reset silence debounce timer
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+          }
+
+          // 4. Auto-commit turn after 2.2s of candidate silence if sufficient text spoken
+          if (text.length >= 8 && !isEvaluatingAnswerRef.current) {
+            silenceTimeoutRef.current = setTimeout(() => {
+              commitCandidateTurn(text);
+            }, 2200);
+          }
+        }
+      };
+
+      recognition.onerror = (e: any) => {
+        console.warn('Speech recognition notice:', e);
+        if (e.error !== 'aborted' && uiStageRef.current === 'interview') {
+          setTimeout(() => {
+            try {
+              recognition.start();
+            } catch (_) {}
+          }, 600);
+        }
+      };
+
+      recognition.onend = () => {
+        // Automatically restart so speech recognition stays active continuously
+        if (uiStageRef.current === 'interview') {
+          setTimeout(() => {
+            try {
+              recognition.start();
+            } catch (_) {}
+          }, 200);
+        }
+      };
+
+      recognition.start();
+      speechRecognitionRef.current = recognition;
+    } catch (err) {
+      console.warn('Speech recognition not available:', err);
     }
   };
 
@@ -1055,7 +1009,7 @@ export const InterviewPage: React.FC = () => {
       return;
     }
 
-    // Start continuous master session recording
+    // 1. Start continuous master session recording
     try {
       const activeStream = stream || createSyntheticVideoStream();
       if (activeStream && typeof MediaRecorder !== 'undefined') {
@@ -1078,13 +1032,34 @@ export const InterviewPage: React.FC = () => {
       console.warn('Could not start master session recorder:', e);
     }
 
+    // 2. Set Chamber state
     setUiStage('interview');
-    setPrepCountdown(prepBufferSeconds);
-    setInterviewPhase('prep');
+    setCurrentQIndex(0);
+    currentQIndexRef.current = 0;
     setActiveFollowUp(null);
+    activeFollowUpRef.current = null;
+    setLiveCandidateTranscript('');
+    setManualInputText('');
+
+    // 3. Start continuous speech recognition
+    startSpeechRecognition();
+
+    // 4. Welcome candidate and ask Question 1
     const firstQ = questions[0];
     if (firstQ) {
-      speakAI(`Welcome to your interview. Let's start with Question 1: ${firstQ.prompt}`);
+      const welcomeText = `Welcome to your AI interview! Let's begin with Question 1: ${firstQ.prompt}`;
+      const initMsg: ChatMessageItem = {
+        id: `ai-init-${Date.now()}`,
+        sender: 'ai',
+        text: welcomeText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        questionIndex: 0,
+        category: firstQ.category,
+      };
+      setChatMessages([initMsg]);
+      setTimeout(() => {
+        speakAI(welcomeText);
+      }, 400);
     }
   };
 
@@ -1121,9 +1096,6 @@ export const InterviewPage: React.FC = () => {
       </div>
     );
   }
-
-  const currentQ = questions[currentQIndex];
-
   return (
     <AssessmentAccessGuard
       requiredEmail={session.applicant_email}
@@ -1355,40 +1327,46 @@ export const InterviewPage: React.FC = () => {
         </main>
       )}
 
-      {/* STAGE 2: ACTIVE VIDEO INTERVIEW CHAMBER */}
+      {/* STAGE 2: ACTIVE VIDEO INTERVIEW CHAMBER (GEMINI-VOICE FLOW) */}
       {uiStage === 'interview' && (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col gap-6">
-          {/* Top Session Progress Bar */}
-          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-black shadow-2xs">
-                <Bot className="w-5 h-5 text-kulkul-purple" />
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col gap-5">
+          {/* Top Session Progress & Status Header */}
+          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Left: Program, Applicant, Question Counter */}
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-kulkul-purple to-purple-800 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+                <Bot className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-sm font-black text-slate-900 tracking-tight">{session.program_name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-slate-900 tracking-tight">{session.program_name}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple text-3xs font-extrabold uppercase border border-purple-200/60">
+                    Gemini Voice Flow
+                  </span>
+                </div>
                 <div className="text-xs text-slate-500 font-medium">
-                  {session.applicant_name} &middot; Question {currentQIndex + 1} of {questions.length}
+                  {session.applicant_name} &bull; Question {currentQIndex + 1} of {questions.length}
                 </div>
               </div>
             </div>
 
-            {/* Segmented Progress Bar */}
-            <div className="flex items-center gap-2 w-full sm:w-64">
+            {/* Center: Segmented Question Progress Pills */}
+            <div className="flex items-center gap-1.5 w-full md:w-64">
               {questions.map((q, idx) => {
                 const isPast = idx < currentQIndex;
                 const isCurr = idx === currentQIndex;
                 return (
                   <div key={q.id} className="flex-1">
                     <div
-                      className={`h-2 rounded-full transition-all ${
+                      className={`h-2 rounded-full transition-all duration-300 ${
                         isPast
                           ? 'bg-emerald-500'
                           : isCurr
-                          ? 'bg-kulkul-purple animate-pulse'
+                          ? 'bg-kulkul-purple ring-2 ring-kulkul-purple/20 animate-pulse'
                           : 'bg-slate-200'
                       }`}
                     />
-                    <div className="text-3xs text-slate-400 font-mono mt-1 text-center font-medium">
+                    <div className={`text-3xs font-mono mt-1 text-center font-bold ${isCurr ? 'text-kulkul-purple' : 'text-slate-400'}`}>
                       Q{q.id}
                     </div>
                   </div>
@@ -1396,44 +1374,51 @@ export const InterviewPage: React.FC = () => {
               })}
             </div>
 
-            {/* Recording / Phase Badge */}
-            <div className="flex items-center gap-2">
-              {interviewPhase === 'recording' && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs tracking-wider animate-pulse shadow-2xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                  <span>
-                    REC {Math.floor(recordingSeconds / 60)}:
-                    {(recordingSeconds % 60).toString().padStart(2, '0')} / {Math.floor(maxResponseSeconds / 60)}:
-                    {(maxResponseSeconds % 60).toString().padStart(2, '0')}
+            {/* Right: Master Continuous REC Badge & Turn Status */}
+            <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-end">
+              {/* Continuous Session Recording Pill */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs tracking-wide shadow-2xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600" />
+                </span>
+                <span>
+                  LIVE REC {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
+
+              {/* Real-time Conversational Turn Badge */}
+              {isAiSpeaking ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-bold">
+                  <span className="flex items-center gap-0.5 h-2">
+                    <span className="w-1 h-2 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1 h-3 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1 h-2 bg-kulkul-purple rounded-full animate-bounce" />
                   </span>
+                  <span>AI Speaking</span>
                 </div>
-              )}
-
-              {interviewPhase === 'prep' && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs shadow-2xs">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Prep Countdown: {prepCountdown}s</span>
+              ) : isEvaluatingAnswer ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                  <span>AI Thinking...</span>
                 </div>
-              )}
-
-              {interviewPhase === 'review' && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple font-bold text-xs shadow-2xs">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-kulkul-purple" />
-                  <span>Recorded &middot; Reviewing</span>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                  <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                  <span>Listening</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Main Stage Grid: Video Feed Left, Question Right */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-stretch">
-            {/* Candidate Video Stage */}
-            <div className="lg:col-span-7 stitch-card bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
-              {/* Video Window Centered vertically and horizontally */}
-              <div className="flex-1 flex items-center justify-center w-full my-auto">
+          {/* Main Dual-Column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-stretch min-h-[580px]">
+            {/* LEFT COLUMN: Candidate Live Studio Feed (5 cols) */}
+            <div className="lg:col-span-5 stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+              <div>
+                {/* Live Camera Viewport */}
                 <div className="relative aspect-video w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
-                  {/* Live Stream View (Prep & Recording) */}
-                  {interviewPhase !== 'review' && stream && (
+                  {stream && (
                     <video
                       ref={liveVideoRef}
                       autoPlay
@@ -1443,52 +1428,31 @@ export const InterviewPage: React.FC = () => {
                     />
                   )}
 
-                  {/* Review Player (When answer has been recorded) */}
-                  {interviewPhase === 'review' && questionRecordings[currentQIndex]?.url && (
-                    <video
-                      ref={reviewVideoRef}
-                      src={questionRecordings[currentQIndex].url}
-                      controls
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-contain bg-black"
-                    />
-                  )}
-
-                  {/* Empty / Paused State */}
-                  {((!stream && interviewPhase !== 'review') || isCameraOff) && (
-                    <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
-                        <VideoOff className="w-6 h-6 text-slate-500" />
-                      </div>
-                      <p className="text-sm font-bold text-slate-800">
-                        {isCameraOff ? 'Camera Paused' : 'Demo Mode Feed Active'}
+                  {(!stream || isCameraOff) && (
+                    <div className="text-center p-6 bg-slate-900 text-slate-300 w-full h-full flex flex-col items-center justify-center">
+                      <VideoOff className="w-8 h-8 text-slate-500 mb-2" />
+                      <p className="text-xs font-bold text-slate-200">
+                        {isCameraOff ? 'Camera Paused' : 'Demo Stream Mode Active'}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                      <p className="text-3xs text-slate-400 mt-1 max-w-xs">
                         {isCameraOff
-                          ? 'Click the camera button below to unpause your video.'
-                          : 'Simulated candidate feed for preview and evaluation testing.'}
+                          ? 'Click the camera button below to turn your video on.'
+                          : 'Synthetic video stream generating for testing.'}
                       </p>
                     </div>
                   )}
 
-                  {/* Live REC Pill Overlay */}
-                  {interviewPhase === 'recording' && (
-                    <div className="absolute top-4 left-4 flex items-center gap-2">
-                      <span className="px-3.5 py-1 bg-rose-600 text-white rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 shadow-md shadow-rose-950/40">
-                        <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                        RECORDING
-                      </span>
-                      <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs text-white font-mono border border-white/20">
-                        {Math.floor(recordingSeconds / 60)}:
-                        {(recordingSeconds % 60).toString().padStart(2, '0')}
-                      </span>
-                    </div>
-                  )}
+                  {/* Overlaid Badges: Live Take indicator */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-3xs font-bold text-white border border-white/20 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                      HD Continuous Take
+                    </span>
+                  </div>
 
-                  {/* Live Mic Level Waveform at bottom-left */}
-                  {interviewPhase === 'recording' && !isMicMuted && stream && (
-                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md rounded-full p-2 px-3.5 flex items-center gap-2.5 border border-white/15">
+                  {/* In-Video Vocal Waveform Visualizer */}
+                  {stream && !isMicMuted && (
+                    <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md rounded-full p-1.5 px-3 flex items-center gap-2 border border-white/15">
                       <Mic className="w-3.5 h-3.5 text-kulkul-orange" />
                       <div className="flex items-center gap-0.5 h-3 w-16">
                         {[...Array(8)].map((_, i) => (
@@ -1503,244 +1467,291 @@ export const InterviewPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Floating In-Stream Action Overlay (Camera/Mic Toggles) */}
-                  {interviewPhase !== 'review' && (
-                    <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full p-1.5 px-2 border border-white/15">
-                      <button
-                        onClick={toggleCamera}
-                        title="Toggle Camera"
-                        className={`p-2 rounded-full transition ${
-                          isCameraOff ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
-                        }`}
-                      >
-                        {isCameraOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={toggleMic}
-                        title="Toggle Microphone"
-                        className={`p-2 rounded-full transition ${
-                          isMicMuted ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
-                        }`}
-                      >
-                        {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  )}
+                  {/* Floating Camera / Mic Toggles */}
+                  <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-md rounded-full p-1 border border-white/15">
+                    <button
+                      onClick={toggleCamera}
+                      title="Toggle Camera"
+                      className={`p-1.5 rounded-full transition ${
+                        isCameraOff ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
+                      }`}
+                    >
+                      {isCameraOff ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      onClick={toggleMic}
+                      title="Toggle Microphone"
+                      className={`p-1.5 rounded-full transition ${
+                        isMicMuted ? 'bg-rose-500 text-white' : 'hover:bg-white/20 text-slate-200'
+                      }`}
+                    >
+                      {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Bottom Video Controls Action Dock */}
-              <div className="mt-4 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 shrink-0">
-                {interviewPhase === 'prep' && (
-                  <>
-                    <div className="text-xs text-slate-600 font-medium flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-600" />
-                      <span>Take a moment to prepare your answer ({prepCountdown}s remaining)</span>
-                    </div>
-                    <button
-                      onClick={startRecordingAnswer}
-                      className="px-6 py-3 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98]"
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>Start Recording Response Now</span>
-                    </button>
-                  </>
-                )}
-
-                {interviewPhase === 'recording' && (
-                  <>
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        onClick={togglePauseRecording}
-                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-full text-xs transition flex items-center gap-2 border border-slate-200"
-                      >
-                        {isPaused ? <Play className="w-3.5 h-3.5 text-slate-700" /> : <span className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
-                        <span>{isPaused ? 'Resume' : 'Pause'}</span>
-                      </button>
-                      <span className="text-xs text-slate-500 font-medium">Speak clearly into your microphone</span>
-                    </div>
-                    <button
-                      onClick={stopRecordingAnswer}
-                      className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98]"
-                    >
-                      <Square className="w-4 h-4 fill-white" />
-                      <span>Stop & Review Response</span>
-                    </button>
-                  </>
-                )}
-
-                {interviewPhase === 'review' && (
-                  <>
-                    {allowRerecord ? (
-                      <button
-                        onClick={handleRerecord}
-                        disabled={isEvaluatingAnswer || isUploadingRecording}
-                        className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-full text-xs transition flex items-center gap-2 border border-slate-200 shadow-2xs disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-4 h-4 text-kulkul-purple" />
-                        <span>Re-record Answer</span>
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-semibold">
-                        <ShieldCheck className="w-4 h-4 text-kulkul-purple shrink-0" />
-                        <span>Single-Take Finalized &bull; 1 take per prompt</span>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleConfirmNext}
-                      disabled={isUploadingRecording || isEvaluatingAnswer}
-                      className="px-7 py-3 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full flex items-center gap-2 text-xs shadow-sm hover:shadow transition active:scale-[0.98] disabled:opacity-50"
-                    >
-                      {isEvaluatingAnswer ? (
+                {/* Conversational Flow Status Banner */}
+                <div
+                  className={`mt-4 p-3.5 rounded-2xl border transition-all text-xs space-y-1.5 ${
+                    isAiSpeaking
+                      ? 'bg-purple-50/70 border-purple-200/80 text-purple-900'
+                      : liveCandidateTranscript
+                      ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 ring-1 ring-emerald-400/30'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {isAiSpeaking ? (
                         <>
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                          <span>AI Assessing Answer...</span>
+                          <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
+                          <span>AI Speaking (Start speaking anytime to interrupt)</span>
                         </>
-                      ) : isUploadingRecording ? (
+                      ) : liveCandidateTranscript ? (
                         <>
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                          <span>Saving & AI Evaluating...</span>
-                        </>
-                      ) : activeFollowUp ? (
-                        <>
-                          <span>Submit Follow-Up Response</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      ) : currentQIndex < questions.length - 1 ? (
-                        <>
-                          <span>Confirm & Next Question</span>
-                          <ChevronRight className="w-4 h-4" />
+                          <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                          <span>Listening to your voice...</span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                          <span>Submit Entire Video Interview</span>
+                          <Sparkles className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Conversational Room Active</span>
                         </>
                       )}
-                    </button>
-                  </>
-                )}
+                    </span>
+                    {isAiSpeaking && (
+                      <button
+                        onClick={stopSpeech}
+                        className="text-3xs font-extrabold uppercase px-2 py-0.5 rounded-full bg-purple-200 text-purple-800 hover:bg-purple-300 transition"
+                      >
+                        Interrupt / Skip
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-3xs leading-relaxed text-slate-600">
+                    {isAiSpeaking
+                      ? 'Speak naturally at any moment. The AI silences immediately when it hears your voice.'
+                      : liveCandidateTranscript
+                      ? 'When you finish speaking, pause for 2 seconds (or click Done Speaking) to submit your answer.'
+                      : 'Speak freely into your microphone. No manual record or stop buttons needed; the conversation flows continuously until all questions conclude.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Footer: Done Speaking & Text Input Toggle */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => setShowTextInput(!showTextInput)}
+                  className={`text-2xs font-semibold px-3 py-2 rounded-full border transition flex items-center gap-1.5 ${
+                    showTextInput
+                      ? 'bg-purple-50 border-purple-200 text-kulkul-purple'
+                      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{showTextInput ? 'Hide Text Input' : 'Type Response Instead'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const text = liveCandidateTranscript || manualInputText;
+                    if (text) commitCandidateTurn(text);
+                  }}
+                  disabled={isEvaluatingAnswer || isUploadingRecording || (!liveCandidateTranscript && !manualInputText)}
+                  className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+                  title="Immediately submit your current speech turn without waiting for 2s silence"
+                >
+                  {isEvaluatingAnswer ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                      <span>AI Thinking...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Done Speaking</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* Question Module (Right column) */}
-            <div className="lg:col-span-5 flex flex-col gap-4">
-              {/* Question Card */}
-              <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs flex-1 flex flex-col justify-between space-y-5">
-                <div className="space-y-4">
-                  {/* AI Interviewer Header & Audio Bar */}
-                  <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={`relative w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition ${
-                          isAiSpeaking
-                            ? 'bg-kulkul-purple text-white shadow-xs ring-2 ring-kulkul-purple/40'
-                            : 'bg-purple-100 text-kulkul-purple'
-                        }`}
-                      >
-                        <Bot className="w-4 h-4" />
-                        {isAiSpeaking && (
-                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-ping" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs font-bold text-slate-900 truncate">AI Interviewer</span>
-                        {isAiSpeaking && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple text-3xs font-extrabold uppercase shrink-0">
-                            Speaking
-                            <span className="flex items-center gap-0.5 h-2">
-                              <span className="w-0.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
-                              <span className="w-0.5 h-2.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
-                              <span className="w-0.5 h-2 bg-kulkul-purple rounded-full animate-bounce" />
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Audio Controls */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+            {/* RIGHT COLUMN: Real-Time Gemini Voice Chat Stream (7 cols) */}
+            <div className="lg:col-span-7 stitch-card bg-white border border-slate-200/90 rounded-3xl shadow-2xs flex flex-col h-[600px] overflow-hidden">
+              {/* Chat Header */}
+              <div className="p-3.5 sm:p-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`relative w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition ${
+                      isAiSpeaking
+                        ? 'bg-kulkul-purple text-white shadow-xs ring-2 ring-kulkul-purple/40'
+                        : 'bg-purple-100 text-kulkul-purple'
+                    }`}
+                  >
+                    <Bot className="w-4 h-4" />
+                    {isAiSpeaking && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-ping" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900 truncate">KulKul AI Interviewer</span>
                       <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200/60 text-3xs font-semibold">
                         <Sparkles className="w-2.5 h-2.5 text-kulkul-orange" />
-                        <span>Cloudflare Neural Voice</span>
-                      </span>
-                      {isAiSpeaking ? (
-                        <button
-                          onClick={stopSpeech}
-                          className="px-2.5 py-1 rounded-full text-3xs font-bold bg-purple-100 hover:bg-purple-200 text-kulkul-purple transition"
-                          title="Skip voice playback"
-                        >
-                          Skip Voice
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            const promptToSpeak = activeFollowUp
-                              ? activeFollowUp.questionText
-                              : currentQ?.prompt;
-                            if (promptToSpeak) speakAI(promptToSpeak);
-                          }}
-                          className="p-1.5 rounded-full text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition"
-                          title="Listen to question again"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={toggleVoiceMute}
-                        className={`p-1.5 rounded-full transition ${
-                          isVoiceMuted
-                            ? 'bg-rose-100 text-rose-700'
-                            : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                        }`}
-                        title={isVoiceMuted ? 'Unmute AI voice' : 'Mute AI voice'}
-                      >
-                        {isVoiceMuted ? <VolumeX className="w-4 h-4 text-rose-600" /> : <Volume2 className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="px-3.5 py-1 bg-purple-50 text-kulkul-purple border border-purple-200 rounded-full text-2xs font-extrabold uppercase tracking-wider">
-                      {currentQ.category}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold">
-                        {currentQ.max_points} Points
-                      </span>
-                      <span className="text-xs font-bold text-slate-500">
-                        Q{currentQIndex + 1} of {questions.length}
+                        <span>Aura-2 Neural Voice</span>
                       </span>
                     </div>
+                    <p className="text-3xs text-slate-500 truncate">Real-time voice synthesis & live candidate transcript</p>
                   </div>
+                </div>
 
-                  <h3 className="text-lg font-black text-slate-900 leading-snug tracking-tight">
-                    {currentQ.title}
-                  </h3>
-
-                  {/* Active Question / Follow-up Prompt */}
-                  <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-200 text-sm text-slate-800 leading-relaxed font-medium shadow-2xs">
-                    {activeFollowUp ? activeFollowUp.questionText : currentQ.prompt}
-                  </div>
-
-                  {/* Live Speech Recognition Preview */}
-                  {transcripts[currentQIndex] && (
-                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-2xs space-y-1 animate-in fade-in">
-                      <div className="flex items-center justify-between text-3xs font-bold uppercase tracking-wider text-kulkul-purple">
-                        <span>Speech Transcription Preview</span>
-                        <span className="text-emerald-600 flex items-center gap-1 font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                          Live
-                        </span>
-                      </div>
-                      <p className="text-slate-800 italic line-clamp-3 font-medium">
-                        "{transcripts[currentQIndex]}"
-                      </p>
-                    </div>
-                  )}
+                {/* Voice Mute / Audio Actions */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={toggleVoiceMute}
+                    className={`p-2 rounded-full transition ${
+                      isVoiceMuted
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                    title={isVoiceMuted ? 'Unmute AI voice' : 'Mute AI voice'}
+                  >
+                    {isVoiceMuted ? <VolumeX className="w-4 h-4 text-rose-600" /> : <Volume2 className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
+
+              {/* Chat Messages Stream */}
+              <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                {chatMessages.map((msg) => {
+                  const isAi = msg.sender === 'ai';
+                  return (
+                    <div key={msg.id} className={`flex items-start gap-2.5 ${isAi ? 'justify-start' : 'justify-end'}`}>
+                      {isAi && (
+                        <div className="w-7 h-7 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center shrink-0 mt-1 shadow-2xs">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                      )}
+
+                      <div className={`max-w-[85%] sm:max-w-[80%] space-y-1 ${isAi ? 'text-left' : 'text-right'}`}>
+                        <div className="flex items-center gap-2 px-1 text-3xs text-slate-400 font-medium">
+                          <span>{isAi ? 'KulKul AI Interviewer' : 'You (Candidate)'}</span>
+                          <span>&bull;</span>
+                          <span>{msg.timestamp}</span>
+                          {msg.category && (
+                            <span className="px-1.5 py-0.2 rounded-sm bg-purple-50 text-kulkul-purple font-bold">
+                              {msg.category}
+                            </span>
+                          )}
+                          {msg.isFollowUp && (
+                            <span className="px-1.5 py-0.2 rounded-sm bg-amber-50 text-amber-700 font-bold">
+                              Follow-up
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                            isAi
+                              ? 'bg-slate-50 border border-slate-200/90 text-slate-800 rounded-tl-xs shadow-2xs'
+                              : 'bg-gradient-to-br from-kulkul-purple to-purple-800 text-white rounded-tr-xs shadow-xs'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                          {isAi && (
+                            <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-end">
+                              <button
+                                onClick={() => speakAI(msg.text)}
+                                className="text-3xs text-kulkul-purple hover:underline flex items-center gap-1 font-bold"
+                              >
+                                <Volume2 className="w-3 h-3" />
+                                <span>Hear Question Again</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isAi && (
+                        <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 mt-1 shadow-2xs">
+                          <User className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Streaming Candidate Speech Bubble (Real-Time In-Progress Turn) */}
+                {liveCandidateTranscript && (
+                  <div className="flex items-start gap-2.5 justify-end animate-in fade-in duration-200">
+                    <div className="max-w-[85%] sm:max-w-[80%] space-y-1 text-right">
+                      <div className="flex items-center gap-2 justify-end px-1 text-3xs text-emerald-600 font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                        <span>Speaking live...</span>
+                      </div>
+                      <div className="p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm leading-relaxed bg-gradient-to-br from-purple-700 to-kulkul-purple text-white rounded-tr-xs shadow-xs border border-purple-400/40">
+                        <p className="whitespace-pre-wrap italic opacity-95">
+                          "{liveCandidateTranscript}"
+                          <span className="inline-block w-1.5 h-3.5 bg-white ml-1 animate-pulse align-middle" />
+                        </p>
+                        <p className="text-3xs text-purple-200 mt-2 font-mono">
+                          Pause speaking for 2s to auto-submit, or click "Done Speaking"
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-1 shadow-2xs ring-2 ring-emerald-300">
+                      <User className="w-4 h-4" />
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Evaluating Indicator */}
+                {isEvaluatingAnswer && (
+                  <div className="flex items-start gap-2.5 justify-start animate-in fade-in duration-200">
+                    <div className="w-7 h-7 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center shrink-0 mt-1">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 rounded-tl-xs shadow-2xs flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 bg-kulkul-purple rounded-full animate-bounce" />
+                      </div>
+                      <span className="font-medium text-slate-700">AI is evaluating your response and preparing next prompt...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional Text Input Dock (when toggled) */}
+              {showTextInput && (
+                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2 shrink-0">
+                  <input
+                    type="text"
+                    value={manualInputText}
+                    onChange={(e) => setManualInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualInputText.trim() && !isEvaluatingAnswer) {
+                        commitCandidateTurn(manualInputText);
+                      }
+                    }}
+                    placeholder="Type your response if microphone has issues..."
+                    className="flex-1 px-4 py-2 rounded-full border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple/30 bg-white"
+                  />
+                  <button
+                    onClick={() => {
+                      if (manualInputText.trim() && !isEvaluatingAnswer) {
+                        commitCandidateTurn(manualInputText);
+                      }
+                    }}
+                    disabled={!manualInputText.trim() || isEvaluatingAnswer}
+                    className="p-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition disabled:opacity-40"
+                    title="Send typed response"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </main>

@@ -186,6 +186,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				// Programs & Config
 				adm.Get("/programs", adminHandler.ListPrograms)
 				adm.Post("/programs", adminHandler.CreateProgram)
+				adm.Put("/programs/{id}", adminHandler.UpdateProgramDetails)
 				adm.Delete("/programs/{id}", adminHandler.DeleteProgram)
 				adm.Put("/programs/{id}/pipeline-config", adminHandler.UpdatePipelineConfig)
 				adm.Put("/programs/{id}/rubric", adminHandler.UpdateProgramRubric)

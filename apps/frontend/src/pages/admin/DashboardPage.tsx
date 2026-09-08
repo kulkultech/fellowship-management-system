@@ -106,6 +106,7 @@ import {
   CheckCircle2,
   ChevronRight,
   X,
+  Pencil,
   ExternalLink,
   Check,
   Plus,
@@ -826,6 +827,34 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     onError: () => toast.error('Failed to delete track'),
   });
 
+  // Program Rename Modal State
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameTargetProgram, setRenameTargetProgram] = useState<Program | null>(null);
+  const [renameFormName, setRenameFormName] = useState('');
+  const [renameFormDesc, setRenameFormDesc] = useState('');
+
+  const handleOpenRenameModal = (targetProg: Program) => {
+    setRenameTargetProgram(targetProg);
+    setRenameFormName(targetProg.name || '');
+    setRenameFormDesc(targetProg.description || '');
+    setIsRenameModalOpen(true);
+  };
+
+  const updateProgramMutation = useMutation({
+    mutationFn: ({ progId, name, description }: { progId: string; name: string; description?: string }) =>
+      adminService.updateProgram(progId, { name, description }),
+    onSuccess: (updated) => {
+      toast.success(`Program renamed to "${updated.name}" successfully!`);
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['program', orgSlug, updated.slug] });
+      setIsRenameModalOpen(false);
+      setRenameTargetProgram(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to rename program');
+    },
+  });
+
   const deleteProgramMutation = useMutation({
     mutationFn: (progId: string) => adminService.deleteProgram(progId),
     onSuccess: (_, deletedId) => {
@@ -1172,6 +1201,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             <span>Add Track</span>
           </button>
 
+          {/* Rename Active Program Button */}
+          <button
+            onClick={() => {
+              if (program) handleOpenRenameModal(program);
+            }}
+            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+            title="Rename this program"
+          >
+            <Pencil className="w-3.5 h-3.5 text-kulkul-purple" />
+            <span>Rename</span>
+          </button>
+
           {/* Delete Active Program Button */}
           <button
             onClick={() => {
@@ -1405,8 +1446,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       <ExternalLink className="w-3.5 h-3.5" />
                                     </a>
 
-                                  <button
-                                    onClick={() => {
+                                    <button
+                                      onClick={() => handleOpenRenameModal(prog)}
+                                      className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                      title="Rename program"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      onClick={() => {
                                       if (
                                         window.confirm(
                                           `Are you sure you want to permanently delete program "${prog.name}"?\nAll associated tracks, stages, and candidate submissions will be permanently removed.`
@@ -4242,6 +4291,104 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{updatePipelineConfigMutation.isPending ? 'Updating...' : 'Save Pipeline Modules'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* RENAME PROGRAM MODAL */}
+        {isRenameModalOpen && renameTargetProgram && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+            <div className="stitch-card bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-xl space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Rename Program</h3>
+                    <p className="text-xs text-slate-500 font-mono">/{renameTargetProgram.slug}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsRenameModalOpen(false);
+                    setRenameTargetProgram(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!renameFormName.trim()) {
+                    toast.error('Program title is required');
+                    return;
+                  }
+                  updateProgramMutation.mutate({
+                    progId: renameTargetProgram.id,
+                    name: renameFormName.trim(),
+                    description: renameFormDesc.trim(),
+                  });
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Program Title <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={renameFormName}
+                    onChange={(e) => setRenameFormName(e.target.value)}
+                    placeholder="e.g. Remote Skills Academy Fellowship 2026"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-sm font-semibold text-slate-900 outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Program Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={renameFormDesc}
+                    onChange={(e) => setRenameFormDesc(e.target.value)}
+                    placeholder="Brief description of this cohort or program..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-medium text-slate-700 outline-none transition"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRenameModalOpen(false);
+                      setRenameTargetProgram(null);
+                    }}
+                    className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updateProgramMutation.isPending || !renameFormName.trim()}
+                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {updateProgramMutation.isPending ? (
+                      <span>Saving...</span>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-kulkul-orange" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
