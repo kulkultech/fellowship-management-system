@@ -226,9 +226,17 @@ export const InterviewPage: React.FC = () => {
     parentQuestionIndex: number;
   } | null>(null);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
-  const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [ttsSpeaker, setTtsSpeaker] = useState<'luna' | 'orion' | 'stella' | 'asteria' | 'arcas'>('luna');
+  const ttsSpeakerRef = useRef<'luna' | 'orion' | 'stella' | 'asteria' | 'arcas'>('luna');
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const currentSourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const sharedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const decodedBufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
   const audioBlobUrlCacheRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    ttsSpeakerRef.current = ttsSpeaker;
+  }, [ttsSpeaker]);
 
   // Gemini-Voice Conversational Chat & Streaming State
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
@@ -590,90 +598,181 @@ export const InterviewPage: React.FC = () => {
     };
   }, []);
 
+  // Unlock Web Audio and HTML5 Audio on user gesture (e.g. click "Enter Interview Chamber")
+  const unlockAudio = () => {
+    try {
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          audioContextRef.current = new AudioCtx();
+        }
+      }
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+      if (!sharedAudioRef.current) {
+        sharedAudioRef.current = new Audio();
+      }
+      // Trigger a silent play/pause to unlock HTML5 Audio element in WebKit/Chrome
+      sharedAudioRef.current.play().catch(() => {});
+      sharedAudioRef.current.pause();
+      setAutoplayBlocked(false);
+    } catch (e) {
+      console.warn('Audio context unlock warning:', e);
+    }
+  };
+
   // Cancel any active speech synthesis or audio playback
   const stopSpeech = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current.currentTime = 0;
-      currentAudioRef.current = null;
+    if (currentSourceNodeRef.current) {
+      try {
+        currentSourceNodeRef.current.onended = null;
+        currentSourceNodeRef.current.stop();
+      } catch (_) {}
+      currentSourceNodeRef.current = null;
     }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (sharedAudioRef.current) {
+      sharedAudioRef.current.pause();
+      sharedAudioRef.current.currentTime = 0;
     }
     setIsAiSpeaking(false);
     isAiSpeakingRef.current = false;
   };
   stopSpeechRef.current = stopSpeech;
 
-  // Fallback to Web Speech Synthesis if network is offline or TTS API is unreachable
-  const fallbackToSpeechSynthesis = (cleanText: string) => {
-    if (!('speechSynthesis' in window)) {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      return;
+  // Play decoded AudioBuffer with 0ms latency and immune to HTML5 Audio autoplay restrictions
+  const playAudioBuffer = (buffer: AudioBuffer): boolean => {
+    stopSpeech();
+    const ctx = audioContextRef.current;
+    if (!ctx) return false;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.94;
-      utterance.pitch = 1.0;
-      if (selectedVoiceRef.current) {
-        utterance.voice = selectedVoiceRef.current;
-      }
-      utterance.onstart = () => {
-        setIsAiSpeaking(true);
-        isAiSpeakingRef.current = true;
-      };
-      utterance.onend = () => {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-      };
-      utterance.onerror = () => {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-      };
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-    }
-  };
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      currentSourceNodeRef.current = source;
 
-  const playAudioUrl = (url: string, cleanText: string) => {
-    try {
-      const audio = new Audio(url);
-      currentAudioRef.current = audio;
-
-      audio.onplay = () => {
-        setIsAiSpeaking(true);
-        isAiSpeakingRef.current = true;
-      };
-      audio.onended = () => {
+      source.onended = () => {
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
-        if (currentAudioRef.current === audio) {
-          currentAudioRef.current = null;
+        if (currentSourceNodeRef.current === source) {
+          currentSourceNodeRef.current = null;
         }
       };
-      audio.onerror = () => {
-        console.warn('Audio element error, falling back to browser speech synthesis');
-        fallbackToSpeechSynthesis(cleanText);
-      };
 
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((e) => {
-          console.warn('Audio play prevented (e.g. autoplay policy), falling back:', e);
-          fallbackToSpeechSynthesis(cleanText);
-        });
-      }
+      setIsAiSpeaking(true);
+      isAiSpeakingRef.current = true;
+      source.start(0);
+      setAutoplayBlocked(false);
+      return true;
     } catch (e) {
-      console.warn('Audio creation failed:', e);
-      fallbackToSpeechSynthesis(cleanText);
+      console.warn('Web Audio buffer playback failed:', e);
+      return false;
     }
   };
 
-  // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) with fallback to SpeechSynthesis
+  // Fallback to HTML5 Audio element for blob URLs
+  const playAudioUrl = (url: string) => {
+    stopSpeech();
+    if (!sharedAudioRef.current) {
+      sharedAudioRef.current = new Audio();
+    }
+    const audio = sharedAudioRef.current;
+    audio.src = url;
+
+    audio.onplay = () => {
+      setIsAiSpeaking(true);
+      isAiSpeakingRef.current = true;
+      setAutoplayBlocked(false);
+    };
+    audio.onended = () => {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+    };
+    audio.onerror = () => {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+    };
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((e) => {
+        console.warn('Audio play was prevented by browser autoplay policy:', e);
+        setAutoplayBlocked(true);
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+      });
+    }
+  };
+
+  // Fetch synthesized speech from Cloudflare Workers AI TTS (Deepgram Aura-2)
+  const fetchTtsAudio = async (text: string, speaker: string): Promise<{ buffer?: AudioBuffer; url?: string } | null> => {
+    const cleanText = text
+      .replace(/\[.*?\]/g, '')
+      .replace(/[\*#_`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleanText) return null;
+
+    const cacheKey = `${speaker}:${cleanText}`;
+    if (decodedBufferCacheRef.current.has(cacheKey)) {
+      return { buffer: decodedBufferCacheRef.current.get(cacheKey)! };
+    }
+    if (audioBlobUrlCacheRef.current.has(cacheKey)) {
+      return { url: audioBlobUrlCacheRef.current.get(cacheKey)! };
+    }
+
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+      const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, speaker }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Cloudflare Workers AI TTS server returned status ${res.status}`);
+      }
+
+      const arrayBuffer = await res.arrayBuffer();
+      if (arrayBuffer.byteLength < 100) {
+        throw new Error('TTS returned empty audio');
+      }
+
+      // Initialize AudioContext if needed
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          audioContextRef.current = new AudioCtx();
+        }
+      }
+
+      if (audioContextRef.current) {
+        try {
+          const bufferCopy = arrayBuffer.slice(0);
+          const decoded = await audioContextRef.current.decodeAudioData(bufferCopy);
+          decodedBufferCacheRef.current.set(cacheKey, decoded);
+          return { buffer: decoded };
+        } catch (decodeErr) {
+          console.warn('Web Audio decode failed, falling back to Blob URL:', decodeErr);
+        }
+      }
+
+      const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(blob);
+      audioBlobUrlCacheRef.current.set(cacheKey, audioUrl);
+      return { url: audioUrl };
+    } catch (err) {
+      console.error('Cloudflare Workers AI TTS request failed:', err);
+      return null;
+    }
+  };
+
+  // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) - 100% human voice, zero robot fallback
   const speakAI = async (text: string) => {
     stopSpeech();
     if (isVoiceMuted) {
@@ -689,42 +788,24 @@ export const InterviewPage: React.FC = () => {
       .trim();
     if (!cleanText) return;
 
-    // Check in-memory object URL cache first for 0ms replay latency
-    const cachedUrl = audioBlobUrlCacheRef.current.get(cleanText);
-    if (cachedUrl) {
-      playAudioUrl(cachedUrl, cleanText);
+    setIsAiSpeaking(true);
+    isAiSpeakingRef.current = true;
+
+    const speaker = ttsSpeakerRef.current;
+    const result = await fetchTtsAudio(cleanText, speaker);
+    if (!result) {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       return;
     }
 
-    try {
-      setIsAiSpeaking(true);
-      isAiSpeakingRef.current = true;
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-      const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: cleanText, speaker: 'asteria' }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`TTS server returned status ${res.status}`);
+    if (result.buffer) {
+      const played = playAudioBuffer(result.buffer);
+      if (!played && result.url) {
+        playAudioUrl(result.url);
       }
-
-      const blob = await res.blob();
-      if (blob.size < 100) {
-        throw new Error('TTS returned empty audio');
-      }
-
-      const audioUrl = URL.createObjectURL(blob);
-      audioBlobUrlCacheRef.current.set(cleanText, audioUrl);
-      playAudioUrl(audioUrl, cleanText);
-    } catch (err) {
-      console.warn('Cloudflare Workers AI TTS request failed, falling back to local speech synthesis:', err);
-      fallbackToSpeechSynthesis(cleanText);
+    } else if (result.url) {
+      playAudioUrl(result.url);
     }
   };
 
@@ -743,6 +824,15 @@ export const InterviewPage: React.FC = () => {
       }
     }
   };
+
+  // Pre-fetch Question 1 audio while in lobby so it plays with 0ms delay upon entering chamber
+  useEffect(() => {
+    if (questions.length > 0 && uiStage === 'lobby') {
+      const firstQ = questions[0];
+      const welcomeText = `Welcome to your AI interview! Let's begin with Question 1: ${firstQ.prompt}`;
+      fetchTtsAudio(welcomeText, ttsSpeaker);
+    }
+  }, [questions, uiStage, ttsSpeaker]);
 
   // Mutation to persist video to database and complete session
   const saveInterviewMutation = useMutation({
@@ -1008,6 +1098,9 @@ export const InterviewPage: React.FC = () => {
       toast.error('Please enable camera and microphone permissions first.');
       return;
     }
+
+    // Unlock browser audio context synchronously on user interaction
+    unlockAudio();
 
     // 1. Start continuous master session recording
     try {
@@ -1329,7 +1422,28 @@ export const InterviewPage: React.FC = () => {
 
       {/* STAGE 2: ACTIVE VIDEO INTERVIEW CHAMBER (GEMINI-VOICE FLOW) */}
       {uiStage === 'interview' && (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col gap-5">
+        <main
+          onClick={unlockAudio}
+          className="flex-1 max-w-7xl w-full mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col gap-5 relative"
+        >
+          {/* Autoplay Blocked Floating Banner */}
+          {autoplayBlocked && (
+            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  unlockAudio();
+                  const lastAiMsg = [...chatMessages].reverse().find((m) => m.sender === 'ai');
+                  if (lastAiMsg) speakAI(lastAiMsg.text);
+                }}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2 text-xs cursor-pointer border border-amber-300"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>Tap here to enable AI Interviewer Voice (Cloudflare Neural)</span>
+              </button>
+            </div>
+          )}
+
           {/* Top Session Progress & Status Header */}
           <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Left: Program, Applicant, Question Counter */}
@@ -1605,8 +1719,29 @@ export const InterviewPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Voice Mute / Audio Actions */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Voice Selector & Audio Mute Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-full border border-slate-200 text-xs transition">
+                    <Sparkles className="w-3 h-3 text-kulkul-purple shrink-0" />
+                    <select
+                      value={ttsSpeaker}
+                      onChange={(e) => {
+                        const newSpeaker = e.target.value as any;
+                        setTtsSpeaker(newSpeaker);
+                        toast.success(`Voice set to ${newSpeaker.toUpperCase()} (Cloudflare Aura-2)`);
+                        if (isVoiceMuted) setIsVoiceMuted(false);
+                      }}
+                      className="bg-transparent text-slate-800 font-bold text-3xs focus:outline-hidden cursor-pointer"
+                      title="Select Cloudflare Neural Voice model"
+                    >
+                      <option value="luna">Luna (Warm Female)</option>
+                      <option value="orion">Orion (Natural Male)</option>
+                      <option value="stella">Stella (Professional Female)</option>
+                      <option value="arcas">Arcas (Conversational Male)</option>
+                      <option value="asteria">Asteria (Clear Female)</option>
+                    </select>
+                  </div>
+
                   <button
                     onClick={toggleVoiceMute}
                     className={`p-2 rounded-full transition ${

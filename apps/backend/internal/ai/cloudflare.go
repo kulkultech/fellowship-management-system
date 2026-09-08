@@ -530,7 +530,7 @@ func (e *CloudflareEvaluator) SynthesizeSpeech(ctx context.Context, text string,
 	}
 
 	if speaker == "" {
-		speaker = "asteria"
+		speaker = "luna"
 	}
 
 	// Calculate cache key based on model + speaker + text
