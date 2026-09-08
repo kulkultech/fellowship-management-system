@@ -398,27 +398,41 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 		return true, "", "Maximum follow-ups reached for this question.", nil
 	}
 
-	// Extract candidate text
+	// Extract candidate text cleanly
 	var totalCandidateWords int
+	var candidateTexts []string
 	for _, msg := range conversationForQuestion {
 		if msg.Role == "candidate" {
-			words := strings.Fields(msg.Message)
+			clean := strings.TrimSpace(msg.Message)
+			if idx := strings.Index(clean, "]: "); idx != -1 {
+				clean = strings.TrimSpace(clean[idx+3:])
+			}
+			candidateTexts = append(candidateTexts, clean)
+			words := strings.Fields(clean)
 			totalCandidateWords += len(words)
 		}
 	}
+	latestCandidateText := ""
+	if len(candidateTexts) > 0 {
+		latestCandidateText = candidateTexts[len(candidateTexts)-1]
+	}
 
-	// Immediate fallback if candidate provided almost no words (e.g. "yes", "idk", "ok")
-	if totalCandidateWords < 8 {
-		followUpQ := fmt.Sprintf("Could you tell me a bit more about that? Specifically, regarding %s, could you walk me through your experience or thoughts in more detail?", strings.ToLower(question.Theme))
-		return false, followUpQ, "Answer is too brief to evaluate.", nil
+	// Immediate fallback if candidate provided essentially no response
+	if totalCandidateWords == 0 {
+		followUpQ := fmt.Sprintf("I didn't quite catch that. Could you please share your thoughts on %s?", strings.ToLower(question.Theme))
+		return false, followUpQ, "Empty candidate turn.", nil
 	}
 
 	if !e.config.Enabled() {
-		// Fallback heuristic: If candidate provided over 25 words, consider it sufficient
-		if totalCandidateWords >= 25 {
+		if totalCandidateWords >= 20 {
 			return true, "", "Sufficient word count and coverage.", nil
 		}
-		followUpQ := fmt.Sprintf("That is helpful context! Regarding %s, could you elaborate further on how you approached this, and what specific steps or outcomes were involved?", strings.ToLower(question.Theme))
+		var followUpQ string
+		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
+			followUpQ = "Nice to meet you! Could you tell me a little more about your background in software engineering and what you hope to achieve during the fellowship?"
+		} else {
+			followUpQ = fmt.Sprintf("That is a good start! Could you elaborate further on how you approached %s, and what specific steps or outcomes were involved?", strings.ToLower(question.Theme))
+		}
 		return false, followUpQ, "Answer could use more concrete detail.", nil
 	}
 
@@ -429,7 +443,11 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 	}
 	sb.WriteString("\nCONVERSATION ON THIS QUESTION SO FAR:\n")
 	for _, m := range conversationForQuestion {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", strings.ToUpper(m.Role), m.Message))
+		clean := m.Message
+		if idx := strings.Index(clean, "]: "); idx != -1 {
+			clean = strings.TrimSpace(clean[idx+3:])
+		}
+		sb.WriteString(fmt.Sprintf("%s: %s\n", strings.ToUpper(m.Role), clean))
 	}
 	sb.WriteString("\nEvaluate if the candidate's response is sufficient, or if a follow-up clarification question is needed. Return JSON: {\"is_sufficient\": boolean, \"follow_up\": string, \"feedback\": string}")
 
@@ -442,15 +460,22 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 		Messages: []cloudflareMessage{
 			{
 				Role: "system",
-				Content: `You are an encouraging, professional admissions interviewer for a talent fellowship.
+				Content: `You are an encouraging, natural, and human admissions interviewer for a software engineering talent fellowship.
 You are actively listening to the candidate.
 Your task: Determine if the candidate's answer is SUFFICIENT for the current interview question and its criteria, or if it needs a FOLLOW-UP QUESTION.
 
-Guidelines:
-1. Fairness: Do NOT penalize Indonesian accent, modest vocabulary, or conversational pauses. If the candidate conveyed meaningful information addressing the prompt, mark is_sufficient: true.
-2. When to ask a follow-up: Only if the answer is notably incomplete, missing the core part of the prompt (e.g. mentioned what happened but omitted what they learned, or gave vague generalizations without a real example), set is_sufficient: false.
-3. Natural Voice: The follow-up question will be SPOKEN aloud to the candidate. Keep it friendly, encouraging, and brief (1-2 sentences maximum). Example: "Thanks for sharing that! Could you give me a specific example of a time you had to do that?"
-4. Output format: Return ONLY raw JSON: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
+Crucial Guidelines:
+1. Incomplete / Brief Answers:
+   - If the candidate only provided a brief introduction (e.g. "I'm ragil"), greeting, or fewer than 18 words, this does NOT answer the question's criteria.
+   - You MUST set "is_sufficient": false.
+   - Generate a warm, personalized follow-up addressing them by name if they introduced themselves:
+     Example: "Nice to meet you, Ragil! Could you tell me more about your background in software engineering, and what sparked your interest in this fellowship?"
+2. Substantive Answers:
+   - If the candidate provided a coherent, meaningful answer addressing the prompt's core criteria, set "is_sufficient": true.
+   - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
+3. Natural Conversational Style:
+   - The follow-up question will be SPOKEN directly to the candidate using neural voice. Keep it warm, engaging, and brief (1-2 sentences maximum).
+4. Output format: Return ONLY valid JSON: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
 			},
 			{
 				Role:    "user",
@@ -474,22 +499,26 @@ Guidelines:
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := e.client.Do(httpReq)
-	if err != nil {
+	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		e.logger.Warn("Cloudflare follow-up check failed, using heuristic fallback", slog.Any("error", err))
-		if totalCandidateWords >= 25 {
+		if totalCandidateWords >= 20 {
 			return true, "", "Heuristic fallback: sufficient words.", nil
 		}
-		followUpQ := fmt.Sprintf("Could you give me a concrete example or share more details about your approach to %s?", strings.ToLower(question.Theme))
+		var followUpQ string
+		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
+			followUpQ = "Nice to meet you! Could you tell me a little more about your background in software development and what you hope to achieve during the fellowship?"
+		} else {
+			followUpQ = fmt.Sprintf("Could you give me a concrete example or share more details about your approach to %s?", strings.ToLower(question.Theme))
+		}
 		return false, followUpQ, "Heuristic fallback follow-up", nil
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return true, "", "non-200 from AI, treating as sufficient", nil
-	}
-
 	var cfResp cloudflareChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
+		if totalCandidateWords < 20 {
+			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s?", strings.ToLower(question.Theme)), "Decode error fallback", nil
+		}
 		return true, "", "decode error", nil
 	}
 
@@ -506,8 +535,37 @@ Guidelines:
 	}
 
 	if err := json.Unmarshal([]byte(cleanText), &result); err != nil {
-		e.logger.Warn("Could not parse follow-up JSON, treating as sufficient", slog.String("text", aiText))
+		e.logger.Warn("Could not parse follow-up JSON, checking word count", slog.String("text", aiText))
+		if totalCandidateWords < 20 {
+			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s?", strings.ToLower(question.Theme)), "JSON parse fallback", nil
+		}
 		return true, "", "JSON parse fallback", nil
+	}
+
+	// Safety check: If answer is fewer than 15 words, enforce is_sufficient = false
+	if totalCandidateWords < 15 {
+		result.IsSufficient = false
+		if strings.TrimSpace(result.FollowUp) == "" {
+			if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
+				name := latestCandidateText
+				lower := strings.ToLower(name)
+				if strings.HasPrefix(lower, "i'm ") {
+					name = name[4:]
+				} else if strings.HasPrefix(lower, "im ") {
+					name = name[3:]
+				} else if strings.HasPrefix(lower, "my name is ") {
+					name = name[11:]
+				}
+				name = strings.Title(strings.TrimSpace(name))
+				if name != "" && len(name) < 25 {
+					result.FollowUp = fmt.Sprintf("Nice to meet you, %s! Could you share a bit about your background in software development and what sparked your interest in joining this fellowship?", name)
+				} else {
+					result.FollowUp = "Nice to meet you! Could you share a bit about your background in software development and what sparked your interest in joining this fellowship?"
+				}
+			} else {
+				result.FollowUp = fmt.Sprintf("Could you tell me a little more about your approach to %s?", strings.ToLower(question.Theme))
+			}
+		}
 	}
 
 	if !result.IsSufficient && strings.TrimSpace(result.FollowUp) == "" {

@@ -7,9 +7,11 @@ import (
 )
 
 type ChatMessage struct {
-	Role      string    `json:"role"` // "ai" | "candidate" | "system"
-	Message   string    `json:"message"`
-	Timestamp time.Time `json:"timestamp"`
+	Role          string    `json:"role"` // "ai" | "candidate" | "system"
+	Message       string    `json:"message"`
+	Timestamp     time.Time `json:"timestamp"`
+	QuestionIndex *int      `json:"question_index,omitempty"`
+	IsFollowUp    bool      `json:"is_follow_up,omitempty"`
 }
 
 type AIInterviewStatus string

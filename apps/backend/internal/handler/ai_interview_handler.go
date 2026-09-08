@@ -261,12 +261,10 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	}
 
 	now := time.Now()
-	// Append candidate response
-	aiSession.Transcript = append(aiSession.Transcript, model.ChatMessage{
-		Role:      "candidate",
-		Message:   req.Message,
-		Timestamp: now,
-	})
+	qIdx := req.CurrentQuestionIndex
+	if qIdx < 0 {
+		qIdx = 0
+	}
 
 	// Resolve rubric
 	var rubric *model.AIInterviewRubric
@@ -282,39 +280,43 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		rubric = model.DefaultLITRubric()
 	}
 
-	// Handle video recording completion sentinel signal
-	isCompletionSentinel := strings.HasPrefix(req.Message, "[Video Assessment Completed")
-
-	qIdx := req.CurrentQuestionIndex
-	if qIdx < 0 {
-		qIdx = 0
-	}
 	if qIdx >= len(rubric.Questions) {
 		qIdx = len(rubric.Questions) - 1
 	}
 	currentQ := rubric.Questions[qIdx]
+	qIdxCopy := qIdx
+
+	// Clean candidate message if metadata tag was prepended
+	cleanMsg := strings.TrimSpace(req.Message)
+	if idx := strings.Index(cleanMsg, "]: "); idx != -1 {
+		cleanMsg = strings.TrimSpace(cleanMsg[idx+3:])
+	}
+
+	// Append candidate response with precise question index tracking
+	aiSession.Transcript = append(aiSession.Transcript, model.ChatMessage{
+		Role:          "candidate",
+		Message:       cleanMsg,
+		Timestamp:     now,
+		QuestionIndex: &qIdxCopy,
+	})
+
+	// Handle video recording completion sentinel signal
+	isCompletionSentinel := strings.HasPrefix(req.Message, "[Video Assessment Completed")
 
 	// Find conversation turns for the current question
 	var conversationForCurrentQ []model.ChatMessage
-	lastMainQIndex := -1
-	for i := len(aiSession.Transcript) - 1; i >= 0; i-- {
-		msg := aiSession.Transcript[i]
-		if msg.Role == "ai" && strings.Contains(msg.Message, currentQ.Question) {
-			lastMainQIndex = i
-			break
-		}
-	}
-
 	followUpCount := 0
-	if lastMainQIndex != -1 {
-		for i := lastMainQIndex; i < len(aiSession.Transcript); i++ {
-			msg := aiSession.Transcript[i]
+	for _, msg := range aiSession.Transcript {
+		if msg.QuestionIndex != nil && *msg.QuestionIndex == qIdx {
 			conversationForCurrentQ = append(conversationForCurrentQ, msg)
-			if i > lastMainQIndex && msg.Role == "ai" {
+			if msg.Role == "ai" && msg.IsFollowUp {
 				followUpCount++
 			}
 		}
-	} else {
+	}
+
+	// Fallback for legacy transcripts without QuestionIndex
+	if len(conversationForCurrentQ) == 0 {
 		start := len(aiSession.Transcript) - 4
 		if start < 0 {
 			start = 0
@@ -386,11 +388,13 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, &nowComplete, aiSession.Transcript, summary, score, model.AIInterviewCompleted)
 	}
 
-	// Append AI reply to transcript
+	// Append AI reply to transcript with question index and follow-up flag
 	aiSession.Transcript = append(aiSession.Transcript, model.ChatMessage{
-		Role:      "ai",
-		Message:   aiReply,
-		Timestamp: time.Now(),
+		Role:          "ai",
+		Message:       aiReply,
+		Timestamp:     time.Now(),
+		QuestionIndex: &qIdxCopy,
+		IsFollowUp:    isFollowUp,
 	})
 
 	if !isCompleted {

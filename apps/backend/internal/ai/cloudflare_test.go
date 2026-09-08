@@ -9,6 +9,7 @@ import (
 
 	"github.com/kulkul/backend/internal/ai"
 	"github.com/kulkul/backend/internal/config"
+	"github.com/kulkul/backend/internal/model"
 )
 
 func TestCloudflareEvaluator_SynthesizeSpeech_EmptyText(t *testing.T) {
@@ -55,5 +56,30 @@ func TestCloudflareEvaluator_SynthesizeSpeech_Live(t *testing.T) {
 	}
 	if len(cachedData) != len(audioData) || cachedType != contentType {
 		t.Errorf("cached audio mismatch")
+	}
+}
+
+func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_BriefAnswer(t *testing.T) {
+	evaluator := ai.NewCloudflareEvaluator(config.CloudflareConfig{}, slog.Default())
+
+	q := model.DefaultLITRubric().Questions[0]
+	conv := []model.ChatMessage{
+		{
+			Role:    "candidate",
+			Message: "I'm ragil",
+		},
+	}
+
+	isSufficient, followUp, _, err := evaluator.AssessAnswerAndGenerateFollowUp(context.Background(), q, conv, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if isSufficient {
+		t.Errorf("expected isSufficient = false for brief response 'I'm ragil', got true")
+	}
+
+	if followUp == "" {
+		t.Errorf("expected followUp question to be generated, got empty string")
 	}
 }

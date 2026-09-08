@@ -931,12 +931,8 @@ export const InterviewPage: React.FC = () => {
 
     try {
       const q = questions[currentQIndexRef.current];
-      const promptTag = activeFollowUpRef.current
-        ? `[Candidate Response to Follow-Up on Q${q.id}]: ${textToSubmit}`
-        : `[Candidate Response to Q${q.id} - ${q.category}]: ${textToSubmit}`;
-
       if (!inviteToken) return;
-      const res = await aiInterviewService.sendMessage(inviteToken, promptTag, currentQIndexRef.current);
+      const res = await aiInterviewService.sendMessage(inviteToken, textToSubmit, currentQIndexRef.current);
 
       if (res.is_follow_up) {
         // AI asks conversational follow-up question
@@ -1054,11 +1050,17 @@ export const InterviewPage: React.FC = () => {
             clearTimeout(silenceTimeoutRef.current);
           }
 
-          // 4. Auto-commit turn after 2.2s of candidate silence if sufficient text spoken
-          if (text.length >= 8 && !isEvaluatingAnswerRef.current) {
+          // 4. Auto-commit turn after natural conversational silence pause
+          if (text.length >= 6 && !isEvaluatingAnswerRef.current) {
+            // Adaptive silence debounce:
+            // - For brief opening fragments (< 10 words), give 4.5 seconds so candidate has time to think without being cut off mid-thought!
+            // - For substantive responses (>= 10 words), use a natural 3.5 seconds silence pause.
+            const wordCount = text.split(/\s+/).filter(Boolean).length;
+            const debounceMs = wordCount < 10 ? 4500 : 3500;
+
             silenceTimeoutRef.current = setTimeout(() => {
               commitCandidateTurn(text);
-            }, 2200);
+            }, debounceMs);
           }
         }
       };
@@ -1097,6 +1099,11 @@ export const InterviewPage: React.FC = () => {
     if (!stream && !isDemo) {
       toast.error('Please enable camera and microphone permissions first.');
       return;
+    }
+
+    // Automatically clean previous test transcript if in demo mode
+    if (isDemo && inviteToken) {
+      aiInterviewService.resetSession(inviteToken).catch(() => {});
     }
 
     // Unlock browser audio context synchronously on user interaction
@@ -1457,6 +1464,16 @@ export const InterviewPage: React.FC = () => {
                   <span className="px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple text-3xs font-extrabold uppercase border border-purple-200/60">
                     Gemini Voice Flow
                   </span>
+                  {isDemo && (
+                    <button
+                      onClick={handleResetDemo}
+                      className="px-2 py-0.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-3xs font-extrabold uppercase border border-amber-200 transition cursor-pointer flex items-center gap-1"
+                      title="Reset demo transcript and start from Question 1"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" />
+                      <span>Restart Demo</span>
+                    </button>
+                  )}
                 </div>
                 <div className="text-xs text-slate-500 font-medium">
                   {session.applicant_name} &bull; Question {currentQIndex + 1} of {questions.length}
