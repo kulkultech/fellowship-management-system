@@ -524,3 +524,40 @@ func (h *AIInterviewHandler) ResetSession(w http.ResponseWriter, r *http.Request
 	h.GetSession(w, r)
 }
 
+type SynthesizeSpeechRequest struct {
+	Text    string `json:"text"`
+	Speaker string `json:"speaker,omitempty"`
+}
+
+// SynthesizeSpeech streams realistic speech audio synthesized by Cloudflare Workers AI TTS.
+func (h *AIInterviewHandler) SynthesizeSpeech(w http.ResponseWriter, r *http.Request) {
+	var req SynthesizeSpeechRequest
+	if r.Method == http.MethodPost && r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	if req.Text == "" {
+		req.Text = r.URL.Query().Get("text")
+	}
+
+	req.Text = strings.TrimSpace(req.Text)
+	if req.Text == "" {
+		httpx.Error(w, http.StatusBadRequest, "text parameter is required")
+		return
+	}
+
+	audioData, contentType, err := h.aiEvaluator.SynthesizeSpeech(r.Context(), req.Text, req.Speaker)
+	if err != nil {
+		httpx.Error(w, http.StatusBadGateway, fmt.Sprintf("speech synthesis failed: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(audioData)))
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Header().Set("Accept-Ranges", "bytes")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(audioData)
+}
+
+

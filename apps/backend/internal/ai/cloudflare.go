@@ -3,11 +3,14 @@ package ai
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -513,3 +516,100 @@ Guidelines:
 
 	return result.IsSufficient, strings.TrimSpace(result.FollowUp), result.Feedback, nil
 }
+
+// SynthesizeSpeech converts conversational text into natural human speech using Cloudflare Workers AI Text-to-Speech models.
+// It uses Deepgram Aura-2 (@cf/deepgram/aura-2-en) with automatic fallback to Aura-1 (@cf/deepgram/aura-1),
+// returning raw audio/mpeg (MP3) bytes and caching audio on disk for ultra-fast instant playback.
+func (e *CloudflareEvaluator) SynthesizeSpeech(ctx context.Context, text string, speaker string) ([]byte, string, error) {
+	cleanText := strings.TrimSpace(text)
+	if cleanText == "" {
+		return nil, "", fmt.Errorf("text cannot be empty")
+	}
+	if len(cleanText) > 2000 {
+		cleanText = cleanText[:2000]
+	}
+
+	if speaker == "" {
+		speaker = "asteria"
+	}
+
+	// Calculate cache key based on model + speaker + text
+	cacheHash := fmt.Sprintf("%x", sha256.Sum256([]byte("aura-2-en:" + speaker + ":" + cleanText)))
+	cacheDir := filepath.Join("uploads", "audio_cache")
+	cachePath := filepath.Join(cacheDir, cacheHash+".mp3")
+
+	// Check if already cached on disk
+	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
+		return data, "audio/mpeg", nil
+	}
+
+	if !e.config.Enabled() {
+		return nil, "", fmt.Errorf("Cloudflare Workers AI credentials not configured")
+	}
+
+	// Models to try in order of quality
+	models := []string{
+		"@cf/deepgram/aura-2-en",
+		"@cf/deepgram/aura-1",
+	}
+
+	reqPayload := map[string]string{
+		"text":    cleanText,
+		"speaker": speaker,
+	}
+	bodyBytes, err := json.Marshal(reqPayload)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to marshal TTS request: %w", err)
+	}
+
+	var lastErr error
+	for _, modelName := range models {
+		apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s", e.config.AccountID, modelName)
+
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		resp, err := e.client.Do(httpReq)
+		if err != nil {
+			lastErr = err
+			e.logger.Warn("Cloudflare Workers AI TTS request failed", slog.String("model", modelName), slog.Any("error", err))
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			raw, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("model %s returned status %d: %s", modelName, resp.StatusCode, string(raw))
+			e.logger.Warn("Cloudflare Workers AI TTS returned non-200", slog.String("model", modelName), slog.Int("status", resp.StatusCode))
+			continue
+		}
+
+		audioData, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if len(audioData) < 100 {
+			lastErr = fmt.Errorf("model %s returned invalid or empty audio", modelName)
+			continue
+		}
+
+		// Persist to local disk cache for instant subsequent playback
+		if err := os.MkdirAll(cacheDir, 0755); err == nil {
+			_ = os.WriteFile(cachePath, audioData, 0644)
+		}
+
+		return audioData, "audio/mpeg", nil
+	}
+
+	return nil, "", fmt.Errorf("Cloudflare Workers AI TTS failed: %w", lastErr)
+}
+

@@ -213,6 +213,8 @@ export const InterviewPage: React.FC = () => {
   } | null>(null);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioBlobUrlCacheRef = useRef<Map<string, string>>(new Map());
 
   // Sync prep countdown when rubric arrives
   useEffect(() => {
@@ -752,18 +754,84 @@ export const InterviewPage: React.FC = () => {
     window.speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
 
-  // Cancel speech synthesis if active
-  const stopSpeech = () => {
-    if ('speechSynthesis' in window) {
+  // Clean up cached audio object URLs on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      audioBlobUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
+      audioBlobUrlCacheRef.current.clear();
+    };
+  }, []);
+
+  // Fallback to Web Speech Synthesis if network is offline or TTS API is unreachable
+  const fallbackToSpeechSynthesis = (cleanText: string) => {
+    if (!('speechSynthesis' in window)) {
+      setIsAiSpeaking(false);
+      return;
+    }
+    try {
       window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 0.94;
+      utterance.pitch = 1.0;
+      if (selectedVoiceRef.current) {
+        utterance.voice = selectedVoiceRef.current;
+      }
+      utterance.onstart = () => setIsAiSpeaking(true);
+      utterance.onend = () => setIsAiSpeaking(false);
+      utterance.onerror = () => setIsAiSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    } catch {
       setIsAiSpeaking(false);
     }
   };
 
-  // Speak AI text with Web Speech Synthesis
-  const speakAI = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
+  const playAudioUrl = (url: string, cleanText: string) => {
+    try {
+      const audio = new Audio(url);
+      currentAudioRef.current = audio;
+
+      audio.onplay = () => setIsAiSpeaking(true);
+      audio.onended = () => {
+        setIsAiSpeaking(false);
+        if (currentAudioRef.current === audio) {
+          currentAudioRef.current = null;
+        }
+      };
+      audio.onerror = () => {
+        console.warn('Audio element error, falling back to browser speech synthesis');
+        fallbackToSpeechSynthesis(cleanText);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.warn('Audio play prevented (e.g. autoplay policy), falling back:', e);
+          fallbackToSpeechSynthesis(cleanText);
+        });
+      }
+    } catch (e) {
+      console.warn('Audio creation failed:', e);
+      fallbackToSpeechSynthesis(cleanText);
+    }
+  };
+
+  // Cancel any active speech synthesis or audio playback
+  const stopSpeech = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsAiSpeaking(false);
+  };
+
+  // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) with fallback to SpeechSynthesis
+  const speakAI = async (text: string) => {
+    stopSpeech();
     if (isVoiceMuted) {
       setIsAiSpeaking(false);
       return;
@@ -776,21 +844,41 @@ export const InterviewPage: React.FC = () => {
       .trim();
     if (!cleanText) return;
 
+    // Check in-memory object URL cache first for 0ms replay latency
+    const cachedUrl = audioBlobUrlCacheRef.current.get(cleanText);
+    if (cachedUrl) {
+      playAudioUrl(cachedUrl, cleanText);
+      return;
+    }
+
     try {
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      // Conversational pacing: slightly relaxed 0.94 rate sounds significantly more natural and human
-      utterance.rate = 0.94;
-      utterance.pitch = 1.0;
-      if (selectedVoiceRef.current) {
-        utterance.voice = selectedVoiceRef.current;
+      setIsAiSpeaking(true);
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+      const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: cleanText, speaker: 'asteria' }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`TTS server returned status ${res.status}`);
       }
-      utterance.onstart = () => setIsAiSpeaking(true);
-      utterance.onend = () => setIsAiSpeaking(false);
-      utterance.onerror = () => setIsAiSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn('Speech synthesis error:', e);
-      setIsAiSpeaking(false);
+
+      const blob = await res.blob();
+      if (blob.size < 100) {
+        throw new Error('TTS returned empty audio');
+      }
+
+      const audioUrl = URL.createObjectURL(blob);
+      audioBlobUrlCacheRef.current.set(cleanText, audioUrl);
+      playAudioUrl(audioUrl, cleanText);
+    } catch (err) {
+      console.warn('Cloudflare Workers AI TTS request failed, falling back to local speech synthesis:', err);
+      fallbackToSpeechSynthesis(cleanText);
     }
   };
 
@@ -1573,6 +1661,10 @@ export const InterviewPage: React.FC = () => {
 
                     {/* Audio Controls */}
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200/60 text-3xs font-semibold">
+                        <Sparkles className="w-2.5 h-2.5 text-kulkul-orange" />
+                        <span>Cloudflare Neural Voice</span>
+                      </span>
                       {isAiSpeaking ? (
                         <button
                           onClick={stopSpeech}
