@@ -231,6 +231,28 @@ const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float
   return result;
 };
 
+// Filters out silence artifacts and common Whisper hallucinations on low background noise
+const cleanWhisperTranscript = (rawText: string): string => {
+  if (!rawText) return '';
+  const cleaned = rawText.trim();
+  const lower = cleaned.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  if (
+    !lower ||
+    lower === 'blankaudio' ||
+    lower === 'blank audio' ||
+    lower === 'silence' ||
+    lower === 'thank you' ||
+    lower === 'thanks for watching' ||
+    lower === 'subtitles by' ||
+    lower === 'you' ||
+    lower === 'bye'
+  ) {
+    return '';
+  }
+  return cleaned;
+};
+
+
 export const InterviewPage: React.FC = () => {
   const { inviteToken } = useParams<{ inviteToken: string }>();
   const navigate = useNavigate();
@@ -326,6 +348,7 @@ export const InterviewPage: React.FC = () => {
   const speechStartedTimeRef = useRef<number>(0);
   const isTranscribingLiveChunkRef = useRef<boolean>(false);
   const lastLiveChunkTranscribeTimeRef = useRef<number>(0);
+  const consecutiveSpeechFramesRef = useRef<number>(0);
   const commitCandidateTurnRef = useRef<(candidateText?: string) => Promise<void>>(() => Promise.resolve());
   const inviteTokenRef = useRef(inviteToken);
   const currentQIndexRef = useRef(0);
@@ -801,19 +824,30 @@ export const InterviewPage: React.FC = () => {
                 const level = Math.min(100, Math.round((avg / 128) * 100));
                 setAudioLevel(level);
 
-                if (level > 15) {
+                if (level > 24) {
                   hasSpokenInCurrentTurnRef.current = true;
                 }
 
-                // 0ms Vocal Volume Barge-in: If candidate speaks while AI is talking, immediately silence AI!
-                if (level > 32 && isAiSpeakingRef.current) {
+                // Vocal Volume Barge-in: If candidate speaks clearly while AI is talking, immediately silence AI!
+                // Using level > 42 to prevent ambient room noise / keyboard clicks from falsely cutting off the AI
+                if (level > 42 && isAiSpeakingRef.current) {
                   stopSpeechRef.current();
                 }
 
                 // Voice Activity Detection & Adaptive Whisper Turn-taking in Interview Chamber
                 if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
                   const now = Date.now();
-                  if (level > 14) {
+
+                  // Reduce sensitivity to noise: require volume > 24 for at least 3 consecutive frames (~50ms) to filter out background noise/clicks
+                  if (level > 24) {
+                    consecutiveSpeechFramesRef.current = Math.min(20, consecutiveSpeechFramesRef.current + 1);
+                  } else {
+                    consecutiveSpeechFramesRef.current = Math.max(0, consecutiveSpeechFramesRef.current - 1);
+                  }
+
+                  const isGenuineSpeech = consecutiveSpeechFramesRef.current >= 3;
+
+                  if (isGenuineSpeech) {
                     lastCandidateSpeechTimeRef.current = now;
                     if (speechStartedTimeRef.current === 0) {
                       speechStartedTimeRef.current = now;
@@ -824,13 +858,14 @@ export const InterviewPage: React.FC = () => {
                     }
 
                     // For browsers where Web Speech API is blocked or inactive (e.g. Brave):
-                    // Periodically transcribe audio slice via Whisper every 2.5 seconds while candidate is speaking
+                    // Periodically transcribe audio slice via English Whisper faster:
+                    // Start first slice at 800ms, then every 1200ms while candidate is speaking
                     if (
                       !speechRecognitionWorkingRef.current &&
-                      now - speechStartedTimeRef.current > 1500 &&
-                      now - lastLiveChunkTranscribeTimeRef.current > 2500 &&
+                      now - speechStartedTimeRef.current > 800 &&
+                      now - lastLiveChunkTranscribeTimeRef.current > 1200 &&
                       !isTranscribingLiveChunkRef.current &&
-                      turnPcmChunksRef.current.length > 5 &&
+                      turnPcmChunksRef.current.length > 3 &&
                       inviteTokenRef.current
                     ) {
                       lastLiveChunkTranscribeTimeRef.current = now;
@@ -838,13 +873,16 @@ export const InterviewPage: React.FC = () => {
 
                       const inputRate = audioContextRef.current?.sampleRate || 44100;
                       const pcm16k = downsampleTo16k(turnPcmChunksRef.current, inputRate);
-                      if (pcm16k.length > 8000) {
+                      if (pcm16k.length > 4000) {
                         const wavBlob = encodeWav(pcm16k, 16000);
                         aiInterviewService
                           .transcribeAudio(inviteTokenRef.current, wavBlob)
                           .then((res) => {
-                            if (res?.text && res.text.trim().length > 0 && !speechRecognitionWorkingRef.current) {
-                              setLiveCandidateTranscript(res.text.trim());
+                            if (res?.text && !speechRecognitionWorkingRef.current) {
+                              const cleaned = cleanWhisperTranscript(res.text);
+                              if (cleaned.length > 0) {
+                                setLiveCandidateTranscript(cleaned);
+                              }
                             }
                           })
                           .catch((e) => {
@@ -862,16 +900,17 @@ export const InterviewPage: React.FC = () => {
                     if (
                       isCandidateSpeakingRef.current &&
                       lastCandidateSpeechTimeRef.current > 0 &&
-                      now - lastCandidateSpeechTimeRef.current > 3500
+                      now - lastCandidateSpeechTimeRef.current > 2200
                     ) {
                       const totalSpokenDuration = now - speechStartedTimeRef.current;
                       isCandidateSpeakingRef.current = false;
                       setIsCandidateSpeaking(false);
                       lastCandidateSpeechTimeRef.current = 0;
                       speechStartedTimeRef.current = 0;
+                      consecutiveSpeechFramesRef.current = 0;
 
                       // Auto-commit turn on silence if Web Speech API didn't handle it
-                      if (!speechRecognitionWorkingRef.current && totalSpokenDuration > 1500) {
+                      if (!speechRecognitionWorkingRef.current && totalSpokenDuration > 1000) {
                         commitCandidateTurnRef.current();
                       }
                     }
@@ -1400,8 +1439,11 @@ export const InterviewPage: React.FC = () => {
           if (pcm16k.length > 4000) {
             const wavBlob = encodeWav(pcm16k, 16000);
             const res = await aiInterviewService.transcribeAudio(inviteToken, wavBlob);
-            if (res?.text && res.text.trim().length > 0) {
-              textToSubmit = res.text.trim();
+            if (res?.text) {
+              const cleaned = cleanWhisperTranscript(res.text);
+              if (cleaned.length > 0) {
+                textToSubmit = cleaned;
+              }
             }
           }
         } catch (whisperErr) {
@@ -1423,6 +1465,7 @@ export const InterviewPage: React.FC = () => {
     isCandidateSpeakingRef.current = false;
     speechStartedTimeRef.current = 0;
     lastCandidateSpeechTimeRef.current = 0;
+    consecutiveSpeechFramesRef.current = 0;
 
     // Append candidate message to chat thread
     const candMsg: ChatMessageItem = {
@@ -2173,7 +2216,7 @@ export const InterviewPage: React.FC = () => {
                   ) : (
                     <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
                       <Mic className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{audioLevel > 12 ? 'Listening (speaking)...' : 'Speak anytime'}</span>
+                      <span>{audioLevel > 24 ? 'Listening (speaking)...' : 'Speak anytime'}</span>
                     </div>
                   )}
                 </div>

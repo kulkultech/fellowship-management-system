@@ -680,7 +680,7 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 		return "", fmt.Errorf("Cloudflare Workers AI credentials not configured")
 	}
 
-	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper", e.config.AccountID)
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper-tiny-en", e.config.AccountID)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(audioData))
 	if err != nil {
@@ -723,6 +723,11 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 		return "", fmt.Errorf("failed to parse whisper json: %w", err)
 	}
 
-	return strings.TrimSpace(cfResp.Result.Text), nil
+	text := strings.TrimSpace(cfResp.Result.Text)
+	lower := strings.ToLower(text)
+	if lower == "[blank_audio]" || lower == "thank you." || lower == "thank you" || lower == "thanks for watching." || lower == "thanks for watching" {
+		return "", nil
+	}
+	return text, nil
 }
 

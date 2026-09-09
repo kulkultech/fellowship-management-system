@@ -1,8 +1,12 @@
 package ai_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -122,4 +126,42 @@ func TestCloudflareEvaluator_TranscribeAudio_Live(t *testing.T) {
 	if transcribed == "" {
 		t.Errorf("expected non-empty transcript, got empty")
 	}
+}
+
+func TestCloudflareEvaluator_TranscribeAudio_TinyEn(t *testing.T) {
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	apiKey := os.Getenv("CLOUDFLARE_API_KEY")
+	if accountID == "" || apiKey == "" {
+		t.Skip("Skipping live Cloudflare test")
+	}
+
+	cfg := config.CloudflareConfig{
+		AccountID: accountID,
+		APIKey:    apiKey,
+	}
+	evaluator := ai.NewCloudflareEvaluator(cfg, slog.Default())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+
+	audioData, contentType, err := evaluator.SynthesizeSpeech(ctx, "Hello I am excited for the fellowship.", "asteria")
+	if err != nil {
+		t.Fatalf("SynthesizeSpeech failed: %v", err)
+	}
+
+	// Test tiny-en model
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper-tiny-en", accountID)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(audioData))
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", contentType)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	t.Logf("tiny-en status: %d, body: %s", resp.StatusCode, string(body))
 }
