@@ -201,6 +201,8 @@ export const InterviewPage: React.FC = () => {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const speechRecognitionRef = useRef<any>(null);
+  const recognitionRestartTimeoutRef = useRef<any>(null);
+  const startSpeechRecognitionRef = useRef<() => void>(() => {});
 
   // Tick continuous session recording timer when in interview chamber
   useEffect(() => {
@@ -400,12 +402,7 @@ export const InterviewPage: React.FC = () => {
     if (!inviteToken) return;
     setIsResetting(true);
     stopSpeech();
-    if (speechRecognitionRef.current) {
-      try {
-        speechRecognitionRef.current.stop();
-      } catch (_) {}
-      speechRecognitionRef.current = null;
-    }
+    stopSpeechRecognition();
     setChatMessages([]);
     setLiveCandidateTranscript('');
     try {
@@ -427,6 +424,7 @@ export const InterviewPage: React.FC = () => {
       setEvaluationResult(null);
       setFinalVideoUrl(null);
       setUiStage('lobby');
+      uiStageRef.current = 'lobby';
       toast.success('Demo session reset! Ready for a fresh interview run.');
     } catch (err) {
       toast.error('Failed to reset demo session.');
@@ -516,13 +514,11 @@ export const InterviewPage: React.FC = () => {
         activeStreamRef.current = null;
       }
 
-      // 1. Enumerate devices to prioritize real physical hardware cameras & mics over virtual/inactive drivers (Camo, Iriun, BlackHole)
+      // 1. Enumerate devices: prioritize front-facing physical webcam if labels are exposed
       let preferredVideoId: string | undefined;
-      let preferredAudioId: string | undefined;
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devices.filter((d) => d.kind === 'videoinput');
-        const audioInputs = devices.filter((d) => d.kind === 'audioinput');
 
         const isVirtual = (label: string) => {
           const l = label.toLowerCase();
@@ -545,41 +541,32 @@ export const InterviewPage: React.FC = () => {
             l.includes('integrated') ||
             l.includes('usb') ||
             l.includes('camera') ||
-            l.includes('macbook') ||
-            l.includes('microphone') ||
-            l.includes('headset')
+            l.includes('macbook')
           );
         };
 
-        const bestVideo =
-          videoInputs.find((d) => isHardware(d.label) && !isVirtual(d.label)) ||
-          videoInputs.find((d) => !isVirtual(d.label)) ||
-          videoInputs[0];
+        // Only select a preferred video device if non-empty label confirms real hardware
+        const bestVideo = videoInputs.find((d) => d.label && isHardware(d.label) && !isVirtual(d.label));
         if (bestVideo?.deviceId) {
           preferredVideoId = bestVideo.deviceId;
-        }
-
-        const bestAudio =
-          audioInputs.find((d) => isHardware(d.label) && !isVirtual(d.label)) ||
-          audioInputs.find((d) => !isVirtual(d.label)) ||
-          audioInputs[0];
-        if (bestAudio?.deviceId) {
-          preferredAudioId = bestAudio.deviceId;
         }
       } catch (enumErr) {
         console.warn('Device enumeration fallback:', enumErr);
       }
 
       let userMediaStream: MediaStream | null = null;
+      // Standard audio constraints that naturally route the system default microphone (MacBook Air Mic)
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
       try {
-        // Attempt 1: Standard high-definition with preferred physical camera and echo cancellation
+        // Attempt 1: Standard high-definition with preferred physical camera and system microphone
         const videoConstraints: MediaTrackConstraints = preferredVideoId
           ? { deviceId: { ideal: preferredVideoId }, width: { ideal: 1280 }, height: { ideal: 720 } }
           : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
-
-        const audioConstraints: MediaTrackConstraints = preferredAudioId
-          ? { deviceId: { ideal: preferredAudioId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-          : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 
         userMediaStream = await navigator.mediaDevices.getUserMedia({
           video: videoConstraints,
@@ -588,10 +575,10 @@ export const InterviewPage: React.FC = () => {
       } catch (hdErr: any) {
         console.warn('HD camera constraints failed, attempting basic video/audio:', hdErr);
         try {
-          // Attempt 2: Basic video + audio with device preferences or unconstrained
+          // Attempt 2: Basic video + audio
           userMediaStream = await navigator.mediaDevices.getUserMedia({
             video: preferredVideoId ? { deviceId: { ideal: preferredVideoId } } : true,
-            audio: preferredAudioId ? { deviceId: { ideal: preferredAudioId } } : true,
+            audio: audioConstraints,
           });
         } catch (basicErr: any) {
           console.warn('Basic joint constraints failed, attempting separate track acquisition:', basicErr);
@@ -604,7 +591,7 @@ export const InterviewPage: React.FC = () => {
 
           const aStream = await navigator.mediaDevices
             .getUserMedia({
-              audio: preferredAudioId ? { deviceId: { ideal: preferredAudioId } } : true,
+              audio: audioConstraints,
             })
             .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null));
 
@@ -780,12 +767,31 @@ export const InterviewPage: React.FC = () => {
 
   // Cancel any active speech recognition
   const stopSpeechRecognition = () => {
+    if (recognitionRestartTimeoutRef.current) {
+      clearTimeout(recognitionRestartTimeoutRef.current);
+      recognitionRestartTimeoutRef.current = null;
+    }
     if (speechRecognitionRef.current) {
       try {
-        speechRecognitionRef.current.stop();
+        speechRecognitionRef.current.onresult = null;
+        speechRecognitionRef.current.onerror = null;
+        speechRecognitionRef.current.onend = null;
+        speechRecognitionRef.current.abort();
       } catch (_) {}
       speechRecognitionRef.current = null;
     }
+  };
+
+  const restartSpeechRecognition = (delayMs: number = 250) => {
+    if (uiStageRef.current !== 'interview') return;
+    if (recognitionRestartTimeoutRef.current) {
+      clearTimeout(recognitionRestartTimeoutRef.current);
+    }
+    recognitionRestartTimeoutRef.current = setTimeout(() => {
+      if (uiStageRef.current === 'interview') {
+        startSpeechRecognitionRef.current();
+      }
+    }, delayMs);
   };
 
   // Clean up cached audio object URLs and recognition on unmount
@@ -1082,7 +1088,9 @@ export const InterviewPage: React.FC = () => {
       if (data.evaluation) {
         setEvaluationResult(data.evaluation);
       }
+      stopSpeechRecognition();
       setUiStage('completed');
+      uiStageRef.current = 'completed';
       queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
       toast.success('Interview video saved and evaluated by admissions AI!');
     },
@@ -1090,7 +1098,9 @@ export const InterviewPage: React.FC = () => {
       setIsUploadingRecording(false);
       console.error('Error saving interview recording:', err);
       toast.error('Failed to save video to database. Local session preserved.');
+      stopSpeechRecognition();
       setUiStage('completed');
+      uiStageRef.current = 'completed';
     },
   });
 
@@ -1125,11 +1135,8 @@ export const InterviewPage: React.FC = () => {
     isEvaluatingAnswerRef.current = true;
 
     // Reset speech recognition buffer for fresh next turn
-    if (speechRecognitionRef.current) {
-      try {
-        speechRecognitionRef.current.abort();
-      } catch (_) {}
-    }
+    stopSpeechRecognition();
+    restartSpeechRecognition(300);
 
     try {
       if (!inviteToken) return;
@@ -1211,13 +1218,20 @@ export const InterviewPage: React.FC = () => {
   // Continuous Speech Recognition with Instant Barge-In
   const startSpeechRecognition = () => {
     try {
+      if (uiStageRef.current !== 'interview') return;
+
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) return;
 
+      // Clean up previous instance cleanly
       if (speechRecognitionRef.current) {
         try {
+          speechRecognitionRef.current.onresult = null;
+          speechRecognitionRef.current.onerror = null;
+          speechRecognitionRef.current.onend = null;
           speechRecognitionRef.current.abort();
         } catch (_) {}
+        speechRecognitionRef.current = null;
       }
 
       const recognition = new SpeechRecognition();
@@ -1263,33 +1277,37 @@ export const InterviewPage: React.FC = () => {
       };
 
       recognition.onerror = (e: any) => {
-        console.warn('Speech recognition notice:', e);
-        if (e.error !== 'aborted' && uiStageRef.current === 'interview') {
-          setTimeout(() => {
-            try {
-              recognition.start();
-            } catch (_) {}
-          }, 600);
+        console.warn('Speech recognition notice:', e?.error || e);
+        if (e?.error === 'not-allowed') {
+          console.warn('Speech recognition access denied by browser or permissions.');
+          const isBrave = (navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function';
+          if (isBrave) {
+            toast.error(
+              'Brave shields block speech recognition. Please enable "Use Google services for speech recognition" in Brave settings or use Chrome / Safari.',
+              { id: 'brave-stt-notice', duration: 8000 },
+            );
+          }
+          return;
+        }
+        if (e?.error !== 'aborted' && uiStageRef.current === 'interview') {
+          restartSpeechRecognition(600);
         }
       };
 
       recognition.onend = () => {
-        // Automatically restart so speech recognition stays active continuously
+        // Automatically restart a fresh instance so speech recognition stays active continuously
         if (uiStageRef.current === 'interview') {
-          setTimeout(() => {
-            try {
-              recognition.start();
-            } catch (_) {}
-          }, 200);
+          restartSpeechRecognition(200);
         }
       };
 
       recognition.start();
       speechRecognitionRef.current = recognition;
     } catch (err) {
-      console.warn('Speech recognition not available:', err);
+      console.warn('Speech recognition start exception:', err);
     }
   };
+  startSpeechRecognitionRef.current = startSpeechRecognition;
 
   // Enter Chamber from Lobby
   const handleEnterChamber = () => {
@@ -1331,6 +1349,7 @@ export const InterviewPage: React.FC = () => {
 
     // 2. Set Chamber state
     setUiStage('interview');
+    uiStageRef.current = 'interview';
     setCurrentQIndex(0);
     currentQIndexRef.current = 0;
     setActiveFollowUp(null);
