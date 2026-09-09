@@ -443,85 +443,31 @@ export const InterviewPage: React.FC = () => {
     }
   }, [session?.status, session?.recording_url, isResetting]);
 
-  // Request media devices on mount with robust cross-browser fallback
+  // Request media devices on mount
   const startCamera = async () => {
     setIsRequestingMedia(true);
     setDeviceError(null);
-
-    // 1. Ensure navigator.mediaDevices is supported in this context
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      if (typeof window !== 'undefined' && !window.isSecureContext) {
-        setDeviceError(
-          'Camera and microphone access requires a secure connection (HTTPS). Please ensure you are accessing this site via HTTPS.',
-        );
-      } else {
-        setDeviceError(
-          'Your browser does not support media device capture. Please try using Google Chrome, Apple Safari, or Microsoft Edge.',
-        );
-      }
-      setIsRequestingMedia(false);
-      return;
-    }
-
     try {
-      let userMediaStream: MediaStream;
-
-      // Tier 1: Ideal 720p HD with facingMode 'user'
-      try {
-        userMediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user',
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-      } catch (tier1Err: any) {
-        console.warn('Tier 1 constraints failed, trying without facingMode:', tier1Err);
-        // Tier 2: Without facingMode (avoids OverconstrainedError on desktop/USB/external webcams in Chrome/Firefox)
-        try {
-          userMediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-            },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-          });
-        } catch (tier2Err: any) {
-          console.warn('Tier 2 constraints failed, trying basic video & audio:', tier2Err);
-          // Tier 3: Bare minimum video and audio
-          userMediaStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-        }
-      }
+      const userMediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user',
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
 
       setStream(userMediaStream);
-
-      // Immediately bind to lobby video element if already rendered
-      if (lobbyVideoRef.current) {
-        lobbyVideoRef.current.srcObject = userMediaStream;
-        lobbyVideoRef.current.muted = true;
-        lobbyVideoRef.current.play().catch(() => {});
-      }
 
       // Setup audio analyzer for live VU volume visualizer
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtx) {
           const audioCtx = new AudioCtx();
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-          }
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
           const source = audioCtx.createMediaStreamSource(userMediaStream);
@@ -533,9 +479,6 @@ export const InterviewPage: React.FC = () => {
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           const updateVolume = () => {
             if (analyserRef.current) {
-              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                audioContextRef.current.resume().catch(() => {});
-              }
               analyserRef.current.getByteFrequencyData(dataArray);
               let sum = 0;
               for (let i = 0; i < dataArray.length; i++) {
@@ -559,32 +502,9 @@ export const InterviewPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Camera/Mic permission error:', err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setDeviceError(
-          'Camera or microphone permission was blocked. Please click the lock or camera icon in your browser address bar to allow access, then click "Allow Camera & Mic".',
-        );
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setDeviceError(
-          'No camera or microphone found. Please connect your webcam and microphone, then click "Allow Camera & Mic".',
-        );
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        setDeviceError(
-          'Camera or microphone is already in use by another application (Zoom, Teams, or another browser tab). Please close other apps and retry.',
-        );
-      } else if (err.name === 'OverconstrainedError') {
-        setDeviceError(
-          'Camera resolution constraint not supported by your hardware. Please click "Allow Camera & Mic" to retry.',
-        );
-      } else if (err.name === 'SecurityError') {
-        setDeviceError(
-          'Media access was blocked by browser security policy or insecure HTTP connection. Please access via HTTPS.',
-        );
-      } else {
-        setDeviceError(
-          err.message ||
-            'Camera or Microphone access was denied or not found. Please enable permissions in your browser address bar to continue.',
-        );
-      }
+      setDeviceError(
+        'Camera or Microphone access was denied or not found. Please enable permissions in your browser bar to continue.',
+      );
     } finally {
       setIsRequestingMedia(false);
     }
@@ -616,13 +536,9 @@ export const InterviewPage: React.FC = () => {
     if (!stream) return;
     if (lobbyVideoRef.current && uiStage === 'lobby') {
       lobbyVideoRef.current.srcObject = stream;
-      lobbyVideoRef.current.muted = true;
-      lobbyVideoRef.current.play().catch(() => {});
     }
     if (liveVideoRef.current && uiStage === 'interview') {
       liveVideoRef.current.srcObject = stream;
-      liveVideoRef.current.muted = true;
-      liveVideoRef.current.play().catch(() => {});
     }
   }, [stream, uiStage]);
 
@@ -1312,9 +1228,6 @@ export const InterviewPage: React.FC = () => {
                     autoPlay
                     playsInline
                     muted
-                    onLoadedMetadata={(e) => {
-                      e.currentTarget.play().catch(() => {});
-                    }}
                     className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
                   />
                 ) : null}
@@ -1620,9 +1533,6 @@ export const InterviewPage: React.FC = () => {
                       autoPlay
                       playsInline
                       muted
-                      onLoadedMetadata={(e) => {
-                        e.currentTarget.play().catch(() => {});
-                      }}
                       className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
                     />
                   )}
