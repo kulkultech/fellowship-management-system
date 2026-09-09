@@ -196,6 +196,7 @@ export const CandidateDashboardPage: React.FC = () => {
     <DashboardLayout
       portalType="candidate"
       title={`Welcome back, ${candidateName}!`}
+      candidateName={candidateName}
       candidateEmail={authUser?.email}
       onCandidateSignOut={handleSignOut}
       navItems={navItems}

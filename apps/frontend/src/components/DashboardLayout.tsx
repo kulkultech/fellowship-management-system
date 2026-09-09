@@ -57,6 +57,7 @@ interface DashboardLayoutProps {
   onNavChange: (id: string) => void;
   headerActions?: React.ReactNode;
   children: React.ReactNode;
+  candidateName?: string;
   candidateEmail?: string;
   onCandidateSignOut?: () => void;
   onEditProfile?: () => void;
@@ -73,6 +74,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onNavChange,
   headerActions,
   children,
+  candidateName,
   candidateEmail,
   onCandidateSignOut,
   onEditProfile,
@@ -82,6 +84,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const { user, logout: authLogout } = useAuth();
   const navigate = useNavigate();
+
+  const displayName =
+    user?.name ||
+    candidateName ||
+    (portalType === 'candidate' && candidateEmail ? candidateEmail.split('@')[0] : user?.email || 'My Profile');
 
   const handleOpenEditProfile = () => {
     if (onEditProfile) {
@@ -150,7 +157,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </Link>
           </div>
 
-          {/* Right: User Pill + Sign Out */}
+          {/* Right: Actions / Workspace Switcher + Sign Out */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* Superadmin Quick Switcher for KulKul Team */}
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
@@ -171,40 +178,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
                 <span>Company Workspace</span>
               </Link>
-            )}
-
-            {/* Candidate User Pill */}
-            {portalType === 'candidate' && candidateEmail && (
-              <button
-                type="button"
-                onClick={handleOpenEditProfile}
-                className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 transition cursor-pointer"
-                title="Click to edit profile"
-              >
-                {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
-                ) : (
-                  <UserIcon className="w-4 h-4 text-kulkul-purple" />
-                )}
-                <span>{user?.name || candidateEmail}</span>
-              </button>
-            )}
-
-            {/* Admin User Pill */}
-            {user && portalType !== 'candidate' && (
-              <button
-                type="button"
-                onClick={handleOpenEditProfile}
-                className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 transition cursor-pointer"
-                title="Click to edit profile"
-              >
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
-                ) : (
-                  <UserIcon className="w-4 h-4 text-kulkul-purple" />
-                )}
-                <span>{user.name || user.email}</span>
-              </button>
             )}
 
             {/* Sign Out Button (Only shown when logged in) */}
@@ -463,7 +436,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   {user?.avatar_url ? (
                     <img
                       src={user.avatar_url}
-                      alt={user.name || 'Profile'}
+                      alt={displayName}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = 'none';
@@ -480,6 +453,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     />
                   ) : portalType === 'superadmin' ? (
                     <ShieldCheck className="w-5 h-5 text-kulkul-orange" />
+                  ) : displayName && displayName !== 'My Profile' ? (
+                    <span className="text-sm font-black text-white">
+                      {displayName.charAt(0).toUpperCase()}
+                    </span>
                   ) : (
                     <UserIcon className="w-5 h-5 text-kulkul-orange" />
                   )}
@@ -493,8 +470,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               {/* Name & Subtitle / Context */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-black text-slate-900 truncate group-hover:text-kulkul-purple transition">
-                    {user?.name || (portalType === 'candidate' && candidateEmail ? candidateEmail.split('@')[0] : 'My Profile')}
+                  <span className="text-xs sm:text-sm font-black text-slate-900 truncate group-hover:text-kulkul-purple transition">
+                    {displayName}
                   </span>
                 </div>
                 <div className="text-2xs text-slate-500 font-medium truncate flex items-center gap-1 mt-0.5">
