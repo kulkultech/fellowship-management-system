@@ -564,4 +564,58 @@ func (h *AIInterviewHandler) SynthesizeSpeech(w http.ResponseWriter, r *http.Req
 	_, _ = w.Write(audioData)
 }
 
+// TranscribeSpeech handles speech-to-text transcription using Cloudflare Workers AI Whisper.
+func (h *AIInterviewHandler) TranscribeSpeech(w http.ResponseWriter, r *http.Request) {
+	if h.aiEvaluator == nil {
+		httpx.Error(w, http.StatusServiceUnavailable, "AI evaluator not configured")
+		return
+	}
+
+	var audioData []byte
+	var mimeType string
+	var err error
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(25 << 20); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart form")
+			return
+		}
+		file, header, err := r.FormFile("audio")
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "audio file is required")
+			return
+		}
+		defer file.Close()
+		mimeType = header.Header.Get("Content-Type")
+		audioData, err = io.ReadAll(file)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to read audio data")
+			return
+		}
+	} else {
+		mimeType = contentType
+		audioData, err = io.ReadAll(r.Body)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to read audio body")
+			return
+		}
+	}
+
+	if len(audioData) == 0 {
+		httpx.Error(w, http.StatusBadRequest, "empty audio data")
+		return
+	}
+
+	text, err := h.aiEvaluator.TranscribeAudio(r.Context(), audioData, mimeType)
+	if err != nil {
+		httpx.Error(w, http.StatusBadGateway, fmt.Sprintf("transcription failed: %v", err))
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"text": text,
+	})
+}
+
 

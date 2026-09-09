@@ -83,3 +83,43 @@ func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_BriefAnswer(t *test
 		t.Errorf("expected followUp question to be generated, got empty string")
 	}
 }
+
+func TestCloudflareEvaluator_TranscribeAudio_Empty(t *testing.T) {
+	evaluator := ai.NewCloudflareEvaluator(config.CloudflareConfig{}, slog.Default())
+	_, err := evaluator.TranscribeAudio(context.Background(), nil, "audio/webm")
+	if err == nil {
+		t.Fatal("expected error for empty audio, got nil")
+	}
+}
+
+func TestCloudflareEvaluator_TranscribeAudio_Live(t *testing.T) {
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	apiKey := os.Getenv("CLOUDFLARE_API_KEY")
+	if accountID == "" || apiKey == "" {
+		t.Skip("Skipping live Cloudflare test")
+	}
+
+	cfg := config.CloudflareConfig{
+		AccountID: accountID,
+		APIKey:    apiKey,
+	}
+	evaluator := ai.NewCloudflareEvaluator(cfg, slog.Default())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+
+	audioData, contentType, err := evaluator.SynthesizeSpeech(ctx, "Hello I am excited for the fellowship.", "asteria")
+	if err != nil {
+		t.Fatalf("SynthesizeSpeech failed: %v", err)
+	}
+
+	transcribed, err := evaluator.TranscribeAudio(ctx, audioData, contentType)
+	if err != nil {
+		t.Fatalf("TranscribeAudio failed: %v", err)
+	}
+
+	t.Logf("Transcribed result: %q", transcribed)
+	if transcribed == "" {
+		t.Errorf("expected non-empty transcript, got empty")
+	}
+}

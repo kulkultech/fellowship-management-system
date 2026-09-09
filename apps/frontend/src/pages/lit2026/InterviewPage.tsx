@@ -203,6 +203,9 @@ export const InterviewPage: React.FC = () => {
   const speechRecognitionRef = useRef<any>(null);
   const recognitionRestartTimeoutRef = useRef<any>(null);
   const startSpeechRecognitionRef = useRef<() => void>(() => {});
+  const turnAudioChunksRef = useRef<Blob[]>([]);
+  const turnAudioRecorderRef = useRef<MediaRecorder | null>(null);
+  const hasSpokenInCurrentTurnRef = useRef<boolean>(false);
 
   // Tick continuous session recording timer when in interview chamber
   useEffect(() => {
@@ -237,10 +240,20 @@ export const InterviewPage: React.FC = () => {
   // Conversational Chat & Streaming State
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
   const [liveCandidateTranscript, setLiveCandidateTranscript] = useState<string>('');
+  const [isCandidateSpeaking, setIsCandidateSpeaking] = useState(false);
 
   // References for zero-latency closures (VAD, speech barge-in, turn-taking)
   const isAiSpeakingRef = useRef(false);
   const isEvaluatingAnswerRef = useRef(false);
+  const isCandidateSpeakingRef = useRef(false);
+  const speechRecognitionWorkingRef = useRef(false);
+  const speechRecognitionUnsupportedRef = useRef(false);
+  const lastCandidateSpeechTimeRef = useRef<number>(0);
+  const speechStartedTimeRef = useRef<number>(0);
+  const isTranscribingLiveChunkRef = useRef<boolean>(false);
+  const lastLiveChunkTranscribeTimeRef = useRef<number>(0);
+  const commitCandidateTurnRef = useRef<(candidateText?: string) => Promise<void>>(() => Promise.resolve());
+  const inviteTokenRef = useRef(inviteToken);
   const currentQIndexRef = useRef(0);
   const activeFollowUpRef = useRef<{
     questionText: string;
@@ -253,6 +266,10 @@ export const InterviewPage: React.FC = () => {
   const stopSpeechRef = useRef<() => void>(() => {});
 
   // Keep references synced with reactive state
+  useEffect(() => {
+    inviteTokenRef.current = inviteToken;
+  }, [inviteToken]);
+
   useEffect(() => {
     uiStageRef.current = uiStage;
   }, [uiStage]);
@@ -418,6 +435,15 @@ export const InterviewPage: React.FC = () => {
       sessionRecorderRef.current = null;
       sessionChunksRef.current = [];
       sessionMimeTypeRef.current = '';
+
+      if (turnAudioRecorderRef.current && turnAudioRecorderRef.current.state !== 'inactive') {
+        try {
+          turnAudioRecorderRef.current.stop();
+        } catch (_) {}
+      }
+      turnAudioRecorderRef.current = null;
+      turnAudioChunksRef.current = [];
+      hasSpokenInCurrentTurnRef.current = false;
 
       setRecordingSeconds(0);
       setQuestionRecordings({});
@@ -669,9 +695,82 @@ export const InterviewPage: React.FC = () => {
                 const level = Math.min(100, Math.round((avg / 128) * 100));
                 setAudioLevel(level);
 
+                if (level > 15) {
+                  hasSpokenInCurrentTurnRef.current = true;
+                }
+
                 // 0ms Vocal Volume Barge-in: If candidate speaks while AI is talking, immediately silence AI!
                 if (level > 32 && isAiSpeakingRef.current) {
                   stopSpeechRef.current();
+                }
+
+                // Voice Activity Detection & Adaptive Whisper Turn-taking in Interview Chamber
+                if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
+                  const now = Date.now();
+                  if (level > 14) {
+                    lastCandidateSpeechTimeRef.current = now;
+                    if (speechStartedTimeRef.current === 0) {
+                      speechStartedTimeRef.current = now;
+                    }
+                    if (!isCandidateSpeakingRef.current) {
+                      isCandidateSpeakingRef.current = true;
+                      setIsCandidateSpeaking(true);
+                    }
+
+                    // For browsers where Web Speech API is blocked or inactive (e.g. Brave):
+                    // Periodically transcribe audio slice via Whisper every 3 seconds while candidate is speaking
+                    if (
+                      !speechRecognitionWorkingRef.current &&
+                      now - speechStartedTimeRef.current > 2000 &&
+                      now - lastLiveChunkTranscribeTimeRef.current > 3000 &&
+                      !isTranscribingLiveChunkRef.current &&
+                      turnAudioRecorderRef.current &&
+                      turnAudioChunksRef.current.length > 0 &&
+                      inviteTokenRef.current
+                    ) {
+                      lastLiveChunkTranscribeTimeRef.current = now;
+                      isTranscribingLiveChunkRef.current = true;
+                      try {
+                        turnAudioRecorderRef.current.requestData();
+                      } catch (_) {}
+                      setTimeout(async () => {
+                        try {
+                          if (turnAudioChunksRef.current.length > 0 && inviteTokenRef.current && isCandidateSpeakingRef.current) {
+                            const mime = turnAudioRecorderRef.current?.mimeType || 'audio/webm';
+                            const audioBlob = new Blob(turnAudioChunksRef.current, { type: mime });
+                            if (audioBlob.size > 200) {
+                              const res = await aiInterviewService.transcribeAudio(inviteTokenRef.current, audioBlob);
+                              if (res?.text && res.text.trim().length > 0) {
+                                setLiveCandidateTranscript(res.text.trim());
+                              }
+                            }
+                          }
+                        } catch (e) {
+                          console.warn('Live chunk transcription notice:', e);
+                        } finally {
+                          isTranscribingLiveChunkRef.current = false;
+                        }
+                      }, 100);
+                    }
+                  } else {
+                    // Candidate is currently silent
+                    if (
+                      isCandidateSpeakingRef.current &&
+                      lastCandidateSpeechTimeRef.current > 0 &&
+                      now - lastCandidateSpeechTimeRef.current > 3500
+                    ) {
+                      const totalSpokenDuration = now - speechStartedTimeRef.current;
+                      isCandidateSpeakingRef.current = false;
+                      setIsCandidateSpeaking(false);
+                      lastCandidateSpeechTimeRef.current = 0;
+                      speechStartedTimeRef.current = 0;
+
+                      // Auto-commit turn on silence if Web Speech API didn't handle it
+                      if (!speechRecognitionWorkingRef.current && totalSpokenDuration > 1500) {
+                        commitCandidateTurnRef.current();
+                      }
+                    }
+                  }
                 }
               }
               animationFrameRef.current = requestAnimationFrame(updateVolume);
@@ -783,15 +882,48 @@ export const InterviewPage: React.FC = () => {
   };
 
   const restartSpeechRecognition = (delayMs: number = 250) => {
-    if (uiStageRef.current !== 'interview') return;
+    if (uiStageRef.current !== 'interview' || speechRecognitionUnsupportedRef.current) return;
     if (recognitionRestartTimeoutRef.current) {
       clearTimeout(recognitionRestartTimeoutRef.current);
     }
     recognitionRestartTimeoutRef.current = setTimeout(() => {
-      if (uiStageRef.current === 'interview') {
+      if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
         startSpeechRecognitionRef.current();
       }
     }, delayMs);
+  };
+
+  // Start per-turn audio snippet recorder for AI Whisper fallback (e.g. Brave/Firefox)
+  const startTurnAudioRecorder = () => {
+    try {
+      const curStream = activeStreamRef.current || stream;
+      if (!curStream) return;
+      const audioTracks = curStream.getAudioTracks();
+      if (audioTracks.length === 0) return;
+      const audioOnlyStream = new MediaStream(audioTracks);
+
+      if (turnAudioRecorderRef.current && turnAudioRecorderRef.current.state !== 'inactive') {
+        try {
+          turnAudioRecorderRef.current.stop();
+        } catch (_) {}
+      }
+      turnAudioChunksRef.current = [];
+
+      const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+      const selectedMime = preferredMimes.find((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) || '';
+
+      const recorder = new MediaRecorder(audioOnlyStream, selectedMime ? { mimeType: selectedMime } : {});
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          turnAudioChunksRef.current.push(e.data);
+        }
+      };
+      recorder.start(400);
+      turnAudioRecorderRef.current = recorder;
+      hasSpokenInCurrentTurnRef.current = false;
+    } catch (e) {
+      console.warn('Turn audio recorder failed to start:', e);
+    }
   };
 
   // Clean up cached audio object URLs and recognition on unmount
@@ -799,6 +931,13 @@ export const InterviewPage: React.FC = () => {
     return () => {
       stopSpeech();
       stopSpeechRecognition();
+      if (turnAudioRecorderRef.current && turnAudioRecorderRef.current.state !== 'inactive') {
+        try {
+          turnAudioRecorderRef.current.stop();
+        } catch (_) {}
+      }
+      turnAudioRecorderRef.current = null;
+      turnAudioChunksRef.current = [];
       audioBlobUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
       audioBlobUrlCacheRef.current.clear();
       if (silenceTimeoutRef.current) {
@@ -846,6 +985,12 @@ export const InterviewPage: React.FC = () => {
     }
     setIsAiSpeaking(false);
     isAiSpeakingRef.current = false;
+    turnAudioChunksRef.current = [];
+    hasSpokenInCurrentTurnRef.current = false;
+    speechStartedTimeRef.current = 0;
+    lastCandidateSpeechTimeRef.current = 0;
+    isCandidateSpeakingRef.current = false;
+    setIsCandidateSpeaking(false);
   };
   stopSpeechRef.current = stopSpeech;
 
@@ -869,6 +1014,13 @@ export const InterviewPage: React.FC = () => {
         if (currentSourceNodeRef.current === source) {
           currentSourceNodeRef.current = null;
         }
+        turnAudioChunksRef.current = [];
+        hasSpokenInCurrentTurnRef.current = false;
+        speechStartedTimeRef.current = 0;
+        lastCandidateSpeechTimeRef.current = 0;
+        isCandidateSpeakingRef.current = false;
+        setIsCandidateSpeaking(false);
+        setLiveCandidateTranscript('');
       };
 
       setIsAiSpeaking(true);
@@ -899,10 +1051,19 @@ export const InterviewPage: React.FC = () => {
     audio.onended = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
+      turnAudioChunksRef.current = [];
+      hasSpokenInCurrentTurnRef.current = false;
+      speechStartedTimeRef.current = 0;
+      lastCandidateSpeechTimeRef.current = 0;
+      isCandidateSpeakingRef.current = false;
+      setIsCandidateSpeaking(false);
+      setLiveCandidateTranscript('');
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
+      isCandidateSpeakingRef.current = false;
+      setIsCandidateSpeaking(false);
     };
 
     const playPromise = audio.play();
@@ -1104,10 +1265,8 @@ export const InterviewPage: React.FC = () => {
     },
   });
 
-  // End-of-Utterance Turn Submission (Auto or Manual)
-  const commitCandidateTurn = async (candidateText: string) => {
-    const textToSubmit = candidateText.trim();
-    if (!textToSubmit || textToSubmit.length < 3) return;
+  // End-of-Utterance Turn Submission (Auto or Manual with Whisper Fallback)
+  const commitCandidateTurn = async (candidateText?: string) => {
     if (isEvaluatingAnswerRef.current) return;
 
     if (silenceTimeoutRef.current) {
@@ -1118,8 +1277,51 @@ export const InterviewPage: React.FC = () => {
     // Stop speech if AI was somehow playing
     stopSpeech();
 
-    // Clear live interim transcript
+    let textToSubmit = (candidateText || liveCandidateTranscript || '').trim();
+
+    // If Web Speech API produced no transcript (e.g. Brave blocking Google speech servers),
+    // transcribe the microphone audio snippet via Cloudflare Workers AI Whisper!
+    if (!textToSubmit || textToSubmit.length < 3) {
+      setIsEvaluatingAnswer(true);
+      isEvaluatingAnswerRef.current = true;
+
+      if (turnAudioRecorderRef.current && turnAudioRecorderRef.current.state !== 'inactive') {
+        try {
+          turnAudioRecorderRef.current.requestData();
+        } catch (_) {}
+      }
+
+      await new Promise((r) => setTimeout(r, 250));
+
+      if (turnAudioChunksRef.current.length > 0 && inviteToken) {
+        try {
+          const mime = turnAudioRecorderRef.current?.mimeType || 'audio/webm';
+          const audioBlob = new Blob(turnAudioChunksRef.current, { type: mime });
+          if (audioBlob.size > 200) {
+            const res = await aiInterviewService.transcribeAudio(inviteToken, audioBlob);
+            if (res?.text && res.text.trim().length > 0) {
+              textToSubmit = res.text.trim();
+            }
+          }
+        } catch (whisperErr) {
+          console.warn('Whisper fallback transcription notice:', whisperErr);
+        }
+      }
+    }
+
+    if (!textToSubmit || textToSubmit.length < 2) {
+      setIsEvaluatingAnswer(false);
+      isEvaluatingAnswerRef.current = false;
+      toast('Please speak your answer into the microphone before clicking Done Speaking.', { icon: '🎙️' });
+      return;
+    }
+
+    // Clear live interim transcript and reset speaking states
     setLiveCandidateTranscript('');
+    setIsCandidateSpeaking(false);
+    isCandidateSpeakingRef.current = false;
+    speechStartedTimeRef.current = 0;
+    lastCandidateSpeechTimeRef.current = 0;
 
     // Append candidate message to chat thread
     const candMsg: ChatMessageItem = {
@@ -1134,9 +1336,10 @@ export const InterviewPage: React.FC = () => {
     setIsEvaluatingAnswer(true);
     isEvaluatingAnswerRef.current = true;
 
-    // Reset speech recognition buffer for fresh next turn
+    // Reset speech recognition & turn audio recorder for fresh next turn
     stopSpeechRecognition();
     restartSpeechRecognition(300);
+    startTurnAudioRecorder();
 
     try {
       if (!inviteToken) return;
@@ -1212,8 +1415,11 @@ export const InterviewPage: React.FC = () => {
     } finally {
       setIsEvaluatingAnswer(false);
       isEvaluatingAnswerRef.current = false;
+      setIsCandidateSpeaking(false);
+      isCandidateSpeakingRef.current = false;
     }
   };
+  commitCandidateTurnRef.current = commitCandidateTurn;
 
   // Continuous Speech Recognition with Instant Barge-In
   const startSpeechRecognition = () => {
@@ -1247,6 +1453,8 @@ export const InterviewPage: React.FC = () => {
         const text = transcript.trim();
 
         if (text.length > 0) {
+          speechRecognitionWorkingRef.current = true;
+
           // 1. Instant Speech Barge-in (Interruption):
           // If AI is currently speaking, silence AI immediately!
           if (isAiSpeakingRef.current) {
@@ -1278,25 +1486,26 @@ export const InterviewPage: React.FC = () => {
 
       recognition.onerror = (e: any) => {
         console.warn('Speech recognition notice:', e?.error || e);
-        if (e?.error === 'not-allowed') {
-          console.warn('Speech recognition access denied by browser or permissions.');
-          const isBrave = (navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function';
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed' || e?.error === 'network') {
+          speechRecognitionUnsupportedRef.current = true;
+          speechRecognitionWorkingRef.current = false;
+          const isBrave = typeof window !== 'undefined' && Boolean((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function');
           if (isBrave) {
-            toast.error(
-              'Brave shields block speech recognition. Please enable "Use Google services for speech recognition" in Brave settings or use Chrome / Safari.',
-              { id: 'brave-stt-notice', duration: 8000 },
+            toast(
+              'Brave shields block Google Web Speech. Your speech is transcribed via AI Whisper automatically.',
+              { id: 'brave-stt-notice', duration: 7000, icon: '🦁' },
             );
           }
           return;
         }
-        if (e?.error !== 'aborted' && uiStageRef.current === 'interview') {
+        if (e?.error !== 'aborted' && uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
           restartSpeechRecognition(600);
         }
       };
 
       recognition.onend = () => {
         // Automatically restart a fresh instance so speech recognition stays active continuously
-        if (uiStageRef.current === 'interview') {
+        if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
           restartSpeechRecognition(200);
         }
       };
@@ -1356,8 +1565,9 @@ export const InterviewPage: React.FC = () => {
     activeFollowUpRef.current = null;
     setLiveCandidateTranscript('');
 
-    // 3. Start continuous speech recognition
+    // 3. Start continuous speech recognition & turn audio recorder
     startSpeechRecognition();
+    startTurnAudioRecorder();
 
     // 4. Welcome candidate and ask Question 1
     const firstQ = questions[0];
@@ -1853,7 +2063,7 @@ export const InterviewPage: React.FC = () => {
                         Skip / Interrupt
                       </button>
                     </div>
-                  ) : liveCandidateTranscript ? (
+                  ) : liveCandidateTranscript || isCandidateSpeaking ? (
                     <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-xs animate-pulse">
                       <Radio className="w-4 h-4" />
                       <span>Listening to you...</span>
@@ -1861,31 +2071,38 @@ export const InterviewPage: React.FC = () => {
                   ) : (
                     <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
                       <Mic className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Speak anytime</span>
+                      <span>{audioLevel > 12 ? 'Listening (speaking)...' : 'Speak anytime'}</span>
                     </div>
                   )}
                 </div>
 
-                <button
-                  onClick={() => {
-                    if (liveCandidateTranscript) commitCandidateTurn(liveCandidateTranscript);
-                  }}
-                  disabled={isEvaluatingAnswer || isUploadingRecording || !liveCandidateTranscript}
-                  className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
-                  title="Submit current answer"
-                >
-                  {isEvaluatingAnswer ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                      <span>Evaluating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Done Speaking</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </>
+                <div className="flex items-center gap-3 shrink-0">
+                  {typeof window !== 'undefined' && Boolean((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function') && (
+                    <span className="text-3xs text-purple-600 font-semibold hidden sm:inline-block">
+                      🦁 Brave: Whisper STT Active
+                    </span>
                   )}
-                </button>
+                  <button
+                    onClick={() => {
+                      commitCandidateTurn(liveCandidateTranscript);
+                    }}
+                    disabled={isEvaluatingAnswer || isUploadingRecording}
+                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
+                    title="Submit current answer"
+                  >
+                    {isEvaluatingAnswer ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                        <span>Transcribing &amp; Evaluating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Done Speaking</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1981,7 +2198,7 @@ export const InterviewPage: React.FC = () => {
                 })}
 
                 {/* Streaming Candidate Speech Bubble (Real-Time In-Progress Turn) */}
-                {liveCandidateTranscript && (
+                {(liveCandidateTranscript || (isCandidateSpeaking && !isEvaluatingAnswer)) && (
                   <div className="flex items-start gap-2.5 justify-end animate-in fade-in duration-200">
                     <div className="max-w-[88%] space-y-1 text-right">
                       <div className="flex items-center gap-2 justify-end px-1 text-3xs text-emerald-600 font-bold">
@@ -1989,10 +2206,21 @@ export const InterviewPage: React.FC = () => {
                         <span>Speaking...</span>
                       </div>
                       <div className="p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm leading-relaxed bg-gradient-to-br from-purple-700 to-kulkul-purple text-white rounded-tr-xs shadow-xs border border-purple-400/40">
-                        <p className="whitespace-pre-wrap italic opacity-95">
-                          "{liveCandidateTranscript}"
-                          <span className="inline-block w-1.5 h-3.5 bg-white ml-1 animate-pulse align-middle" />
-                        </p>
+                        {liveCandidateTranscript ? (
+                          <p className="whitespace-pre-wrap italic opacity-95">
+                            "{liveCandidateTranscript}"
+                            <span className="inline-block w-1.5 h-3.5 bg-white ml-1 animate-pulse align-middle" />
+                          </p>
+                        ) : (
+                          <div className="flex items-center gap-2 text-white/90 italic">
+                            <span>Listening to your voice...</span>
+                            <div className="flex items-center gap-1 h-3">
+                              <span className="w-1 h-2 bg-white/80 rounded-full animate-pulse" />
+                              <span className="w-1 h-3.5 bg-white rounded-full animate-pulse [animation-delay:150ms]" />
+                              <span className="w-1 h-2 bg-white/80 rounded-full animate-pulse [animation-delay:300ms]" />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-1 shadow-2xs ring-2 ring-emerald-300">

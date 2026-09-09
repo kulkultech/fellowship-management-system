@@ -54,5 +54,18 @@ export const aiInterviewService = {
     const { data } = await apiClient.post<AIInterviewSession>(`/interviews/${inviteToken}/reset`);
     return data;
   },
+
+  transcribeAudio: async (inviteToken: string, audioBlob: Blob): Promise<{ text: string }> => {
+    const formData = new FormData();
+    const isMp4 = audioBlob.type && audioBlob.type.includes('mp4');
+    const filename = isMp4 ? 'turn_audio.mp4' : 'turn_audio.webm';
+    formData.append('audio', audioBlob, filename);
+    const { data } = await apiClient.post<{ text: string }>(`/interviews/${inviteToken}/transcribe`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
+  },
 };
 

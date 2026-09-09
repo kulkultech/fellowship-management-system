@@ -671,3 +671,58 @@ func (e *CloudflareEvaluator) SynthesizeSpeech(ctx context.Context, text string,
 	return nil, "", fmt.Errorf("Cloudflare Workers AI TTS failed: %w", lastErr)
 }
 
+// TranscribeAudio converts candidate speech audio into English text using Cloudflare Workers AI Whisper.
+func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []byte, mimeType string) (string, error) {
+	if len(audioData) == 0 {
+		return "", fmt.Errorf("audio data is empty")
+	}
+	if !e.config.Enabled() {
+		return "", fmt.Errorf("Cloudflare Workers AI credentials not configured")
+	}
+
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper", e.config.AccountID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(audioData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create whisper request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
+	if mimeType != "" {
+		httpReq.Header.Set("Content-Type", mimeType)
+	} else {
+		httpReq.Header.Set("Content-Type", "application/octet-stream")
+	}
+
+	resp, err := e.client.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("whisper request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read whisper response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("whisper returned status %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var cfResp struct {
+		Result struct {
+			Text string `json:"text"`
+		} `json:"result"`
+		Success bool `json:"success"`
+		Errors  []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.Unmarshal(raw, &cfResp); err != nil {
+		return "", fmt.Errorf("failed to parse whisper json: %w", err)
+	}
+
+	return strings.TrimSpace(cfResp.Result.Text), nil
+}
+
