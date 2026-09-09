@@ -443,23 +443,80 @@ export const InterviewPage: React.FC = () => {
     }
   }, [session?.status, session?.recording_url, isResetting]);
 
-  // Request media devices on mount
+  // Cross-browser resilient video attachment (Chrome/Safari/Brave)
+  const attachLobbyVideo = (el: HTMLVideoElement | null) => {
+    lobbyVideoRef.current = el;
+    if (el && stream) {
+      if (el.srcObject !== stream) {
+        el.srcObject = stream;
+      }
+      el.muted = true;
+      el.play().catch(() => {});
+    }
+  };
+
+  const attachLiveVideo = (el: HTMLVideoElement | null) => {
+    liveVideoRef.current = el;
+    if (el && stream) {
+      if (el.srcObject !== stream) {
+        el.srcObject = stream;
+      }
+      el.muted = true;
+      el.play().catch(() => {});
+    }
+  };
+
+  // Request media devices on mount with progressive multi-browser fallback (Chrome, Safari, Brave, Firefox)
   const startCamera = async () => {
     setIsRequestingMedia(true);
     setDeviceError(null);
     try {
-      const userMediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user',
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('MEDIA_NOT_SUPPORTED');
+      }
+
+      let userMediaStream: MediaStream | null = null;
+      try {
+        // Attempt 1: Standard high-definition with front-facing camera
+        userMediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user',
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (hdErr: any) {
+        console.warn('HD camera constraints failed, attempting basic video/audio:', hdErr);
+        try {
+          // Attempt 2: Basic unconstrained video + audio (fixes external webcams, virtual cameras, Chromium driver issues)
+          userMediaStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+        } catch (basicErr: any) {
+          console.warn('Basic joint constraints failed, attempting separate track acquisition:', basicErr);
+          // Attempt 3: Separate acquisition in case audio or video device is locked individually
+          const vStream = await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null);
+          const aStream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
+          if (vStream || aStream) {
+            userMediaStream = new MediaStream([
+              ...(vStream ? vStream.getVideoTracks() : []),
+              ...(aStream ? aStream.getAudioTracks() : []),
+            ]);
+          } else {
+            throw basicErr;
+          }
+        }
+      }
+
+      if (!userMediaStream) {
+        throw new Error('NO_STREAM_ACQUIRED');
+      }
 
       setStream(userMediaStream);
 
@@ -502,9 +559,23 @@ export const InterviewPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Camera/Mic permission error:', err);
-      setDeviceError(
-        'Camera or Microphone access was denied or not found. Please enable permissions in your browser bar to continue.',
-      );
+      if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setDeviceError(
+          'Your camera is currently in use by another application or browser tab (e.g. Safari). Please close camera access in other tabs and click Allow Camera & Mic.',
+        );
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setDeviceError(
+          'Camera or Microphone access was denied. Please allow permissions in your browser address bar or macOS System Settings > Privacy & Security.',
+        );
+      } else if (err.message === 'MEDIA_NOT_SUPPORTED') {
+        setDeviceError(
+          'Camera access requires a secure connection (HTTPS or localhost). Please check your browser address.',
+        );
+      } else {
+        setDeviceError(
+          'Camera or Microphone access was denied or not found. Please check permissions and device connections.',
+        );
+      }
     } finally {
       setIsRequestingMedia(false);
     }
@@ -535,10 +606,18 @@ export const InterviewPage: React.FC = () => {
   useEffect(() => {
     if (!stream) return;
     if (lobbyVideoRef.current && uiStage === 'lobby') {
-      lobbyVideoRef.current.srcObject = stream;
+      if (lobbyVideoRef.current.srcObject !== stream) {
+        lobbyVideoRef.current.srcObject = stream;
+      }
+      lobbyVideoRef.current.muted = true;
+      lobbyVideoRef.current.play().catch(() => {});
     }
     if (liveVideoRef.current && uiStage === 'interview') {
-      liveVideoRef.current.srcObject = stream;
+      if (liveVideoRef.current.srcObject !== stream) {
+        liveVideoRef.current.srcObject = stream;
+      }
+      liveVideoRef.current.muted = true;
+      liveVideoRef.current.play().catch(() => {});
     }
   }, [stream, uiStage]);
 
@@ -1224,7 +1303,7 @@ export const InterviewPage: React.FC = () => {
               <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
                 {stream ? (
                   <video
-                    ref={lobbyVideoRef}
+                    ref={attachLobbyVideo}
                     autoPlay
                     playsInline
                     muted
@@ -1529,7 +1608,7 @@ export const InterviewPage: React.FC = () => {
                 <div className="relative aspect-video w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
                   {stream && (
                     <video
-                      ref={liveVideoRef}
+                      ref={attachLiveVideo}
                       autoPlay
                       playsInline
                       muted
