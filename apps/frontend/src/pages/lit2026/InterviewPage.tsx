@@ -897,10 +897,12 @@ export const InterviewPage: React.FC = () => {
                     }
                   } else {
                     // Candidate is currently silent
+                    // Give candidate 4.2 seconds of natural silence breathing room before auto-committing,
+                    // so pauses to think or formulate sentences do not prematurely submit the turn.
                     if (
                       isCandidateSpeakingRef.current &&
                       lastCandidateSpeechTimeRef.current > 0 &&
-                      now - lastCandidateSpeechTimeRef.current > 2200
+                      now - lastCandidateSpeechTimeRef.current > 4200
                     ) {
                       const totalSpokenDuration = now - speechStartedTimeRef.current;
                       isCandidateSpeakingRef.current = false;
@@ -910,7 +912,7 @@ export const InterviewPage: React.FC = () => {
                       consecutiveSpeechFramesRef.current = 0;
 
                       // Auto-commit turn on silence if Web Speech API didn't handle it
-                      if (!speechRecognitionWorkingRef.current && totalSpokenDuration > 1000) {
+                      if (!speechRecognitionWorkingRef.current && totalSpokenDuration > 1200) {
                         commitCandidateTurnRef.current();
                       }
                     }
@@ -1617,10 +1619,10 @@ export const InterviewPage: React.FC = () => {
           // 4. Auto-commit turn after natural conversational silence pause
           if (text.length >= 6 && !isEvaluatingAnswerRef.current) {
             // Adaptive silence debounce:
-            // - For brief opening fragments (< 10 words), give 4.5 seconds so candidate has time to think without being cut off mid-thought!
-            // - For substantive responses (>= 10 words), use a natural 3.5 seconds silence pause.
+            // - For brief opening fragments (< 10 words), give 5.5 seconds so candidate has time to think without being cut off mid-thought!
+            // - For substantive responses (>= 10 words), use a comfortable 4.5 seconds silence pause.
             const wordCount = text.split(/\s+/).filter(Boolean).length;
-            const debounceMs = wordCount < 10 ? 4500 : 3500;
+            const debounceMs = wordCount < 10 ? 5500 : 4500;
 
             silenceTimeoutRef.current = setTimeout(() => {
               commitCandidateTurn(text);
