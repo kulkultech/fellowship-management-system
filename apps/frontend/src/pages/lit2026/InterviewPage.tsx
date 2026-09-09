@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiInterviewService } from '@/services/aiInterviewService';
@@ -176,6 +176,8 @@ export const InterviewPage: React.FC = () => {
 
   // Media Stream & Device State
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
+  const isStartingCameraRef = useRef(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
@@ -443,31 +445,64 @@ export const InterviewPage: React.FC = () => {
     }
   }, [session?.status, session?.recording_url, isResetting]);
 
-  // Cross-browser resilient video attachment (Chrome/Safari/Brave)
-  const attachLobbyVideo = (el: HTMLVideoElement | null) => {
-    lobbyVideoRef.current = el;
-    if (el && stream) {
-      if (el.srcObject !== stream) {
-        el.srcObject = stream;
+  // Stable video stream binder for all browsers (Chrome, Safari, Brave, Firefox)
+  const bindStreamToVideo = useCallback((el: HTMLVideoElement | null, mediaStream: MediaStream | null) => {
+    if (!el) return;
+    if (!mediaStream) {
+      if (el.srcObject) {
+        el.srcObject = null;
       }
-      el.muted = true;
-      el.play().catch(() => {});
+      return;
     }
-  };
+    el.muted = true;
+    el.defaultMuted = true;
+    el.playsInline = true;
+    el.setAttribute('playsinline', 'true');
+    el.setAttribute('webkit-playsinline', 'true');
 
-  const attachLiveVideo = (el: HTMLVideoElement | null) => {
-    liveVideoRef.current = el;
-    if (el && stream) {
-      if (el.srcObject !== stream) {
-        el.srcObject = stream;
-      }
-      el.muted = true;
-      el.play().catch(() => {});
+    if (el.srcObject !== mediaStream) {
+      el.srcObject = mediaStream;
     }
-  };
+
+    const tryPlay = () => {
+      const p = el.play();
+      if (p !== undefined) {
+        p.catch(() => {});
+      }
+    };
+
+    el.onloadedmetadata = tryPlay;
+    el.oncanplay = tryPlay;
+    tryPlay();
+  }, []);
+
+  // Cross-browser resilient video attachment (Chrome/Safari/Brave)
+  const attachLobbyVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      lobbyVideoRef.current = el;
+      const s = activeStreamRef.current || stream;
+      if (el && s) {
+        bindStreamToVideo(el, s);
+      }
+    },
+    [bindStreamToVideo, stream],
+  );
+
+  const attachLiveVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      liveVideoRef.current = el;
+      const s = activeStreamRef.current || stream;
+      if (el && s) {
+        bindStreamToVideo(el, s);
+      }
+    },
+    [bindStreamToVideo, stream],
+  );
 
   // Request media devices on mount with progressive multi-browser fallback (Chrome, Safari, Brave, Firefox)
   const startCamera = async () => {
+    if (isStartingCameraRef.current) return;
+    isStartingCameraRef.current = true;
     setIsRequestingMedia(true);
     setDeviceError(null);
     try {
@@ -475,34 +510,104 @@ export const InterviewPage: React.FC = () => {
         throw new Error('MEDIA_NOT_SUPPORTED');
       }
 
+      // Stop any existing active stream tracks to prevent hardware locking in Chromium/macOS
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach((track) => track.stop());
+        activeStreamRef.current = null;
+      }
+
+      // 1. Enumerate devices to prioritize real physical hardware cameras & mics over virtual/inactive drivers (Camo, Iriun, BlackHole)
+      let preferredVideoId: string | undefined;
+      let preferredAudioId: string | undefined;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+        const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+
+        const isVirtual = (label: string) => {
+          const l = label.toLowerCase();
+          return (
+            l.includes('camo') ||
+            l.includes('iriun') ||
+            l.includes('blackhole') ||
+            l.includes('obs') ||
+            l.includes('virtual') ||
+            l.includes('teams') ||
+            l.includes('zoom')
+          );
+        };
+
+        const isHardware = (label: string) => {
+          const l = label.toLowerCase();
+          return (
+            l.includes('facetime') ||
+            l.includes('built-in') ||
+            l.includes('integrated') ||
+            l.includes('usb') ||
+            l.includes('camera') ||
+            l.includes('macbook') ||
+            l.includes('microphone') ||
+            l.includes('headset')
+          );
+        };
+
+        const bestVideo =
+          videoInputs.find((d) => isHardware(d.label) && !isVirtual(d.label)) ||
+          videoInputs.find((d) => !isVirtual(d.label)) ||
+          videoInputs[0];
+        if (bestVideo?.deviceId) {
+          preferredVideoId = bestVideo.deviceId;
+        }
+
+        const bestAudio =
+          audioInputs.find((d) => isHardware(d.label) && !isVirtual(d.label)) ||
+          audioInputs.find((d) => !isVirtual(d.label)) ||
+          audioInputs[0];
+        if (bestAudio?.deviceId) {
+          preferredAudioId = bestAudio.deviceId;
+        }
+      } catch (enumErr) {
+        console.warn('Device enumeration fallback:', enumErr);
+      }
+
       let userMediaStream: MediaStream | null = null;
       try {
-        // Attempt 1: Standard high-definition with front-facing camera
+        // Attempt 1: Standard high-definition with preferred physical camera and echo cancellation
+        const videoConstraints: MediaTrackConstraints = preferredVideoId
+          ? { deviceId: { ideal: preferredVideoId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+
+        const audioConstraints: MediaTrackConstraints = preferredAudioId
+          ? { deviceId: { ideal: preferredAudioId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
         userMediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user',
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
+          video: videoConstraints,
+          audio: audioConstraints,
         });
       } catch (hdErr: any) {
         console.warn('HD camera constraints failed, attempting basic video/audio:', hdErr);
         try {
-          // Attempt 2: Basic unconstrained video + audio (fixes external webcams, virtual cameras, Chromium driver issues)
+          // Attempt 2: Basic video + audio with device preferences or unconstrained
           userMediaStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
+            video: preferredVideoId ? { deviceId: { ideal: preferredVideoId } } : true,
+            audio: preferredAudioId ? { deviceId: { ideal: preferredAudioId } } : true,
           });
         } catch (basicErr: any) {
           console.warn('Basic joint constraints failed, attempting separate track acquisition:', basicErr);
           // Attempt 3: Separate acquisition in case audio or video device is locked individually
-          const vStream = await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null);
-          const aStream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
+          const vStream = await navigator.mediaDevices
+            .getUserMedia({
+              video: preferredVideoId ? { deviceId: { ideal: preferredVideoId } } : true,
+            })
+            .catch(() => navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null));
+
+          const aStream = await navigator.mediaDevices
+            .getUserMedia({
+              audio: preferredAudioId ? { deviceId: { ideal: preferredAudioId } } : true,
+            })
+            .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null));
+
           if (vStream || aStream) {
             userMediaStream = new MediaStream([
               ...(vStream ? vStream.getVideoTracks() : []),
@@ -518,44 +623,77 @@ export const InterviewPage: React.FC = () => {
         throw new Error('NO_STREAM_ACQUIRED');
       }
 
+      activeStreamRef.current = userMediaStream;
       setStream(userMediaStream);
 
-      // Setup audio analyzer for live VU volume visualizer
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) {
-          const audioCtx = new AudioCtx();
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 64;
-          const source = audioCtx.createMediaStreamSource(userMediaStream);
-          source.connect(analyser);
-
-          audioContextRef.current = audioCtx;
-          analyserRef.current = analyser;
-
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          const updateVolume = () => {
-            if (analyserRef.current) {
-              analyserRef.current.getByteFrequencyData(dataArray);
-              let sum = 0;
-              for (let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
-              }
-              const avg = sum / dataArray.length;
-              const level = Math.min(100, Math.round((avg / 128) * 100));
-              setAudioLevel(level);
-
-              // 0ms Vocal Volume Barge-in: If candidate speaks while AI is talking, immediately silence AI!
-              if (level > 32 && isAiSpeakingRef.current) {
-                stopSpeechRef.current();
-              }
+      // Setup audio analyzer for live VU volume visualizer with Chromium Autoplay Policy support
+      if (userMediaStream.getAudioTracks().length > 0) {
+        try {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtx) {
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+              try {
+                audioContextRef.current.close().catch(() => {});
+              } catch (_) {}
             }
-            animationFrameRef.current = requestAnimationFrame(updateVolume);
-          };
-          updateVolume();
+
+            const audioCtx = new AudioCtx();
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            const source = audioCtx.createMediaStreamSource(userMediaStream);
+            source.connect(analyser);
+
+            audioContextRef.current = audioCtx;
+            analyserRef.current = analyser;
+
+            // Immediate resume attempt
+            if (audioCtx.state === 'suspended') {
+              audioCtx.resume().catch(() => {});
+            }
+
+            // Also resume on any user interaction in Chromium (click, keypress, touch)
+            const handleUserInteraction = () => {
+              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                audioContextRef.current.resume().catch(() => {});
+              }
+            };
+            window.addEventListener('click', handleUserInteraction, { once: true, passive: true });
+            window.addEventListener('touchstart', handleUserInteraction, { once: true, passive: true });
+            window.addEventListener('keydown', handleUserInteraction, { once: true, passive: true });
+            window.addEventListener('pointerdown', handleUserInteraction, { once: true, passive: true });
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            if (animationFrameRef.current) {
+              cancelAnimationFrame(animationFrameRef.current);
+            }
+            const updateVolume = () => {
+              if (analyserRef.current) {
+                // Keep trying to resume audio context in Chromium if still suspended
+                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                  audioContextRef.current.resume().catch(() => {});
+                }
+
+                analyserRef.current.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                  sum += dataArray[i];
+                }
+                const avg = sum / dataArray.length;
+                const level = Math.min(100, Math.round((avg / 128) * 100));
+                setAudioLevel(level);
+
+                // 0ms Vocal Volume Barge-in: If candidate speaks while AI is talking, immediately silence AI!
+                if (level > 32 && isAiSpeakingRef.current) {
+                  stopSpeechRef.current();
+                }
+              }
+              animationFrameRef.current = requestAnimationFrame(updateVolume);
+            };
+            updateVolume();
+          }
+        } catch (e) {
+          console.warn('AudioContext visualization not available:', e);
         }
-      } catch (e) {
-        console.warn('AudioContext visualization not available:', e);
       }
     } catch (err: any) {
       console.error('Camera/Mic permission error:', err);
@@ -578,18 +716,20 @@ export const InterviewPage: React.FC = () => {
       }
     } finally {
       setIsRequestingMedia(false);
+      isStartingCameraRef.current = false;
     }
   };
 
   useEffect(() => {
     startCamera();
     return () => {
-      // Cleanup tracks and audio contexts on unmount
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      // Cleanup tracks and audio contexts on unmount using ref so it never misses active streams
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach((track) => track.stop());
+        activeStreamRef.current = null;
       }
       if (audioContextRef.current) {
-        audioContextRef.current.close();
+        audioContextRef.current.close().catch(() => {});
       }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -604,27 +744,21 @@ export const InterviewPage: React.FC = () => {
 
   // Bind video element streams whenever stream or UI stage changes
   useEffect(() => {
-    if (!stream) return;
+    const s = activeStreamRef.current || stream;
+    if (!s) return;
     if (lobbyVideoRef.current && uiStage === 'lobby') {
-      if (lobbyVideoRef.current.srcObject !== stream) {
-        lobbyVideoRef.current.srcObject = stream;
-      }
-      lobbyVideoRef.current.muted = true;
-      lobbyVideoRef.current.play().catch(() => {});
+      bindStreamToVideo(lobbyVideoRef.current, s);
     }
     if (liveVideoRef.current && uiStage === 'interview') {
-      if (liveVideoRef.current.srcObject !== stream) {
-        liveVideoRef.current.srcObject = stream;
-      }
-      liveVideoRef.current.muted = true;
-      liveVideoRef.current.play().catch(() => {});
+      bindStreamToVideo(liveVideoRef.current, s);
     }
-  }, [stream, uiStage]);
+  }, [stream, uiStage, bindStreamToVideo]);
 
   // Toggle Camera
   const toggleCamera = () => {
-    if (stream) {
-      const videoTrack = stream.getVideoTracks()[0];
+    const curStream = activeStreamRef.current || stream;
+    if (curStream) {
+      const videoTrack = curStream.getVideoTracks()[0];
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsCameraOff(!videoTrack.enabled);
@@ -634,8 +768,9 @@ export const InterviewPage: React.FC = () => {
 
   // Toggle Mic
   const toggleMic = () => {
-    if (stream) {
-      const audioTrack = stream.getAudioTracks()[0];
+    const curStream = activeStreamRef.current || stream;
+    if (curStream) {
+      const audioTrack = curStream.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsMicMuted(!audioTrack.enabled);
@@ -1258,7 +1393,7 @@ export const InterviewPage: React.FC = () => {
   }
   return (
     <AssessmentAccessGuard
-      requiredEmail={session.applicant_email}
+      requiredEmail={isDemo ? undefined : session.applicant_email}
       candidateName={session.applicant_name}
       assessmentType="ai_interview"
       programName={session.program_name}
@@ -1307,6 +1442,8 @@ export const InterviewPage: React.FC = () => {
                     autoPlay
                     playsInline
                     muted
+                    onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
+                    onCanPlay={(e) => e.currentTarget.play().catch(() => {})}
                     className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
                   />
                 ) : null}
@@ -1612,6 +1749,8 @@ export const InterviewPage: React.FC = () => {
                       autoPlay
                       playsInline
                       muted
+                      onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
+                      onCanPlay={(e) => e.currentTarget.play().catch(() => {})}
                       className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
                     />
                   )}
