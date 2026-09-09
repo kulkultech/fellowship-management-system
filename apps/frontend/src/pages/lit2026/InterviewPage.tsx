@@ -22,6 +22,7 @@ import {
   FileText,
   User,
   Radio,
+  Send,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -233,6 +234,7 @@ export const InterviewPage: React.FC = () => {
   // Conversational Chat & Streaming State
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
   const [liveCandidateTranscript, setLiveCandidateTranscript] = useState<string>('');
+  const [manualInputText, setManualInputText] = useState<string>('');
 
   // References for zero-latency closures (VAD, speech barge-in, turn-taking)
   const isAiSpeakingRef = useRef(false);
@@ -443,31 +445,69 @@ export const InterviewPage: React.FC = () => {
     }
   }, [session?.status, session?.recording_url, isResetting]);
 
-  // Request media devices on mount
+  // Request media devices on mount with robust cross-browser fallback
   const startCamera = async () => {
     setIsRequestingMedia(true);
     setDeviceError(null);
     try {
-      const userMediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user',
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      let userMediaStream: MediaStream;
+
+      // Tier 1: Ideal 720p HD with facingMode 'user'
+      try {
+        userMediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user',
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (tier1Err: any) {
+        console.warn('Tier 1 camera constraints failed, falling back without facingMode:', tier1Err);
+        // Tier 2: Without facingMode (prevents OverconstrainedError on desktop webcams in Chrome/Brave)
+        try {
+          userMediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+        } catch (tier2Err: any) {
+          console.warn('Tier 2 camera constraints failed, trying basic video & audio:', tier2Err);
+          // Tier 3: Basic video and audio
+          userMediaStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+        }
+      }
 
       setStream(userMediaStream);
+
+      // Immediately bind to lobby video element if rendered
+      if (lobbyVideoRef.current) {
+        lobbyVideoRef.current.srcObject = userMediaStream;
+        lobbyVideoRef.current.muted = true;
+        lobbyVideoRef.current.play().catch(() => {});
+      }
 
       // Setup audio analyzer for live VU volume visualizer
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtx) {
           const audioCtx = new AudioCtx();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
           const source = audioCtx.createMediaStreamSource(userMediaStream);
@@ -479,6 +519,9 @@ export const InterviewPage: React.FC = () => {
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           const updateVolume = () => {
             if (analyserRef.current) {
+              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                audioContextRef.current.resume().catch(() => {});
+              }
               analyserRef.current.getByteFrequencyData(dataArray);
               let sum = 0;
               for (let i = 0; i < dataArray.length; i++) {
@@ -536,9 +579,13 @@ export const InterviewPage: React.FC = () => {
     if (!stream) return;
     if (lobbyVideoRef.current && uiStage === 'lobby') {
       lobbyVideoRef.current.srcObject = stream;
+      lobbyVideoRef.current.muted = true;
+      lobbyVideoRef.current.play().catch(() => {});
     }
     if (liveVideoRef.current && uiStage === 'interview') {
       liveVideoRef.current.srcObject = stream;
+      liveVideoRef.current.muted = true;
+      liveVideoRef.current.play().catch(() => {});
     }
   }, [stream, uiStage]);
 
@@ -1049,8 +1096,11 @@ export const InterviewPage: React.FC = () => {
       };
 
       recognition.onerror = (e: any) => {
-        console.warn('Speech recognition notice:', e);
-        if (e.error !== 'aborted' && uiStageRef.current === 'interview') {
+        console.warn('Speech recognition notice:', e?.error);
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+          return;
+        }
+        if (e?.error !== 'aborted' && uiStageRef.current === 'interview') {
           setTimeout(() => {
             try {
               recognition.start();
@@ -1078,8 +1128,21 @@ export const InterviewPage: React.FC = () => {
   };
 
   // Enter Chamber from Lobby
-  const handleEnterChamber = () => {
-    if (!stream && !isDemo) {
+  const handleEnterChamber = async () => {
+    let activeStream = stream;
+    if (!activeStream || !activeStream.active || activeStream.getTracks().every((t) => t.readyState === 'ended')) {
+      try {
+        activeStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        setStream(activeStream);
+      } catch (reErr) {
+        console.warn('Media re-acquisition on entering chamber:', reErr);
+      }
+    }
+
+    if (!activeStream && !isDemo) {
       toast.error('Please enable camera and microphone permissions first.');
       return;
     }
@@ -1094,12 +1157,12 @@ export const InterviewPage: React.FC = () => {
 
     // 1. Start continuous master session recording
     try {
-      const activeStream = stream || createSyntheticVideoStream();
-      if (activeStream && typeof MediaRecorder !== 'undefined') {
+      const recordingStream = activeStream || stream || createSyntheticVideoStream();
+      if (recordingStream && typeof MediaRecorder !== 'undefined') {
         const { mimeType } = getSupportedVideoMimeType();
         sessionMimeTypeRef.current = mimeType;
         sessionChunksRef.current = [];
-        const sessionRecorder = new MediaRecorder(activeStream, {
+        const sessionRecorder = new MediaRecorder(recordingStream, {
           ...(mimeType ? { mimeType } : {}),
           videoBitsPerSecond: 1_200_000,
         });
@@ -1228,6 +1291,9 @@ export const InterviewPage: React.FC = () => {
                     autoPlay
                     playsInline
                     muted
+                    onLoadedMetadata={(e) => {
+                      e.currentTarget.play().catch(() => {});
+                    }}
                     className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
                   />
                 ) : null}
@@ -1533,6 +1599,9 @@ export const InterviewPage: React.FC = () => {
                       autoPlay
                       playsInline
                       muted
+                      onLoadedMetadata={(e) => {
+                        e.currentTarget.play().catch(() => {});
+                      }}
                       className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
                     />
                   )}
@@ -1780,6 +1849,37 @@ export const InterviewPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Optional Text Input Dock for typing fallback */}
+              <div className="p-3 bg-slate-50/80 border-t border-slate-200/80 shrink-0">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!manualInputText.trim() || isEvaluatingAnswer) return;
+                    const text = manualInputText.trim();
+                    setManualInputText('');
+                    commitCandidateTurn(text);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    value={manualInputText}
+                    onChange={(e) => setManualInputText(e.target.value)}
+                    disabled={isEvaluatingAnswer}
+                    placeholder={isAiSpeaking ? 'AI speaking (or type here)...' : 'Type a response or speak freely...'}
+                    className="flex-1 bg-white border border-slate-200 rounded-full px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple placeholder:text-slate-400 text-slate-800 disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!manualInputText.trim() || isEvaluatingAnswer}
+                    className="w-8 h-8 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white flex items-center justify-center shrink-0 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                    title="Send message"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </form>
               </div>
             </div>
           </div>
