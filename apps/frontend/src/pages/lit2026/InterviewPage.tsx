@@ -159,6 +159,78 @@ const recordSyntheticFallback = async (): Promise<Blob> => {
   });
 };
 
+// Encodes raw mono float PCM samples into standard 16-bit PCM WAV Blob
+const encodeWav = (samples: Float32Array, sampleRate: number): Blob => {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  // 'RIFF'
+  view.setUint8(0, 0x52); view.setUint8(1, 0x49); view.setUint8(2, 0x46); view.setUint8(3, 0x46);
+  view.setUint32(4, 36 + samples.length * 2, true);
+  // 'WAVE'
+  view.setUint8(8, 0x57); view.setUint8(9, 0x41); view.setUint8(10, 0x56); view.setUint8(11, 0x45);
+  // 'fmt '
+  view.setUint8(12, 0x66); view.setUint8(13, 0x6d); view.setUint8(14, 0x74); view.setUint8(15, 0x20);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // Mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  // 'data'
+  view.setUint8(36, 0x64); view.setUint8(37, 0x61); view.setUint8(38, 0x74); view.setUint8(39, 0x61);
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    offset += 2;
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
+// Merges Float32Array PCM chunks and resamples to target rate (16000Hz)
+const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float32Array => {
+  let totalLen = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    totalLen += chunks[i].length;
+  }
+  const merged = new Float32Array(totalLen);
+  let offset = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    merged.set(chunks[i], offset);
+    offset += chunks[i].length;
+  }
+
+  if (inputSampleRate === 16000 || totalLen === 0) {
+    return merged;
+  }
+
+  const sampleRatio = inputSampleRate / 16000;
+  const newLength = Math.round(totalLen / sampleRatio);
+  const result = new Float32Array(newLength);
+  let offsetResult = 0;
+  let offsetBuffer = 0;
+
+  while (offsetResult < newLength) {
+    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRatio);
+    let accum = 0;
+    let count = 0;
+    for (let i = offsetBuffer; i < nextOffsetBuffer && i < totalLen; i++) {
+      accum += merged[i];
+      count++;
+    }
+    result[offsetResult] = count > 0 ? accum / count : 0;
+    offsetResult++;
+    offsetBuffer = nextOffsetBuffer;
+  }
+
+  return result;
+};
+
 export const InterviewPage: React.FC = () => {
   const { inviteToken } = useParams<{ inviteToken: string }>();
   const navigate = useNavigate();
@@ -205,6 +277,8 @@ export const InterviewPage: React.FC = () => {
   const startSpeechRecognitionRef = useRef<() => void>(() => {});
   const turnAudioChunksRef = useRef<Blob[]>([]);
   const turnAudioRecorderRef = useRef<MediaRecorder | null>(null);
+  const turnPcmChunksRef = useRef<Float32Array[]>([]);
+  const pcmProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const hasSpokenInCurrentTurnRef = useRef<boolean>(false);
 
   // Tick continuous session recording timer when in interview chamber
@@ -656,6 +730,38 @@ export const InterviewPage: React.FC = () => {
             const source = audioCtx.createMediaStreamSource(userMediaStream);
             source.connect(analyser);
 
+            // Connect PCM audio processor for high-accuracy Whisper transcription
+            try {
+              if (pcmProcessorRef.current) {
+                try {
+                  pcmProcessorRef.current.disconnect();
+                } catch (_) {}
+              }
+              const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+              processor.onaudioprocess = (e) => {
+                if (
+                  uiStageRef.current === 'interview' &&
+                  !isAiSpeakingRef.current &&
+                  !isEvaluatingAnswerRef.current
+                ) {
+                  const input = e.inputBuffer.getChannelData(0);
+                  turnPcmChunksRef.current.push(new Float32Array(input));
+                  const maxChunks = Math.ceil((30 * audioCtx.sampleRate) / 4096);
+                  if (turnPcmChunksRef.current.length > maxChunks) {
+                    turnPcmChunksRef.current.splice(0, turnPcmChunksRef.current.length - maxChunks);
+                  }
+                }
+              };
+              const muteGain = audioCtx.createGain();
+              muteGain.gain.value = 0;
+              source.connect(processor);
+              processor.connect(muteGain);
+              muteGain.connect(audioCtx.destination);
+              pcmProcessorRef.current = processor;
+            } catch (procErr) {
+              console.warn('PCM processor init warning:', procErr);
+            }
+
             audioContextRef.current = audioCtx;
             analyserRef.current = analyser;
 
@@ -718,39 +824,38 @@ export const InterviewPage: React.FC = () => {
                     }
 
                     // For browsers where Web Speech API is blocked or inactive (e.g. Brave):
-                    // Periodically transcribe audio slice via Whisper every 3 seconds while candidate is speaking
+                    // Periodically transcribe audio slice via Whisper every 2.5 seconds while candidate is speaking
                     if (
                       !speechRecognitionWorkingRef.current &&
-                      now - speechStartedTimeRef.current > 2000 &&
-                      now - lastLiveChunkTranscribeTimeRef.current > 3000 &&
+                      now - speechStartedTimeRef.current > 1500 &&
+                      now - lastLiveChunkTranscribeTimeRef.current > 2500 &&
                       !isTranscribingLiveChunkRef.current &&
-                      turnAudioRecorderRef.current &&
-                      turnAudioChunksRef.current.length > 0 &&
+                      turnPcmChunksRef.current.length > 5 &&
                       inviteTokenRef.current
                     ) {
                       lastLiveChunkTranscribeTimeRef.current = now;
                       isTranscribingLiveChunkRef.current = true;
-                      try {
-                        turnAudioRecorderRef.current.requestData();
-                      } catch (_) {}
-                      setTimeout(async () => {
-                        try {
-                          if (turnAudioChunksRef.current.length > 0 && inviteTokenRef.current && isCandidateSpeakingRef.current) {
-                            const mime = turnAudioRecorderRef.current?.mimeType || 'audio/webm';
-                            const audioBlob = new Blob(turnAudioChunksRef.current, { type: mime });
-                            if (audioBlob.size > 200) {
-                              const res = await aiInterviewService.transcribeAudio(inviteTokenRef.current, audioBlob);
-                              if (res?.text && res.text.trim().length > 0) {
-                                setLiveCandidateTranscript(res.text.trim());
-                              }
+
+                      const inputRate = audioContextRef.current?.sampleRate || 44100;
+                      const pcm16k = downsampleTo16k(turnPcmChunksRef.current, inputRate);
+                      if (pcm16k.length > 8000) {
+                        const wavBlob = encodeWav(pcm16k, 16000);
+                        aiInterviewService
+                          .transcribeAudio(inviteTokenRef.current, wavBlob)
+                          .then((res) => {
+                            if (res?.text && res.text.trim().length > 0 && !speechRecognitionWorkingRef.current) {
+                              setLiveCandidateTranscript(res.text.trim());
                             }
-                          }
-                        } catch (e) {
-                          console.warn('Live chunk transcription notice:', e);
-                        } finally {
-                          isTranscribingLiveChunkRef.current = false;
-                        }
-                      }, 100);
+                          })
+                          .catch((e) => {
+                            console.warn('Live chunk transcription notice:', e);
+                          })
+                          .finally(() => {
+                            isTranscribingLiveChunkRef.current = false;
+                          });
+                      } else {
+                        isTranscribingLiveChunkRef.current = false;
+                      }
                     }
                   } else {
                     // Candidate is currently silent
@@ -986,6 +1091,7 @@ export const InterviewPage: React.FC = () => {
     setIsAiSpeaking(false);
     isAiSpeakingRef.current = false;
     turnAudioChunksRef.current = [];
+    turnPcmChunksRef.current = [];
     hasSpokenInCurrentTurnRef.current = false;
     speechStartedTimeRef.current = 0;
     lastCandidateSpeechTimeRef.current = 0;
@@ -1015,6 +1121,7 @@ export const InterviewPage: React.FC = () => {
           currentSourceNodeRef.current = null;
         }
         turnAudioChunksRef.current = [];
+        turnPcmChunksRef.current = [];
         hasSpokenInCurrentTurnRef.current = false;
         speechStartedTimeRef.current = 0;
         lastCandidateSpeechTimeRef.current = 0;
@@ -1052,6 +1159,7 @@ export const InterviewPage: React.FC = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
       turnAudioChunksRef.current = [];
+      turnPcmChunksRef.current = [];
       hasSpokenInCurrentTurnRef.current = false;
       speechStartedTimeRef.current = 0;
       lastCandidateSpeechTimeRef.current = 0;
@@ -1285,20 +1393,13 @@ export const InterviewPage: React.FC = () => {
       setIsEvaluatingAnswer(true);
       isEvaluatingAnswerRef.current = true;
 
-      if (turnAudioRecorderRef.current && turnAudioRecorderRef.current.state !== 'inactive') {
+      if (turnPcmChunksRef.current.length > 0 && inviteToken) {
         try {
-          turnAudioRecorderRef.current.requestData();
-        } catch (_) {}
-      }
-
-      await new Promise((r) => setTimeout(r, 250));
-
-      if (turnAudioChunksRef.current.length > 0 && inviteToken) {
-        try {
-          const mime = turnAudioRecorderRef.current?.mimeType || 'audio/webm';
-          const audioBlob = new Blob(turnAudioChunksRef.current, { type: mime });
-          if (audioBlob.size > 200) {
-            const res = await aiInterviewService.transcribeAudio(inviteToken, audioBlob);
+          const inputRate = audioContextRef.current?.sampleRate || 44100;
+          const pcm16k = downsampleTo16k(turnPcmChunksRef.current, inputRate);
+          if (pcm16k.length > 4000) {
+            const wavBlob = encodeWav(pcm16k, 16000);
+            const res = await aiInterviewService.transcribeAudio(inviteToken, wavBlob);
             if (res?.text && res.text.trim().length > 0) {
               textToSubmit = res.text.trim();
             }
@@ -1340,6 +1441,7 @@ export const InterviewPage: React.FC = () => {
     stopSpeechRecognition();
     restartSpeechRecognition(300);
     startTurnAudioRecorder();
+    turnPcmChunksRef.current = [];
 
     try {
       if (!inviteToken) return;
@@ -2077,11 +2179,6 @@ export const InterviewPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  {typeof window !== 'undefined' && Boolean((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function') && (
-                    <span className="text-3xs text-purple-600 font-semibold hidden sm:inline-block">
-                      🦁 Brave: Whisper STT Active
-                    </span>
-                  )}
                   <button
                     onClick={() => {
                       commitCandidateTurn(liveCandidateTranscript);
