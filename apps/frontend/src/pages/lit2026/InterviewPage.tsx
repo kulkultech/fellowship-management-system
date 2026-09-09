@@ -22,7 +22,6 @@ import {
   FileText,
   User,
   Radio,
-  Send,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -234,7 +233,6 @@ export const InterviewPage: React.FC = () => {
   // Conversational Chat & Streaming State
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
   const [liveCandidateTranscript, setLiveCandidateTranscript] = useState<string>('');
-  const [manualInputText, setManualInputText] = useState<string>('');
 
   // References for zero-latency closures (VAD, speech barge-in, turn-taking)
   const isAiSpeakingRef = useRef(false);
@@ -249,8 +247,6 @@ export const InterviewPage: React.FC = () => {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const uiStageRef = useRef<'lobby' | 'interview' | 'completed'>('lobby');
   const stopSpeechRef = useRef<() => void>(() => {});
-  const shouldListenRef = useRef<boolean>(false);
-  const isListeningRef = useRef<boolean>(false);
 
   // Keep references synced with reactive state
   useEffect(() => {
@@ -549,8 +545,8 @@ export const InterviewPage: React.FC = () => {
               const level = Math.min(100, Math.round((avg / 128) * 100));
               setAudioLevel(level);
 
-              // 0ms Vocal Volume Barge-in: If candidate speaks loudly near mic while AI is talking, silence AI
-              if (level > 50 && isAiSpeakingRef.current) {
+              // 0ms Vocal Volume Barge-in: If candidate speaks while AI is talking, immediately silence AI!
+              if (level > 32 && isAiSpeakingRef.current) {
                 stopSpeechRef.current();
               }
             }
@@ -654,14 +650,9 @@ export const InterviewPage: React.FC = () => {
 
   // Cancel any active speech recognition
   const stopSpeechRecognition = () => {
-    shouldListenRef.current = false;
-    isListeningRef.current = false;
     if (speechRecognitionRef.current) {
       try {
-        speechRecognitionRef.current.onresult = null;
-        speechRecognitionRef.current.onerror = null;
-        speechRecognitionRef.current.onend = null;
-        speechRecognitionRef.current.abort();
+        speechRecognitionRef.current.stop();
       } catch (_) {}
       speechRecognitionRef.current = null;
     }
@@ -742,9 +733,6 @@ export const InterviewPage: React.FC = () => {
         if (currentSourceNodeRef.current === source) {
           currentSourceNodeRef.current = null;
         }
-        if (shouldListenRef.current && uiStageRef.current === 'interview' && !isEvaluatingAnswerRef.current) {
-          startSpeechRecognition();
-        }
       };
 
       setIsAiSpeaking(true);
@@ -775,9 +763,6 @@ export const InterviewPage: React.FC = () => {
     audio.onended = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
-      if (shouldListenRef.current && uiStageRef.current === 'interview' && !isEvaluatingAnswerRef.current) {
-        startSpeechRecognition();
-      }
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
@@ -1012,14 +997,9 @@ export const InterviewPage: React.FC = () => {
     // Reset speech recognition buffer for fresh next turn
     if (speechRecognitionRef.current) {
       try {
-        speechRecognitionRef.current.onresult = null;
-        speechRecognitionRef.current.onerror = null;
-        speechRecognitionRef.current.onend = null;
         speechRecognitionRef.current.abort();
       } catch (_) {}
-      speechRecognitionRef.current = null;
     }
-    isListeningRef.current = false;
 
     try {
       if (!inviteToken) return;
@@ -1095,10 +1075,6 @@ export const InterviewPage: React.FC = () => {
     } finally {
       setIsEvaluatingAnswer(false);
       isEvaluatingAnswerRef.current = false;
-      // Ensure speech recognition restarts if AI has finished or is not speaking
-      if (shouldListenRef.current && uiStageRef.current === 'interview' && !isAiSpeakingRef.current) {
-        startSpeechRecognition();
-      }
     }
   };
 
@@ -1106,35 +1082,18 @@ export const InterviewPage: React.FC = () => {
   const startSpeechRecognition = () => {
     try {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        console.warn('SpeechRecognition API not available in this browser');
-        return;
-      }
+      if (!SpeechRecognition) return;
 
-      // If already listening on an active instance, do not create duplicate
-      if (isListeningRef.current && speechRecognitionRef.current) {
-        return;
-      }
-
-      // Clean up previous instance listeners before instantiating new one
       if (speechRecognitionRef.current) {
         try {
-          speechRecognitionRef.current.onresult = null;
-          speechRecognitionRef.current.onerror = null;
-          speechRecognitionRef.current.onend = null;
           speechRecognitionRef.current.abort();
         } catch (_) {}
-        speechRecognitionRef.current = null;
       }
 
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        isListeningRef.current = true;
-      };
 
       recognition.onresult = (event: any) => {
         let transcript = '';
@@ -1159,9 +1118,12 @@ export const InterviewPage: React.FC = () => {
           }
 
           // 4. Auto-commit turn after natural conversational silence pause
-          if (text.length >= 4 && !isEvaluatingAnswerRef.current) {
+          if (text.length >= 6 && !isEvaluatingAnswerRef.current) {
+            // Adaptive silence debounce:
+            // - For brief opening fragments (< 10 words), give 4.5 seconds so candidate has time to think without being cut off mid-thought!
+            // - For substantive responses (>= 10 words), use a natural 3.5 seconds silence pause.
             const wordCount = text.split(/\s+/).filter(Boolean).length;
-            const debounceMs = wordCount < 6 ? 4500 : 3500;
+            const debounceMs = wordCount < 10 ? 4500 : 3500;
 
             silenceTimeoutRef.current = setTimeout(() => {
               commitCandidateTurn(text);
@@ -1171,32 +1133,31 @@ export const InterviewPage: React.FC = () => {
       };
 
       recognition.onerror = (e: any) => {
-        console.warn('Speech recognition notice:', e?.error);
-        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
-          shouldListenRef.current = false;
-          isListeningRef.current = false;
-          return;
+        console.warn('Speech recognition notice:', e);
+        if (e.error !== 'aborted' && uiStageRef.current === 'interview') {
+          setTimeout(() => {
+            try {
+              recognition.start();
+            } catch (_) {}
+          }, 600);
         }
-        isListeningRef.current = false;
       };
 
       recognition.onend = () => {
-        isListeningRef.current = false;
-        // Automatically restart with a fresh instance so continuous listening persists throughout the interview
-        if (shouldListenRef.current && uiStageRef.current === 'interview' && !isEvaluatingAnswerRef.current) {
+        // Automatically restart so speech recognition stays active continuously
+        if (uiStageRef.current === 'interview') {
           setTimeout(() => {
-            if (shouldListenRef.current && uiStageRef.current === 'interview' && !isEvaluatingAnswerRef.current) {
-              startSpeechRecognition();
-            }
-          }, 150);
+            try {
+              recognition.start();
+            } catch (_) {}
+          }, 200);
         }
       };
 
       recognition.start();
       speechRecognitionRef.current = recognition;
     } catch (err) {
-      console.warn('Speech recognition not available or failed to start:', err);
-      isListeningRef.current = false;
+      console.warn('Speech recognition not available:', err);
     }
   };
 
@@ -1240,8 +1201,6 @@ export const InterviewPage: React.FC = () => {
 
     // 2. Set Chamber state
     setUiStage('interview');
-    uiStageRef.current = 'interview';
-    shouldListenRef.current = true;
     setCurrentQIndex(0);
     currentQIndexRef.current = 0;
     setActiveFollowUp(null);
@@ -1911,87 +1870,6 @@ export const InterviewPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Chat Input & Mic Status Dock */}
-              <div className="p-3 bg-slate-50 border-t border-slate-200/80 shrink-0">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (manualInputText.trim() && !isEvaluatingAnswer) {
-                      commitCandidateTurn(manualInputText.trim());
-                      setManualInputText('');
-                    }
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={manualInputText}
-                      onChange={(e) => setManualInputText(e.target.value)}
-                      placeholder={
-                        isAiSpeaking
-                          ? 'AI is speaking (speak to interrupt)...'
-                          : liveCandidateTranscript
-                          ? liveCandidateTranscript
-                          : 'Speak naturally, or type here...'
-                      }
-                      disabled={isEvaluatingAnswer}
-                      className="w-full pl-3.5 pr-10 py-2 rounded-xl text-xs bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple/30 text-slate-800 placeholder-slate-400 disabled:bg-slate-100 transition"
-                    />
-                    {manualInputText && (
-                      <button
-                        type="submit"
-                        disabled={isEvaluatingAnswer}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-kulkul-purple text-white hover:bg-kulkul-purple-hover transition cursor-pointer"
-                        title="Send response"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (liveCandidateTranscript) {
-                        commitCandidateTurn(liveCandidateTranscript);
-                      } else if (manualInputText.trim()) {
-                        commitCandidateTurn(manualInputText.trim());
-                        setManualInputText('');
-                      }
-                    }}
-                    disabled={isEvaluatingAnswer || (!liveCandidateTranscript && !manualInputText.trim())}
-                    className="px-3.5 py-2 rounded-xl bg-kulkul-purple text-white text-xs font-semibold hover:bg-kulkul-purple-hover transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5"
-                    title="Submit answer turn"
-                  >
-                    <span>Send</span>
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </form>
-
-                <div className="flex items-center justify-between mt-2 px-1 text-3xs text-slate-500 font-medium">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isAiSpeaking
-                          ? 'bg-purple-500 animate-pulse'
-                          : liveCandidateTranscript
-                          ? 'bg-emerald-500 animate-ping'
-                          : 'bg-emerald-500'
-                      }`}
-                    />
-                    <span>
-                      {isAiSpeaking
-                        ? 'Interviewer speaking'
-                        : liveCandidateTranscript
-                        ? 'Transcribing your voice...'
-                        : 'Mic active • Hands-free continuous flow'}
-                    </span>
-                  </div>
-                  <span>Speaks or auto-commits after pause</span>
-                </div>
               </div>
             </div>
           </div>
