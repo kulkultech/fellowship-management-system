@@ -84,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               ) : (
                 <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
                   <Building2 className="w-4 h-4 text-kulkul-purple" />
-                  <span>{companyName || 'Remote Skills Academy'}</span>
+                  <span>{companyName || 'Acme Academy'}</span>
                 </div>
               )}
 

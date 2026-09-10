@@ -63,7 +63,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 		{
 			Slug:        "lit2026",
 			Name:        "LIT 2026 Fellowship Program",
-			Description: "The flagship talent acceleration fellowship program by Remote Skills Academy and Kulkul Tech. Choose your specialization track to begin evaluation.",
+			Description: "The flagship talent acceleration fellowship program by Acme Academy and Kulkul Tech. Choose your specialization track to begin evaluation.",
 			Tracks: []struct {
 				Slug          string
 				Name          string

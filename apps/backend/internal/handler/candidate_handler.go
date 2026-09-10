@@ -97,7 +97,7 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 			continue
 		}
 		org, _ := h.orgRepo.GetByID(r.Context(), app.OrganizationID)
-		orgName := "Remote Skills Academy"
+		orgName := "Acme Academy"
 		orgSlug := "rsa"
 		orgLogo := ""
 		if org != nil {

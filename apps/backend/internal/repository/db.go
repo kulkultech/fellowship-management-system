@@ -248,7 +248,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	var rsaOrgID string
 	seedOrgQuery := `
 		INSERT INTO organizations (id, slug, name, logo_url, status, contact_email, created_at, updated_at)
-		VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'rsa', 'Remote Skills Academy (RSA)', '', 'approved', 'contact@rsa.org', now(), now())
+		VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'rsa', 'Acme Academy', '', 'approved', 'contact@rsa.org', now(), now())
 		ON CONFLICT (slug) DO UPDATE SET logo_url = '', updated_at = now()
 		RETURNING id::text
 	`

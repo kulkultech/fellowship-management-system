@@ -102,7 +102,7 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		OrganizationID:           uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Slug:                     "lit2026",
 		Name:                     "LIT 2026 Fellowship & Assessment",
-		Description:              "The flagship talent acceleration fellowship program by Remote Skills Academy (RSA) and Kulkul Tech. Assessment tests include Timed Logic & Architecture MCQ followed by an interactive AI Technical Screening Room.",
+			Description:              "The flagship talent acceleration fellowship program by Acme Academy and Kulkul Tech. Assessment tests include Timed Logic & Architecture MCQ followed by an interactive AI Technical Screening Room.",
 		ImageURL:                 "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80",
 		OpenDate:                 time.Now().Add(-24 * time.Hour),
 		EndDate:                  time.Now().Add(180 * 24 * time.Hour),
@@ -297,7 +297,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		org := &model.Organization{
 			ID:        p.OrganizationID,
 			Slug:      orgSlug,
-			Name:      "Remote Skills Academy (RSA)",
+			Name:      "Acme Academy",
 			LogoURL:   "",
 			Status:    model.OrgStatusApproved,
 			CreatedAt: p.CreatedAt,

@@ -31,7 +31,7 @@ func NewOrgRepository(pool *pgxpool.Pool) *OrgRepository {
 	defaultOrg := &model.Organization{
 		ID:           uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		Slug:         "rsa",
-		Name:         "Remote Skills Academy (RSA)",
+		Name:         "Acme Academy",
 		ContactEmail: "contact@rsa.org",
 		LogoURL:      "",
 		Status:       model.OrgStatusApproved,

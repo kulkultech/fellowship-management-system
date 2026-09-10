@@ -371,7 +371,7 @@ export const ProgramJobPostPage: React.FC = () => {
           <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <div className="font-bold text-slate-900 text-sm mb-1">Host Organization</div>
-              <p className="text-xs text-slate-600">{org?.name || 'Remote Skills Academy'}</p>
+              <p className="text-xs text-slate-600">{org?.name || 'Acme Academy'}</p>
             </div>
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <div className="font-bold text-slate-900 text-sm mb-1">Assessment Technology</div>

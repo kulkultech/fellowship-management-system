@@ -1269,7 +1269,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
           : undefined
       }
-      companyName={orgProfile?.name || user?.organization?.name || 'Remote Skills Academy'}
+      companyName={orgProfile?.name || user?.organization?.name || 'Acme Academy'}
       companyLogoUrl={orgProfile?.logo_url || user?.organization?.logo_url}
       navItems={navItems}
       activeNavId={activeNavId}
@@ -4336,7 +4336,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     required
                     value={renameFormName}
                     onChange={(e) => setRenameFormName(e.target.value)}
-                    placeholder="e.g. Remote Skills Academy Fellowship 2026"
+                    placeholder="e.g. Acme Academy Fellowship 2026"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-sm font-semibold text-slate-900 outline-none transition"
                   />
                 </div>

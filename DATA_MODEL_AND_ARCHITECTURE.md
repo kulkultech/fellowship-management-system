@@ -10,7 +10,7 @@ This document responds directly to the architectural guidance and feedback from 
 The platform implements strict multi-tenancy where data is partitioned by `organization_id`:
 
 ```
-Organization (e.g. Remote Skills Academy / RSA)
+Organization (e.g. Acme Academy)
  ├── Users (Reviewer Admins, Evaluators)
  └── Programs (e.g. LIT 2026 Fellowship, Cloud 2026)
       ├── MCQ Question Bank (Category, Options, Correct Answer, Points)
