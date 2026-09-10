@@ -116,8 +116,8 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Create Organization in pending_approval status
-	org, err := h.orgRepo.Register(r.Context(), req.CompanySlug, req.CompanyName, req.ContactEmail, req.LogoURL, model.OrgStatusPendingApproval)
+	// 1. Create Organization in approved status so admin can immediately access workspace
+	org, err := h.orgRepo.Register(r.Context(), req.CompanySlug, req.CompanyName, req.ContactEmail, req.LogoURL, model.OrgStatusApproved)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to register company")
 		return
@@ -159,16 +159,65 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		_ = h.emailSvc.SendRegistrationEmail(user.Email, user.Name, org.Name, "")
 	}
 
+	token, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to issue session token")
+		return
+	}
+
+	csrfToken, err := auth.GenerateCSRFToken()
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to issue csrf token")
+		return
+	}
+
+	auth.SetAuthCookies(w, token, csrfToken, h.cookieOpts)
+
+	// Record last registered admin email for seamless local dev OAuth & logins
+	sameSite := http.SameSiteLaxMode
+	if h.cookieOpts.Secure {
+		sameSite = http.SameSiteNoneMode
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "last_admin_email",
+		Value:    user.Email,
+		Path:     "/",
+		MaxAge:   int((30 * 24 * time.Hour).Seconds()),
+		HttpOnly: false,
+		Secure:   h.cookieOpts.Secure,
+		Domain:   h.cookieOpts.Domain,
+		SameSite: sameSite,
+	})
+
+	var orgIDStr *string
+	if user.OrganizationID != nil {
+		s := user.OrganizationID.String()
+		orgIDStr = &s
+	}
+
+	orgInfo := &OrganizationInfo{
+		ID:           org.ID.String(),
+		Slug:         org.Slug,
+		Name:         org.Name,
+		LogoURL:      org.LogoURL,
+		ContactEmail: org.ContactEmail,
+		Status:       string(org.Status),
+	}
+
 	httpx.JSON(w, http.StatusCreated, map[string]any{
-		"message": "Company registered successfully. Your application is now pending platform review.",
-		"status":  "pending_approval",
-		"company": OrganizationInfo{
-			ID:      org.ID.String(),
-			Slug:    org.Slug,
-			Name:    org.Name,
-			LogoURL: org.LogoURL,
-			Status:  string(org.Status),
+		"message": "Company registered successfully.",
+		"status":  string(org.Status),
+		"company": orgInfo,
+		"user": UserResponse{
+			ID:             user.ID.String(),
+			OrganizationID: orgIDStr,
+			Organization:   orgInfo,
+			Email:          user.Email,
+			Name:           user.Name,
+			AvatarURL:      user.AvatarURL,
+			Role:           user.Role,
 		},
+		"csrf_token":  csrfToken,
 		"admin_email": user.Email,
 	})
 }
@@ -209,11 +258,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 				Status:       string(org.Status),
 			}
 
-			// Reject login if company is still pending approval or rejected
-			if org.Status == model.OrgStatusPendingApproval {
-				httpx.Error(w, http.StatusForbidden, "Your company registration is pending approval by FellowHire platform admins. You will receive access once approved.")
-				return
-			}
+			// Reject login only if company registration was declined
 			if org.Status == model.OrgStatusRejected {
 				httpx.Error(w, http.StatusForbidden, "Your company registration request was declined. Please contact support.")
 				return

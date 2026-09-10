@@ -199,26 +199,35 @@ export const CandidateDashboardPage: React.FC = () => {
       <div className="space-y-8">
         {/* Admin Session Notice Banner */}
         {authUser?.role && authUser.role !== 'candidate' && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0">
-                <AlertCircle className="w-5 h-5" />
+              <div className="p-2 rounded-xl bg-purple-100 text-kulkul-purple shrink-0">
+                <Building2 className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-amber-900">
-                  Administrative Session Active ({authUser.role})
+                <h4 className="text-sm font-bold text-slate-900">
+                  Company Administrator Session Active ({authUser.role})
                 </h4>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  You are signed in as <strong>{authUser.email}</strong>. If you want to test or experience the portal as a candidate, please switch to a candidate account.
+                <p className="text-xs text-slate-600 mt-0.5">
+                  You are currently signed in as <strong>{authUser.email}</strong> with administrative privileges.
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="shrink-0 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-full font-bold text-xs shadow-sm transition active:scale-[0.98]"
-            >
-              Sign Out & Switch to Candidate
-            </button>
+            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end">
+              <Link
+                to={authUser.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard'}
+                className="px-4 py-2.5 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white rounded-full font-bold text-xs shadow-sm transition flex items-center gap-1.5 active:scale-[0.98]"
+              >
+                <span>Go to Admin Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 rounded-full font-bold text-xs border border-slate-300 transition active:scale-[0.98]"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         )}
           {/* ========================================================================= */}

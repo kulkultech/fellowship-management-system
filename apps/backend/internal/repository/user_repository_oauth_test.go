@@ -60,3 +60,28 @@ func TestFindOrCreateByOAuth_PureCandidateStaysCandidate(t *testing.T) {
 		t.Errorf("expected no organization, got %v", u.OrganizationID)
 	}
 }
+
+func TestFindOrCreateByOAuth_OrgAdminWithoutOrgIDKeepsRole(t *testing.T) {
+	repo := repository.NewUserRepository(nil)
+	ctx := context.Background()
+
+	adminEmail := "founder@startup.io"
+	if _, err := repo.Create(ctx, adminEmail, "", "Startup Founder", "org_admin", nil); err != nil {
+		t.Fatalf("failed to seed admin: %v", err)
+	}
+
+	u, err := repo.FindOrCreateByOAuth(ctx, repository.OAuthIdentity{
+		Provider:       "google",
+		ProviderUserID: "sub-789",
+		Email:          adminEmail,
+		Name:           "Startup Founder",
+		IsCandidate:    true,
+	})
+	if err != nil {
+		t.Fatalf("oauth login failed: %v", err)
+	}
+	if u.Role != "org_admin" {
+		t.Errorf("expected role org_admin to be preserved, got %q", u.Role)
+	}
+}
+

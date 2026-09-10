@@ -182,7 +182,15 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		// Mock profile for local development without active GCP OAuth Client secret
 		mockEmail := "candidate@example.com"
 		mockName := "Sample Candidate"
-		if strings.Contains(returnTo, "register-company") || strings.Contains(returnTo, "company") {
+
+		// Check if a specific developer email was passed or previously registered
+		if devEmail := r.URL.Query().Get("email"); devEmail != "" {
+			mockEmail = strings.TrimSpace(devEmail)
+			mockName = strings.Split(mockEmail, "@")[0]
+		} else if lastAdminCookie, err := r.Cookie("last_admin_email"); err == nil && lastAdminCookie.Value != "" && (strings.Contains(returnTo, "admin") || strings.Contains(returnTo, "company") || strings.Contains(returnTo, "register-company")) {
+			mockEmail = lastAdminCookie.Value
+			mockName = strings.Split(mockEmail, "@")[0]
+		} else if strings.Contains(returnTo, "register-company") || strings.Contains(returnTo, "company") {
 			mockEmail = "hr.partner@innovatech.io"
 			mockName = "Innovatech Talent Lead"
 		} else if strings.Contains(returnTo, "admin") || strings.Contains(returnTo, "superadmin") {
@@ -235,12 +243,27 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	redirectURL := h.successURL
-	if returnTo != "" {
-		redirectURL = returnTo
-	} else if user.Role == "superadmin" && strings.Contains(h.successURL, "/admin/dashboard") {
-		redirectURL = strings.Replace(h.successURL, "/admin/dashboard", "/superadmin/dashboard", 1)
+	if user.Role == "org_admin" || user.Role == "reviewer" {
+		// Company admins always land on the admin workspace unless explicitly in an applicant flow
+		if returnTo != "" && (strings.Contains(returnTo, "/test") || strings.Contains(returnTo, "/interview") || strings.Contains(returnTo, "/apply")) {
+			redirectURL = returnTo
+		} else {
+			redirectURL = "/admin/dashboard"
+		}
+	} else if user.Role == "superadmin" {
+		if returnTo != "" && !strings.Contains(returnTo, "candidate") {
+			redirectURL = returnTo
+		} else {
+			redirectURL = "/superadmin/dashboard"
+		}
 	} else if user.Role == "candidate" {
-		redirectURL = "/candidate/dashboard"
+		if returnTo != "" && !strings.Contains(returnTo, "admin") && !strings.Contains(returnTo, "superadmin") {
+			redirectURL = returnTo
+		} else {
+			redirectURL = "/candidate/dashboard"
+		}
+	} else if returnTo != "" {
+		redirectURL = returnTo
 	}
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }

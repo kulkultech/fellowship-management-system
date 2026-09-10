@@ -282,8 +282,6 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			if isSuperadmin && u.Role != "superadmin" {
 				u.Role = "superadmin"
 				u.OrganizationID = nil
-			} else if !isSuperadmin && u.OrganizationID == nil && u.Role != "candidate" {
-				u.Role = "candidate"
 			}
 			return u, nil
 		}
@@ -317,34 +315,36 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			// Company members keep their access regardless of which portal they sign in from.
 			// A candidate-portal login must never strip company admin rights.
 			var hasOrg bool
-			if u.OrganizationID != nil {
-				_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)", u.OrganizationID).Scan(&hasOrg)
-			}
+			_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)", u.OrganizationID).Scan(&hasOrg)
 			if !hasOrg {
-				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'candidate', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
-				u.Role = "candidate"
-				u.OrganizationID = nil
+				// If the linked org was deleted, check if another org matches contact email
+				var fallbackOrgID uuid.UUID
+				err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE contact_email ILIKE $1 OR contact_email ILIKE $2 LIMIT 1", email, "%"+email+"%").Scan(&fallbackOrgID)
+				if err == nil {
+					_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, updated_at = now() WHERE id = $1", u.ID, fallbackOrgID)
+					u.OrganizationID = &fallbackOrgID
+				}
 			}
+		} else if !isSuperadmin && (u.Role == "org_admin" || u.Role == "reviewer") {
+			// The user is an admin/reviewer whose organization link was missing.
+			// Relink to the organization they registered.
+			var relinkID uuid.UUID
+			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE contact_email ILIKE $1 OR contact_email ILIKE $2 LIMIT 1", email, "%"+email+"%").Scan(&relinkID)
+			if err == nil {
+				_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, updated_at = now() WHERE id = $1", u.ID, relinkID)
+				u.OrganizationID = &relinkID
+			}
+			// Do NOT demote to candidate.
 		} else if !isSuperadmin {
-			// No organization on record.
-			relinked := false
+			// Candidate on record. If logging into company portal with a corporate email matching an organization, relink.
 			if !id.IsCandidate && !isPublicEmailDomain(domain) {
-				// An admin/company-portal login re-links a corporate email to its
-				// approved company. This also recovers accounts whose company link
-				// was wiped by candidate-portal logins before this fix.
 				var relinkID uuid.UUID
-				err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
+				err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
 				if err == nil {
 					_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, role = 'org_admin', updated_at = now() WHERE id = $1", u.ID, relinkID)
 					u.OrganizationID = &relinkID
 					u.Role = "org_admin"
-					relinked = true
 				}
-			}
-			if !relinked && u.Role != "candidate" {
-				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'candidate', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
-				u.Role = "candidate"
-				u.OrganizationID = nil
 			}
 		}
 		return u, nil

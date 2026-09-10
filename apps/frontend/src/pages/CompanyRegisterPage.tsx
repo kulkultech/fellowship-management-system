@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   ArrowRight,
-  Clock,
-  ChevronRight,
   ShieldCheck,
   Upload,
   X,
-  Mail,
   CheckCircle2,
   UserCheck,
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthStore } from '../hooks/useAuthStore';
 import { authService } from '../services/authService';
 import { resolveMediaUrl } from '../services/apiClient';
 import { uploadService } from '../services/uploadService';
 
 export const CompanyRegisterPage: React.FC = () => {
   const { user: authUser, isLoading: authLoading } = useAuth();
+  const { setUser } = useAuthStore();
+  const queryClient = useQueryClient();
 
   const [companyName, setCompanyName] = useState('');
   const [companySlug, setCompanySlug] = useState('');
@@ -108,7 +109,7 @@ export const CompanyRegisterPage: React.FC = () => {
 
     try {
       setLoading(true);
-      await authService.registerCompany({
+      const res = await authService.registerCompany({
         company_name: companyName.trim(),
         company_slug: companySlug.trim().toLowerCase(),
         contact_email: contactEmail.trim().toLowerCase(),
@@ -118,6 +119,10 @@ export const CompanyRegisterPage: React.FC = () => {
         admin_password: adminPassword,
       });
 
+      if (res?.user) {
+        setUser(res.user);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['auth'] });
       setIsSuccess(true);
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Registration failed. Please check the inputs.');
@@ -134,21 +139,21 @@ export const CompanyRegisterPage: React.FC = () => {
       {/* Main Registration Form Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {isSuccess ? (
-          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300">
-            <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
-              <Clock className="w-8 h-8" />
+          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-slate-100">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="px-3.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold uppercase tracking-wider">
-                Registration Submitted &middot; Waiting for Approval
+              <span className="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold uppercase tracking-wider">
+                Workspace Active &middot; Ready to Launch
               </span>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-4">
-                Thank You for Registering, {companyName}!
+                Welcome to FellowHire, {companyName}!
               </h2>
               <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-md mx-auto leading-relaxed">
-                Your company workspace registration has been received. We have sent a confirmation email to{' '}
-                <span className="font-semibold text-slate-900">{adminEmail}</span> notifying you that your application is waiting for platform approval.
+                Your company workspace is active. Your administrator account{' '}
+                <span className="font-semibold text-slate-900">{adminEmail}</span> is authenticated and ready to launch fellowship programs.
               </p>
             </div>
 
@@ -166,33 +171,26 @@ export const CompanyRegisterPage: React.FC = () => {
                 <span className="font-mono text-slate-900 font-bold">{adminEmail}</span>
               </div>
               <div className="flex items-center justify-between font-medium">
-                <span className="text-slate-500">Status:</span>
-                <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  Waiting for Platform Approval
+                <span className="text-slate-500">Role:</span>
+                <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-purple-100 text-kulkul-purple border border-purple-200">
+                  Company Administrator (org_admin)
                 </span>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-blue-800 text-xs text-left flex items-start gap-3">
-              <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <p>
-                Once our platform team approves your company, you will receive an approval email and will immediately be able to launch programs, manage question banks, and review candidate scorecards.
-              </p>
-            </div>
-
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to="/"
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition text-center"
+                to="/admin/dashboard"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
               >
-                Back to Homepage
+                <span>Open Admin Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                to="/candidate/dashboard"
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold transition flex items-center justify-center gap-2"
+                to="/"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition text-center"
               >
-                <span>Candidate Portal</span>
-                <ChevronRight className="w-4 h-4" />
+                Back to Homepage
               </Link>
             </div>
           </div>

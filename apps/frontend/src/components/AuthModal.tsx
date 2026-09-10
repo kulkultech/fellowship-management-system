@@ -167,18 +167,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </span>
               </div>
 
-              <div className="text-center pt-2 border-t border-slate-100">
-                <span className="text-xs text-slate-500">Need an organization workspace? </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    navigate('/register-company');
-                  }}
-                  className="text-xs font-bold text-kulkul-purple hover:underline"
-                >
-                  Register Company
-                </button>
+              <div className="text-center pt-2 border-t border-slate-100 flex flex-col gap-2">
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate('/admin/login');
+                    }}
+                    className="text-xs font-bold text-kulkul-purple hover:underline"
+                  >
+                    Sign In with Email &amp; Password &rarr;
+                  </button>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500">Need an organization workspace? </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate('/register-company');
+                    }}
+                    className="text-xs font-bold text-kulkul-purple hover:underline"
+                  >
+                    Register Company
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
