@@ -10,11 +10,9 @@ import {
   FileText,
   Clock,
   Terminal,
-  Compass,
   ArrowRight,
   AlertCircle,
   ExternalLink,
-  ChevronRight,
   Building2,
 } from 'lucide-react';
 
@@ -47,7 +45,7 @@ interface CandidateApplicationItem {
 export const CandidateDashboardPage: React.FC = () => {
   const { user: authUser, logout: authLogout } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'explore'>('applications');
+  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview'>('applications');
 
   const { data, isLoading } = useQuery({
     queryKey: ['candidate-applications', authUser?.email],
@@ -185,11 +183,6 @@ export const CandidateDashboardPage: React.FC = () => {
       badge: applications.filter((a) => a.interview_token).length || undefined,
       badgeColor: 'bg-purple-100 text-kulkul-purple',
     },
-    {
-      id: 'explore',
-      label: 'Explore Programs',
-      icon: Compass,
-    },
   ];
 
   return (
@@ -244,15 +237,9 @@ export const CandidateDashboardPage: React.FC = () => {
                     <AlertCircle className="w-7 h-7" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900">No applications found</h3>
-                  <p className="text-sm text-slate-500 mt-1 mb-6 max-w-md mx-auto">
-                    We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{authUser?.email}</span>. Apply to an active track below to get started!
+                  <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                    We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{authUser?.email}</span>. Please use the application link shared by the company to apply.
                   </p>
-                  <button
-                    onClick={() => setActiveTab('explore')}
-                    className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-xs"
-                  >
-                    Browse Open Tracks
-                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6">
@@ -456,41 +443,6 @@ export const CandidateDashboardPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* TAB 4: EXPLORE PROGRAMS */}
           {/* ========================================================================= */}
-          {activeTab === 'explore' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Fullstack Software Engineering Track</h3>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Master modern JavaScript DOM, HTML5/CSS, Java OOP, and scalable REST API architectures.
-                  </p>
-                </div>
-                <Link
-                  to="/programs/rsa/lit2026/tracks/fullstack/apply"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                >
-                  <span>Apply to Fullstack Track</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">QA & Test Automation Track</h3>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Automated testing pipelines with Cypress, Postman API suites, and regression testing workflows.
-                  </p>
-                </div>
-                <Link
-                  to="/programs/rsa/lit2026/tracks/qa-automation/apply"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                >
-                  <span>Apply to QA Track</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
     </DashboardLayout>
   );
