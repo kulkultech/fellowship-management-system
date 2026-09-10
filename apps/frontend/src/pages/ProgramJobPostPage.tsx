@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { CountdownTimer } from '@/components/CountdownTimer';
-import { useAuthStore } from '@/hooks/useAuthStore';
 import {
   ArrowRight,
   Clock,
@@ -16,15 +15,12 @@ import {
   AlertCircle,
   Layers,
   Bot,
-  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const ProgramJobPostPage: React.FC = () => {
   const { orgSlug = 'rsa', programSlug = 'lit2026' } = useParams<{ orgSlug: string; programSlug: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuthStore();
   const [isCopied, setIsCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -44,11 +40,6 @@ export const ProgramJobPostPage: React.FC = () => {
 
   const openDate = program?.open_date ? new Date(program.open_date) : null;
   const isBeforeOpen = openDate ? now < openDate.getTime() : false;
-
-  const queryParams = new URLSearchParams(location.search);
-  const previewTokenFromQuery = queryParams.get('preview');
-  const hasPreviewMatch = !!(program?.preview_token && previewTokenFromQuery === program.preview_token);
-  const canAccessAdminTest = hasPreviewMatch || user?.role === 'org_admin' || user?.role === 'superadmin';
 
   const handleCopyLink = () => {
     const url = window.location.href;
@@ -215,22 +206,6 @@ export const ProgramJobPostPage: React.FC = () => {
                   <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
                     {openDate && (
                       <CountdownTimer targetDate={openDate} variant="compact" />
-                    )}
-                    {canAccessAdminTest && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(
-                            `/programs/${orgSlug}/${programSlug}/apply?preview=${program?.preview_token || ''}`
-                          )
-                        }
-                        className="px-4 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-                        title="Open Test Application Form"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Admin Test Form</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
                     )}
                   </div>
                 </div>

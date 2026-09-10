@@ -3419,7 +3419,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         onChange={(e) => setNewProgOpenDate(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
                       />
-                      <p className="text-3xs text-slate-500 mt-1">
+                      <p className="text-[10px] leading-tight text-slate-400 mt-1">
                         If set in the future, candidate overview shows a live countdown timer until open.
                       </p>
                     </div>
@@ -3435,7 +3435,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         onChange={(e) => setNewProgEndDate(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
                       />
-                      <p className="text-3xs text-slate-500 mt-1">
+                      <p className="text-[10px] leading-tight text-slate-400 mt-1">
                         Optional timestamp when applications close.
                       </p>
                     </div>
@@ -4621,7 +4621,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       onChange={(e) => setEditFormOpenDate(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
                     />
-                    <p className="text-3xs text-slate-500 mt-1">
+                    <p className="text-[10px] leading-tight text-slate-400 mt-1">
                       If set in the future, public visitors see a live countdown timer until this timestamp.
                     </p>
                   </div>
@@ -4637,7 +4637,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       onChange={(e) => setEditFormEndDate(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
                     />
-                    <p className="text-3xs text-slate-500 mt-1">
+                    <p className="text-[10px] leading-tight text-slate-400 mt-1">
                       Optional timestamp when public submissions close.
                     </p>
                   </div>
