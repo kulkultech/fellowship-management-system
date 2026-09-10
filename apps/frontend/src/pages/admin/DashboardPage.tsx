@@ -107,7 +107,6 @@ import {
   CheckCircle2,
   ChevronRight,
   X,
-  Pencil,
   ExternalLink,
   Check,
   Plus,
@@ -135,6 +134,25 @@ import {
   Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const toDateTimeLocalValue = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const fromDateTimeLocalValue = (val?: string): string | undefined => {
+  if (!val || !val.trim()) return undefined;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? undefined : d.toISOString();
+};
 
 const DEFAULT_STAGES: ApplicationStageItem[] = [
   {
@@ -170,6 +188,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const isSuperadmin = user?.role === 'superadmin';
+  const impersonatedOrgId = (isSuperadmin && searchParams.get('org_id')) ? searchParams.get('org_id')! : undefined;
 
   // Guard: Immediately redirect candidates away from company admin dashboard
   useEffect(() => {
@@ -219,10 +238,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   // Active Program selection
   const [activeProgramSlug, setActiveProgramSlug] = useState('lit2026');
 
+  // Fetch current organization details (supports superadmin impersonation)
+  const { data: orgProfile } = useQuery({
+    queryKey: ['admin-organization-profile', impersonatedOrgId],
+    queryFn: () => adminService.getOrganization(impersonatedOrgId),
+  });
+
+  // Current company slug
+  const orgSlug = orgProfile?.slug || user?.organization?.slug || 'rsa';
+
   // Load All Programs for Company
   const { data: allPrograms = [] } = useQuery({
-    queryKey: ['admin-all-programs'],
-    queryFn: () => adminService.listPrograms(),
+    queryKey: ['admin-all-programs', impersonatedOrgId],
+    queryFn: () => adminService.listPrograms(impersonatedOrgId),
   });
 
   useEffect(() => {
@@ -235,9 +263,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   }, [currentView, rubricTargetProgram, allPrograms, activeProgramSlug, params.programSlug, searchParams]);
 
-  // Current company slug
-  const orgSlug = user?.organization?.slug || 'rsa';
-
   useEffect(() => {
     if (allPrograms.length > 0) {
       if (!allPrograms.some((p) => p.slug === activeProgramSlug)) {
@@ -247,12 +272,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setActiveProgramSlug('');
     }
   }, [allPrograms, orgSlug, activeProgramSlug]);
-
-  // Fetch current organization details
-  const { data: orgProfile } = useQuery({
-    queryKey: ['admin-organization-profile'],
-    queryFn: () => adminService.getOrganization(),
-  });
 
   // Load Active Program Details
   const { data: programData } = useQuery({
@@ -272,8 +291,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Load All Question Sets (Question Banks)
   const { data: allQuestionSets = [], refetch: refetchQuestionSets } = useQuery({
-    queryKey: ['admin-question-sets', orgSlug],
-    queryFn: () => adminService.listQuestionSets(),
+    queryKey: ['admin-question-sets', orgSlug, impersonatedOrgId],
+    queryFn: () => adminService.listQuestionSets(undefined, impersonatedOrgId),
   });
 
   // Selected Question Set ID for Question Bank Editor
@@ -338,6 +357,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [newProgName, setNewProgName] = useState('');
   const [newProgDesc, setNewProgDesc] = useState('');
   const [newProgImage, setNewProgImage] = useState('');
+  const [newProgOpenDate, setNewProgOpenDate] = useState('');
+  const [newProgEndDate, setNewProgEndDate] = useState('');
+  const [newProgStatus, setNewProgStatus] = useState<'published' | 'draft' | 'archived'>('published');
   const [newProgEnableMCQ, setNewProgEnableMCQ] = useState(true);
   const [newProgEnableAI, setNewProgEnableAI] = useState(true);
   const [newProgDuration, setNewProgDuration] = useState(30);
@@ -545,7 +567,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   });
 
   const createProgramMutation = useMutation({
-    mutationFn: (payload: CreateProgramPayload) => adminService.createProgram(payload),
+    mutationFn: (payload: CreateProgramPayload) => adminService.createProgram(payload, impersonatedOrgId),
     onSuccess: (newProg) => {
       toast.success(`Program "${newProg.name}" created successfully!`);
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
@@ -556,6 +578,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setNewProgName('');
       setNewProgDesc('');
       setNewProgImage('');
+      setNewProgOpenDate('');
+      setNewProgEndDate('');
+      setNewProgStatus('published');
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.message || 'Failed to create program');
@@ -828,31 +853,92 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     onError: () => toast.error('Failed to delete track'),
   });
 
-  // Program Rename Modal State
-  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  const [renameTargetProgram, setRenameTargetProgram] = useState<Program | null>(null);
-  const [renameFormName, setRenameFormName] = useState('');
-  const [renameFormDesc, setRenameFormDesc] = useState('');
+  // Program Edit Details Modal State
+  const [isEditProgramModalOpen, setIsEditProgramModalOpen] = useState(false);
+  const [editTargetProgram, setEditTargetProgram] = useState<Program | null>(null);
+  const [editFormName, setEditFormName] = useState('');
+  const [editFormDesc, setEditFormDesc] = useState('');
+  const [editFormImage, setEditFormImage] = useState('');
+  const [editFormOpenDate, setEditFormOpenDate] = useState('');
+  const [editFormEndDate, setEditFormEndDate] = useState('');
+  const [editFormStatus, setEditFormStatus] = useState<'published' | 'draft' | 'archived'>('published');
+  const [uploadingEditBanner, setUploadingEditBanner] = useState(false);
+  const [isTestLinkCopied, setIsTestLinkCopied] = useState(false);
 
-  const handleOpenRenameModal = (targetProg: Program) => {
-    setRenameTargetProgram(targetProg);
-    setRenameFormName(targetProg.name || '');
-    setRenameFormDesc(targetProg.description || '');
-    setIsRenameModalOpen(true);
+  const handleOpenEditProgramModal = (targetProg: Program) => {
+    setEditTargetProgram(targetProg);
+    setEditFormName(targetProg.name || '');
+    setEditFormDesc(targetProg.description || '');
+    setEditFormImage(targetProg.image_url || '');
+    setEditFormOpenDate(toDateTimeLocalValue(targetProg.open_date));
+    setEditFormEndDate(toDateTimeLocalValue(targetProg.end_date));
+    setEditFormStatus((targetProg.status as any) || 'published');
+    setIsEditProgramModalOpen(true);
+  };
+
+  const handleEditBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (PNG, JPG, WebP, SVG)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Banner image must be under 5MB');
+      return;
+    }
+
+    try {
+      setUploadingEditBanner(true);
+      const res = await uploadService.uploadFile(file, 'banners');
+      setEditFormImage(res.url);
+      toast.success('Cover banner uploaded to Cloudflare R2');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
+    } finally {
+      setUploadingEditBanner(false);
+    }
+  };
+
+  const handleCopyTestLink = (previewToken?: string, progSlug?: string) => {
+    const token = previewToken || editTargetProgram?.preview_token || '';
+    const slug = progSlug || editTargetProgram?.slug || activeProgramSlug;
+    const url = `${window.location.origin}/programs/${orgSlug}/${slug}/apply?preview=${token}`;
+    navigator.clipboard.writeText(url);
+    setIsTestLinkCopied(true);
+    toast.success('Admin private test link copied to clipboard!');
+    setTimeout(() => setIsTestLinkCopied(false), 2500);
   };
 
   const updateProgramMutation = useMutation({
-    mutationFn: ({ progId, name, description }: { progId: string; name: string; description?: string }) =>
-      adminService.updateProgram(progId, { name, description }),
+    mutationFn: (payload: {
+      progId: string;
+      name: string;
+      description?: string;
+      image_url?: string;
+      open_date?: string;
+      end_date?: string;
+      status?: string;
+    }) =>
+      adminService.updateProgram(payload.progId, {
+        name: payload.name,
+        description: payload.description,
+        image_url: payload.image_url,
+        open_date: payload.open_date,
+        end_date: payload.end_date,
+        status: payload.status,
+      }),
     onSuccess: (updated) => {
-      toast.success(`Program renamed to "${updated.name}" successfully!`);
+      toast.success(`Program "${updated.name}" updated successfully!`);
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       queryClient.invalidateQueries({ queryKey: ['program', orgSlug, updated.slug] });
-      setIsRenameModalOpen(false);
-      setRenameTargetProgram(null);
+      setIsEditProgramModalOpen(false);
+      setEditTargetProgram(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || err?.message || 'Failed to rename program');
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to update program');
     },
   });
 
@@ -1202,16 +1288,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             <span>Add Track</span>
           </button>
 
-          {/* Rename Active Program Button */}
+          {/* Edit Active Program Details Button */}
           <button
             onClick={() => {
-              if (program) handleOpenRenameModal(program);
+              if (program) handleOpenEditProgramModal(program);
             }}
             className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-            title="Rename this program"
+            title="Edit program details & schedule"
           >
-            <Pencil className="w-3.5 h-3.5 text-kulkul-purple" />
-            <span>Rename</span>
+            <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
+            <span>Edit Details</span>
           </button>
 
           {/* Delete Active Program Button */}
@@ -1280,6 +1366,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       }}
       headerActions={headerActions}
     >
+        {/* Superadmin Impersonation Banner */}
+        {impersonatedOrgId && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-3 w-3 relative shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <div>
+                <p className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                  Superadmin Impersonation Mode
+                </p>
+                <p className="text-xs text-amber-800">
+                  Managing workspace for <strong>{orgProfile?.name || 'Company Workspace'}</strong> ({orgSlug}). All actions are performed with administrator access for this organization.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/superadmin/dashboard')}
+              className="px-4 py-1.5 rounded-full bg-white text-slate-700 hover:text-slate-900 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition"
+            >
+              Exit to Superadmin Console
+            </button>
+          </div>
+        )}
 
         {/* ================================================================================= */}
         {/* VIEW 0: ALL PROGRAMS TABULAR DIRECTORY */}
@@ -1432,11 +1543,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                     </a>
 
                                     <button
-                                      onClick={() => handleOpenRenameModal(prog)}
+                                      onClick={() => handleOpenEditProgramModal(prog)}
                                       className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
-                                      title="Rename program"
+                                      title="Edit program details & schedule"
                                     >
-                                      <Pencil className="w-3.5 h-3.5" />
+                                      <Sliders className="w-3.5 h-3.5" />
                                     </button>
 
                                     <button
@@ -3149,6 +3260,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     name: newProgName.trim(),
                     description: newProgDesc.trim(),
                     image_url: newProgImage.trim(),
+                    open_date: fromDateTimeLocalValue(newProgOpenDate),
+                    end_date: fromDateTimeLocalValue(newProgEndDate),
+                    status: newProgStatus,
                     enable_mcq: newProgEnableMCQ,
                     enable_ai_interview: newProgEnableAI,
                     logic_test_duration_minutes: newProgDuration,
@@ -3290,6 +3404,59 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         />
                       </label>
                     )}
+                  </div>
+
+                  {/* Cohort Dates & Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-purple-50/40 border border-purple-100">
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-kulkul-purple" />
+                        <span>Application Open Date</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={newProgOpenDate}
+                        onChange={(e) => setNewProgOpenDate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                      />
+                      <p className="text-3xs text-slate-500 mt-1">
+                        If set in the future, candidate overview shows a live countdown timer until open.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-kulkul-orange" />
+                        <span>Application Deadline</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={newProgEndDate}
+                        onChange={(e) => setNewProgEndDate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                      />
+                      <p className="text-3xs text-slate-500 mt-1">
+                        Optional timestamp when applications close.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-2xs font-bold text-slate-700 uppercase mb-1">
+                        Program Status
+                      </label>
+                      <select
+                        value={newProgStatus}
+                        onChange={(e) => setNewProgStatus(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                      >
+                        <option value="published">Published (Live / Opening Soon)</option>
+                        <option value="draft">Draft (Hidden)</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                      <p className="text-3xs text-slate-500 mt-1">
+                        Initial visibility for this cohort.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -4302,24 +4469,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           </div>
         )}
 
-        {/* RENAME PROGRAM MODAL */}
-        {isRenameModalOpen && renameTargetProgram && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-            <div className="stitch-card bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-xl space-y-6">
+        {/* EDIT PROGRAM DETAILS MODAL */}
+        {isEditProgramModalOpen && editTargetProgram && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+            <div className="stitch-card bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
-                    <Pencil className="w-5 h-5" />
+                    <Sliders className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-extrabold text-slate-900">Rename Program</h3>
-                    <p className="text-xs text-slate-500 font-mono">/{renameTargetProgram.slug}</p>
+                    <h3 className="text-base font-extrabold text-slate-900">Edit Program Details</h3>
+                    <p className="text-xs text-slate-500 font-mono">/{orgSlug}/{editTargetProgram.slug}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => {
-                    setIsRenameModalOpen(false);
-                    setRenameTargetProgram(null);
+                    setIsEditProgramModalOpen(false);
+                    setEditTargetProgram(null);
                   }}
                   className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
                 >
@@ -4330,30 +4497,51 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!renameFormName.trim()) {
+                  if (!editFormName.trim()) {
                     toast.error('Program title is required');
                     return;
                   }
                   updateProgramMutation.mutate({
-                    progId: renameTargetProgram.id,
-                    name: renameFormName.trim(),
-                    description: renameFormDesc.trim(),
+                    progId: editTargetProgram.id,
+                    name: editFormName.trim(),
+                    description: editFormDesc.trim(),
+                    image_url: editFormImage.trim(),
+                    open_date: fromDateTimeLocalValue(editFormOpenDate),
+                    end_date: fromDateTimeLocalValue(editFormEndDate),
+                    status: editFormStatus,
                   });
                 }}
-                className="space-y-4"
+                className="space-y-5"
               >
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Program Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={renameFormName}
-                    onChange={(e) => setRenameFormName(e.target.value)}
-                    placeholder="e.g. Acme Academy Fellowship 2026"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-sm font-semibold text-slate-900 outline-none transition"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Program Title <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormName}
+                      onChange={(e) => setEditFormName(e.target.value)}
+                      placeholder="e.g. Acme Academy Fellowship 2026"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-sm font-semibold text-slate-900 outline-none transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Status
+                    </label>
+                    <select
+                      value={editFormStatus}
+                      onChange={(e) => setEditFormStatus(e.target.value as any)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-semibold text-slate-900 outline-none transition bg-white"
+                    >
+                      <option value="published">Published</option>
+                      <option value="draft">Draft</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
@@ -4362,19 +4550,147 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </label>
                   <textarea
                     rows={3}
-                    value={renameFormDesc}
-                    onChange={(e) => setRenameFormDesc(e.target.value)}
-                    placeholder="Brief description of this cohort or program..."
+                    value={editFormDesc}
+                    onChange={(e) => setEditFormDesc(e.target.value)}
+                    placeholder="Brief description of this cohort or fellowship..."
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-medium text-slate-700 outline-none transition"
                   />
+                </div>
+
+                {/* Cover Banner */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Cover Banner Image
+                  </label>
+                  {uploadingEditBanner ? (
+                    <div className="flex items-center justify-center p-4 rounded-xl border border-purple-200 bg-purple-50 text-xs font-bold text-kulkul-purple animate-pulse">
+                      Uploading to storage...
+                    </div>
+                  ) : editFormImage ? (
+                    <div className="relative rounded-xl border border-slate-200 overflow-hidden aspect-[3/1] max-h-36 w-full flex items-center justify-center group bg-slate-900/5">
+                      <img
+                        src={resolveMediaUrl(editFormImage)}
+                        alt="Banner Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <label className="cursor-pointer px-3 py-1.5 rounded-full bg-white text-slate-800 text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-slate-50">
+                          <Upload className="w-3 h-3 text-kulkul-purple" />
+                          <span>Change</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleEditBannerUpload}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setEditFormImage('')}
+                          className="px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-red-700"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Remove</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 hover:border-kulkul-purple rounded-xl p-4 cursor-pointer bg-slate-50/60 hover:bg-purple-50/20 transition">
+                      <Upload className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-bold text-slate-700">Upload Cover Banner (PNG, JPG, WebP)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditBannerUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Application Dates */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-kulkul-purple" />
+                      <span>Application Open Date</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={editFormOpenDate}
+                      onChange={(e) => setEditFormOpenDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                    />
+                    <p className="text-3xs text-slate-500 mt-1">
+                      If set in the future, public visitors see a live countdown timer until this timestamp.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-kulkul-orange" />
+                      <span>Application Deadline</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={editFormEndDate}
+                      onChange={(e) => setEditFormEndDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                    />
+                    <p className="text-3xs text-slate-500 mt-1">
+                      Optional timestamp when public submissions close.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Admin Test Link Box */}
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xs font-bold uppercase tracking-wider text-kulkul-purple bg-purple-100 px-2 py-0.5 rounded-md">
+                        Admin Test Mode (noindex)
+                      </span>
+                    </div>
+                    <span className="text-3xs text-slate-500 font-mono">
+                      uuid: {editTargetProgram.preview_token?.slice(0, 8)}...
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Use this private test link to preview and test the complete application form before public applications open. This link bypasses the countdown and includes <code className="text-2xs font-mono bg-white px-1 py-0.5 rounded border border-purple-200">noindex</code>.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${window.location.origin}/programs/${orgSlug}/${editTargetProgram.slug}/apply?preview=${editTargetProgram.preview_token || ''}`}
+                      className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-2xs font-mono text-slate-700 select-all outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleCopyTestLink(editTargetProgram.preview_token, editTargetProgram.slug)}
+                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-purple-100 border border-purple-300 text-kulkul-purple text-xs font-bold transition shrink-0 flex items-center gap-1 shadow-2xs"
+                    >
+                      {isTestLinkCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{isTestLinkCopied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                    <a
+                      href={`${window.location.origin}/programs/${orgSlug}/${editTargetProgram.slug}/apply?preview=${editTargetProgram.preview_token || ''}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-lg bg-kulkul-purple text-white hover:bg-kulkul-purple-hover text-xs font-bold transition shrink-0 flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>Open Form</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => {
-                      setIsRenameModalOpen(false);
-                      setRenameTargetProgram(null);
+                      setIsEditProgramModalOpen(false);
+                      setEditTargetProgram(null);
                     }}
                     className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition"
                   >
@@ -4382,7 +4698,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </button>
                   <button
                     type="submit"
-                    disabled={updateProgramMutation.isPending || !renameFormName.trim()}
+                    disabled={updateProgramMutation.isPending || !editFormName.trim()}
                     className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {updateProgramMutation.isPending ? (
@@ -4390,7 +4706,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5 text-kulkul-orange" />
-                        <span>Save Changes</span>
+                        <span>Save Program Changes</span>
                       </>
                     )}
                   </button>

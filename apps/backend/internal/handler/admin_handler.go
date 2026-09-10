@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -404,7 +403,38 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 	})
 }
 
-func (h *AdminHandler) resolveOrgID(ctx context.Context, claims *auth.Claims) (uuid.UUID, error) {
+func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.UUID, error) {
+	ctx := r.Context()
+	if claims != nil && claims.Role == model.RoleSuperadmin {
+		// 1. If superadmin explicitly provided target org_id via query param or header
+		targetOrgStr := strings.TrimSpace(r.URL.Query().Get("org_id"))
+		if targetOrgStr == "" {
+			targetOrgStr = strings.TrimSpace(r.URL.Query().Get("organization_id"))
+		}
+		if targetOrgStr == "" {
+			targetOrgStr = strings.TrimSpace(r.Header.Get("X-Organization-ID"))
+		}
+		if targetOrgStr != "" {
+			if parsed, err := uuid.Parse(targetOrgStr); err == nil && parsed != uuid.Nil {
+				return parsed, nil
+			}
+		}
+		// 2. If claims has an org ID
+		if claims.OrganizationID != nil && *claims.OrganizationID != uuid.Nil {
+			return *claims.OrganizationID, nil
+		}
+		// 3. Superadmin default: return first company or rsa
+		orgs, err := h.orgRepo.List(ctx, "")
+		if err == nil && len(orgs) > 0 {
+			return orgs[0].ID, nil
+		}
+		org, err := h.orgRepo.GetBySlug(ctx, "rsa")
+		if err == nil && org != nil && org.ID != uuid.Nil {
+			return org.ID, nil
+		}
+		return uuid.MustParse("00000000-0000-0000-0000-000000000001"), nil
+	}
+
 	if claims != nil && claims.OrganizationID != nil && *claims.OrganizationID != uuid.Nil {
 		return *claims.OrganizationID, nil
 	}
@@ -424,7 +454,7 @@ func (h *AdminHandler) resolveOrgID(ctx context.Context, claims *auth.Claims) (u
 
 func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetUser(r.Context())
-	orgID, _ := h.resolveOrgID(r.Context(), claims)
+	orgID, _ := h.resolveOrgID(r, claims)
 
 	programs, err := h.programRepo.ListByOrg(r.Context(), orgID)
 	if err != nil {
@@ -461,14 +491,17 @@ type CreateProgramRequest struct {
 	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`
 	LogicTestPassingScore    int      `json:"logic_test_passing_score"`
 	AllowRetake              bool     `json:"allow_retake"`
-	EnableAIInterview        bool     `json:"enable_ai_interview"`
-	AIInterviewInstructions  string   `json:"ai_interview_instructions"`
-	AIInterviewQuestions     []string `json:"ai_interview_questions"`
+	EnableAIInterview        bool       `json:"enable_ai_interview"`
+	AIInterviewInstructions  string     `json:"ai_interview_instructions"`
+	AIInterviewQuestions     []string   `json:"ai_interview_questions"`
+	OpenDate                 *time.Time `json:"open_date,omitempty"`
+	EndDate                  *time.Time `json:"end_date,omitempty"`
+	Status                   string     `json:"status,omitempty"`
 }
 
 func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetUser(r.Context())
-	orgID, err := h.resolveOrgID(r.Context(), claims)
+	orgID, err := h.resolveOrgID(r, claims)
 	if err != nil || orgID == uuid.Nil {
 		httpx.Error(w, http.StatusBadRequest, "organization context not found")
 		return
@@ -495,6 +528,21 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 		req.ImageURL = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80"
 	}
 
+	status := "published"
+	if strings.TrimSpace(req.Status) != "" {
+		status = strings.TrimSpace(req.Status)
+	}
+
+	openDate := time.Now()
+	if req.OpenDate != nil && !req.OpenDate.IsZero() {
+		openDate = *req.OpenDate
+	}
+
+	endDate := time.Now().Add(180 * 24 * time.Hour)
+	if req.EndDate != nil && !req.EndDate.IsZero() {
+		endDate = *req.EndDate
+	}
+
 	p := &model.Program{
 		ID:                       uuid.New(),
 		OrganizationID:           orgID,
@@ -502,6 +550,8 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 		Name:                     req.Name,
 		Description:              req.Description,
 		ImageURL:                 req.ImageURL,
+		OpenDate:                 openDate,
+		EndDate:                  endDate,
 		EnableMCQ:                req.EnableMCQ,
 		LogicTestDurationMinutes: req.LogicTestDurationMinutes,
 		LogicTestPassingScore:    req.LogicTestPassingScore,
@@ -509,7 +559,7 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 		EnableAIInterview:        req.EnableAIInterview,
 		AIInterviewInstructions:  req.AIInterviewInstructions,
 		AIInterviewQuestions:     req.AIInterviewQuestions,
-		Status:                   "published",
+		Status:                   status,
 	}
 
 	created, err := h.programRepo.Create(r.Context(), p)
@@ -530,7 +580,7 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 	}
 
 	claims, _ := middleware.GetUser(r.Context())
-	orgID, err := h.resolveOrgID(r.Context(), claims)
+	orgID, err := h.resolveOrgID(r, claims)
 	if err != nil || orgID == uuid.Nil {
 		httpx.Error(w, http.StatusBadRequest, "organization context not found")
 		return
@@ -552,8 +602,12 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateProgramDetailsRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	ImageURL    string     `json:"image_url"`
+	OpenDate    *time.Time `json:"open_date,omitempty"`
+	EndDate     *time.Time `json:"end_date,omitempty"`
+	Status      string     `json:"status,omitempty"`
 }
 
 func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Request) {
@@ -576,7 +630,16 @@ func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	updated, err := h.programRepo.UpdateDetails(r.Context(), id, trimmedName, strings.TrimSpace(req.Description))
+	updated, err := h.programRepo.UpdateDetails(
+		r.Context(),
+		id,
+		trimmedName,
+		strings.TrimSpace(req.Description),
+		strings.TrimSpace(req.ImageURL),
+		req.OpenDate,
+		req.EndDate,
+		strings.TrimSpace(req.Status),
+	)
 	if err != nil {
 		if errors.Is(err, repository.ErrProgramNotFound) {
 			httpx.Error(w, http.StatusNotFound, "program not found")
@@ -1437,7 +1500,7 @@ func (h *AdminHandler) GetCurrentOrganization(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	targetOrgID, _ := h.resolveOrgID(r.Context(), claims)
+	targetOrgID, _ := h.resolveOrgID(r, claims)
 	org, err := h.orgRepo.GetByID(r.Context(), targetOrgID)
 	if err != nil {
 		if fallbackOrg, fErr := h.orgRepo.GetBySlug(r.Context(), "rsa"); fErr == nil && fallbackOrg != nil {
@@ -1458,7 +1521,7 @@ func (h *AdminHandler) UpdateOrganization(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	targetOrgID, _ := h.resolveOrgID(r.Context(), claims)
+	targetOrgID, _ := h.resolveOrgID(r, claims)
 	var req UpdateOrgRequest
 	if err := httpx.Decode(w, r, &req); err != nil {
 		return

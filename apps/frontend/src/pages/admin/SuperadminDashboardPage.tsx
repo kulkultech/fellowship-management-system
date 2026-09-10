@@ -346,9 +346,14 @@ export const SuperadminDashboardPage: React.FC = () => {
                               )}
 
                               {company.status === 'approved' && (
-                                <span className="text-2xs font-bold text-slate-400">
-                                  Workspace Active
-                                </span>
+                                <button
+                                  onClick={() => navigate(`/admin/dashboard?org_id=${company.id}`)}
+                                  className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-kulkul-purple text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                                  title="Access and manage this company's workspace as an admin"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>Access as Admin</span>
+                                </button>
                               )}
 
                               {company.status === 'rejected' && (

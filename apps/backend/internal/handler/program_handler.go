@@ -14,6 +14,7 @@ import (
 
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
+	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
 )
@@ -97,6 +98,7 @@ type ProgramPublicResponse struct {
 		ApplicationStages        []model.ApplicationStageItem `json:"application_stages"`
 		ApplicationFormSchema    *model.ApplicationFormSchema `json:"application_form_schema,omitempty"`
 		IsOpen                   bool                         `json:"is_open"`
+		PreviewToken             string                       `json:"preview_token,omitempty"`
 		Tracks                   []TrackPublicItem            `json:"tracks"`
 	} `json:"program"`
 }
@@ -161,6 +163,13 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	}
 	resp.Program.ApplicationFormSchema = program.ApplicationFormSchema
 	resp.Program.IsOpen = program.IsOpen()
+
+	previewParam := r.URL.Query().Get("preview")
+	claims, _ := middleware.GetUser(r.Context())
+	isAdmin := claims != nil && (claims.Role == model.RoleOrgAdmin || claims.Role == model.RoleSuperadmin)
+	if isAdmin || (previewParam != "" && previewParam == program.PreviewToken.String()) {
+		resp.Program.PreviewToken = program.PreviewToken.String()
+	}
 
 	// Load tracks
 	tracks, _ := h.trackRepo.ListByProgram(r.Context(), program.ID)
@@ -289,7 +298,12 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !program.IsOpen() {
+	previewParam := r.URL.Query().Get("preview")
+	claims, _ := middleware.GetUser(r.Context())
+	isAdmin := claims != nil && (claims.Role == model.RoleOrgAdmin || claims.Role == model.RoleSuperadmin)
+	isPreviewAuthorized := (previewParam != "" && previewParam == program.PreviewToken.String()) || isAdmin
+
+	if !program.IsOpen() && !isPreviewAuthorized {
 		httpx.Error(w, http.StatusBadRequest, "applications for this program are currently closed")
 		return
 	}

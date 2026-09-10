@@ -123,6 +123,7 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		ApplicationStages:    DefaultApplicationStages(),
 		ApplicationFormSchema: model.DefaultRSAFormSchema(),
 		Status:               "published",
+		PreviewToken:         uuid.MustParse("00000000-0000-0000-0000-000000000004"),
 		CreatedAt:            time.Now(),
 		UpdatedAt:            time.Now(),
 	}
@@ -138,6 +139,9 @@ func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRu
 	}
 	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
 		p.AIInterviewRubric = model.DefaultLITRubric()
+	}
+	if p.PreviewToken == uuid.Nil {
+		p.PreviewToken = uuid.New()
 	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = DefaultApplicationStages()
@@ -160,6 +164,9 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	}
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
+	}
+	if p.PreviewToken == uuid.Nil {
+		p.PreviewToken = uuid.New()
 	}
 	if p.OpenDate.IsZero() {
 		p.OpenDate = time.Now()
@@ -239,7 +246,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var res model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
@@ -254,7 +261,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore, &res.AllowRetake,
 		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&res.Status, &res.CreatedAt, &res.UpdatedAt,
+		&res.Status, &res.PreviewToken, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: create: %w", err)
@@ -308,12 +315,12 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 
 	query := `
 		SELECT 
-			p.id, p.organization_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, end_date,
+			p.id, p.organization_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
 			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
 			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
 			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
 			COALESCE(p.application_form_schema, 'null'::jsonb),
-			p.status, p.created_at, p.updated_at,
+			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at
 		FROM programs p
 		JOIN organizations o ON p.organization_id = o.id
@@ -328,7 +335,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -372,7 +379,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		FROM programs
 		WHERE id = $1
 	`
@@ -384,7 +391,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -424,7 +431,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
@@ -434,7 +441,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -446,7 +453,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	return &p, nil
 }
 
-func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, name, description string) (*model.Program, error) {
+func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, name, description, imageURL string, openDate, endDate *time.Time, status string) (*model.Program, error) {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -455,6 +462,18 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 				p.Name = name
 				if description != "" {
 					p.Description = description
+				}
+				if imageURL != "" {
+					p.ImageURL = imageURL
+				}
+				if openDate != nil && !openDate.IsZero() {
+					p.OpenDate = *openDate
+				}
+				if endDate != nil && !endDate.IsZero() {
+					p.EndDate = *endDate
+				}
+				if status != "" {
+					p.Status = status
 				}
 				p.UpdatedAt = time.Now()
 				return p, nil
@@ -467,6 +486,10 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 		UPDATE programs
 		SET name = $2,
 			description = $3,
+			image_url = CASE WHEN $4::text = '' THEN image_url ELSE $4::text END,
+			open_date = COALESCE($5, open_date),
+			end_date = COALESCE($6, end_date),
+			status = CASE WHEN $7::text = '' THEN status ELSE $7::text END,
 			updated_at = now()
 		WHERE id = $1
 		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
@@ -474,17 +497,17 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
-	err := r.pool.QueryRow(ctx, query, id, name, description).Scan(
+	err := r.pool.QueryRow(ctx, query, id, name, description, imageURL, openDate, endDate, status).Scan(
 		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -551,7 +574,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				COALESCE(application_form_schema, 'null'::jsonb),
-				status, created_at, updated_at
+				status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		`
 		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON, stagesJSON}
 	} else {
@@ -569,7 +592,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				COALESCE(application_form_schema, 'null'::jsonb),
-				status, created_at, updated_at
+				status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		`
 		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, stagesJSON}
 	}
@@ -582,7 +605,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -637,7 +660,7 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
@@ -647,7 +670,7 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -685,7 +708,7 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
@@ -695,7 +718,7 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -736,7 +759,7 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
@@ -746,7 +769,7 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
-		&p.Status, &p.CreatedAt, &p.UpdatedAt,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -792,7 +815,7 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
-			status, created_at, updated_at
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		FROM programs
 		WHERE organization_id = $1
 		ORDER BY created_at DESC
@@ -813,7 +836,7 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 			&rawSchema,
-			&p.Status, &p.CreatedAt, &p.UpdatedAt,
+			&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
 		}

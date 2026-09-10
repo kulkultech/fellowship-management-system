@@ -18,6 +18,9 @@ export interface CreateProgramPayload {
   name: string;
   description?: string;
   image_url?: string;
+  open_date?: string;
+  end_date?: string;
+  status?: string;
   enable_mcq?: boolean;
   logic_test_duration_minutes?: number;
   logic_test_passing_score?: number;
@@ -44,17 +47,31 @@ export interface CreateTrackPayload {
 }
 
 export const adminService = {
-  listPrograms: async (): Promise<Program[]> => {
-    const { data } = await apiClient.get<{ programs: Program[] }>('/admin/programs');
+  listPrograms: async (orgId?: string): Promise<Program[]> => {
+    const { data } = await apiClient.get<{ programs: Program[] }>('/admin/programs', {
+      params: orgId ? { org_id: orgId } : undefined,
+    });
     return data.programs || [];
   },
 
-  createProgram: async (payload: CreateProgramPayload): Promise<Program> => {
-    const { data } = await apiClient.post<Program>('/admin/programs', payload);
+  createProgram: async (payload: CreateProgramPayload, orgId?: string): Promise<Program> => {
+    const { data } = await apiClient.post<Program>('/admin/programs', payload, {
+      params: orgId ? { org_id: orgId } : undefined,
+    });
     return data;
   },
 
-  updateProgram: async (programId: string, payload: { name: string; description?: string }): Promise<Program> => {
+  updateProgram: async (
+    programId: string,
+    payload: {
+      name: string;
+      description?: string;
+      image_url?: string;
+      open_date?: string;
+      end_date?: string;
+      status?: string;
+    }
+  ): Promise<Program> => {
     const { data } = await apiClient.put<Program>(`/admin/programs/${programId}`, payload);
     return data;
   },
@@ -129,9 +146,12 @@ export const adminService = {
   },
 
   // Question Sets / Question Banks Management
-  listQuestionSets: async (programId?: string): Promise<QuestionSet[]> => {
+  listQuestionSets: async (programId?: string, orgId?: string): Promise<QuestionSet[]> => {
     const { data } = await apiClient.get<{ question_sets: QuestionSet[] }>('/admin/question-sets', {
-      params: { program_id: programId || '' },
+      params: {
+        program_id: programId || '',
+        ...(orgId ? { org_id: orgId } : {}),
+      },
     });
     return data.question_sets || [];
   },
@@ -202,13 +222,17 @@ export const adminService = {
   },
 
   // Organization Profile
-  getOrganization: async (): Promise<Organization> => {
-    const { data } = await apiClient.get<Organization>('/admin/organization');
+  getOrganization: async (orgId?: string): Promise<Organization> => {
+    const { data } = await apiClient.get<Organization>('/admin/organization', {
+      params: orgId ? { org_id: orgId } : undefined,
+    });
     return data;
   },
 
-  updateOrganization: async (payload: { name: string; contact_email: string; logo_url: string }): Promise<Organization> => {
-    const { data } = await apiClient.put<Organization>('/admin/organization', payload);
+  updateOrganization: async (payload: { name: string; contact_email: string; logo_url: string }, orgId?: string): Promise<Organization> => {
+    const { data } = await apiClient.put<Organization>('/admin/organization', payload, {
+      params: orgId ? { org_id: orgId } : undefined,
+    });
     return data;
   },
 };

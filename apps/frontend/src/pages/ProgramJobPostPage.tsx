@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { CountdownTimer } from '@/components/CountdownTimer';
+import { useAuthStore } from '@/hooks/useAuthStore';
 import {
   ArrowRight,
   Clock,
@@ -14,13 +16,22 @@ import {
   AlertCircle,
   Layers,
   Bot,
+  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const ProgramJobPostPage: React.FC = () => {
   const { orgSlug = 'rsa', programSlug = 'lit2026' } = useParams<{ orgSlug: string; programSlug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuthStore();
   const [isCopied, setIsCopied] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['program-post', orgSlug, programSlug],
@@ -30,6 +41,14 @@ export const ProgramJobPostPage: React.FC = () => {
   const program = data?.program;
   const org = data?.organization;
   const tracks = program?.tracks || [];
+
+  const openDate = program?.open_date ? new Date(program.open_date) : null;
+  const isBeforeOpen = openDate ? now < openDate.getTime() : false;
+
+  const queryParams = new URLSearchParams(location.search);
+  const previewTokenFromQuery = queryParams.get('preview');
+  const hasPreviewMatch = !!(program?.preview_token && previewTokenFromQuery === program.preview_token);
+  const canAccessAdminTest = hasPreviewMatch || user?.role === 'org_admin' || user?.role === 'superadmin';
 
   const handleCopyLink = () => {
     const url = window.location.href;
@@ -180,22 +199,71 @@ export const ProgramJobPostPage: React.FC = () => {
             </div>
 
             {/* CTA Bar */}
-            <div className="flex items-center justify-end pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  if (tracks.length > 0) {
-                    const el = document.getElementById('available-tracks');
-                    el?.scrollIntoView({ behavior: 'smooth' });
-                  } else {
-                    navigate(`/programs/${orgSlug}/${programSlug}/apply`);
-                  }
-                }}
-                className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
-              >
-                <span>{tracks.length > 0 ? 'Select Track & Apply' : 'Apply Now'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <div className="pt-4 border-t border-slate-100">
+              {isBeforeOpen ? (
+                <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 p-4.5 rounded-2xl bg-gradient-to-r from-purple-50/90 to-amber-50/70 border border-purple-200/80 shadow-xs">
+                  <div className="flex items-center gap-3.5 w-full md:w-auto">
+                    <div className="w-11 h-11 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center shrink-0 shadow-md">
+                      <Clock className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-2xs font-extrabold uppercase tracking-wider text-kulkul-purple flex items-center gap-1.5">
+                        <span>Applications Opening Soon</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-kulkul-purple animate-ping" />
+                      </div>
+                      <div className="text-xs font-semibold text-slate-600 mt-0.5">
+                        Scheduled to open on{' '}
+                        <span className="font-bold text-slate-900">
+                          {openDate?.toLocaleString('en-US', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-3 w-full md:w-auto">
+                    {openDate && (
+                      <CountdownTimer targetDate={openDate} variant="compact" />
+                    )}
+                    {canAccessAdminTest && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/programs/${orgSlug}/${programSlug}/apply?preview=${program?.preview_token || ''}`
+                          )
+                        }
+                        className="px-4 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                        title="Open Test Application Form"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Admin Test Form</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (tracks.length > 0) {
+                        const el = document.getElementById('available-tracks');
+                        el?.scrollIntoView({ behavior: 'smooth' });
+                      } else {
+                        navigate(`/programs/${orgSlug}/${programSlug}/apply`);
+                      }
+                    }}
+                    className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
+                  >
+                    <span>{tracks.length > 0 ? 'Select Track & Apply' : 'Apply Now'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -273,13 +341,27 @@ export const ProgramJobPostPage: React.FC = () => {
 
                   {/* Action Button */}
                   <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
-                    <button
-                      onClick={() => handleApplyTrack(track.slug)}
-                      className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"
-                    >
-                      <span>Apply to {track.name}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+                    {isBeforeOpen ? (
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-4 py-2.5 rounded-full">
+                        <Clock className="w-4 h-4 text-kulkul-orange" />
+                        <span>
+                          Opening Soon ·{' '}
+                          {openDate?.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleApplyTrack(track.slug)}
+                        className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"
+                      >
+                        <span>Apply to {track.name}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

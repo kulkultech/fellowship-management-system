@@ -118,6 +118,7 @@ export interface Program {
   application_stages?: ApplicationStageItem[];
   application_form_schema?: ApplicationFormSchema;
   status?: string;
+  preview_token?: string;
   is_open?: boolean;
   tracks?: Track[];
 }

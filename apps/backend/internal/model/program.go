@@ -167,6 +167,7 @@ type Program struct {
 	ApplicationStages        []ApplicationStageItem `json:"application_stages,omitempty"`
 	ApplicationFormSchema    *ApplicationFormSchema `json:"application_form_schema,omitempty"`
 	Status                   string                 `json:"status"` // 'draft', 'published', 'archived'
+	PreviewToken             uuid.UUID              `json:"preview_token"`
 	CreatedAt                time.Time              `json:"created_at"`
 	UpdatedAt                time.Time              `json:"updated_at"`
 }

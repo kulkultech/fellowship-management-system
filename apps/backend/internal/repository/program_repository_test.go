@@ -34,7 +34,10 @@ func TestProgramRepository_UpdateDetails(t *testing.T) {
 	}
 
 	// Update details
-	updated, err := repo.UpdateDetails(ctx, progID, "Renamed Fellowship 2026", "Updated description text")
+	newOpen := time.Now().Add(24 * time.Hour)
+	newEnd := time.Now().Add(30 * 24 * time.Hour)
+	newImage := "https://example.com/banner.png"
+	updated, err := repo.UpdateDetails(ctx, progID, "Renamed Fellowship 2026", "Updated description text", newImage, &newOpen, &newEnd, "draft")
 	if err != nil {
 		t.Fatalf("unexpected error updating details: %v", err)
 	}
@@ -43,6 +46,15 @@ func TestProgramRepository_UpdateDetails(t *testing.T) {
 	}
 	if updated.Description != "Updated description text" {
 		t.Errorf("expected description 'Updated description text', got '%s'", updated.Description)
+	}
+	if updated.ImageURL != newImage {
+		t.Errorf("expected image '%s', got '%s'", newImage, updated.ImageURL)
+	}
+	if updated.Status != "draft" {
+		t.Errorf("expected status 'draft', got '%s'", updated.Status)
+	}
+	if updated.PreviewToken == uuid.Nil {
+		t.Errorf("expected valid preview_token, got nil")
 	}
 
 	// Verify persistence in repository
@@ -55,5 +67,11 @@ func TestProgramRepository_UpdateDetails(t *testing.T) {
 	}
 	if fetched.Description != "Updated description text" {
 		t.Errorf("expected fetched description 'Updated description text', got '%s'", fetched.Description)
+	}
+	if fetched.ImageURL != newImage {
+		t.Errorf("expected fetched image '%s', got '%s'", newImage, fetched.ImageURL)
+	}
+	if fetched.Status != "draft" {
+		t.Errorf("expected fetched status 'draft', got '%s'", fetched.Status)
 	}
 }
