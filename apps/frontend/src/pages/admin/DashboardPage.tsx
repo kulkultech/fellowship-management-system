@@ -986,24 +986,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     switch (stage) {
       case 'registered':
       case 'applied':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Applied</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Applied</span>;
       case 'test_in_progress':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Test In Progress</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Test In Progress</span>;
       case 'test_completed':
       case 'logic_test_passed':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">MCQ Completed</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">MCQ Completed</span>;
       case 'test_failed':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">Test Failed</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">Test Failed</span>;
       case 'ai_interview_invited':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">AI Screen Pending</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">AI Screen Pending</span>;
       case 'ai_interview_completed':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">AI Evaluated</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">AI Evaluated</span>;
       case 'approved_for_live':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-600 text-white">Accepted / Live</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-600 text-white">Accepted / Live</span>;
       case 'rejected':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rejected</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rejected</span>;
       default:
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">{stage}</span>;
+        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">{stage}</span>;
     }
   };
 
@@ -1326,13 +1326,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               ) : (
                 <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
+                    <table className="w-full text-left border-collapse table-fixed min-w-[860px]">
                       <colgroup>
-                        <col className="w-[28%]" />
-                        <col className="w-[24%]" />
+                        <col className="w-[26%]" />
+                        <col className="w-[22%]" />
                         <col className="w-[14%]" />
-                        <col className="w-[14%]" />
-                        <col className="w-[20%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[22%]" />
                       </colgroup>
                       <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                         <tr>
@@ -1345,7 +1345,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {allPrograms.map((prog) => {
-                          const isSelected = prog.slug === activeProgramSlug;
                           return (
                             <tr
                               key={prog.id}
@@ -1365,26 +1364,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate flex items-center gap-2">
-                                      <span className="truncate">{prog.name}</span>
-                                      {isSelected && (
-                                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 shrink-0">
-                                          Selected
-                                        </span>
-                                      )}
+                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate">
+                                      {prog.name}
                                     </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                    <div className="mt-0.5">
                                       <span className="text-2xs font-mono text-slate-400">/{prog.slug}</span>
-                                      {prog.enable_mcq && (
-                                        <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
-                                          MCQ
-                                        </span>
-                                      )}
-                                      {prog.enable_ai_interview && (
-                                        <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-200">
-                                          AI
-                                        </span>
-                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1417,20 +1401,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                                   <span>Admissions Open</span>
                                 </span>
                               </td>
 
                               <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex items-center justify-end gap-2">
+                                  <div className="flex items-center justify-end gap-2 flex-wrap">
                                     <button
                                       onClick={() => {
                                         setActiveProgramSlug(prog.slug);
                                         setCurrentView('pipeline');
                                       }}
-                                      className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
+                                      className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
                                     >
                                       <span>Manage</span>
                                       <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
@@ -1866,16 +1850,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             {/* Candidates Table */}
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-700">
+                <table className="w-full text-left text-sm text-slate-700 min-w-[960px]">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
                       <th className="px-6 py-4">Candidate</th>
-                      <th className="px-6 py-4">Specialization Track</th>
-                      <th className="px-6 py-4">Stage Status</th>
-                      <th className="px-6 py-4">Logic MCQ Score</th>
-                      <th className="px-6 py-4">AI Interview Score</th>
-                      <th className="px-6 py-4">AI Recommendation</th>
-                      <th className="px-6 py-4 text-right">Inspect</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Specialization Track</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Stage Status</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Logic MCQ Score</th>
+                      <th className="px-6 py-4 whitespace-nowrap">AI Interview Score</th>
+                      <th className="px-6 py-4 whitespace-nowrap">AI Recommendation</th>
+                      <th className="px-6 py-4 text-right whitespace-nowrap">Inspect</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1902,21 +1886,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           onClick={() => setSelectedApplicantId(app.id)}
                           className="hover:bg-slate-50/80 cursor-pointer transition"
                         >
-                          <td className="px-6 py-4">
-                            <div className="font-extrabold text-slate-900">{app.full_name}</div>
-                            <div className="text-xs text-slate-500">{app.email}</div>
+                          <td className="px-6 py-4 align-middle max-w-[240px]">
+                            <div className="font-extrabold text-slate-900 truncate">{app.full_name}</div>
+                            <div className="text-xs text-slate-500 truncate">{app.email}</div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.track_name ? (
-                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 whitespace-nowrap">
                                 {app.track_name}
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400">General</span>
                             )}
                           </td>
-                          <td className="px-6 py-4">{renderStageBadge(app.current_stage)}</td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 align-middle whitespace-nowrap">{renderStageBadge(app.current_stage)}</td>
+                          <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.mcq_score !== undefined && app.mcq_score !== null ? (
                               <div className="flex items-center gap-2">
                                 <span
@@ -1934,25 +1918,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <span className="text-xs text-slate-400">&mdash;</span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? (
-                              <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-purple-700 border border-purple-200">
+                              <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
                                 {app.ai_score}/100
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400">&mdash;</span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.ai_recommendation ? (
-                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 whitespace-nowrap">
                                 {app.ai_recommendation}
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400">&mdash;</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-4 align-middle text-right whitespace-nowrap">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

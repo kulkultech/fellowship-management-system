@@ -158,12 +158,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           {/* Right: Actions / Workspace Switcher + Sign Out */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="flex items-center justify-end flex-wrap gap-3 sm:gap-4 shrink-0">
             {/* Superadmin Quick Switcher for KulKul Team */}
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 transition"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 shadow-sm transition active:scale-[0.98] whitespace-nowrap"
               >
                 <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
                 <span>Superadmin Workspace</span>
@@ -173,7 +173,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'superadmin' && (
               <Link
                 to="/admin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 shadow-sm transition active:scale-[0.98] whitespace-nowrap"
               >
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
                 <span>Company Workspace</span>
@@ -228,7 +228,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 return (
                   <div key={item.id} className="space-y-1">
                     <div
-                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-2xl text-xs font-extrabold transition-all group ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-2xl text-sm font-extrabold transition-all group ${
                         isActive
                           ? 'bg-kulkul-purple text-white shadow-sm'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -309,7 +309,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                           return (
                             <div key={child.id} className="space-y-1">
                               <div
-                                className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition group ${
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-sm font-bold transition group ${
                                   isChildActive
                                     ? 'bg-purple-50 text-kulkul-purple font-extrabold'
                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -384,7 +384,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                           }
                                           setIsMobileSidebarOpen(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-2xs font-semibold transition group ${
+                                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition group ${
                                           isSubActive
                                             ? 'bg-purple-100 text-kulkul-purple font-bold'
                                             : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
