@@ -181,6 +181,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS track_id UUID REFERENCES program_tracks(id) ON DELETE CASCADE;
 	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS question_set_id UUID REFERENCES question_sets(id) ON DELETE CASCADE;
 	ALTER TABLE mcq_questions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+	ALTER TABLE mcq_questions ALTER COLUMN program_id DROP NOT NULL;
 	CREATE INDEX IF NOT EXISTS idx_mcq_track ON mcq_questions(track_id);
 	CREATE INDEX IF NOT EXISTS idx_mcq_question_set ON mcq_questions(question_set_id);
 
@@ -275,6 +276,11 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	// Seed all LIT 2025/2026 Assessment Programs & MCQ Question Banks into PostgreSQL
 	if err := SeedLITAssessmentPrograms(ctx, pool, rsaOrgID, logger); err != nil {
 		logger.Warn("automigrate: seed lit programs error", slog.Any("error", err))
+	}
+
+	// Seed Ladies in Tech Network company & Question Bank
+	if err := SeedLadiesInTechNetwork(ctx, pool, logger); err != nil {
+		logger.Warn("automigrate: seed ladies in tech network error", slog.Any("error", err))
 	}
 
 	// Automatic database self-healing on startup:

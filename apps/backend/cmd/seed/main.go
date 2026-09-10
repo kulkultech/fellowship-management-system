@@ -30,6 +30,12 @@ func main() {
 	orgRepo := repository.NewOrgRepository(pool)
 	userRepo := repository.NewUserRepository(pool)
 
+	logger.Info("Running auto-migration...")
+	if err := repository.AutoMigrateAndSeed(ctx, pool, logger); err != nil {
+		logger.Error("failed to automigrate database", "error", err)
+		os.Exit(1)
+	}
+
 	logger.Info("Seeding initial assessment platform data...")
 
 	// 1. Organization: RSA (No logo)
@@ -59,6 +65,12 @@ func main() {
 	// 3. Seed LIT Assessment Programs & Full Question Banks (QA, Fullstack)
 	if err := repository.SeedLITAssessmentPrograms(ctx, pool, org.ID.String(), logger); err != nil {
 		logger.Error("failed to seed LIT assessment programs", "error", err)
+		os.Exit(1)
+	}
+
+	// 4. Seed Ladies in Tech Network Company & Question Bank
+	if err := repository.SeedLadiesInTechNetwork(ctx, pool, logger); err != nil {
+		logger.Error("failed to seed Ladies in Tech Network question bank", "error", err)
 		os.Exit(1)
 	}
 

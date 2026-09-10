@@ -71,6 +71,7 @@ temp/
 *~
 *.xlsx
 *.csv
+!apps/backend/internal/repository/lit_assessment_2026.csv
 *.pdf
 Workflow.pdf
 

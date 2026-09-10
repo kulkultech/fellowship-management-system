@@ -519,7 +519,7 @@ func (r *QuestionSetRepository) ListQuestionsBySetID(ctx context.Context, setID 
 	}
 
 	query := `
-		SELECT id, program_id, question_set_id, category, question_text, options,
+		SELECT id, COALESCE(program_id, '00000000-0000-0000-0000-000000000000'::uuid), question_set_id, category, question_text, options,
 			correct_option_id, explanation, points, created_at, updated_at
 		FROM mcq_questions
 		WHERE question_set_id = $1
@@ -591,9 +591,9 @@ func (r *QuestionSetRepository) ReplaceQuestions(ctx context.Context, setID uuid
 		return nil, fmt.Errorf("qset_repo: delete existing questions: %w", err)
 	}
 
-	progIDVal := r.defaultProgID
+	var progUUID *uuid.UUID
 	if programID != nil && *programID != uuid.Nil {
-		progIDVal = *programID
+		progUUID = programID
 	}
 
 	var saved []model.MCQQuestion
@@ -610,13 +610,13 @@ func (r *QuestionSetRepository) ReplaceQuestions(ctx context.Context, setID uuid
 				id, program_id, question_set_id, category, question_text, options,
 				correct_option_id, explanation, points, created_at, updated_at
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
-			RETURNING id, program_id, question_set_id, category, question_text, options,
+			RETURNING id, COALESCE(program_id, '00000000-0000-0000-0000-000000000000'::uuid), question_set_id, category, question_text, options,
 				correct_option_id, explanation, points, created_at, updated_at
 		`
 		var res model.MCQQuestion
 		var rawOptions []byte
 		err = tx.QueryRow(ctx, query,
-			q.ID, progIDVal, setID, q.Category, q.QuestionText, optionsJSON,
+			q.ID, progUUID, setID, q.Category, q.QuestionText, optionsJSON,
 			q.CorrectOptionID, q.Explanation, q.Points,
 		).Scan(
 			&res.ID, &res.ProgramID, &res.QuestionSetID, &res.Category, &res.QuestionText,
