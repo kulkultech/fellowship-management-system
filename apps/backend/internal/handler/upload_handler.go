@@ -177,6 +177,11 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "*")
+	key = strings.TrimPrefix(key, "/")
+	key = strings.TrimPrefix(key, "api/v1/uploads/")
+	key = strings.TrimPrefix(key, "api/v1/")
+	key = strings.TrimPrefix(key, "uploads/")
+	key = strings.TrimPrefix(key, "/")
 	if key == "" {
 		httpx.Error(w, http.StatusNotFound, "media key not specified")
 		return

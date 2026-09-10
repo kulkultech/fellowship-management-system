@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { uploadService } from '@/services/uploadService';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
@@ -1031,7 +1032,7 @@ export const ApplyPage: React.FC = () => {
                     <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
                       <div className="flex items-center gap-3">
                         <img
-                          src={formData.profilePictureUrl}
+                          src={resolveMediaUrl(formData.profilePictureUrl)}
                           alt="Profile avatar"
                           className="w-10 h-10 rounded-full object-cover border border-slate-200"
                         />

@@ -24,23 +24,49 @@ export const apiClient: AxiosInstance = axios.create({
  */
 export function resolveMediaUrl(url?: string | null): string {
   if (!url) return '';
-  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) {
+
+  // Check if URL is an absolute URL pointing to current origin /uploads/
+  if (/^(https?:)?\/\//i.test(url)) {
+    try {
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.origin === window.location.origin && parsed.pathname.startsWith('/uploads/')) {
+          parsed.pathname = `/api/v1${parsed.pathname}`;
+          return parsed.toString();
+        }
+      }
+    } catch {
+      // ignore
+    }
     return url;
   }
-  if (url.startsWith('/uploads/')) {
-    const base: string = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-    if (/^https?:\/\//i.test(base)) {
-      try {
-        return new URL(url, base).toString();
-      } catch {
-        return url;
-      }
-    }
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      return `${window.location.origin}${url}`;
+
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+
+  let normalizedPath = url;
+  if (normalizedPath.startsWith('/uploads/')) {
+    normalizedPath = `/api/v1${normalizedPath}`;
+  } else if (!normalizedPath.startsWith('/api/v1/uploads/')) {
+    normalizedPath = `/api/v1/uploads/${normalizedPath.replace(/^\/+/, '')}`;
+  }
+
+  const base: string = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  if (/^https?:\/\//i.test(base)) {
+    try {
+      const apiOrigin = new URL(base).origin;
+      return `${apiOrigin}${normalizedPath.startsWith('/') ? normalizedPath : '/' + normalizedPath}`;
+    } catch {
+      return normalizedPath;
     }
   }
-  return url;
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${normalizedPath.startsWith('/') ? normalizedPath : '/' + normalizedPath}`;
+  }
+
+  return normalizedPath;
 }
 
 const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);

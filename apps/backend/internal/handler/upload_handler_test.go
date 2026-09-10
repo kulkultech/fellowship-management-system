@@ -50,13 +50,14 @@ func TestUploadHandler_UploadAndServe(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	if !strings.Contains(w.Body.String(), `"/uploads/logos/`) {
-		t.Fatalf("expected /uploads/logos/ in response, got: %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), `"/api/v1/uploads/logos/`) {
+		t.Fatalf("expected /api/v1/uploads/logos/ in response, got: %s", w.Body.String())
 	}
 
-	// Test serving media
+	// Test serving media on both /api/v1/uploads and /uploads
 	r := chi.NewRouter()
 	r.Get("/uploads/*", h.ServeMedia)
+	r.Get("/api/v1/uploads/*", h.ServeMedia)
 
 	// Extract the key from local store
 	testKey := "logos/test_serve.png"
@@ -65,7 +66,7 @@ func TestUploadHandler_UploadAndServe(t *testing.T) {
 		t.Fatalf("failed to upload test file: %v", err)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/uploads/"+testKey, nil)
+	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/uploads/"+testKey, nil)
 	getW := httptest.NewRecorder()
 	r.ServeHTTP(getW, getReq)
 

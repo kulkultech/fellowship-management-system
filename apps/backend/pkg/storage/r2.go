@@ -45,8 +45,7 @@ func NewR2Storage(accountID, apiKey, bucket, publicURL, localPath string) (*R2St
 }
 
 func (s *R2Storage) Upload(ctx context.Context, key string, r io.Reader, size int64, contentType string) (string, error) {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -92,8 +91,7 @@ func (s *R2Storage) Upload(ctx context.Context, key string, r io.Reader, size in
 }
 
 func (s *R2Storage) Get(ctx context.Context, key string) (io.ReadCloser, string, int64, error) {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	// Check local fallback first for instant disk access and native io.ReadSeeker
 	if s.localFallback != nil {
@@ -140,8 +138,7 @@ func (s *R2Storage) Get(ctx context.Context, key string) (io.ReadCloser, string,
 }
 
 func (s *R2Storage) Delete(ctx context.Context, key string) error {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/r2/buckets/%s/objects/%s", s.accountID, s.bucket, cleanKey)
 
@@ -171,11 +168,10 @@ func (s *R2Storage) Delete(ctx context.Context, key string) error {
 }
 
 func (s *R2Storage) GetURL(key string) string {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	if s.publicURL != "" {
 		return s.publicURL + "/" + cleanKey
 	}
-	return "/uploads/" + cleanKey
+	return "/api/v1/uploads/" + cleanKey
 }

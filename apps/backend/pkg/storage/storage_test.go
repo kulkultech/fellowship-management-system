@@ -23,8 +23,8 @@ func TestLocalStorage_UploadGetDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to upload: %v", err)
 	}
-	if url != "/uploads/logos/test_logo.png" {
-		t.Fatalf("expected /uploads/logos/test_logo.png, got %s", url)
+	if url != "/api/v1/uploads/logos/test_logo.png" {
+		t.Fatalf("expected /api/v1/uploads/logos/test_logo.png, got %s", url)
 	}
 
 	rc, cType, size, err := store.Get(ctx, "logos/test_logo.png")

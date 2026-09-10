@@ -3248,7 +3248,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     ) : newProgImage ? (
                       <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 aspect-[3/1] max-h-56 w-full flex items-center justify-center">
                         <img
-                          src={newProgImage}
+                          src={resolveMediaUrl(newProgImage)}
                           alt="Cover banner preview"
                           className="w-full h-full object-cover"
                         />
@@ -4033,7 +4033,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   <ExternalLink className="w-3 h-3" />
                                 </a>
                                 <a
-                                  href={resolveMediaUrl(applicantDetail.applicant.resume_url)}
+                                  href={(() => {
+                                    const raw = resolveMediaUrl(applicantDetail.applicant.resume_url);
+                                    return raw.includes('?') ? `${raw}&download=1` : `${raw}?download=1`;
+                                  })()}
                                   download={applicantDetail.applicant.resume_url.split('/').pop() || 'resume.pdf'}
                                   className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple hover:underline"
                                 >
@@ -4076,11 +4079,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                         {k.replace(/_/g, ' ')}
                                       </span>
                                       <span className="font-bold text-slate-900 break-words">
-                                        {typeof val === 'boolean'
-                                          ? val
-                                            ? 'Yes'
-                                            : 'No'
-                                          : String(val || '-')}
+                                        {typeof val === 'boolean' ? (
+                                          val ? 'Yes' : 'No'
+                                        ) : typeof val === 'string' && (val.includes('/uploads/') || /\.(pdf|png|jpe?g|webp)$/i.test(val)) ? (
+                                          <a
+                                            href={resolveMediaUrl(val)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
+                                          >
+                                            <FileText className="w-3.5 h-3.5" />
+                                            <span>View Attached File</span>
+                                            <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                        ) : (
+                                          String(val || '-')
+                                        )}
                                       </span>
                                     </div>
                                   ))}

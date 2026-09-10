@@ -24,9 +24,16 @@ func NewLocalStorage(basePath string) (*LocalStorage, error) {
 	return &LocalStorage{basePath: basePath}, nil
 }
 
+func cleanStorageKey(key string) string {
+	clean := strings.TrimPrefix(key, "/")
+	clean = strings.TrimPrefix(clean, "api/v1/uploads/")
+	clean = strings.TrimPrefix(clean, "api/v1/")
+	clean = strings.TrimPrefix(clean, "uploads/")
+	return strings.TrimPrefix(clean, "/")
+}
+
 func (s *LocalStorage) Upload(_ context.Context, key string, r io.Reader, _ int64, _ string) (string, error) {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	dest := filepath.Join(s.basePath, filepath.Clean("/"+cleanKey))
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
@@ -49,8 +56,7 @@ func (s *LocalStorage) Upload(_ context.Context, key string, r io.Reader, _ int6
 }
 
 func (s *LocalStorage) Get(_ context.Context, key string) (io.ReadCloser, string, int64, error) {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	dest := filepath.Join(s.basePath, filepath.Clean("/"+cleanKey))
 	stat, err := os.Stat(dest)
@@ -72,8 +78,7 @@ func (s *LocalStorage) Get(_ context.Context, key string) (io.ReadCloser, string
 }
 
 func (s *LocalStorage) Delete(_ context.Context, key string) error {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
+	cleanKey := cleanStorageKey(key)
 
 	dest := filepath.Join(s.basePath, filepath.Clean("/"+cleanKey))
 	if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
@@ -83,7 +88,6 @@ func (s *LocalStorage) Delete(_ context.Context, key string) error {
 }
 
 func (s *LocalStorage) GetURL(key string) string {
-	cleanKey := strings.TrimPrefix(key, "/")
-	cleanKey = strings.TrimPrefix(cleanKey, "uploads/")
-	return "/uploads/" + cleanKey
+	cleanKey := cleanStorageKey(key)
+	return "/api/v1/uploads/" + cleanKey
 }
