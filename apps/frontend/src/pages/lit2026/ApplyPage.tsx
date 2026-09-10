@@ -25,7 +25,6 @@ import {
   Hash,
   Globe,
   Clock,
-  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CountdownTimer } from '@/components/CountdownTimer';
@@ -778,27 +777,6 @@ export const ApplyPage: React.FC = () => {
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-2xl w-full">
-          {/* Admin Test Mode Banner */}
-          {isPreviewMode && (
-            <div className="mb-6 p-4.5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-md flex items-start gap-3.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div className="text-xs">
-                <div className="font-extrabold flex items-center gap-2 text-sm text-white">
-                  <span>Admin Form Test Mode</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-2xs uppercase tracking-wider">
-                    noindex
-                  </span>
-                </div>
-                <p className="text-slate-300 mt-1 leading-relaxed">
-                  Applications are currently not open for public submission. You are testing this form using your secure preview token.
-                  Submitting this form allows you to test candidate evaluation end-to-end.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Header Card */}
           <div className="stitch-card p-6 sm:p-8 mb-6 bg-white shadow-sm border border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">

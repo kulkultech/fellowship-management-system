@@ -4643,22 +4643,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
                 </div>
 
-                {/* Admin Test Link Box */}
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xs font-bold uppercase tracking-wider text-kulkul-purple bg-purple-100 px-2 py-0.5 rounded-md">
-                        Admin Test Mode (noindex)
-                      </span>
-                    </div>
-                    <span className="text-3xs text-slate-500 font-mono">
-                      uuid: {editTargetProgram.preview_token?.slice(0, 8)}...
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Use this private test link to preview and test the complete application form before public applications open. This link bypasses the countdown and includes <code className="text-2xs font-mono bg-white px-1 py-0.5 rounded border border-purple-200">noindex</code>.
-                  </p>
-                  <div className="flex items-center gap-2 pt-1">
+                {/* Test Mode Link Box */}
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-2">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Test mode
+                  </label>
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
                       readOnly
