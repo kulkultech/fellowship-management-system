@@ -200,95 +200,20 @@ export const ProgramJobPostPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Available Tracks Section */}
-        <div id="available-tracks" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-extrabold text-kulkul-purple">
-                {tracks.length > 0 ? 'Available Fellowship Tracks' : 'Program Assessment Pipeline'}
-              </h2>
-            </div>
-            {tracks.length > 0 ? (
+        {/* Available Tracks Section (Only rendered if the program has tracks) */}
+        {tracks.length > 0 && (
+          <div id="available-tracks" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-extrabold text-kulkul-purple">
+                  Available Fellowship Tracks
+                </h2>
+              </div>
               <span className="hidden sm:inline-block px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full">
                 {tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open
               </span>
-            ) : (
-              <span className="hidden sm:inline-block px-3 py-1 bg-slate-100 text-slate-700 text-xs font-extrabold rounded-full">
-                Single General Track &middot; Direct Entry
-              </span>
-            )}
-          </div>
-
-          {tracks.length === 0 ? (
-            <div className="stitch-card p-6 sm:p-7 bg-white hover:border-kulkul-purple/40 hover:shadow-xl transition duration-200 flex flex-col justify-between group">
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-kulkul-purple to-kulkul-purple-hover text-white flex items-center justify-center font-extrabold text-sm shadow-md">
-                      01
-                    </div>
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-kulkul-purple transition">
-                        {program.name} (General Program Entry)
-                      </h3>
-                      <span className="text-xs font-semibold text-slate-400">
-                        Direct Program Assessment &middot; No specialization track selection needed
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {program.description || 'Direct entry program assessment. Complete candidate intake details and proceed to your evaluation session.'}
-                </p>
-
-                {/* Evaluation Specs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <Clock className="w-4 h-4 text-kulkul-orange shrink-0" />
-                    <div className="text-xs">
-                      <span className="text-slate-400 block text-2xs uppercase font-bold">Logic Test</span>
-                      <span className="font-bold text-slate-800">
-                        {program.enable_mcq ? `${program.logic_test_duration_minutes} Mins` : 'Not Required'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <Award className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div className="text-xs">
-                      <span className="text-slate-400 block text-2xs uppercase font-bold">Benchmark</span>
-                      <span className="font-bold text-slate-800">
-                        {program.enable_mcq ? `${program.logic_test_passing_score}% Score` : 'Direct Review'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-1">
-                    <Bot className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <div className="text-xs">
-                      <span className="text-slate-400 block text-2xs uppercase font-bold">AI Screen</span>
-                      <span className="font-bold text-slate-800">
-                        {program.enable_ai_interview ? 'Enabled' : 'Not Required'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/programs/${orgSlug}/${programSlug}/apply`)}
-                  className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"
-                >
-                  <span>Apply to {program.name}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 gap-5">
               {tracks.map((track, idx) => (
                 <div
@@ -359,8 +284,8 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Overview Card */}
         <div className="stitch-card p-6 sm:p-8 bg-white space-y-4 shadow-sm border border-slate-100">
@@ -394,15 +319,17 @@ export const ProgramJobPostPage: React.FC = () => {
               : [
                   {
                     step_number: 1,
-                    title: 'Specialization Track & Intake Application',
-                    description:
-                      'Choose your target specialization track and submit your academic background, IT major, and contact details.',
+                    title: tracks.length > 0 ? 'Specialization Track & Intake Application' : 'Candidate Intake Application',
+                    description: tracks.length > 0
+                      ? 'Choose your target specialization track and submit your academic background, IT major, and contact details.'
+                      : 'Submit your academic background, IT major, and contact details to get started.',
                   },
                   {
                     step_number: 2,
-                    title: 'Track-Specific Timed Logic Assessment',
-                    description:
-                      'Solve timed logic and technical domain MCQs calibrated for your chosen specialization track.',
+                    title: tracks.length > 0 ? 'Track-Specific Timed Logic Assessment' : 'Timed Logic Assessment',
+                    description: tracks.length > 0
+                      ? 'Solve timed logic and technical domain MCQs calibrated for your chosen specialization track.'
+                      : 'Solve timed logic and technical domain MCQs calibrated for program evaluation.',
                   },
                   {
                     step_number: 3,
