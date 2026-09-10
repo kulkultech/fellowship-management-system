@@ -244,7 +244,6 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	// Environment-based whitelist overrides
 	superadminEmailsEnv := strings.ToLower(os.Getenv("SUPERADMIN_EMAILS"))
 	superadminDomainsEnv := strings.ToLower(os.Getenv("SUPERADMIN_DOMAINS"))
-	rsaDomainsEnv := strings.ToLower(os.Getenv("RSA_DOMAINS"))
 
 	isSuperadmin := false
 	if domain == "kulkul.tech" || domain == "kulkul.com" {
@@ -270,18 +269,9 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		}
 	}
 
-	isRSA := false
-	if domain == "remoteskills.academy" || domain == "rsa.org" {
-		isRSA = true
-	}
-	if rsaDomainsEnv != "" {
-		for _, d := range strings.Split(rsaDomainsEnv, ",") {
-			if strings.TrimSpace(d) == domain {
-				isRSA = true
-				break
-			}
-		}
-	}
+	// NOTE: No automatic organization binding by email domain.
+	// Everyone signs in as candidate by default; companies (including RSA)
+	// get access via company registration + approval or manual assignment.
 
 	if r.pool == nil {
 		r.mu.Lock()
@@ -301,10 +291,6 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		var userOrgID *uuid.UUID = nil
 		if isSuperadmin {
 			role = "superadmin"
-		} else if !id.IsCandidate && isRSA {
-			orgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-			userOrgID = &orgID
-			role = "org_admin"
 		}
 		u := &model.User{
 			ID:             uuid.New(),
@@ -334,13 +320,14 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 				u.Role = "candidate"
 				u.OrganizationID = nil
 			}
-		} else if !isSuperadmin && !isRSA {
-			// Ensure candidates are not mistakenly marked as org_admin of RSA
-			var isApprovedCompanyAdmin bool
+		} else if !isSuperadmin {
+			// Existing company members keep their access (including RSA);
+			// only strip roles that point at no organization at all.
+			var hasOrg bool
 			if u.OrganizationID != nil {
-				_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1 AND slug <> 'rsa')", u.OrganizationID).Scan(&isApprovedCompanyAdmin)
+				_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)", u.OrganizationID).Scan(&hasOrg)
 			}
-			if !isApprovedCompanyAdmin && u.Role != "candidate" {
+			if !hasOrg && u.Role != "candidate" {
 				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'candidate', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
 				u.Role = "candidate"
 				u.OrganizationID = nil
@@ -361,15 +348,10 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		// Candidate signups are strictly candidates without an organization
 		role = "candidate"
 		orgID = nil
-	} else if isRSA {
-		role = "org_admin"
-		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug = 'rsa' LIMIT 1").Scan(&foundID)
-		if err == nil {
-			orgID = &foundID
-		}
 	} else if !isPublicEmailDomain(domain) {
-		// Only corporate custom domains (non-public webmail) can match an approved organization's domain
-		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&foundID)
+		// Only corporate custom domains (non-public webmail) can match an approved organization's domain.
+		// The seed 'rsa' org is excluded so nobody auto-binds to RSA; RSA access is seed/manual only.
+		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&foundID)
 		if err == nil {
 			orgID = &foundID
 			role = "org_admin"
