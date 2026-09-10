@@ -30,6 +30,7 @@ type AdminHandler struct {
 	aiInterviewRepo *repository.AIInterviewRepository
 	programRepo     *repository.ProgramRepository
 	orgRepo         *repository.OrgRepository
+	userRepo        *repository.UserRepository
 	emailSvc        email.Service
 	frontendURL     string
 }
@@ -43,6 +44,7 @@ func NewAdminHandler(
 	aiInterviewRepo *repository.AIInterviewRepository,
 	programRepo *repository.ProgramRepository,
 	orgRepo *repository.OrgRepository,
+	userRepo *repository.UserRepository,
 	emailSvc email.Service,
 	frontendURL string,
 ) *AdminHandler {
@@ -58,6 +60,7 @@ func NewAdminHandler(
 		aiInterviewRepo: aiInterviewRepo,
 		programRepo:     programRepo,
 		orgRepo:         orgRepo,
+		userRepo:        userRepo,
 		emailSvc:        emailSvc,
 		frontendURL:     strings.TrimRight(frontendURL, "/"),
 	}
@@ -1088,6 +1091,99 @@ func (h *AdminHandler) RejectCompany(w http.ResponseWriter, r *http.Request) {
 		"message": "Company application rejected",
 		"company": updated,
 	})
+}
+
+// --------------------------------------------------------------------------------
+// Superadmin: User Access Lookup & Repair (generic, no hardcoded accounts)
+// --------------------------------------------------------------------------------
+
+func (h *AdminHandler) LookupUser(w http.ResponseWriter, r *http.Request) {
+	email := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("email")))
+	if email == "" {
+		httpx.Error(w, http.StatusBadRequest, "email query parameter is required")
+		return
+	}
+
+	u, err := h.userRepo.GetByEmail(r.Context(), email)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	var org *model.Organization
+	if u.OrganizationID != nil {
+		org, _ = h.orgRepo.GetByID(r.Context(), *u.OrganizationID)
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"user":         publicUserPayload(u),
+		"organization": org,
+	})
+}
+
+type RelinkUserRequest struct {
+	Email   string `json:"email"`
+	OrgSlug string `json:"org_slug"`
+}
+
+func (h *AdminHandler) RelinkUser(w http.ResponseWriter, r *http.Request) {
+	var req RelinkUserRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	slug := strings.ToLower(strings.TrimSpace(req.OrgSlug))
+	if email == "" || slug == "" {
+		httpx.Error(w, http.StatusBadRequest, "email and org_slug are required")
+		return
+	}
+
+	u, err := h.userRepo.GetByEmail(r.Context(), email)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	org, err := h.orgRepo.GetBySlug(r.Context(), slug)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "company not found")
+		return
+	}
+
+	if err := h.userRepo.UpdateOrgAndRole(r.Context(), u.ID, &org.ID, "org_admin", ""); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to relink user account")
+		return
+	}
+	u.OrganizationID = &org.ID
+	u.Role = "org_admin"
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":      "User relinked as company admin. They must log out and log in again for the new role to take effect.",
+		"user":         publicUserPayload(u),
+		"organization": org,
+	})
+}
+
+func publicUserPayload(u *model.User) map[string]any {
+	if u == nil {
+		return nil
+	}
+	var orgID *string
+	if u.OrganizationID != nil {
+		s := u.OrganizationID.String()
+		orgID = &s
+	}
+	return map[string]any{
+		"id":              u.ID.String(),
+		"email":           u.Email,
+		"name":            u.Name,
+		"role":            u.Role,
+		"organization_id": orgID,
+		"created_at":      u.CreatedAt,
+		"updated_at":      u.UpdatedAt,
+	}
 }
 
 // --------------------------------------------------------------------------------

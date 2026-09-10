@@ -58,7 +58,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator, store)
 	uploadHandler := handler.NewUploadHandler(store, logger)
-	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
+	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
 	var googleOAuth *auth.GoogleOAuth
@@ -225,6 +225,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 					super.Get("/companies", adminHandler.ListCompanies)
 					super.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
 					super.Post("/companies/{id}/reject", adminHandler.RejectCompany)
+					super.Get("/users/lookup", adminHandler.LookupUser)
+					super.Post("/users/relink", adminHandler.RelinkUser)
 				})
 
 				// Organization Profile
