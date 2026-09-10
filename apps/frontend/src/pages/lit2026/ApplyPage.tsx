@@ -566,7 +566,7 @@ export const ApplyPage: React.FC = () => {
 
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-2xs font-extrabold uppercase tracking-wider">
-                <span>Application Window Scheduled</span>
+                <span>Opening Soon</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Applications Open Soon
@@ -579,12 +579,9 @@ export const ApplyPage: React.FC = () => {
             {/* Countdown Box */}
             <div className="p-4 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col items-center gap-3">
               <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">
-                Opening In:
+                Opening Soon
               </span>
               {openDate && <CountdownTimer targetDate={openDate} variant="boxes" />}
-              <span className="text-xs text-slate-500 font-medium">
-                Official Opening: <span className="font-bold text-slate-700">{openDate?.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</span>
-              </span>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
