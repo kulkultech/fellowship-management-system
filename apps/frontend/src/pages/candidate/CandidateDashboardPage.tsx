@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/services/apiClient';
+import { apiClient, resolveMediaUrl } from '@/services/apiClient';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -252,7 +252,7 @@ export const CandidateDashboardPage: React.FC = () => {
                         <div className="flex items-start gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 font-bold text-lg shadow-2xs">
                             {app.org_logo_url ? (
-                              <img src={app.org_logo_url} alt={app.org_name} className="w-8 h-8 rounded-xl object-cover" />
+                              <img src={resolveMediaUrl(app.org_logo_url)} alt={app.org_name} className="w-8 h-8 rounded-xl object-cover" />
                             ) : (
                               <Building2 className="w-6 h-6" />
                             )}

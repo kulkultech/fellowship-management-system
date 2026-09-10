@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { programService } from '@/services/programService';
 import { uploadService } from '@/services/uploadService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
@@ -1358,7 +1359,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 <div className="flex items-center gap-3.5">
                                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                     {prog.image_url ? (
-                                      <img src={prog.image_url} alt={prog.name} className="w-full h-full object-cover" />
+                                      <img src={resolveMediaUrl(prog.image_url)} alt={prog.name} className="w-full h-full object-cover" />
                                     ) : (
                                       <Layers className="w-5 h-5 text-kulkul-orange" />
                                     )}
@@ -1497,7 +1498,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <div className="flex items-center gap-3">
                         {company.logo_url ? (
                           <img
-                            src={company.logo_url}
+                            src={resolveMediaUrl(company.logo_url)}
                             alt={company.name}
                             className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-2xs p-1"
                             onError={(e) => {
@@ -3710,7 +3711,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <div className="space-y-3">
                             <div className="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 relative group">
                               <video
-                                src={applicantDetail.ai_screen.recording_url}
+                                src={resolveMediaUrl(applicantDetail.ai_screen.recording_url)}
                                 controls
                                 playsInline
                                 preload="metadata"
@@ -4022,7 +4023,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <span className="text-slate-400 block font-medium">Resume / CV</span>
                               <div className="flex items-center gap-3 mt-0.5">
                                 <a
-                                  href={applicantDetail.applicant.resume_url}
+                                  href={resolveMediaUrl(applicantDetail.applicant.resume_url)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
@@ -4032,7 +4033,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   <ExternalLink className="w-3 h-3" />
                                 </a>
                                 <a
-                                  href={applicantDetail.applicant.resume_url}
+                                  href={resolveMediaUrl(applicantDetail.applicant.resume_url)}
                                   download={applicantDetail.applicant.resume_url.split('/').pop() || 'resume.pdf'}
                                   className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple hover:underline"
                                 >

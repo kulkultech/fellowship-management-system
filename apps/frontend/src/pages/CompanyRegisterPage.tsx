@@ -16,6 +16,7 @@ import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/authService';
+import { resolveMediaUrl } from '../services/apiClient';
 import { uploadService } from '../services/uploadService';
 
 export const CompanyRegisterPage: React.FC = () => {
@@ -357,7 +358,7 @@ export const CompanyRegisterPage: React.FC = () => {
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <img
-                          src={logoURL}
+                          src={resolveMediaUrl(logoURL)}
                           alt="Logo preview"
                           className="w-14 h-14 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
                         />

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import {
@@ -77,7 +78,7 @@ export const ProgramJobPostPage: React.FC = () => {
   }
 
   const coverImage =
-    program.image_url ||
+    resolveMediaUrl(program.image_url) ||
     'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80';
 
   return (

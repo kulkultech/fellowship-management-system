@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '@/services/adminService';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import {
@@ -262,7 +263,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                               <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                 {company.logo_url ? (
                                   <img
-                                    src={company.logo_url}
+                                    src={resolveMediaUrl(company.logo_url)}
                                     alt={company.name}
                                     className="w-full h-full object-contain p-0.5 bg-white"
                                     onError={(e) => {
@@ -407,7 +408,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                             <div className="flex items-center gap-3.5">
                               <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                 {prog.image_url ? (
-                                  <img src={prog.image_url} alt={prog.name} className="w-full h-full object-cover" />
+                                  <img src={resolveMediaUrl(prog.image_url)} alt={prog.name} className="w-full h-full object-cover" />
                                 ) : (
                                   <Layers className="w-5 h-5 text-kulkul-orange" />
                                 )}

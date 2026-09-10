@@ -12,6 +12,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { EditProfileModal } from '@/components/EditProfileModal';
 
 export interface SubChildNavItem {
@@ -435,7 +436,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden border border-kulkul-purple/20">
                   {user?.avatar_url ? (
                     <img
-                      src={user.avatar_url}
+                      src={resolveMediaUrl(user.avatar_url)}
                       alt={displayName}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -444,7 +445,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     />
                   ) : portalType === 'company_admin' && companyLogoUrl ? (
                     <img
-                      src={companyLogoUrl}
+                      src={resolveMediaUrl(companyLogoUrl)}
                       alt={companyName || 'Company'}
                       className="w-full h-full object-contain bg-white p-0.5"
                       onError={(e) => {

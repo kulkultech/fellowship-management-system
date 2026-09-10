@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { LogOut, Building2, User, ChevronDown } from 'lucide-react';
 
@@ -74,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Client Company Logo or Name on Right */}
               {companyLogo ? (
                 <img
-                  src={companyLogo}
+                  src={resolveMediaUrl(companyLogo)}
                   alt={companyName || 'Company Logo'}
                   className="h-8 sm:h-9 w-auto max-w-[160px] object-contain"
                   onError={(e) => {

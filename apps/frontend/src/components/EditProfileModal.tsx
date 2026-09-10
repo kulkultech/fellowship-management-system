@@ -18,6 +18,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { authService } from '@/services/authService';
+import { resolveMediaUrl } from '@/services/apiClient';
 import { uploadService } from '@/services/uploadService';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -245,7 +246,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner overflow-hidden shrink-0">
               {avatarUrl ? (
                 <img
-                  src={avatarUrl}
+                  src={resolveMediaUrl(avatarUrl)}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -326,7 +327,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                           </div>
                         ) : avatarUrl ? (
                           <img
-                            src={avatarUrl}
+                            src={resolveMediaUrl(avatarUrl)}
                             alt="Profile preview"
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -580,7 +581,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       <div className="flex items-center gap-3">
                         <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center overflow-hidden shrink-0">
                           <img
-                            src={companyLogoUrl}
+                            src={resolveMediaUrl(companyLogoUrl)}
                             alt="Company Logo"
                             className="w-full h-full object-contain"
                             onError={(e) => {
