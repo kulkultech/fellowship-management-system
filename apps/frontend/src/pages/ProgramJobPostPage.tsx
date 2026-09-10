@@ -29,7 +29,7 @@ export const ProgramJobPostPage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['program-post', orgSlug, programSlug],
     queryFn: () => programService.getProgram(orgSlug, programSlug),
   });
@@ -189,23 +189,41 @@ export const ProgramJobPostPage: React.FC = () => {
               </div>
             </div>
 
-            {/* CTA Bar */}
+            {/* CTA / Opening Soon Countdown Bar */}
             <div className="pt-4 border-t border-slate-100">
               {isBeforeOpen ? (
-                <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 p-4.5 rounded-2xl bg-gradient-to-r from-purple-50/90 to-amber-50/70 border border-purple-200/80 shadow-xs">
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <div className="w-10 h-10 rounded-2xl bg-kulkul-purple text-white flex items-center justify-center shrink-0 shadow-md">
+                <div className="w-full p-4.5 sm:p-5.5 rounded-3xl bg-gradient-to-r from-purple-50/80 via-white to-slate-50 border border-purple-100/90 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5 w-full md:w-auto justify-center md:justify-start">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-kulkul-purple to-purple-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-purple-500/20">
                       <Clock className="w-5 h-5 animate-pulse" />
                     </div>
-                    <div className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-kulkul-purple flex items-center gap-2">
-                      <span>Opening Soon</span>
-                      <span className="w-2 h-2 rounded-full bg-kulkul-purple animate-ping" />
+                    <div>
+                      <div className="inline-flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-kulkul-purple">
+                          Opening Soon
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-500 mt-0.5 hidden sm:block">
+                        Applications open automatically when the timer reaches zero
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
+                  <div className="flex items-center justify-center md:justify-end w-full md:w-auto shrink-0">
                     {openDate && (
-                      <CountdownTimer targetDate={openDate} variant="compact" />
+                      <CountdownTimer
+                        targetDate={openDate}
+                        variant="compact"
+                        size="md"
+                        onExpire={() => {
+                          setNow(Date.now());
+                          refetch();
+                        }}
+                      />
                     )}
                   </div>
                 </div>
@@ -306,16 +324,14 @@ export const ProgramJobPostPage: React.FC = () => {
                   {/* Action Button */}
                   <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
                     {isBeforeOpen ? (
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-4 py-2.5 rounded-full">
-                        <Clock className="w-4 h-4 text-kulkul-orange" />
-                        <span>
-                          Opening Soon ·{' '}
-                          {openDate?.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+                      <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 bg-purple-50/70 border border-purple-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 text-kulkul-purple animate-pulse" />
+                        <span className="font-black text-kulkul-purple uppercase text-2xs tracking-wider">
+                          Opening Soon
                         </span>
+                        {openDate && (
+                          <CountdownTimer targetDate={openDate} variant="pill" />
+                        )}
                       </div>
                     ) : (
                       <button

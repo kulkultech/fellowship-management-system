@@ -563,31 +563,39 @@ export const ApplyPage: React.FC = () => {
               <Clock className="w-8 h-8 animate-pulse text-kulkul-purple" />
             </div>
 
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-2xs font-extrabold uppercase tracking-wider">
+            <div className="space-y-2.5">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200/90 text-kulkul-purple text-xs font-black uppercase tracking-wider">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
                 <span>Opening Soon</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Applications Open Soon
               </h1>
-              <p className="text-sm text-slate-600 max-w-md mx-auto">
+              <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
                 Applications for <span className="font-bold text-slate-900">{program?.name || 'this program'}</span> are not yet accepting public submissions.
               </p>
             </div>
 
-            {/* Countdown Box */}
-            <div className="p-4 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col items-center gap-3">
-              <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">
-                Opening Soon
-              </span>
-              {openDate && <CountdownTimer targetDate={openDate} variant="boxes" />}
+            {/* Countdown Display */}
+            <div className="p-5 sm:p-7 rounded-3xl bg-gradient-to-b from-purple-50/50 via-white to-slate-50/60 border border-purple-100 shadow-xs flex flex-col items-center">
+              {openDate && (
+                <CountdownTimer
+                  targetDate={openDate}
+                  variant="boxes"
+                  size="lg"
+                  onExpire={() => setNow(Date.now())}
+                />
+              )}
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate(`/programs/${orgSlug}/${programSlug}`)}
-                className="w-full sm:w-auto stitch-pill stitch-pill-purple text-xs px-6 py-2.5 justify-center shadow-sm"
+                className="w-full sm:w-auto stitch-pill stitch-pill-purple text-xs px-6 py-2.5 justify-center shadow-sm hover:shadow-md transition active:scale-95"
               >
                 <span>Back to Program Overview</span>
               </button>
