@@ -19,6 +19,7 @@ type Organization struct {
 	Slug         string    `json:"slug"`
 	Name         string    `json:"name"`
 	ContactEmail string    `json:"contact_email,omitempty"`
+	AdminEmail   string    `json:"admin_email,omitempty"`
 	LogoURL      string    `json:"logo_url,omitempty"`
 	Status       OrgStatus `json:"status"` // 'pending_approval', 'approved', 'rejected'
 	CreatedAt    time.Time `json:"created_at"`

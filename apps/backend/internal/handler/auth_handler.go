@@ -105,6 +105,10 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 	req.CompanySlug = strings.ToLower(strings.TrimSpace(req.CompanySlug))
 	req.AdminEmail = strings.ToLower(strings.TrimSpace(req.AdminEmail))
 	req.AdminName = strings.TrimSpace(req.AdminName)
+	req.ContactEmail = strings.ToLower(strings.TrimSpace(req.ContactEmail))
+	if req.ContactEmail == "" {
+		req.ContactEmail = req.AdminEmail
+	}
 
 	if req.CompanyName == "" || req.CompanySlug == "" || req.AdminEmail == "" {
 		httpx.Error(w, http.StatusBadRequest, "company name, slug, and admin email are required")
@@ -122,6 +126,7 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "failed to register company")
 		return
 	}
+	_ = h.orgRepo.SetAdminEmail(r.Context(), org.ID, req.AdminEmail, req.ContactEmail)
 
 	// 2. Resolve or Create Admin User
 	var user *model.User
@@ -244,6 +249,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Self-heal organization link and admin status
+	user, _ = h.userRepo.SyncUserOrgStatus(r.Context(), user)
+
 	// Check Company approval status if user is associated with an organization
 	var orgInfo *OrganizationInfo
 	if user.OrganizationID != nil {
@@ -316,6 +324,18 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.Error(w, http.StatusUnauthorized, "user not found")
 		return
+	}
+
+	// Self-heal organization link and admin status
+	user, _ = h.userRepo.SyncUserOrgStatus(r.Context(), user)
+
+	// If role was healed or organization newly linked, refresh auth cookie
+	if user.Role != claims.Role || (user.OrganizationID != nil && claims.OrganizationID == nil) {
+		if newToken, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role); err == nil {
+			if newCsrf, err := auth.GenerateCSRFToken(); err == nil {
+				auth.SetAuthCookies(w, newToken, newCsrf, h.cookieOpts)
+			}
+		}
 	}
 
 	var orgIDStr *string

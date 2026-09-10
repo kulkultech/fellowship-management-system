@@ -46,6 +46,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 
 	ALTER TABLE organizations ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'approved';
 	ALTER TABLE organizations ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255);
+	ALTER TABLE organizations ADD COLUMN IF NOT EXISTS admin_email VARCHAR(255);
 
 	CREATE TABLE IF NOT EXISTS users (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -273,6 +274,45 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	// Seed all LIT 2025/2026 Assessment Programs & MCQ Question Banks into PostgreSQL
 	if err := SeedLITAssessmentPrograms(ctx, pool, rsaOrgID, logger); err != nil {
 		logger.Warn("automigrate: seed lit programs error", slog.Any("error", err))
+	}
+
+	// Automatic database self-healing on startup:
+	// 1. If an organization was registered with a user's contact/admin email, ensure user has org_admin role and organization_id set
+	// 2. Ensure any user linked to a company organization has role org_admin (recovers from previous demotion bugs)
+	// 3. Backfill empty organization admin_email & contact_email from linked user
+	syncUsersQuery := `
+		UPDATE users 
+		SET organization_id = organizations.id, 
+		    role = 'org_admin',
+		    updated_at = now()
+		FROM organizations
+		WHERE organizations.slug <> 'rsa'
+		  AND (
+		    (organizations.admin_email IS NOT NULL AND organizations.admin_email <> '' AND LOWER(organizations.admin_email) = LOWER(users.email))
+		    OR (organizations.contact_email IS NOT NULL AND organizations.contact_email <> '' AND LOWER(organizations.contact_email) = LOWER(users.email))
+		    OR (organizations.contact_email IS NOT NULL AND LOWER(organizations.contact_email) LIKE '%' || LOWER(users.email) || '%')
+		  )
+		  AND (users.organization_id IS NULL OR users.role = 'candidate');
+
+		UPDATE users
+		SET role = 'org_admin',
+		    updated_at = now()
+		FROM organizations
+		WHERE users.organization_id = organizations.id
+		  AND organizations.slug <> 'rsa'
+		  AND users.role = 'candidate';
+
+		UPDATE organizations
+		SET admin_email = users.email,
+		    contact_email = CASE WHEN organizations.contact_email IS NULL OR organizations.contact_email = '' THEN users.email ELSE organizations.contact_email END,
+		    updated_at = now()
+		FROM users
+		WHERE users.organization_id = organizations.id
+		  AND organizations.slug <> 'rsa'
+		  AND (organizations.admin_email IS NULL OR organizations.admin_email = '' OR organizations.contact_email IS NULL OR organizations.contact_email = '');
+	`
+	if _, err := pool.Exec(ctx, syncUsersQuery); err != nil {
+		logger.Warn("automigrate: sync users and orgs error", slog.Any("error", err))
 	}
 
 	logger.Info("Database auto-migration and initial seed completed")

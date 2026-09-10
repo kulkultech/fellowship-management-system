@@ -224,6 +224,9 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-heal organization affiliation and admin role
+	user, _ = h.userRepo.SyncUserOrgStatus(r.Context(), user)
+
 	token, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not issue auth session")

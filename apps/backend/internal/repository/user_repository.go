@@ -133,6 +133,116 @@ func (r *UserRepository) UpdateOrgAndRole(ctx context.Context, userID uuid.UUID,
 	return nil
 }
 
+func isSuperadminEmail(email string) bool {
+	email = strings.ToLower(strings.TrimSpace(email))
+	parts := strings.Split(email, "@")
+	domain := ""
+	if len(parts) == 2 {
+		domain = strings.ToLower(parts[1])
+	}
+
+	if domain == "kulkul.tech" || domain == "kulkul.com" || email == "superadmin@fellowhire.com" {
+		return true
+	}
+
+	superadminEmailsEnv := strings.ToLower(os.Getenv("SUPERADMIN_EMAILS"))
+	if superadminEmailsEnv != "" {
+		for _, e := range strings.Split(superadminEmailsEnv, ",") {
+			if strings.TrimSpace(e) == email {
+				return true
+			}
+		}
+	}
+
+	superadminDomainsEnv := strings.ToLower(os.Getenv("SUPERADMIN_DOMAINS"))
+	if superadminDomainsEnv != "" {
+		for _, d := range strings.Split(superadminDomainsEnv, ",") {
+			if strings.TrimSpace(d) == domain {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// SyncUserOrgStatus ensures an existing user's role and organization affiliation
+// remain consistent and auto-repairs any demoted or missing organization links.
+func (r *UserRepository) SyncUserOrgStatus(ctx context.Context, u *model.User) (*model.User, error) {
+	if u == nil {
+		return nil, nil
+	}
+
+	email := strings.ToLower(strings.TrimSpace(u.Email))
+	if isSuperadminEmail(email) {
+		if u.Role != "superadmin" || u.OrganizationID != nil {
+			u.Role = "superadmin"
+			u.OrganizationID = nil
+			if r.pool != nil {
+				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'superadmin', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
+			}
+		}
+		return u, nil
+	}
+
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if memU, ok := r.memUsers[email]; ok {
+			if memU.OrganizationID != nil && memU.Role == "candidate" {
+				memU.Role = "org_admin"
+			}
+			return memU, nil
+		}
+		return u, nil
+	}
+
+	// 1. If user is currently linked to an organization, verify it exists and restore admin role if demoted
+	if u.OrganizationID != nil {
+		var orgExists bool
+		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)", u.OrganizationID).Scan(&orgExists)
+		if orgExists {
+			if u.Role != "org_admin" && u.Role != "reviewer" {
+				u.Role = "org_admin"
+				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'org_admin', updated_at = now() WHERE id = $1", u.ID)
+			}
+			return u, nil
+		}
+		// Linked organization no longer exists
+		u.OrganizationID = nil
+	}
+
+	// 2. If user has no organization link, check if an organization was registered with their email.
+	// This unconditionally matches regardless of email domain (works for gmail, yahoo, custom domain).
+	var foundOrgID uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT id FROM organizations 
+		WHERE slug <> 'rsa' 
+		  AND (
+		    LOWER(contact_email) = $1 
+		    OR LOWER(contact_email) LIKE '%' || $1 || '%'
+		    OR (admin_email IS NOT NULL AND LOWER(admin_email) = $1)
+		  )
+		ORDER BY created_at DESC 
+		LIMIT 1
+	`, email).Scan(&foundOrgID)
+	if err == nil {
+		u.OrganizationID = &foundOrgID
+		u.Role = "org_admin"
+		_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, role = 'org_admin', updated_at = now() WHERE id = $1", u.ID, foundOrgID)
+		_, _ = r.pool.Exec(ctx, `
+			UPDATE organizations 
+			SET contact_email = CASE WHEN contact_email IS NULL OR contact_email = '' THEN $2 ELSE contact_email END,
+			    admin_email = CASE WHEN admin_email IS NULL OR admin_email = '' THEN $2 ELSE admin_email END,
+			    updated_at = now()
+			WHERE id = $1
+		`, foundOrgID, email)
+		return u, nil
+	}
+
+	return u, nil
+}
+
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	if r.pool == nil {
 		r.mu.RLock()
@@ -241,33 +351,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		domain = strings.ToLower(parts[1])
 	}
 
-	// Environment-based whitelist overrides
-	superadminEmailsEnv := strings.ToLower(os.Getenv("SUPERADMIN_EMAILS"))
-	superadminDomainsEnv := strings.ToLower(os.Getenv("SUPERADMIN_DOMAINS"))
-
-	isSuperadmin := false
-	if domain == "kulkul.tech" || domain == "kulkul.com" {
-		isSuperadmin = true
-	}
-	if email == "superadmin@fellowhire.com" {
-		isSuperadmin = true
-	}
-	if superadminDomainsEnv != "" {
-		for _, d := range strings.Split(superadminDomainsEnv, ",") {
-			if strings.TrimSpace(d) == domain {
-				isSuperadmin = true
-				break
-			}
-		}
-	}
-	if superadminEmailsEnv != "" {
-		for _, e := range strings.Split(superadminEmailsEnv, ",") {
-			if strings.TrimSpace(e) == email {
-				isSuperadmin = true
-				break
-			}
-		}
-	}
+	isSuperadmin := isSuperadminEmail(email)
 
 	// NOTE: No automatic organization binding by email domain.
 	// Everyone signs in as candidate by default; companies (including RSA)
@@ -306,80 +390,69 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	// 1. Check if user already exists in PostgreSQL
 	u, err := r.GetByEmail(ctx, email)
 	if err == nil && u != nil {
-		// If user role needs upgrade based on whitelist
-		if isSuperadmin && u.Role != "superadmin" {
-			_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'superadmin', organization_id = NULL, updated_at = now() WHERE id = $1", u.ID)
-			u.Role = "superadmin"
-			u.OrganizationID = nil
-		} else if !isSuperadmin && u.OrganizationID != nil {
-			// Company members keep their access regardless of which portal they sign in from.
-			// A candidate-portal login must never strip company admin rights.
-			var hasOrg bool
-			_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)", u.OrganizationID).Scan(&hasOrg)
-			if !hasOrg {
-				// If the linked org was deleted, check if another org matches contact email
-				var fallbackOrgID uuid.UUID
-				err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE contact_email ILIKE $1 OR contact_email ILIKE $2 LIMIT 1", email, "%"+email+"%").Scan(&fallbackOrgID)
-				if err == nil {
-					_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, updated_at = now() WHERE id = $1", u.ID, fallbackOrgID)
-					u.OrganizationID = &fallbackOrgID
-				}
-			}
-		} else if !isSuperadmin && (u.Role == "org_admin" || u.Role == "reviewer") {
-			// The user is an admin/reviewer whose organization link was missing.
-			// Relink to the organization they registered.
+		u, err = r.SyncUserOrgStatus(ctx, u)
+		if err != nil {
+			return nil, err
+		}
+
+		// If user is candidate and logging into company portal with a corporate custom domain, check domain relink
+		if u.Role == "candidate" && !id.IsCandidate && !isPublicEmailDomain(domain) {
 			var relinkID uuid.UUID
-			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE contact_email ILIKE $1 OR contact_email ILIKE $2 LIMIT 1", email, "%"+email+"%").Scan(&relinkID)
+			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
 			if err == nil {
-				_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, updated_at = now() WHERE id = $1", u.ID, relinkID)
+				_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, role = 'org_admin', updated_at = now() WHERE id = $1", u.ID, relinkID)
 				u.OrganizationID = &relinkID
-			}
-			// Do NOT demote to candidate.
-		} else if !isSuperadmin {
-			// Candidate on record. If logging into company portal with a corporate email matching an organization, relink.
-			if !id.IsCandidate && !isPublicEmailDomain(domain) {
-				var relinkID uuid.UUID
-				err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
-				if err == nil {
-					_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, role = 'org_admin', updated_at = now() WHERE id = $1", u.ID, relinkID)
-					u.OrganizationID = &relinkID
-					u.Role = "org_admin"
-				}
+				u.Role = "org_admin"
 			}
 		}
 		return u, nil
 	}
 
-	// 2. Resolve organization based on domain or approved company
+	// 2. Resolve organization for new user
 	var orgID *uuid.UUID
-	var foundID uuid.UUID
 	role := "candidate"
 
 	if isSuperadmin {
 		role = "superadmin"
 		orgID = nil
-	} else if id.IsCandidate {
-		// Candidate signups are strictly candidates without an organization
-		role = "candidate"
-		orgID = nil
-	} else if !isPublicEmailDomain(domain) {
-		// Only corporate custom domains (non-public webmail) can match an approved organization's domain.
-		// The seed 'rsa' org is excluded so nobody auto-binds to RSA; RSA access is seed/manual only.
-		err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&foundID)
+	} else {
+		// A. Check exact email match against registered organizations (works unconditionally for any email/domain)
+		var foundOrgID uuid.UUID
+		err := r.pool.QueryRow(ctx, `
+			SELECT id FROM organizations 
+			WHERE slug <> 'rsa' 
+			  AND (
+			    LOWER(contact_email) = $1 
+			    OR LOWER(contact_email) LIKE '%' || $1 || '%'
+			    OR (admin_email IS NOT NULL AND LOWER(admin_email) = $1)
+			  )
+			ORDER BY created_at DESC 
+			LIMIT 1
+		`, email).Scan(&foundOrgID)
 		if err == nil {
-			orgID = &foundID
+			orgID = &foundOrgID
 			role = "org_admin"
+		} else if !id.IsCandidate && !isPublicEmailDomain(domain) {
+			// B. Corporate custom domain matching approved organization
+			var domainOrgID uuid.UUID
+			err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&domainOrgID)
+			if err == nil {
+				orgID = &domainOrgID
+				role = "org_admin"
+			}
 		}
 	}
 
-	// 3. Atomically upsert user
+	// 3. Atomically upsert user.
+	// IMPORTANT: ON CONFLICT must NEVER demote org_admin/reviewer/superadmin down to candidate,
+	// and must NEVER clear organization_id if the user already has one!
 	query := `
 		INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
 		VALUES ($1, $2, '', $3, $4, now(), now())
 		ON CONFLICT (email) DO UPDATE SET
 			name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END,
-			role = EXCLUDED.role,
-			organization_id = EXCLUDED.organization_id,
+			role = CASE WHEN users.role IN ('org_admin', 'reviewer', 'superadmin') AND EXCLUDED.role = 'candidate' THEN users.role ELSE EXCLUDED.role END,
+			organization_id = CASE WHEN users.organization_id IS NOT NULL AND EXCLUDED.organization_id IS NULL THEN users.organization_id ELSE EXCLUDED.organization_id END,
 			updated_at = now()
 		RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
 	`
@@ -390,7 +463,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	if err != nil {
 		return nil, fmt.Errorf("user_repo: oauth create/upsert: %w", err)
 	}
-	return &user, nil
+	return r.SyncUserOrgStatus(ctx, &user)
 }
 
 func (r *UserRepository) UpdateProfile(ctx context.Context, userID uuid.UUID, name string, avatarURL string, passwordHash *string) (*model.User, error) {

@@ -85,3 +85,27 @@ func TestFindOrCreateByOAuth_OrgAdminWithoutOrgIDKeepsRole(t *testing.T) {
 	}
 }
 
+func TestSyncUserOrgStatus_HealsCandidateToOrgAdmin(t *testing.T) {
+	repo := repository.NewUserRepository(nil)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	adminEmail := "registered.admin@gmail.com"
+	// Simulate corrupted state: user has organization_id but role was demoted to candidate
+	u, err := repo.Create(ctx, adminEmail, "", "Admin Name", "candidate", &orgID)
+	if err != nil {
+		t.Fatalf("failed to seed user: %v", err)
+	}
+
+	healed, err := repo.SyncUserOrgStatus(ctx, u)
+	if err != nil {
+		t.Fatalf("SyncUserOrgStatus failed: %v", err)
+	}
+	if healed.Role != "org_admin" {
+		t.Errorf("expected role to be healed to org_admin, got %q", healed.Role)
+	}
+	if healed.OrganizationID == nil || *healed.OrganizationID != orgID {
+		t.Errorf("expected organization ID to be preserved, got %v", healed.OrganizationID)
+	}
+}
+

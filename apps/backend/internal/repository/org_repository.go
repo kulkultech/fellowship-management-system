@@ -78,11 +78,12 @@ func (r *OrgRepository) Register(ctx context.Context, slug, name, contactEmail, 
 	}
 
 	query := `
-		INSERT INTO organizations (slug, name, contact_email, logo_url, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, now(), now())
+		INSERT INTO organizations (slug, name, contact_email, admin_email, logo_url, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $3, $4, $5, now(), now())
 		ON CONFLICT (slug) DO UPDATE SET 
 			name = EXCLUDED.name, 
 			contact_email = EXCLUDED.contact_email,
+			admin_email = CASE WHEN organizations.admin_email IS NULL OR organizations.admin_email = '' THEN EXCLUDED.contact_email ELSE organizations.admin_email END,
 			logo_url = EXCLUDED.logo_url, 
 			status = EXCLUDED.status,
 			updated_at = now()
@@ -96,6 +97,32 @@ func (r *OrgRepository) Register(ctx context.Context, slug, name, contactEmail, 
 		return nil, fmt.Errorf("org_repo: register: %w", err)
 	}
 	return &o, nil
+}
+
+func (r *OrgRepository) SetAdminEmail(ctx context.Context, id uuid.UUID, adminEmail, contactEmail string) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, org := range r.memOrgs {
+			if org.ID == id {
+				org.AdminEmail = adminEmail
+				if contactEmail != "" {
+					org.ContactEmail = contactEmail
+				}
+				return nil
+			}
+		}
+		return nil
+	}
+	query := `
+		UPDATE organizations
+		SET admin_email = $2,
+		    contact_email = CASE WHEN contact_email IS NULL OR contact_email = '' THEN $3 ELSE contact_email END,
+		    updated_at = now()
+		WHERE id = $1
+	`
+	_, err := r.pool.Exec(ctx, query, id, adminEmail, contactEmail)
+	return err
 }
 
 func (r *OrgRepository) List(ctx context.Context, status string) ([]model.Organization, error) {
