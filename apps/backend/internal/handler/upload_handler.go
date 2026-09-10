@@ -218,6 +218,15 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Accept-Ranges", "bytes")
 
+	// Serve PDFs/images inline so browsers open them in a viewer tab.
+	// Explicit ?download=1 forces a file download instead.
+	filename := filepath.Base(key)
+	disposition := "inline"
+	if r.URL.Query().Get("download") == "1" {
+		disposition = "attachment"
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, filename))
+
 	var seeker io.ReadSeeker
 	if s, ok := rc.(io.ReadSeeker); ok {
 		seeker = s

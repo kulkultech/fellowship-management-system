@@ -3532,11 +3532,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     <h2 className="text-xl font-extrabold text-slate-900">
                       {applicantDetail?.applicant.full_name || 'Candidate Details'}
                     </h2>
-                    {applicantDetail?.track && (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
-                        {applicantDetail.track.name} Track
-                      </span>
-                    )}
                     {applicantDetail && renderStageBadge(applicantDetail.applicant.current_stage)}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">{applicantDetail?.applicant.email}</p>
@@ -4025,16 +4020,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           {applicantDetail?.applicant.resume_url && (
                             <div className="sm:col-span-2">
                               <span className="text-slate-400 block font-medium">Resume / CV</span>
-                              <a
-                                href={applicantDetail.applicant.resume_url}
-                                download="resume.pdf"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline mt-0.5"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                <span>Download / View Submitted Resume</span>
-                              </a>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <a
+                                  href={applicantDetail.applicant.resume_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>View Resume</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                                <a
+                                  href={applicantDetail.applicant.resume_url}
+                                  download={applicantDetail.applicant.resume_url.split('/').pop() || 'resume.pdf'}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple hover:underline"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download</span>
+                                </a>
+                              </div>
                             </div>
                           )}
 
