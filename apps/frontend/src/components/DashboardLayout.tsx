@@ -14,6 +14,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { EditProfileModal } from '@/components/EditProfileModal';
+import { SuperadminCompanySwitcher } from '@/components/SuperadminCompanySwitcher';
 
 export interface SubChildNavItem {
   id: string;
@@ -160,21 +161,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           {/* Right: Actions / Workspace Switcher + Sign Out */}
           <div className="flex items-center justify-end flex-wrap gap-3 sm:gap-4 shrink-0">
+            {/* Superadmin Company Switcher Dropdown */}
+            {user?.role === 'superadmin' && (portalType === 'company_admin' || portalType === 'superadmin') && (
+              <SuperadminCompanySwitcher
+                variant="header"
+                activeOrgName={companyName}
+              />
+            )}
+
             {/* Superadmin Quick Switcher for KulKul Team */}
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 shadow-sm transition active:scale-[0.98] whitespace-nowrap"
+                className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 shadow-2xs transition active:scale-[0.98] whitespace-nowrap"
               >
                 <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
-                <span>Superadmin Workspace</span>
+                <span>Superadmin Console</span>
               </Link>
             )}
 
             {user?.role === 'superadmin' && portalType === 'superadmin' && (
               <Link
                 to="/admin/dashboard"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 shadow-sm transition active:scale-[0.98] whitespace-nowrap"
+                className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 shadow-2xs transition active:scale-[0.98] whitespace-nowrap"
               >
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
                 <span>Company Workspace</span>

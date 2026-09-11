@@ -22,6 +22,7 @@ import type {
 } from '@/services/types';
 import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
 import { EditProfileModal } from '@/components/EditProfileModal';
+import { SuperadminCompanySwitcher } from '@/components/SuperadminCompanySwitcher';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -1522,12 +1523,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => navigate('/superadmin/dashboard')}
-              className="px-4 py-1.5 rounded-full bg-white text-slate-700 hover:text-slate-900 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition"
-            >
-              Exit to Superadmin Console
-            </button>
+            <div className="flex items-center gap-2.5">
+              <SuperadminCompanySwitcher
+                variant="banner"
+                activeOrgId={impersonatedOrgId}
+                activeOrgName={orgProfile?.name}
+                activeOrgSlug={orgSlug}
+              />
+              <button
+                onClick={() => navigate('/superadmin/dashboard')}
+                className="px-4 py-1.5 rounded-full bg-white text-slate-700 hover:text-slate-900 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition cursor-pointer"
+              >
+                Exit to Superadmin Console
+              </button>
+            </div>
           </div>
         )}
 
