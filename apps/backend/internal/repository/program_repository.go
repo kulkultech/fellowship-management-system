@@ -97,37 +97,6 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		memPrograms: make(map[string]*model.Program),
 	}
 	// Pre-seed LIT 2026 program with exact Workflow.pdf configuration
-	litProg := &model.Program{
-		ID:                       uuid.MustParse("00000000-0000-0000-0000-000000000003"),
-		OrganizationID:           uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		Slug:                     "lit2026",
-		Name:                     "LIT 2026 Fellowship & Assessment",
-			Description:              "The flagship talent acceleration fellowship program by Acme Academy and Kulkul Tech. Assessment tests include Timed Logic & Architecture MCQ followed by an interactive AI Technical Screening Room.",
-		ImageURL:                 "https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp",
-		OpenDate:                 time.Now().Add(-24 * time.Hour),
-		EndDate:                  time.Now().Add(180 * 24 * time.Hour),
-		EnableMCQ:                true,
-		LogicTestDurationMinutes: 30,
-		LogicTestPassingScore:    70,
-		AllowRetake:              false,
-		EnableAIInterview:        true,
-		AIInterviewInstructions:  "Assess communication readiness, workplace problem-solving, and collaboration per LIT rubric.",
-		AIInterviewRubric:        model.DefaultLITRubric(),
-		AIInterviewQuestions: []string{
-			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
-			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
-			"Imagine you are assigned a task by your supervisor or mentor, but the instructions are unclear, or you realize you do not fully understand the requirements. What would you do, and how would you communicate with your supervisor?",
-			"Describe a situation where you had to work with others and encountered a miscommunication or disagreement. How did you address it, and what did you learn?",
-			"Suppose you are working on a project deadline for the fellowship, and you realize you might not be able to finish on time. How would you handle this situation, and what would you say to your team or mentor?",
-		},
-		ApplicationStages:    DefaultApplicationStages(),
-		ApplicationFormSchema: model.DefaultRSAFormSchema(),
-		Status:               "published",
-		PreviewToken:         uuid.MustParse("00000000-0000-0000-0000-000000000004"),
-		CreatedAt:            time.Now(),
-		UpdatedAt:            time.Now(),
-	}
-	repo.memPrograms["rsa:lit2026"] = litProg
 	return repo
 }
 
