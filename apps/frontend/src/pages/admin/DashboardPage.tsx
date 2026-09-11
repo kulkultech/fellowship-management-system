@@ -21,6 +21,7 @@ import type {
   CriterionScore,
 } from '@/services/types';
 import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
+import { EditProfileModal } from '@/components/EditProfileModal';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -136,6 +137,7 @@ import {
   Sliders,
   Sparkles,
   BrainCircuit,
+  Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -243,6 +245,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Active Program selection
   const [activeProgramSlug, setActiveProgramSlug] = useState('lit2026');
+  const [isCompanySettingsOpen, setIsCompanySettingsOpen] = useState(false);
 
   // Fetch current organization details (supports superadmin impersonation)
   const { data: orgProfile } = useQuery({
@@ -1399,6 +1402,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           </button>
         </>
       )}
+
+      {/* Company Settings & Slug Configuration */}
+      <button
+        type="button"
+        onClick={() => setIsCompanySettingsOpen(true)}
+        className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+        title="Manage company profile, name, and URL slug"
+      >
+        <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
+        <span className="hidden sm:inline">Company Settings</span>
+      </button>
 
       {/* Create New Program Button */}
       <button
@@ -4980,6 +4994,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
           </div>
         )}
+
+        {/* Company Settings & Profile Modal */}
+        <EditProfileModal
+          isOpen={isCompanySettingsOpen}
+          onClose={() => setIsCompanySettingsOpen(false)}
+          portalType="company_admin"
+          initialTab="company"
+        />
       </DashboardLayout>
   );
 };

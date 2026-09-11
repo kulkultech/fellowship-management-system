@@ -342,6 +342,7 @@ export interface UpdateProfilePayload {
   name?: string;
   avatar_url?: string;
   password?: string;
+  company_slug?: string;
   company_name?: string;
   company_logo_url?: string;
   company_contact_email?: string;

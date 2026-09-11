@@ -1558,6 +1558,7 @@ func (h *AdminHandler) DuplicateQuestionSet(w http.ResponseWriter, r *http.Reque
 }
 
 type UpdateOrgRequest struct {
+	Slug         string `json:"slug,omitempty"`
 	Name         string `json:"name"`
 	ContactEmail string `json:"contact_email"`
 	LogoURL      string `json:"logo_url"`
@@ -1597,9 +1598,45 @@ func (h *AdminHandler) UpdateOrganization(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	org, err := h.orgRepo.Update(r.Context(), targetOrgID, req.Name, req.ContactEmail, req.LogoURL)
+	org, err := h.orgRepo.Update(r.Context(), targetOrgID, req.Slug, req.Name, req.ContactEmail, req.LogoURL)
 	if err != nil {
-		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if strings.Contains(err.Error(), "already in use") {
+			httpx.JSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+			return
+		}
+		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, org)
+}
+
+func (h *AdminHandler) UpdateCompanyDetails(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil || claims.Role != model.RoleSuperadmin {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: superadmin access required"})
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	targetOrgID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid company id")
+		return
+	}
+
+	var req UpdateOrgRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		return
+	}
+
+	org, err := h.orgRepo.Update(r.Context(), targetOrgID, req.Slug, req.Name, req.ContactEmail, req.LogoURL)
+	if err != nil {
+		if strings.Contains(err.Error(), "already in use") {
+			httpx.JSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+			return
+		}
+		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 

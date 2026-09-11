@@ -84,6 +84,7 @@ type UpdateProfileRequest struct {
 	Name                string  `json:"name"`
 	AvatarURL           string  `json:"avatar_url"`
 	Password            *string `json:"password,omitempty"`
+	CompanySlug         *string `json:"company_slug,omitempty"`
 	CompanyName         *string `json:"company_name,omitempty"`
 	CompanyLogoURL      *string `json:"company_logo_url,omitempty"`
 	CompanyContactEmail *string `json:"company_contact_email,omitempty"`
@@ -407,6 +408,10 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if user.OrganizationID != nil {
 		currentOrg, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
 		if err == nil && currentOrg != nil {
+			newSlug := currentOrg.Slug
+			if req.CompanySlug != nil && strings.TrimSpace(*req.CompanySlug) != "" {
+				newSlug = strings.ToLower(strings.TrimSpace(*req.CompanySlug))
+			}
 			newOrgName := currentOrg.Name
 			if req.CompanyName != nil && strings.TrimSpace(*req.CompanyName) != "" {
 				newOrgName = strings.TrimSpace(*req.CompanyName)
@@ -420,8 +425,12 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 				newLogoURL = strings.TrimSpace(*req.CompanyLogoURL)
 			}
 
-			updatedOrg, err := h.orgRepo.Update(r.Context(), currentOrg.ID, newOrgName, newContactEmail, newLogoURL)
-			if err == nil && updatedOrg != nil {
+			updatedOrg, err := h.orgRepo.Update(r.Context(), currentOrg.ID, newSlug, newOrgName, newContactEmail, newLogoURL)
+			if err != nil {
+				httpx.Error(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if updatedOrg != nil {
 				orgInfo = &OrganizationInfo{
 					ID:           updatedOrg.ID.String(),
 					Slug:         updatedOrg.Slug,

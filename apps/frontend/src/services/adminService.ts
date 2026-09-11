@@ -283,10 +283,21 @@ export const adminService = {
     return data;
   },
 
-  updateOrganization: async (payload: { name: string; contact_email: string; logo_url: string }, orgId?: string): Promise<Organization> => {
+  updateOrganization: async (
+    payload: { slug?: string; name: string; contact_email: string; logo_url: string },
+    orgId?: string
+  ): Promise<Organization> => {
     const { data } = await apiClient.put<Organization>('/admin/organization', payload, {
       params: orgId ? { org_id: orgId } : undefined,
     });
+    return data;
+  },
+
+  updateCompany: async (
+    companyId: string,
+    payload: { slug?: string; name: string; contact_email?: string; logo_url?: string }
+  ): Promise<Organization> => {
+    const { data } = await apiClient.put<Organization>(`/admin/companies/${companyId}`, payload);
     return data;
   },
 };

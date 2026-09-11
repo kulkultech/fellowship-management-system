@@ -21,6 +21,7 @@ import { authService } from '@/services/authService';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { uploadService } from '@/services/uploadService';
 import { useQueryClient } from '@tanstack/react-query';
+import type { UpdateProfilePayload } from '@/services/types';
 import toast from 'react-hot-toast';
 
 interface EditProfileModalProps {
@@ -28,6 +29,7 @@ interface EditProfileModalProps {
   onClose: () => void;
   portalType?: 'company_admin' | 'superadmin' | 'candidate';
   candidateEmail?: string;
+  initialTab?: 'personal' | 'company';
 }
 
 // Sleek avatar presets using DiceBear for instant selection
@@ -45,6 +47,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   portalType,
   candidateEmail,
+  initialTab = 'personal',
 }) => {
   const { user } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
@@ -76,6 +79,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Company profile fields
+  const [companySlug, setCompanySlug] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState('');
   const [companyContactEmail, setCompanyContactEmail] = useState('');
@@ -99,19 +103,21 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setShowLogoUrlInput(false);
 
       if (user?.organization) {
+        setCompanySlug(user.organization.slug || '');
         setCompanyName(user.organization.name || '');
         setCompanyLogoUrl(user.organization.logo_url || '');
         setCompanyContactEmail(user.organization.contact_email || '');
       } else {
+        setCompanySlug('');
         setCompanyName('');
         setCompanyLogoUrl('');
         setCompanyContactEmail('');
       }
 
-      // Default tab: personal profile
-      setActiveTab('personal');
+      // Default tab: personal profile or initialTab
+      setActiveTab(initialTab);
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, initialTab]);
 
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,14 +189,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const payload: {
-        name?: string;
-        avatar_url?: string;
-        password?: string;
-        company_name?: string;
-        company_logo_url?: string;
-        company_contact_email?: string;
-      } = {
+      const payload: UpdateProfilePayload = {
         name: name.trim(),
         avatar_url: avatarUrl.trim(),
       };
@@ -200,6 +199,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
 
       if (isCompanyUser) {
+        if (companySlug.trim()) payload.company_slug = companySlug.trim().toLowerCase();
         if (companyName.trim()) payload.company_name = companyName.trim();
         payload.company_logo_url = companyLogoUrl.trim();
         if (companyContactEmail.trim()) payload.company_contact_email = companyContactEmail.trim();
@@ -212,6 +212,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setUser(updatedUser);
       queryClient.setQueryData(['auth', 'me'], updatedUser);
       queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-organization-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['superadmin-companies'] });
       queryClient.invalidateQueries({ queryKey: ['programs'] });
 
       toast.success('Profile updated successfully!');
@@ -687,6 +690,54 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     placeholder="e.g. Acme Innovation Labs"
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium text-slate-900"
                   />
+                </div>
+              </div>
+
+              {/* Organization URL Slug */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                    Company URL Slug
+                  </label>
+                  {companyName && !companySlug && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const generated = companyName
+                          .toLowerCase()
+                          .trim()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-+|-+$/g, '');
+                        setCompanySlug(generated);
+                      }}
+                      className="text-3xs text-kulkul-purple hover:underline font-bold"
+                    >
+                      Generate from Name
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-mono text-xs">
+                    /
+                  </div>
+                  <input
+                    type="text"
+                    value={companySlug}
+                    onChange={(e) => {
+                      const val = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, '-');
+                      setCompanySlug(val);
+                    }}
+                    placeholder="e.g. ladies-in-tech"
+                    className="w-full pl-8 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-mono text-slate-900"
+                  />
+                </div>
+                <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-slate-500 font-medium">
+                  <span className="text-slate-400">Public Portal URL:</span>
+                  <code className="text-kulkul-purple font-mono bg-purple-50 px-1.5 py-0.5 rounded text-3xs">
+                    /programs/{companySlug || 'your-slug'}/...
+                  </code>
                 </div>
               </div>
 

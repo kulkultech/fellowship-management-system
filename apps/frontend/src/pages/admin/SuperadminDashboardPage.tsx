@@ -21,7 +21,11 @@ import {
   Database,
   Cpu,
   Trash2,
+  Pencil,
+  X,
+  Check,
 } from 'lucide-react';
+import type { Organization } from '@/services/types';
 import toast from 'react-hot-toast';
 
 export const SuperadminDashboardPage: React.FC = () => {
@@ -101,6 +105,36 @@ export const SuperadminDashboardPage: React.FC = () => {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to delete program');
+    },
+  });
+
+  // Edit Company State & Mutation
+  const [editingCompany, setEditingCompany] = useState<Organization | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editCompanySlug, setEditCompanySlug] = useState('');
+  const [editCompanyEmail, setEditCompanyEmail] = useState('');
+  const [editCompanyLogo, setEditCompanyLogo] = useState('');
+
+  const handleOpenEditCompany = (company: Organization) => {
+    setEditingCompany(company);
+    setEditCompanyName(company.name || '');
+    setEditCompanySlug(company.slug || '');
+    setEditCompanyEmail(company.contact_email || '');
+    setEditCompanyLogo(company.logo_url || '');
+  };
+
+  const updateCompanyMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { name: string; slug: string; contact_email: string; logo_url: string } }) =>
+      adminService.updateCompany(id, payload),
+    onSuccess: (updated) => {
+      toast.success(`Updated company: ${updated.name}`);
+      queryClient.invalidateQueries({ queryKey: ['superadmin-companies'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-companies'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-organization-profile'] });
+      setEditingCompany(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to update company');
     },
   });
 
@@ -386,6 +420,17 @@ export const SuperadminDashboardPage: React.FC = () => {
                                 </button>
                               )}
 
+                              {/* Edit Company Details & Slug */}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditCompany(company)}
+                                className="px-3 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                                title="Edit company name, URL slug, email, and logo"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-kulkul-purple" />
+                                <span>Edit</span>
+                              </button>
+
                               {company.status === 'rejected' && (
                                 <button
                                   onClick={() => approveMutation.mutate(company.id)}
@@ -632,6 +677,159 @@ export const SuperadminDashboardPage: React.FC = () => {
                   <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
                 </a>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Company Modal */}
+        {editingCompany && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
+                    <Building2 className="w-5 h-5 text-kulkul-purple" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Edit Company Details</h3>
+                    <p className="text-xs text-slate-500 font-medium">Update organization profile, URL slug, and branding.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingCompany(null)}
+                  className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!editCompanyName.trim()) {
+                    toast.error('Company name is required');
+                    return;
+                  }
+                  if (!editCompanySlug.trim()) {
+                    toast.error('Company slug is required');
+                    return;
+                  }
+                  updateCompanyMutation.mutate({
+                    id: editingCompany.id,
+                    payload: {
+                      name: editCompanyName.trim(),
+                      slug: editCompanySlug.trim().toLowerCase(),
+                      contact_email: editCompanyEmail.trim(),
+                      logo_url: editCompanyLogo.trim(),
+                    },
+                  });
+                }}
+                className="space-y-4"
+              >
+                {/* Company Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Company Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCompanyName}
+                    onChange={(e) => setEditCompanyName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    placeholder="e.g. Acme Corp"
+                  />
+                </div>
+
+                {/* Company Slug */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">Company URL Slug</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const autoSlug = editCompanyName
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-+|-+$/g, '');
+                        if (autoSlug) setEditCompanySlug(autoSlug);
+                      }}
+                      className="text-2xs font-bold text-kulkul-purple hover:underline"
+                    >
+                      Generate from name
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400">
+                      /programs/
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={editCompanySlug}
+                      onChange={(e) => {
+                        const sanitized = e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, '-');
+                        setEditCompanySlug(sanitized);
+                      }}
+                      className="w-full pl-24 pr-3.5 py-2 rounded-xl text-sm font-mono border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      placeholder="acme-corp"
+                    />
+                  </div>
+                  <p className="text-2xs text-slate-400">
+                    Determines applicant portals: <code className="font-mono text-kulkul-purple font-semibold">/programs/{editCompanySlug || 'slug'}/...</code>
+                  </p>
+                </div>
+
+                {/* Contact Email */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Contact Email</label>
+                  <input
+                    type="email"
+                    value={editCompanyEmail}
+                    onChange={(e) => setEditCompanyEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    placeholder="admin@company.com"
+                  />
+                </div>
+
+                {/* Logo URL */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Logo Image URL</label>
+                  <input
+                    type="url"
+                    value={editCompanyLogo}
+                    onChange={(e) => setEditCompanyLogo(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCompany(null)}
+                    className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updateCompanyMutation.isPending || !editCompanyName.trim() || !editCompanySlug.trim()}
+                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {updateCompanyMutation.isPending ? (
+                      <span>Saving...</span>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-kulkul-orange" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

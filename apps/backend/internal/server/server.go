@@ -227,6 +227,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 					super.Get("/companies", adminHandler.ListCompanies)
 					super.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
 					super.Post("/companies/{id}/reject", adminHandler.RejectCompany)
+					super.Put("/companies/{id}", adminHandler.UpdateCompanyDetails)
 					super.Delete("/companies/{id}", adminHandler.DeleteCompany)
 					super.Get("/users/lookup", adminHandler.LookupUser)
 					super.Post("/users/relink", adminHandler.RelinkUser)

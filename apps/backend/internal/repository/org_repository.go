@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kulkul/backend/internal/model"
@@ -253,12 +255,22 @@ func (r *OrgRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Organ
 	return &o, nil
 }
 
-func (r *OrgRepository) Update(ctx context.Context, id uuid.UUID, name, contactEmail, logoURL string) (*model.Organization, error) {
+func (r *OrgRepository) Update(ctx context.Context, id uuid.UUID, slug, name, contactEmail, logoURL string) (*model.Organization, error) {
+	cleanSlug := strings.ToLower(strings.TrimSpace(slug))
+
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		for _, org := range r.memOrgs {
+		for oldSlug, org := range r.memOrgs {
 			if org.ID == id {
+				if cleanSlug != "" && cleanSlug != org.Slug {
+					if other, exists := r.memOrgs[cleanSlug]; exists && other.ID != id {
+						return nil, fmt.Errorf("company slug '%s' is already in use", cleanSlug)
+					}
+					delete(r.memOrgs, oldSlug)
+					org.Slug = cleanSlug
+					r.memOrgs[cleanSlug] = org
+				}
 				if name != "" {
 					org.Name = name
 				}
@@ -273,23 +285,35 @@ func (r *OrgRepository) Update(ctx context.Context, id uuid.UUID, name, contactE
 		return nil, ErrOrgNotFound
 	}
 
+	if cleanSlug != "" {
+		existing, err := r.GetBySlug(ctx, cleanSlug)
+		if err == nil && existing != nil && existing.ID != id {
+			return nil, fmt.Errorf("company slug '%s' is already in use", cleanSlug)
+		}
+	}
+
 	query := `
 		UPDATE organizations
-		SET name = COALESCE(NULLIF($1, ''), name),
-		    contact_email = COALESCE(NULLIF($2, ''), contact_email),
-		    logo_url = $3,
+		SET slug = COALESCE(NULLIF($1, ''), slug),
+		    name = COALESCE(NULLIF($2, ''), name),
+		    contact_email = COALESCE(NULLIF($3, ''), contact_email),
+		    logo_url = $4,
 		    updated_at = now()
-		WHERE id = $4
+		WHERE id = $5
 		RETURNING id, slug, name, COALESCE(contact_email, ''), COALESCE(logo_url, ''), status, created_at, updated_at
 	`
 	var o model.Organization
-	err := r.pool.QueryRow(ctx, query, name, contactEmail, logoURL, id).Scan(
+	err := r.pool.QueryRow(ctx, query, cleanSlug, name, contactEmail, logoURL, id).Scan(
 		&o.ID, &o.Slug, &o.Name, &o.ContactEmail, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrOrgNotFound
 	}
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, fmt.Errorf("company slug '%s' is already in use", cleanSlug)
+		}
 		return nil, fmt.Errorf("org_repo: update: %w", err)
 	}
 	return &o, nil
