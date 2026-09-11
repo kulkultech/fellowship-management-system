@@ -191,8 +191,8 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Assessment</div>
-                  <div className="text-sm font-extrabold text-slate-900 truncate">
-                    {program.enable_mcq ? `Timed Logic (${program.logic_test_duration_minutes}m)` : 'Not Required'}
+                  <div className="text-sm font-extrabold text-slate-900 truncate" title={program.question_set_name || 'Timed Logic'}>
+                    {program.enable_mcq ? `${program.question_set_name || 'Timed Logic'} (${program.logic_test_duration_minutes}m)` : 'Not Required'}
                   </div>
                 </div>
               </div>

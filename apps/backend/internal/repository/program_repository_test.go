@@ -75,3 +75,53 @@ func TestProgramRepository_UpdateDetails(t *testing.T) {
 		t.Errorf("expected fetched status 'draft', got '%s'", fetched.Status)
 	}
 }
+
+func TestProgramRepository_CreateAndUpdatePipeline_WithQuestionSet(t *testing.T) {
+	repo := repository.NewProgramRepository(nil)
+	ctx := context.Background()
+
+	progID := uuid.New()
+	qSetID := uuid.New()
+	created, err := repo.Create(ctx, &model.Program{
+		ID:                       progID,
+		OrganizationID:           uuid.New(),
+		QuestionSetID:            &qSetID,
+		Slug:                     "trackless-logic-test-cohort",
+		Name:                     "Trackless Logic Cohort 2026",
+		EnableMCQ:                true,
+		LogicTestDurationMinutes: 45,
+		LogicTestPassingScore:    75,
+		Status:                   "published",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error creating program: %v", err)
+	}
+	if created.QuestionSetID == nil || *created.QuestionSetID != qSetID {
+		t.Fatalf("expected question set id %v, got %v", qSetID, created.QuestionSetID)
+	}
+
+	// Update pipeline to a new question set
+	newQSetID := uuid.New()
+	updated, err := repo.UpdatePipeline(ctx, progID, &newQSetID, true, false, "Instructions", []string{"Q1"})
+	if err != nil {
+		t.Fatalf("unexpected error updating pipeline: %v", err)
+	}
+	if updated.QuestionSetID == nil || *updated.QuestionSetID != newQSetID {
+		t.Fatalf("expected updated question set id %v, got %v", newQSetID, updated.QuestionSetID)
+	}
+	if !updated.EnableMCQ {
+		t.Errorf("expected enable_mcq true")
+	}
+	if updated.EnableAIInterview {
+		t.Errorf("expected enable_ai_interview false")
+	}
+
+	// Fetch back
+	fetched, err := repo.GetByID(ctx, progID)
+	if err != nil {
+		t.Fatalf("unexpected error fetching program: %v", err)
+	}
+	if fetched.QuestionSetID == nil || *fetched.QuestionSetID != newQSetID {
+		t.Fatalf("expected fetched question set id %v, got %v", newQSetID, fetched.QuestionSetID)
+	}
+}

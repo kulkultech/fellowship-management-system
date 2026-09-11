@@ -135,6 +135,7 @@ import {
   UploadCloud,
   Sliders,
   Sparkles,
+  BrainCircuit,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -368,6 +369,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [newProgStatus, setNewProgStatus] = useState<'published' | 'draft' | 'archived'>('published');
   const [newProgEnableMCQ, setNewProgEnableMCQ] = useState(true);
   const [newProgEnableAI, setNewProgEnableAI] = useState(true);
+  const [newProgQuestionSetId, setNewProgQuestionSetId] = useState('');
   const [newProgDuration, setNewProgDuration] = useState(30);
   const [newProgPassingScore, setNewProgPassingScore] = useState(70);
   const [uploadingBanner, setUploadingBanner] = useState(false);
@@ -644,6 +646,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setNewProgOpenDate('');
       setNewProgEndDate('');
       setNewProgStatus('published');
+      setNewProgQuestionSetId('');
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.message || 'Failed to create program');
@@ -667,6 +670,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [isPipelineConfigModalOpen, setIsPipelineConfigModalOpen] = useState(false);
   const [pipelineConfigProgId, setPipelineConfigProgId] = useState<string>('');
   const [pipelineConfigProgName, setPipelineConfigProgName] = useState<string>('');
+  const [pipelineConfigQuestionSetId, setPipelineConfigQuestionSetId] = useState<string>('');
   const [pipelineConfigEnableMCQ, setPipelineConfigEnableMCQ] = useState(true);
   const [pipelineConfigEnableAI, setPipelineConfigEnableAI] = useState(true);
   const [pipelineConfigDuration, setPipelineConfigDuration] = useState(30);
@@ -675,6 +679,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const handleOpenPipelineConfig = (prog: Program) => {
     setPipelineConfigProgId(prog.id);
     setPipelineConfigProgName(prog.name);
+    setPipelineConfigQuestionSetId(prog.question_set_id || '');
     setPipelineConfigEnableMCQ(prog.enable_mcq ?? true);
     setPipelineConfigEnableAI(prog.enable_ai_interview ?? true);
     setPipelineConfigDuration(prog.logic_test_duration_minutes || 30);
@@ -685,12 +690,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const updatePipelineConfigMutation = useMutation({
     mutationFn: (payload: {
       programId: string;
+      question_set_id?: string;
       enable_mcq: boolean;
       enable_ai_interview: boolean;
       logic_test_duration_minutes: number;
       logic_test_passing_score: number;
     }) =>
       adminService.updatePipelineConfig(payload.programId, {
+        question_set_id: payload.question_set_id,
         enable_mcq: payload.enable_mcq,
         enable_ai_interview: payload.enable_ai_interview,
         logic_test_duration_minutes: payload.logic_test_duration_minutes,
@@ -1577,10 +1584,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       <span>{count} Tracks</span>
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                      <Layers className="w-3 h-3 text-slate-400" />
-                                      <span>0 Tracks (Optional)</span>
-                                    </span>
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                        <Layers className="w-3 h-3 text-slate-400" />
+                                        <span>General / Trackless</span>
+                                      </span>
+                                      {prog.enable_mcq && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200" title={prog.question_set_name ? `Question Set: ${prog.question_set_name}` : 'Timed Logic Test'}>
+                                          <BrainCircuit className="w-2.5 h-2.5 text-amber-600" />
+                                          <span className="truncate max-w-[120px]">{prog.question_set_name || 'Timed Logic'}</span>
+                                        </span>
+                                      )}
+                                    </div>
                                   );
                                 })()}
                               </td>
@@ -2013,27 +2028,50 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
 
             {/* Direct General Admission Notice when 0 tracks exist */}
-            {programTracks.length === 0 && (
-              <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-700 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-bold shrink-0">
-                    <Sparkles className="w-4 h-4 text-kulkul-purple" />
+            {programTracks.length === 0 && (() => {
+              const currentProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program;
+              return (
+                <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-700 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-bold shrink-0">
+                      <Sparkles className="w-4 h-4 text-kulkul-purple" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800">Single General Track Active:</span>
+                        {currentProg?.enable_mcq && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            <BrainCircuit className="w-3 h-3 text-amber-700" />
+                            Logic Test Set: {currentProg.question_set_name || 'Default Logic Test'}
+                            {currentProg.question_count ? ` (${currentProg.question_count} Qs)` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-600 mt-0.5">
+                        Candidates apply directly to this program without choosing specialization tracks. Tracks are 100% optional and can be added anytime.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-bold text-slate-800">Single General Track Active:</span>{' '}
-                    <span className="text-slate-600">
-                      Candidates apply directly to this program without choosing specialization tracks. Tracks are 100% optional and can be added anytime.
-                    </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {currentProg && (
+                      <button
+                        onClick={() => handleOpenPipelineConfig(currentProg)}
+                        className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold transition whitespace-nowrap shadow-2xs text-2xs flex items-center gap-1.5"
+                      >
+                        <Sliders className="w-3 h-3 text-slate-500" />
+                        Configure Logic Test
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenCreateTrack(activeProgramSlug)}
+                      className="px-3.5 py-1.5 rounded-xl bg-white border border-purple-200 text-kulkul-purple hover:bg-purple-50 font-bold transition whitespace-nowrap shadow-2xs text-2xs"
+                    >
+                      + Add Track (Optional)
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleOpenCreateTrack(activeProgramSlug)}
-                  className="px-3.5 py-1.5 rounded-xl bg-white border border-purple-200 text-kulkul-purple hover:bg-purple-50 font-bold transition whitespace-nowrap shadow-2xs text-2xs"
-                >
-                  + Add Track (Optional)
-                </button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Candidates Table */}
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
@@ -3384,6 +3422,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     return;
                   }
                   createProgramMutation.mutate({
+                    question_set_id: newProgEnableMCQ && newProgQuestionSetId ? newProgQuestionSetId : undefined,
                     slug: newProgSlug.toLowerCase().trim(),
                     name: newProgName.trim(),
                     description: newProgDesc.trim(),
@@ -3623,32 +3662,75 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
 
                   {newProgEnableMCQ && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-3 pt-2">
                       <div>
-                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                          MCQ Duration (Minutes)
+                        <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                          <span>Question Bank / Reusable Test Set</span>
+                          {newProgQuestionSetId && (
+                            <span className="text-[10px] text-emerald-600 font-semibold lowercase">
+                              ready to link
+                            </span>
+                          )}
                         </label>
-                        <input
-                          type="number"
-                          min={5}
-                          max={180}
-                          value={newProgDuration}
-                          onChange={(e) => setNewProgDuration(parseInt(e.target.value) || 30)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
-                        />
+                        <select
+                          value={newProgQuestionSetId}
+                          onChange={(e) => {
+                            const qSetId = e.target.value;
+                            setNewProgQuestionSetId(qSetId);
+                            const selectedSet = allQuestionSets.find((s) => s.id === qSetId);
+                            if (selectedSet) {
+                              if (selectedSet.duration_minutes) setNewProgDuration(selectedSet.duration_minutes);
+                              if (selectedSet.passing_score) setNewProgPassingScore(selectedSet.passing_score);
+                            }
+                          }}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-medium focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                        >
+                          <option value="">-- Choose Question Set from Bank --</option>
+                          {allQuestionSets.map((qs) => (
+                            <option key={qs.id} value={qs.id}>
+                              {qs.name} ({qs.category} · {qs.questions?.length || qs.total_questions || 0} Qs · {qs.duration_minutes}m · {qs.passing_score}%)
+                            </option>
+                          ))}
+                        </select>
+                        {newProgQuestionSetId ? (
+                          <p className="text-2xs text-emerald-700 mt-1.5 font-medium flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            This Question Set will be automatically served to all applicants taking the logic test for this program.
+                          </p>
+                        ) : (
+                          <p className="text-2xs text-slate-400 mt-1.5">
+                            Select a question bank to serve to applicants, or create tracks later to customize per specialization.
+                          </p>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-                          Passing Score Benchmark (%)
-                        </label>
-                        <input
-                          type="number"
-                          min={10}
-                          max={100}
-                          value={newProgPassingScore}
-                          onChange={(e) => setNewProgPassingScore(parseInt(e.target.value) || 70)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
-                        />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                            MCQ Duration (Minutes)
+                          </label>
+                          <input
+                            type="number"
+                            min={5}
+                            max={180}
+                            value={newProgDuration}
+                            onChange={(e) => setNewProgDuration(parseInt(e.target.value) || 30)}
+                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                            Passing Score Benchmark (%)
+                          </label>
+                          <input
+                            type="number"
+                            min={10}
+                            max={100}
+                            value={newProgPassingScore}
+                            onChange={(e) => setNewProgPassingScore(parseInt(e.target.value) || 70)}
+                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -4486,6 +4568,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   }
                   updatePipelineConfigMutation.mutate({
                     programId: pipelineConfigProgId,
+                    question_set_id: pipelineConfigEnableMCQ && pipelineConfigQuestionSetId ? pipelineConfigQuestionSetId : undefined,
                     enable_mcq: pipelineConfigEnableMCQ,
                     enable_ai_interview: pipelineConfigEnableAI,
                     logic_test_duration_minutes: pipelineConfigDuration,
@@ -4528,32 +4611,75 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                   {/* MCQ Configuration Sub-fields */}
                   {pipelineConfigEnableMCQ && (
-                    <div className="grid grid-cols-2 gap-3 pl-8 animate-in fade-in duration-150">
+                    <div className="space-y-3 pl-8 animate-in fade-in duration-150">
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Duration (Mins)
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
+                          <span>Question Bank / Reusable Test Set</span>
+                          {pipelineConfigQuestionSetId && (
+                            <span className="text-[10px] text-emerald-600 font-semibold lowercase">
+                              linked
+                            </span>
+                          )}
                         </label>
-                        <input
-                          type="number"
-                          min={5}
-                          max={180}
-                          value={pipelineConfigDuration}
-                          onChange={(e) => setPipelineConfigDuration(parseInt(e.target.value) || 30)}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
-                        />
+                        <select
+                          value={pipelineConfigQuestionSetId}
+                          onChange={(e) => {
+                            const qSetId = e.target.value;
+                            setPipelineConfigQuestionSetId(qSetId);
+                            const selectedSet = allQuestionSets.find((s) => s.id === qSetId);
+                            if (selectedSet) {
+                              if (selectedSet.duration_minutes) setPipelineConfigDuration(selectedSet.duration_minutes);
+                              if (selectedSet.passing_score) setPipelineConfigPassingScore(selectedSet.passing_score);
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                        >
+                          <option value="">-- Choose Question Set from Bank --</option>
+                          {allQuestionSets.map((qs) => (
+                            <option key={qs.id} value={qs.id}>
+                              {qs.name} ({qs.category} · {qs.questions?.length || qs.total_questions || 0} Qs · {qs.duration_minutes}m · {qs.passing_score}%)
+                            </option>
+                          ))}
+                        </select>
+                        {pipelineConfigQuestionSetId ? (
+                          <p className="text-3xs text-emerald-600 mt-1.5 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            Direct applicants to this program will receive questions from this Question Set.
+                          </p>
+                        ) : (
+                          <p className="text-3xs text-slate-400 mt-1.5">
+                            Select a question set to attach to this program, or customize per track.
+                          </p>
+                        )}
                       </div>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Pass Score (%)
-                        </label>
-                        <input
-                          type="number"
-                          min={10}
-                          max={100}
-                          value={pipelineConfigPassingScore}
-                          onChange={(e) => setPipelineConfigPassingScore(parseInt(e.target.value) || 70)}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
-                        />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                            Duration (Mins)
+                          </label>
+                          <input
+                            type="number"
+                            min={5}
+                            max={180}
+                            value={pipelineConfigDuration}
+                            onChange={(e) => setPipelineConfigDuration(parseInt(e.target.value) || 30)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
+                          />
+                        </div>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                            Pass Score (%)
+                          </label>
+                          <input
+                            type="number"
+                            min={10}
+                            max={100}
+                            value={pipelineConfigPassingScore}
+                            onChange={(e) => setPipelineConfigPassingScore(parseInt(e.target.value) || 70)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

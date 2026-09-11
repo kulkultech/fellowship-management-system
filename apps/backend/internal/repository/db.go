@@ -110,6 +110,9 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_question_sets_org ON question_sets(organization_id);
 	CREATE INDEX IF NOT EXISTS idx_question_sets_program ON question_sets(program_id);
 
+	ALTER TABLE programs ADD COLUMN IF NOT EXISTS question_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL;
+	CREATE INDEX IF NOT EXISTS idx_programs_question_set ON programs(question_set_id);
+
 	CREATE TABLE IF NOT EXISTS program_tracks (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,

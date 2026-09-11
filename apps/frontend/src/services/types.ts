@@ -102,6 +102,9 @@ export interface ApplicationFormSchema {
 export interface Program {
   id: string;
   organization_id?: string;
+  question_set_id?: string;
+  question_set_name?: string;
+  question_count?: number;
   slug: string;
   name: string;
   description: string;
@@ -360,6 +363,7 @@ export interface CompanyRegistrationPayload {
 }
 
 export interface PipelineConfigPayload {
+  question_set_id?: string;
   enable_mcq: boolean;
   logic_test_duration_minutes: number;
   logic_test_passing_score: number;

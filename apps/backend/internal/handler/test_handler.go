@@ -118,6 +118,9 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(questions) == 0 && program.QuestionSetID != nil && h.questionSetRepo != nil {
+		questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), *program.QuestionSetID)
+	}
 	if len(questions) == 0 {
 		questions, _ = h.mcqRepo.ListByProgram(r.Context(), program.ID)
 	}
@@ -239,6 +242,9 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(questions) == 0 && program.QuestionSetID != nil && h.questionSetRepo != nil {
+		questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), *program.QuestionSetID)
+	}
 	if len(questions) == 0 {
 		questions, _ = h.mcqRepo.ListByProgram(r.Context(), program.ID)
 	}

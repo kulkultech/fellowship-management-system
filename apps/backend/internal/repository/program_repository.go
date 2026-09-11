@@ -127,6 +127,16 @@ func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRu
 	}
 }
 
+func (r *ProgramRepository) populateQuestionSetInfo(ctx context.Context, p *model.Program) {
+	if r.pool == nil || p == nil || p.QuestionSetID == nil {
+		return
+	}
+	_ = r.pool.QueryRow(ctx, `
+		SELECT COALESCE(qs.name, ''), (SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = qs.id)
+		FROM question_sets qs WHERE qs.id = $1
+	`, *p.QuestionSetID).Scan(&p.QuestionSetName, &p.QuestionCount)
+}
+
 func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*model.Program, error) {
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = BuildApplicationStages(p.EnableMCQ, p.EnableAIInterview, false)
@@ -187,12 +197,13 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 
 	query := `
 		INSERT INTO programs (
-			organization_id, slug, name, description, image_url, open_date, end_date,
+			organization_id, question_set_id, slug, name, description, image_url, open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, ai_interview_instructions, ai_interview_questions, application_stages,
 			ai_interview_rubric, application_form_schema, status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now(), now())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, now(), now())
 		ON CONFLICT (organization_id, slug) DO UPDATE SET
+			question_set_id = EXCLUDED.question_set_id,
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			image_url = EXCLUDED.image_url,
@@ -210,7 +221,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 			application_form_schema = COALESCE(EXCLUDED.application_form_schema, programs.application_form_schema),
 			status = EXCLUDED.status,
 			updated_at = now()
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
@@ -220,12 +231,12 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	var res model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query,
-		p.OrganizationID, p.Slug, p.Name, p.Description, p.ImageURL, p.OpenDate, p.EndDate,
+		p.OrganizationID, p.QuestionSetID, p.Slug, p.Name, p.Description, p.ImageURL, p.OpenDate, p.EndDate,
 		p.EnableMCQ, p.LogicTestDurationMinutes, p.LogicTestPassingScore, p.AllowRetake,
 		p.EnableAIInterview, p.AIInterviewInstructions, questionsJSON, stagesJSON,
 		rubricJSON, schemaJSON, p.Status,
 	).Scan(
-		&res.ID, &res.OrganizationID, &res.Slug, &res.Name, &res.Description, &res.ImageURL,
+		&res.ID, &res.OrganizationID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description, &res.ImageURL,
 		&res.OpenDate, &res.EndDate,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore, &res.AllowRetake,
 		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -236,6 +247,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 		return nil, fmt.Errorf("program_repo: create: %w", err)
 	}
 	unmarshalAndDefaultProgram(&res, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &res)
 	return &res, nil
 }
 
@@ -284,27 +296,31 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 
 	query := `
 		SELECT 
-			p.id, p.organization_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
+			p.id, p.organization_id, p.question_set_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
 			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
 			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
 			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
 			COALESCE(p.application_form_schema, 'null'::jsonb),
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count,
 			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at
 		FROM programs p
 		JOIN organizations o ON p.organization_id = o.id
+		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
 		WHERE o.slug = $1 AND p.slug = $2
 	`
 	var p model.Program
 	var o model.Organization
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, orgSlug, programSlug).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
+		&p.QuestionSetName, &p.QuestionCount,
 		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -343,24 +359,28 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 	}
 
 	query := `
-		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
-			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
-			COALESCE(application_form_schema, 'null'::jsonb),
-			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
-		FROM programs
-		WHERE id = $1
+		SELECT p.id, p.organization_id, p.question_set_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
+			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
+			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
+			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
+			COALESCE(p.application_form_schema, 'null'::jsonb),
+			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count
+		FROM programs p
+		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
+		WHERE p.id = $1
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 		&rawSchema,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
+		&p.QuestionSetName, &p.QuestionCount,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -395,7 +415,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 			allow_retake = $4,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
@@ -405,7 +425,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, id, duration, passingScore, allowRetake).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -419,6 +439,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 		return nil, fmt.Errorf("program_repo: update config: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
 
@@ -461,7 +482,7 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 			status = CASE WHEN $7::text = '' THEN status ELSE $7::text END,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
@@ -471,7 +492,7 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, id, name, description, imageURL, openDate, endDate, status).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -485,19 +506,21 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 		return nil, fmt.Errorf("program_repo: update details: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
 
-func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string) (*model.Program, error) {
-	return r.UpdatePipelineWithRubric(ctx, id, enableMCQ, enableAI, instructions, questions, nil)
+func (r *ProgramRepository) UpdatePipeline(ctx context.Context, id uuid.UUID, questionSetID *uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string) (*model.Program, error) {
+	return r.UpdatePipelineWithRubric(ctx, id, questionSetID, enableMCQ, enableAI, instructions, questions, nil)
 }
 
-func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string, rubric *model.AIInterviewRubric) (*model.Program, error) {
+func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uuid.UUID, questionSetID *uuid.UUID, enableMCQ, enableAI bool, instructions string, questions []string, rubric *model.AIInterviewRubric) (*model.Program, error) {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		for _, p := range r.memPrograms {
 			if p.ID == id {
+				p.QuestionSetID = questionSetID
 				p.EnableMCQ = enableMCQ
 				p.EnableAIInterview = enableAI
 				p.AIInterviewInstructions = instructions
@@ -530,46 +553,48 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 		rubricJSON, _ := json.Marshal(rubric)
 		query = `
 			UPDATE programs
-			SET enable_mcq = $2,
-				enable_ai_interview = $3,
-				ai_interview_instructions = $4,
-				ai_interview_questions = $5,
-				ai_interview_rubric = $6,
-				application_stages = $7,
+			SET question_set_id = $2,
+				enable_mcq = $3,
+				enable_ai_interview = $4,
+				ai_interview_instructions = $5,
+				ai_interview_questions = $6,
+				ai_interview_rubric = $7,
+				application_stages = $8,
 				updated_at = now()
 			WHERE id = $1
-			RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 				enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				COALESCE(application_form_schema, 'null'::jsonb),
 				status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		`
-		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON, stagesJSON}
+		args = []any{id, questionSetID, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON, stagesJSON}
 	} else {
 		query = `
 			UPDATE programs
-			SET enable_mcq = $2,
-				enable_ai_interview = $3,
-				ai_interview_instructions = $4,
-				ai_interview_questions = $5,
-				application_stages = $6,
+			SET question_set_id = $2,
+				enable_mcq = $3,
+				enable_ai_interview = $4,
+				ai_interview_instructions = $5,
+				ai_interview_questions = $6,
+				application_stages = $7,
 				updated_at = now()
 			WHERE id = $1
-			RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 				enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				COALESCE(application_form_schema, 'null'::jsonb),
 				status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		`
-		args = []any{id, enableMCQ, enableAI, instructions, questionsJSON, stagesJSON}
+		args = []any{id, questionSetID, enableMCQ, enableAI, instructions, questionsJSON, stagesJSON}
 	}
 
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, args...).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -583,6 +608,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 		return nil, fmt.Errorf("program_repo: update pipeline: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
 
@@ -624,7 +650,7 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 			ai_interview_questions = CASE WHEN $3::text = '[]' THEN ai_interview_questions ELSE $3::jsonb END,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
@@ -634,7 +660,7 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, id, rubricJSON, string(qJSON)).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -648,6 +674,7 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 		return nil, fmt.Errorf("program_repo: update rubric: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
 
@@ -672,7 +699,7 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 		SET application_stages = $2,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
@@ -682,7 +709,7 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, id, stagesJSON).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -696,6 +723,7 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 		return nil, fmt.Errorf("program_repo: update stages: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
 
@@ -723,7 +751,7 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 		SET application_form_schema = $2,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
@@ -733,7 +761,7 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
 	err := r.pool.QueryRow(ctx, query, id, schemaJSON).Scan(
-		&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
@@ -747,6 +775,7 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 		return nil, fmt.Errorf("program_repo: update form schema: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
 
@@ -779,15 +808,18 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 	}
 
 	query := `
-		SELECT id, organization_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
-			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
-			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
-			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
-			COALESCE(application_form_schema, 'null'::jsonb),
-			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
-		FROM programs
-		WHERE organization_id = $1
-		ORDER BY created_at DESC
+		SELECT p.id, p.organization_id, p.question_set_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
+			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
+			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
+			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
+			COALESCE(p.application_form_schema, 'null'::jsonb),
+			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count
+		FROM programs p
+		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
+		WHERE p.organization_id = $1
+		ORDER BY p.created_at DESC
 	`
 	rows, err := r.pool.Query(ctx, query, orgID)
 	if err != nil {
@@ -800,12 +832,13 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 		var p model.Program
 		var rawQuestions, rawStages, rawRubric, rawSchema []byte
 		if err := rows.Scan(
-			&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+			&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 			&p.OpenDate, &p.EndDate,
 			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
 			&rawSchema,
 			&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
+			&p.QuestionSetName, &p.QuestionCount,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
 		}

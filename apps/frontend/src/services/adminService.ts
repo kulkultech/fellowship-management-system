@@ -14,6 +14,7 @@ import type {
 } from './types';
 
 export interface CreateProgramPayload {
+  question_set_id?: string;
   slug: string;
   name: string;
   description?: string;

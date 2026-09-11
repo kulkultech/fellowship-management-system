@@ -498,14 +498,15 @@ func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateProgramRequest struct {
-	Slug                     string   `json:"slug"`
-	Name                     string   `json:"name"`
-	Description              string   `json:"description"`
-	ImageURL                 string   `json:"image_url"`
-	EnableMCQ                bool     `json:"enable_mcq"`
-	LogicTestDurationMinutes int      `json:"logic_test_duration_minutes"`
-	LogicTestPassingScore    int      `json:"logic_test_passing_score"`
-	AllowRetake              bool     `json:"allow_retake"`
+	QuestionSetID            *uuid.UUID `json:"question_set_id,omitempty"`
+	Slug                     string     `json:"slug"`
+	Name                     string     `json:"name"`
+	Description              string     `json:"description"`
+	ImageURL                 string     `json:"image_url"`
+	EnableMCQ                bool       `json:"enable_mcq"`
+	LogicTestDurationMinutes int        `json:"logic_test_duration_minutes"`
+	LogicTestPassingScore    int        `json:"logic_test_passing_score"`
+	AllowRetake              bool       `json:"allow_retake"`
 	EnableAIInterview        bool       `json:"enable_ai_interview"`
 	AIInterviewInstructions  string     `json:"ai_interview_instructions"`
 	AIInterviewQuestions     []string   `json:"ai_interview_questions"`
@@ -561,6 +562,7 @@ func (h *AdminHandler) CreateProgram(w http.ResponseWriter, r *http.Request) {
 	p := &model.Program{
 		ID:                       uuid.New(),
 		OrganizationID:           orgID,
+		QuestionSetID:            req.QuestionSetID,
 		Slug:                     strings.ToLower(strings.TrimSpace(req.Slug)),
 		Name:                     req.Name,
 		Description:              req.Description,
@@ -668,6 +670,7 @@ func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Reque
 }
 
 type UpdatePipelineConfigRequest struct {
+	QuestionSetID            *uuid.UUID               `json:"question_set_id,omitempty"`
 	EnableMCQ                bool                     `json:"enable_mcq"`
 	LogicTestDurationMinutes int                      `json:"logic_test_duration_minutes"`
 	LogicTestPassingScore    int                      `json:"logic_test_passing_score"`
@@ -705,9 +708,9 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 	// 2. Update pipeline toggles, questions and rubric
 	var updated *model.Program
 	if req.AIInterviewRubric != nil {
-		updated, err = h.programRepo.UpdatePipelineWithRubric(r.Context(), id, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions, req.AIInterviewRubric)
+		updated, err = h.programRepo.UpdatePipelineWithRubric(r.Context(), id, req.QuestionSetID, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions, req.AIInterviewRubric)
 	} else {
-		updated, err = h.programRepo.UpdatePipeline(r.Context(), id, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions)
+		updated, err = h.programRepo.UpdatePipeline(r.Context(), id, req.QuestionSetID, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions)
 	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update pipeline config")
