@@ -4929,8 +4929,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       Generate from title
                     </button>
                   </div>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400">
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50/60 focus-within:border-kulkul-purple focus-within:ring-2 focus-within:ring-kulkul-purple/20 focus-within:bg-white overflow-hidden transition">
+                    <span className="px-3.5 py-2.5 text-xs font-mono text-slate-500 bg-slate-100/90 border-r border-slate-200 select-none whitespace-nowrap shrink-0">
                       /programs/{orgSlug}/
                     </span>
                     <input
@@ -4943,12 +4943,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           .replace(/[^a-z0-9-]/g, '-');
                         setEditFormSlug(sanitized);
                       }}
-                      placeholder="e.g. fellowship-2026"
-                      className="w-full pl-36 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-mono font-semibold text-slate-900 outline-none transition"
+                      placeholder="fellowship-2026"
+                      className="w-full px-3.5 py-2.5 text-xs font-mono font-semibold text-slate-900 outline-none bg-transparent min-w-0"
                     />
                   </div>
-                  <p className="text-2xs text-slate-400 mt-1">
-                    Candidate portal URL: <code className="font-mono text-kulkul-purple font-semibold">/programs/{orgSlug}/{editFormSlug || 'slug'}</code>
+                  <p className="text-2xs text-slate-400 mt-1.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Candidate portal URL:</span>
+                    <code className="font-mono text-kulkul-purple font-semibold bg-purple-50 px-1.5 py-0.5 rounded text-3xs">
+                      /programs/{orgSlug}/{editFormSlug || 'slug'}
+                    </code>
                   </p>
                 </div>
 
