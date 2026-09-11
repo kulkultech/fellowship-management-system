@@ -14,11 +14,13 @@ import type {
   ApplicationStageItem,
   CreateQuestionSetPayload,
   Program,
+  QuestionSet,
   AIInterviewRubric,
   AIInterviewQuestionItem,
   RubricCriterion,
   CriterionScore,
 } from '@/services/types';
+import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -130,6 +132,7 @@ import {
   Download,
   PlusCircle,
   Upload,
+  UploadCloud,
   Sliders,
   Sparkles,
 } from 'lucide-react';
@@ -210,6 +213,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Modals & Sub-views
   const [isCreateQuestionSetModalOpen, setIsCreateQuestionSetModalOpen] = useState(false);
+  const [isImportCsvModalOpen, setIsImportCsvModalOpen] = useState(false);
+  const [csvImportTargetSet, setCsvImportTargetSet] = useState<QuestionSet | null>(null);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [openedQuestionSetId, setOpenedQuestionSetId] = useState<string | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
@@ -290,9 +295,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   });
 
   // Load All Question Sets (Question Banks)
+  const targetOrg = impersonatedOrgId || orgProfile?.id || user?.organization?.id || undefined;
   const { data: allQuestionSets = [], refetch: refetchQuestionSets } = useQuery({
-    queryKey: ['admin-question-sets', orgSlug, impersonatedOrgId],
-    queryFn: () => adminService.listQuestionSets(undefined, impersonatedOrgId),
+    queryKey: ['admin-question-sets', orgSlug, targetOrg],
+    queryFn: () => adminService.listQuestionSets(undefined, targetOrg),
   });
 
   // Selected Question Set ID for Question Bank Editor
@@ -501,11 +507,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Question Sets Mutations
   const createQuestionSetMutation = useMutation({
-    mutationFn: (payload: CreateQuestionSetPayload) => adminService.createQuestionSet(payload),
+    mutationFn: (payload: CreateQuestionSetPayload) => {
+      const targetOrg = impersonatedOrgId || orgProfile?.id || user?.organization?.id || undefined;
+      return adminService.createQuestionSet(
+        {
+          ...payload,
+          organization_id: targetOrg,
+        },
+        targetOrg
+      );
+    },
     onSuccess: (newSet) => {
       toast.success(`Question set "${newSet.name}" created!`);
+      queryClient.invalidateQueries({ queryKey: ['admin-question-sets'] });
       refetchQuestionSets();
       setSelectedQuestionSetId(newSet.id);
+      setOpenedQuestionSetId(newSet.id);
       setIsCreateQuestionSetModalOpen(false);
       setNewQuestionSetForm({
         name: '',
@@ -516,7 +533,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to create question set');
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Failed to create question set';
+      toast.error(msg);
     },
   });
 
@@ -534,11 +552,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     },
     onSuccess: (updated) => {
       toast.success(`Question set "${updated.name}" saved! (${editingQuestions.length} questions)`);
+      queryClient.invalidateQueries({ queryKey: ['admin-question-sets'] });
       refetchQuestionSets();
       refetchTracks();
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to save question set');
+      toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to save question set');
     },
   });
 
@@ -546,11 +565,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     mutationFn: (id: string) => adminService.duplicateQuestionSet(id),
     onSuccess: (dup) => {
       toast.success(`Duplicated "${dup.name}" successfully!`);
+      queryClient.invalidateQueries({ queryKey: ['admin-question-sets'] });
       refetchQuestionSets();
       setSelectedQuestionSetId(dup.id);
+      setOpenedQuestionSetId(dup.id);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to duplicate question set');
+      toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to duplicate question set');
     },
   });
 
@@ -558,13 +579,55 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     mutationFn: (id: string) => adminService.deleteQuestionSet(id),
     onSuccess: () => {
       toast.success('Question set deleted');
+      queryClient.invalidateQueries({ queryKey: ['admin-question-sets'] });
       refetchQuestionSets();
       refetchTracks();
+      setOpenedQuestionSetId(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to delete question set');
+      toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to delete question set');
     },
   });
+
+  const handleOpenCsvImportForCurrentSet = () => {
+    if (activeQuestionSet) {
+      setCsvImportTargetSet(activeQuestionSet);
+    } else {
+      setCsvImportTargetSet(null);
+    }
+    setIsImportCsvModalOpen(true);
+  };
+
+  const handleOpenCsvImportNew = () => {
+    setCsvImportTargetSet(null);
+    setIsImportCsvModalOpen(true);
+  };
+
+  const handleImportCsvSuccess = (result: {
+    questions: MCQQuestion[];
+    mode: 'replace' | 'append';
+    questionSet?: QuestionSet;
+  }) => {
+    queryClient.invalidateQueries({ queryKey: ['admin-question-sets'] });
+    refetchQuestionSets();
+    refetchTracks();
+    if (result.questionSet) {
+      setSelectedQuestionSetId(result.questionSet.id);
+      setOpenedQuestionSetId(result.questionSet.id);
+      setEditingQuestions(JSON.parse(JSON.stringify(result.questionSet.questions || result.questions)));
+      setEditingSetName(result.questionSet.name);
+      setEditingSetCategory(result.questionSet.category);
+      setEditingSetDuration(result.questionSet.duration_minutes);
+      setEditingSetPassingScore(result.questionSet.passing_score);
+      setEditingSetDescription(result.questionSet.description || '');
+    } else if (openedQuestionSetId) {
+      if (result.mode === 'append') {
+        setEditingQuestions((prev) => [...prev, ...result.questions]);
+      } else {
+        setEditingQuestions(result.questions);
+      }
+    }
+  };
 
   const createProgramMutation = useMutation({
     mutationFn: (payload: CreateProgramPayload) => adminService.createProgram(payload, impersonatedOrgId),
@@ -2088,6 +2151,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      onClick={handleOpenCsvImportNew}
+                      className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                    >
+                      <UploadCloud className="w-4 h-4 text-kulkul-purple" />
+                      <span>Import CSV</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setIsCreateQuestionSetModalOpen(true)}
                       className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
                     >
@@ -2101,15 +2173,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <div className="stitch-card p-12 bg-white text-center">
                     <HelpCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <h3 className="font-bold text-slate-700">No question sets found</h3>
-                    <p className="text-xs text-slate-500 mt-1 mb-4">
-                      Create your first reusable question bank to configure domain MCQ assessments for your tracks.
+                    <p className="text-xs text-slate-500 mt-1 mb-6">
+                      Create your first reusable question bank or import existing questions from a CSV file.
                     </p>
-                    <button
-                      onClick={() => setIsCreateQuestionSetModalOpen(true)}
-                      className="px-5 py-2 rounded-full bg-kulkul-purple text-white text-xs font-bold"
-                    >
-                      Create Question Set
-                    </button>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={handleOpenCsvImportNew}
+                        className="px-5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
+                        <span>Import from CSV</span>
+                      </button>
+                      <button
+                        onClick={() => setIsCreateQuestionSetModalOpen(true)}
+                        className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-sm hover:bg-kulkul-purple-hover transition"
+                      >
+                        Create Question Set
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
@@ -2188,6 +2269,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                                     <button
                                       type="button"
+                                      onClick={() => {
+                                        setSelectedQuestionSetId(qs.id);
+                                        setCsvImportTargetSet(qs);
+                                        setIsImportCsvModalOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                      title="Import questions from CSV into this set"
+                                    >
+                                      <UploadCloud className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      type="button"
                                       onClick={() => duplicateQuestionSetMutation.mutate(qs.id)}
                                       className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
                                       title="Duplicate question set"
@@ -2235,6 +2329,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </button>
 
                   <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleOpenCsvImportForCurrentSet}
+                      className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                      title="Import questions from CSV into this set"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
+                      <span>Import CSV</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleAddQuestion}
@@ -2357,13 +2461,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto">
                         Add multiple choice logic and domain questions to build this assessment set.
                       </p>
-                      <button
-                        type="button"
-                        onClick={handleAddQuestion}
-                        className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-xs"
-                      >
-                        Add First Question
-                      </button>
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleOpenCsvImportForCurrentSet}
+                          className="px-5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                        >
+                          <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
+                          <span>Import Questions from CSV</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddQuestion}
+                          className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
+                          <span>Add Question Manually</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     editingQuestions.map((q, qIdx) => (
@@ -3591,7 +3706,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   e.preventDefault();
                   createQuestionSetMutation.mutate({
                     ...newQuestionSetForm,
-                    program_id: programId,
                   });
                 }}
                 className="space-y-4"
@@ -3686,6 +3800,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
           </div>
         )}
+
+        {/* ================================================================================= */}
+        {/* MODAL 4: IMPORT QUESTIONS FROM CSV MODAL */}
+        {/* ================================================================================= */}
+        <ImportQuestionsCsvModal
+          isOpen={isImportCsvModalOpen}
+          onClose={() => setIsImportCsvModalOpen(false)}
+          targetQuestionSet={csvImportTargetSet}
+          onImportSuccess={handleImportCsvSuccess}
+          syncToBackend={true}
+          orgId={impersonatedOrgId || orgProfile?.id || user?.organization?.id || undefined}
+        />
 
 
 

@@ -48,6 +48,7 @@ export interface QuestionSet {
 }
 
 export interface CreateQuestionSetPayload {
+  organization_id?: string;
   program_id?: string;
   name: string;
   description?: string;

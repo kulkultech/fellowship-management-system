@@ -20,6 +20,7 @@ import {
   Server,
   Database,
   Cpu,
+  Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -44,12 +45,14 @@ export const SuperadminDashboardPage: React.FC = () => {
   const { data: companiesList = [], isLoading: isCompaniesLoading } = useQuery({
     queryKey: ['superadmin-companies', companyStatusFilter],
     queryFn: () => adminService.listCompanies(companyStatusFilter),
+    refetchOnMount: 'always',
   });
 
   // 2. Load All Programs Across System
   const { data: allPrograms = [], isLoading: isProgramsLoading } = useQuery({
     queryKey: ['superadmin-all-programs'],
     queryFn: () => adminService.listPrograms(),
+    refetchOnMount: 'always',
   });
 
   // 3. Company Approval / Rejection Mutations
@@ -74,6 +77,18 @@ export const SuperadminDashboardPage: React.FC = () => {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to reject company');
+    },
+  });
+
+  const deleteCompanyMutation = useMutation({
+    mutationFn: (companyId: string) => adminService.deleteCompany(companyId),
+    onSuccess: () => {
+      toast.success('Company deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['superadmin-companies'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-companies'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to delete company');
     },
   });
 
@@ -362,6 +377,22 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
                                 >
                                   Re-Approve
+                                </button>
+                              )}
+
+                              {company.id !== '00000000-0000-0000-0000-000000000001' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Are you sure you want to delete "${company.name}"? This will permanently remove the company and its associated programs.`)) {
+                                      deleteCompanyMutation.mutate(company.id);
+                                    }
+                                  }}
+                                  disabled={deleteCompanyMutation.isPending}
+                                  className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition"
+                                  title="Delete company"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
                             </div>

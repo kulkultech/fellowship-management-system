@@ -161,8 +161,10 @@ export const adminService = {
     return data;
   },
 
-  createQuestionSet: async (payload: CreateQuestionSetPayload): Promise<QuestionSet> => {
-    const { data } = await apiClient.post<QuestionSet>('/admin/question-sets', payload);
+  createQuestionSet: async (payload: CreateQuestionSetPayload, orgId?: string): Promise<QuestionSet> => {
+    const { data } = await apiClient.post<QuestionSet>('/admin/question-sets', payload, {
+      params: orgId ? { org_id: orgId } : undefined,
+    });
     return data;
   },
 
@@ -177,6 +179,52 @@ export const adminService = {
 
   duplicateQuestionSet: async (id: string): Promise<QuestionSet> => {
     const { data } = await apiClient.post<QuestionSet>(`/admin/question-sets/${id}/duplicate`);
+    return data;
+  },
+
+  importQuestionSetCSV: async (
+    id: string,
+    file: File,
+    mode: 'replace' | 'append' = 'replace',
+    orgId?: string
+  ): Promise<{ question_set: QuestionSet; imported_count: number; total_count: number; errors?: string[] }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', mode);
+    if (orgId) formData.append('org_id', orgId);
+    const { data } = await apiClient.post<{ question_set: QuestionSet; imported_count: number; total_count: number; errors?: string[] }>(
+      `/admin/question-sets/${id}/import-csv?mode=${mode}${orgId ? `&org_id=${encodeURIComponent(orgId)}` : ''}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return data;
+  },
+
+  createQuestionSetFromCSV: async (
+    file: File,
+    meta?: { name?: string; category?: string; duration?: number; passing_score?: number },
+    orgId?: string
+  ): Promise<{ question_set: QuestionSet; imported_count: number; errors?: string[] }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (meta?.name) formData.append('name', meta.name);
+    if (meta?.category) formData.append('category', meta.category);
+    if (meta?.duration) formData.append('duration_minutes', String(meta.duration));
+    if (meta?.passing_score) formData.append('passing_score', String(meta.passing_score));
+    if (orgId) formData.append('org_id', orgId);
+    const { data } = await apiClient.post<{ question_set: QuestionSet; imported_count: number; errors?: string[] }>(
+      `/admin/question-sets/import-csv${orgId ? `?org_id=${encodeURIComponent(orgId)}` : ''}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return data;
   },
 
@@ -219,6 +267,10 @@ export const adminService = {
   rejectCompany: async (companyId: string): Promise<Organization> => {
     const { data } = await apiClient.post<{ company: Organization }>(`/admin/companies/${companyId}/reject`);
     return data.company;
+  },
+
+  deleteCompany: async (companyId: string): Promise<void> => {
+    await apiClient.delete(`/admin/companies/${companyId}`);
   },
 
   // Organization Profile

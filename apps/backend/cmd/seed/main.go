@@ -68,11 +68,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 4. Seed Ladies in Tech Network Company & Question Bank
-	if err := repository.SeedLadiesInTechNetwork(ctx, pool, logger); err != nil {
-		logger.Error("failed to seed Ladies in Tech Network question bank", "error", err)
-		os.Exit(1)
-	}
-
 	logger.Info("Database seeding complete!")
 }

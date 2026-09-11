@@ -5,7 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -412,31 +415,43 @@ func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.
 			targetOrgStr = strings.TrimSpace(r.URL.Query().Get("organization_id"))
 		}
 		if targetOrgStr == "" {
+			targetOrgStr = strings.TrimSpace(r.FormValue("org_id"))
+		}
+		if targetOrgStr == "" {
+			targetOrgStr = strings.TrimSpace(r.FormValue("organization_id"))
+		}
+		if targetOrgStr == "" {
 			targetOrgStr = strings.TrimSpace(r.Header.Get("X-Organization-ID"))
 		}
 		if targetOrgStr != "" {
 			if parsed, err := uuid.Parse(targetOrgStr); err == nil && parsed != uuid.Nil {
-				return parsed, nil
+				if _, err := h.orgRepo.GetByID(ctx, parsed); err == nil {
+					return parsed, nil
+				}
 			}
 		}
 		// 2. If claims has an org ID
 		if claims.OrganizationID != nil && *claims.OrganizationID != uuid.Nil {
-			return *claims.OrganizationID, nil
+			if _, err := h.orgRepo.GetByID(ctx, *claims.OrganizationID); err == nil {
+				return *claims.OrganizationID, nil
+			}
 		}
-		// 3. Superadmin default: return first company or rsa
-		orgs, err := h.orgRepo.List(ctx, "")
-		if err == nil && len(orgs) > 0 {
-			return orgs[0].ID, nil
-		}
+		// 3. Superadmin default: return primary "rsa" organization
 		org, err := h.orgRepo.GetBySlug(ctx, "rsa")
 		if err == nil && org != nil && org.ID != uuid.Nil {
 			return org.ID, nil
+		}
+		orgs, err := h.orgRepo.List(ctx, "")
+		if err == nil && len(orgs) > 0 {
+			return orgs[0].ID, nil
 		}
 		return uuid.MustParse("00000000-0000-0000-0000-000000000001"), nil
 	}
 
 	if claims != nil && claims.OrganizationID != nil && *claims.OrganizationID != uuid.Nil {
-		return *claims.OrganizationID, nil
+		if _, err := h.orgRepo.GetByID(ctx, *claims.OrganizationID); err == nil {
+			return *claims.OrganizationID, nil
+		}
 	}
 	// Fallback 1: Look up "rsa" default org
 	org, err := h.orgRepo.GetBySlug(ctx, "rsa")
@@ -1254,6 +1269,7 @@ func publicUserPayload(u *model.User) map[string]any {
 // --------------------------------------------------------------------------------
 
 type CreateQuestionSetRequest struct {
+	OrganizationID  *string             `json:"organization_id,omitempty"`
 	ProgramID       *string             `json:"program_id,omitempty"`
 	Name            string              `json:"name"`
 	Description     string              `json:"description,omitempty"`
@@ -1354,8 +1370,36 @@ func (h *AdminHandler) CreateQuestionSet(w http.ResponseWriter, r *http.Request)
 
 	claims, ok := middleware.GetUser(r.Context())
 	var orgUUID *uuid.UUID
-	if ok && claims != nil && claims.OrganizationID != nil {
-		orgUUID = claims.OrganizationID
+	if req.OrganizationID != nil && strings.TrimSpace(*req.OrganizationID) != "" {
+		if parsed, err := uuid.Parse(strings.TrimSpace(*req.OrganizationID)); err == nil && parsed != uuid.Nil {
+			if _, err := h.orgRepo.GetByID(r.Context(), parsed); err == nil {
+				orgUUID = &parsed
+			}
+		}
+	}
+	if orgUUID == nil {
+		if queryOrg := r.URL.Query().Get("org_id"); queryOrg != "" {
+			if parsed, err := uuid.Parse(queryOrg); err == nil && parsed != uuid.Nil {
+				if _, err := h.orgRepo.GetByID(r.Context(), parsed); err == nil {
+					orgUUID = &parsed
+				}
+			}
+		}
+	}
+	if orgUUID == nil && ok {
+		resolved, err := h.resolveOrgID(r, claims)
+		if err == nil && resolved != uuid.Nil {
+			orgUUID = &resolved
+		}
+	}
+	if orgUUID == nil {
+		rsaOrg, err := h.orgRepo.GetBySlug(r.Context(), "rsa")
+		if err == nil && rsaOrg != nil && rsaOrg.ID != uuid.Nil {
+			orgUUID = &rsaOrg.ID
+		} else {
+			defaultID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+			orgUUID = &defaultID
+		}
 	}
 
 	cat := strings.TrimSpace(req.Category)
@@ -1385,7 +1429,8 @@ func (h *AdminHandler) CreateQuestionSet(w http.ResponseWriter, r *http.Request)
 
 	created, err := h.questionSetRepo.Create(r.Context(), qs)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to create question set")
+		slog.Error("failed to create question set", slog.Any("error", err), slog.Any("org_id", orgUUID))
+		httpx.Error(w, http.StatusInternalServerError, "failed to create question set: "+err.Error())
 		return
 	}
 
@@ -1535,3 +1580,236 @@ func (h *AdminHandler) UpdateOrganization(w http.ResponseWriter, r *http.Request
 
 	httpx.JSON(w, http.StatusOK, org)
 }
+
+func (h *AdminHandler) ImportQuestionSetCSV(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	setID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid question set id")
+		return
+	}
+
+	qs, err := h.questionSetRepo.GetByID(r.Context(), setID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "question set not found")
+		return
+	}
+
+	var reader io.Reader
+	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart form: "+err.Error())
+			return
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			file, _, err = r.FormFile("csv")
+		}
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "file or csv form field required")
+			return
+		}
+		defer file.Close()
+		reader = file
+	} else {
+		reader = r.Body
+	}
+
+	importResult, err := repository.ParseQuestionsFromCSV(reader, qs.Category)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "failed to parse CSV: "+err.Error())
+		return
+	}
+
+	mode := r.URL.Query().Get("mode")
+	if mode == "" {
+		mode = r.FormValue("mode")
+	}
+	if mode == "" {
+		mode = "replace"
+	}
+
+	var finalQuestions []model.MCQQuestion
+	if mode == "append" {
+		existing := qs.Questions
+		finalQuestions = append(existing, importResult.Questions...)
+	} else {
+		finalQuestions = importResult.Questions
+	}
+
+	saved, err := h.questionSetRepo.ReplaceQuestions(r.Context(), setID, qs.ProgramID, finalQuestions)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to save questions: "+err.Error())
+		return
+	}
+
+	qs.Questions = saved
+	qs.TotalQuestions = len(saved)
+
+	httpx.JSON(w, http.StatusOK, map[string]interface{}{
+		"question_set":   qs,
+		"imported_count": len(importResult.Questions),
+		"total_count":    len(saved),
+		"errors":         importResult.Errors,
+	})
+}
+
+func (h *AdminHandler) CreateQuestionSetFromCSV(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var orgUUID *uuid.UUID
+	if formOrg := r.FormValue("org_id"); formOrg != "" {
+		if parsed, err := uuid.Parse(formOrg); err == nil && parsed != uuid.Nil {
+			if _, err := h.orgRepo.GetByID(r.Context(), parsed); err == nil {
+				orgUUID = &parsed
+			}
+		}
+	}
+	if orgUUID == nil {
+		if queryOrg := r.URL.Query().Get("org_id"); queryOrg != "" {
+			if parsed, err := uuid.Parse(queryOrg); err == nil && parsed != uuid.Nil {
+				if _, err := h.orgRepo.GetByID(r.Context(), parsed); err == nil {
+					orgUUID = &parsed
+				}
+			}
+		}
+	}
+	if orgUUID == nil {
+		resolved, err := h.resolveOrgID(r, claims)
+		if err == nil && resolved != uuid.Nil {
+			orgUUID = &resolved
+		}
+	}
+	if orgUUID == nil {
+		rsaOrg, err := h.orgRepo.GetBySlug(r.Context(), "rsa")
+		if err == nil && rsaOrg != nil && rsaOrg.ID != uuid.Nil {
+			orgUUID = &rsaOrg.ID
+		} else {
+			fallbackID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+			orgUUID = &fallbackID
+		}
+	}
+
+	var reader io.Reader
+	var filename string
+	setName := r.FormValue("name")
+	category := r.FormValue("category")
+	durationStr := r.FormValue("duration_minutes")
+	passingStr := r.FormValue("passing_score")
+
+	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart form: "+err.Error())
+			return
+		}
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			file, header, err = r.FormFile("csv")
+		}
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "file or csv form field required")
+			return
+		}
+		defer file.Close()
+		reader = file
+		if header != nil {
+			filename = header.Filename
+		}
+	} else {
+		reader = r.Body
+	}
+
+	if category == "" {
+		category = "General Assessment"
+	}
+
+	importResult, err := repository.ParseQuestionsFromCSV(reader, category)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "failed to parse CSV: "+err.Error())
+		return
+	}
+
+	if setName == "" {
+		if filename != "" {
+			setName = strings.TrimSuffix(filename, ".csv")
+			setName = strings.TrimSuffix(setName, ".CSV")
+		} else {
+			setName = "Imported Question Bank"
+		}
+	}
+
+	duration := 30
+	if durationStr != "" {
+		if d, err := strconv.Atoi(durationStr); err == nil && d > 0 {
+			duration = d
+		}
+	}
+	passingScore := 70
+	if passingStr != "" {
+		if p, err := strconv.Atoi(passingStr); err == nil && p > 0 && p <= 100 {
+			passingScore = p
+		}
+	}
+
+	newQS := &model.QuestionSet{
+		ID:              uuid.New(),
+		OrganizationID:  orgUUID,
+		Name:            setName,
+		Category:        category,
+		DurationMinutes: duration,
+		PassingScore:    passingScore,
+		Questions:       importResult.Questions,
+	}
+
+	created, err := h.questionSetRepo.Create(r.Context(), newQS)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to create question set: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, map[string]interface{}{
+		"question_set":   created,
+		"imported_count": len(importResult.Questions),
+		"errors":         importResult.Errors,
+	})
+}
+
+func (h *AdminHandler) DeleteCompany(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil || claims.Role != model.RoleSuperadmin {
+		httpx.JSON(w, http.StatusForbidden, map[string]string{"error": "forbidden: superadmin only"})
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	orgID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid company id")
+		return
+	}
+
+	if orgID == uuid.MustParse("00000000-0000-0000-0000-000000000001") {
+		httpx.Error(w, http.StatusBadRequest, "cannot delete primary system organization")
+		return
+	}
+
+	if err := h.orgRepo.Delete(r.Context(), orgID); err != nil {
+		if errors.Is(err, repository.ErrOrgNotFound) {
+			httpx.Error(w, http.StatusNotFound, "company not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to delete company: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "company deleted successfully",
+		"id":      orgID.String(),
+	})
+}
+
+

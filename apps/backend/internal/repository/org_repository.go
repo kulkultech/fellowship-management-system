@@ -294,3 +294,34 @@ func (r *OrgRepository) Update(ctx context.Context, id uuid.UUID, name, contactE
 	}
 	return &o, nil
 }
+
+func (r *OrgRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for slug, org := range r.memOrgs {
+			if org.ID == id {
+				delete(r.memOrgs, slug)
+				return nil
+			}
+		}
+		return ErrOrgNotFound
+	}
+
+	// Clean up child relationships
+	_, _ = r.pool.Exec(ctx, "DELETE FROM test_submissions WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
+	_, _ = r.pool.Exec(ctx, "DELETE FROM applicants WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
+	_, _ = r.pool.Exec(ctx, "DELETE FROM mcq_questions WHERE question_set_id IN (SELECT id FROM question_sets WHERE organization_id = $1)", id)
+	_, _ = r.pool.Exec(ctx, "DELETE FROM question_sets WHERE organization_id = $1", id)
+	_, _ = r.pool.Exec(ctx, "DELETE FROM program_tracks WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
+	_, _ = r.pool.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1", id)
+	_, _ = r.pool.Exec(ctx, "DELETE FROM users WHERE organization_id = $1", id)
+	tag, err := r.pool.Exec(ctx, "DELETE FROM organizations WHERE id = $1", id)
+	if err != nil {
+		return fmt.Errorf("org_repo: delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrOrgNotFound
+	}
+	return nil
+}

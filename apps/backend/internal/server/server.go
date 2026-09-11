@@ -209,10 +209,12 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				// Question Sets / Question Banks
 				adm.Get("/question-sets", adminHandler.ListQuestionSets)
 				adm.Post("/question-sets", adminHandler.CreateQuestionSet)
+				adm.Post("/question-sets/import-csv", adminHandler.CreateQuestionSetFromCSV)
 				adm.Get("/question-sets/{id}", adminHandler.GetQuestionSet)
 				adm.Put("/question-sets/{id}", adminHandler.UpdateQuestionSet)
 				adm.Delete("/question-sets/{id}", adminHandler.DeleteQuestionSet)
 				adm.Post("/question-sets/{id}/duplicate", adminHandler.DuplicateQuestionSet)
+				adm.Post("/question-sets/{id}/import-csv", adminHandler.ImportQuestionSetCSV)
 
 				// Applicants & Review
 				adm.Get("/applicants", adminHandler.ListApplicants)
@@ -225,6 +227,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 					super.Get("/companies", adminHandler.ListCompanies)
 					super.Post("/companies/{id}/approve", adminHandler.ApproveCompany)
 					super.Post("/companies/{id}/reject", adminHandler.RejectCompany)
+					super.Delete("/companies/{id}", adminHandler.DeleteCompany)
 					super.Get("/users/lookup", adminHandler.LookupUser)
 					super.Post("/users/relink", adminHandler.RelinkUser)
 				})
