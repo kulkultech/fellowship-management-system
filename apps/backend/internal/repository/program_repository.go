@@ -96,7 +96,28 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 		pool:        pool,
 		memPrograms: make(map[string]*model.Program),
 	}
-	// Pre-seed LIT 2026 program with exact Workflow.pdf configuration
+	litProg := &model.Program{
+		ID:                       uuid.MustParse("32929d79-a79b-44b2-b3f1-a32e55809fed"),
+		OrganizationID:           uuid.MustParse("6ebdf84b-41e2-442d-9c9f-c6258ad4b6ce"),
+		Slug:                     "lit2026",
+		Name:                     "LIT Scholarship 2026",
+		Description:              "The flagship talent acceleration scholarship program by Ladies in Tech Network and Kulkul Tech.",
+		ImageURL:                 "https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp",
+		OpenDate:                 time.Now().Add(-24 * time.Hour),
+		EndDate:                  time.Now().Add(180 * 24 * time.Hour),
+		EnableMCQ:                true,
+		LogicTestDurationMinutes: 35,
+		LogicTestPassingScore:    70,
+		AllowRetake:              false,
+		EnableAIInterview:        true,
+		AIInterviewInstructions:  "Assess communication readiness, workplace problem-solving, and collaboration per LIT rubric.",
+		AIInterviewRubric:        model.DefaultLITRubric(),
+		Status:                   "published",
+		CreatedAt:                time.Now(),
+		UpdatedAt:                time.Now(),
+	}
+	repo.memPrograms["ladies-in-tech:lit2026"] = litProg
+	repo.memPrograms["rsa:lit2026"] = litProg
 	return repo
 }
 
