@@ -260,8 +260,18 @@ export const CandidateDashboardPage: React.FC = () => {
                       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
                         <div className="flex items-start gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 font-bold text-lg shadow-2xs">
-                            {app.org_logo_url ? (
-                              <img src={resolveMediaUrl(app.org_logo_url)} alt={app.org_name} className="w-8 h-8 rounded-xl object-cover" />
+                            {app.org_logo_url || app.org_slug === 'ladies-in-tech' ? (
+                              <img
+                                src={resolveMediaUrl(app.org_logo_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
+                                alt={app.org_name}
+                                className="w-8 h-8 rounded-xl object-contain bg-white"
+                                onError={(e) => {
+                                  const img = e.currentTarget;
+                                  if (!img.src.includes('litlogo')) {
+                                    img.src = '/litlogo.jpeg';
+                                  }
+                                }}
+                              />
                             ) : (
                               <Building2 className="w-6 h-6" />
                             )}

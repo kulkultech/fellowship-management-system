@@ -45,8 +45,8 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOr
 	// Clean up any stale program (lit-sda)
 	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE slug = 'lit-sda'")
 
-	// Ensure lit2026 and its applicants and question sets are associated with targetOrgID
-	_, _ = pool.Exec(ctx, "UPDATE programs SET organization_id = $1::uuid WHERE slug = 'lit2026'", targetOrgID)
+	// Ensure lit2026 and its applicants and question sets are associated with targetOrgID and has official hero image
+	_, _ = pool.Exec(ctx, "UPDATE programs SET organization_id = $1::uuid, image_url = 'https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp' WHERE slug = 'lit2026'", targetOrgID)
 	_, _ = pool.Exec(ctx, "UPDATE applicants SET organization_id = $1::uuid WHERE program_id IN (SELECT id FROM programs WHERE slug = 'lit2026')", targetOrgID)
 	_, _ = pool.Exec(ctx, "UPDATE question_sets SET organization_id = $1::uuid WHERE id IN ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000023')", targetOrgID)
 
@@ -59,6 +59,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOr
 		Slug        string
 		Name        string
 		Description string
+		ImageURL    string
 		Tracks      []struct {
 			Slug          string
 			Name          string
@@ -71,6 +72,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOr
 			Slug:        "lit2026",
 			Name:        "LIT 2026 Fellowship Program",
 			Description: "The flagship talent acceleration fellowship program by Ladies in Tech Network and Kulkul Tech. Choose your specialization track to begin evaluation.",
+			ImageURL:    "https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp",
 			Tracks: []struct {
 				Slug          string
 				Name          string
@@ -179,20 +181,21 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOr
 		var progID string
 		seedProgQuery := `
 			INSERT INTO programs (
-				organization_id, slug, name, description,
+				organization_id, slug, name, description, image_url,
 				open_date, end_date, logic_test_duration_minutes,
 				logic_test_passing_score, allow_retake, status,
 				enable_mcq, enable_ai_interview, ai_interview_rubric, created_at, updated_at
 			)
-			VALUES ($1::uuid, $2, $3, $4, now() - INTERVAL '1 day', now() + INTERVAL '180 days', 35, 70, false, 'published', true, true, $5::jsonb, now(), now())
+			VALUES ($1::uuid, $2, $3, $4, $5, now() - INTERVAL '1 day', now() + INTERVAL '180 days', 35, 70, false, 'published', true, true, $6::jsonb, now(), now())
 			ON CONFLICT (organization_id, slug) DO UPDATE SET
 				name = EXCLUDED.name,
 				description = EXCLUDED.description,
+				image_url = EXCLUDED.image_url,
 				ai_interview_rubric = EXCLUDED.ai_interview_rubric,
 				updated_at = now()
 			RETURNING id::text
 		`
-		if err := pool.QueryRow(ctx, seedProgQuery, targetOrgID, p.Slug, p.Name, p.Description, string(litRubricJSON)).Scan(&progID); err != nil {
+		if err := pool.QueryRow(ctx, seedProgQuery, targetOrgID, p.Slug, p.Name, p.Description, p.ImageURL, string(litRubricJSON)).Scan(&progID); err != nil {
 			logger.Warn("seed_lit: error upserting program", slog.String("slug", p.Slug), slog.Any("error", err))
 			continue
 		}

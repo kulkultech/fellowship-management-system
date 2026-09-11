@@ -87,9 +87,16 @@ export const ProgramJobPostPage: React.FC = () => {
     );
   }
 
-  const coverImage =
+  const programImage =
     resolveMediaUrl(program.image_url) ||
-    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80';
+    (program.slug === 'lit2026' ? 'https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp' : '') ||
+    '/lithero.webp';
+
+  const orgLogo =
+    resolveMediaUrl(org?.logo_url) ||
+    (org?.slug === 'ladies-in-tech' || program.slug === 'lit2026'
+      ? 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'
+      : '/litlogo.jpeg');
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -101,9 +108,15 @@ export const ProgramJobPostPage: React.FC = () => {
           {/* Banner Cover Image */}
           <div className="relative h-64 sm:h-80 md:h-96 w-full bg-slate-900 overflow-hidden">
             <img
-              src={coverImage}
+              src={programImage}
               alt={program.name}
               className="w-full h-full object-cover opacity-85"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (!img.src.includes('lithero')) {
+                  img.src = '/lithero.webp';
+                }
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
 
@@ -129,11 +142,29 @@ export const ProgramJobPostPage: React.FC = () => {
             </div>
 
             {/* Bottom Title on Image */}
-            <div className="absolute bottom-6 left-6 right-6 text-white">
+            <div className="absolute bottom-6 left-6 right-6 text-white space-y-2.5">
+              {/* Organization Branding Badge with Logo */}
+              <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md shadow-md border border-white/40">
+                <img
+                  src={orgLogo}
+                  alt={org?.name || 'Ladies in Tech Network'}
+                  className="w-5 h-5 rounded-full object-contain"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (!img.src.includes('litlogo')) {
+                      img.src = '/litlogo.jpeg';
+                    }
+                  }}
+                />
+                <span className="text-xs font-black uppercase tracking-wider text-kulkul-purple">
+                  {org?.name || 'Ladies in Tech Network'}
+                </span>
+              </div>
+
               <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
                 {program.name}
               </h1>
-              <p className="text-white/80 text-sm sm:text-base mt-2 max-w-3xl line-clamp-2">
+              <p className="text-white/80 text-sm sm:text-base mt-1 max-w-3xl line-clamp-2">
                 {program.description}
               </p>
             </div>

@@ -1532,8 +1532,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <td className="py-4 px-6 align-middle">
                                 <div className="flex items-center gap-3.5">
                                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
-                                    {prog.image_url ? (
-                                      <img src={resolveMediaUrl(prog.image_url)} alt={prog.name} className="w-full h-full object-cover" />
+                                    {prog.image_url || prog.slug === 'lit2026' ? (
+                                      <img
+                                        src={resolveMediaUrl(prog.image_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp'}
+                                        alt={prog.name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          const img = e.currentTarget;
+                                          if (!img.src.includes('lithero')) {
+                                            img.src = '/lithero.webp';
+                                          }
+                                        }}
+                                      />
                                     ) : (
                                       <Layers className="w-5 h-5 text-kulkul-orange" />
                                     )}
@@ -1670,13 +1680,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        {company.logo_url ? (
+                        {company.logo_url || company.slug === 'ladies-in-tech' ? (
                           <img
-                            src={resolveMediaUrl(company.logo_url)}
+                            src={resolveMediaUrl(company.logo_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
                             alt={company.name}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-2xs p-1"
+                            className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              const img = e.currentTarget;
+                              if (!img.src.includes('litlogo')) {
+                                img.src = '/litlogo.jpeg';
+                              }
                             }}
                           />
                         ) : (

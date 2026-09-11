@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     navigate('/');
   };
 
-  const companyLogo = user?.organization?.logo_url;
+  const companyLogo = user?.organization?.logo_url || (user?.organization?.slug === 'ladies-in-tech' ? 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg' : undefined);
   const companyName = user?.organization?.name;
 
   return (
@@ -75,11 +75,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Client Company Logo or Name on Right */}
               {companyLogo ? (
                 <img
-                  src={resolveMediaUrl(companyLogo)}
+                  src={resolveMediaUrl(companyLogo) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
                   alt={companyName || 'Company Logo'}
                   className="h-8 sm:h-9 w-auto max-w-[160px] object-contain"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const img = e.currentTarget;
+                    if (!img.src.includes('litlogo')) {
+                      img.src = '/litlogo.jpeg';
+                    }
                   }}
                 />
               ) : (

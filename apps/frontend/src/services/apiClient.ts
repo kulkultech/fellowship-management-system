@@ -45,6 +45,17 @@ export function resolveMediaUrl(url?: string | null): string {
     return url;
   }
 
+  // Preserve frontend static assets served from public/
+  if (
+    url.startsWith('/litlogo') ||
+    url.startsWith('/lithero') ||
+    url.startsWith('/kulkul') ||
+    url.startsWith('/favicon') ||
+    url.startsWith('/assets/')
+  ) {
+    return url;
+  }
+
   let normalizedPath = url;
   if (normalizedPath.startsWith('/uploads/')) {
     normalizedPath = `/api/v1${normalizedPath}`;

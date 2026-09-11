@@ -281,10 +281,10 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	// Ensure legitimate Ladies in Tech Network organization is preserved / present with official logo and hello@ email
 	seedLITOrgQuery := `
 		INSERT INTO organizations (slug, name, logo_url, status, contact_email, admin_email, created_at, updated_at)
-		VALUES ('ladies-in-tech', 'Ladies in Tech Network', '/uploads/logos/litlogo.jpeg', 'approved', 'hello@ladiesintech.network', 'hello@ladiesintech.network', now(), now())
+		VALUES ('ladies-in-tech', 'Ladies in Tech Network', 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg', 'approved', 'hello@ladiesintech.network', 'hello@ladiesintech.network', now(), now())
 		ON CONFLICT (slug) DO UPDATE SET 
 			name = 'Ladies in Tech Network',
-			logo_url = CASE WHEN organizations.logo_url IS NULL OR organizations.logo_url = '' THEN '/uploads/logos/litlogo.jpeg' ELSE organizations.logo_url END,
+			logo_url = 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg',
 			contact_email = 'hello@ladiesintech.network',
 			admin_email = 'hello@ladiesintech.network',
 			status = 'approved',

@@ -443,13 +443,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         (e.target as HTMLElement).style.display = 'none';
                       }}
                     />
-                  ) : portalType === 'company_admin' && companyLogoUrl ? (
+                  ) : portalType === 'company_admin' && (companyLogoUrl || user?.organization?.slug === 'ladies-in-tech') ? (
                     <img
-                      src={resolveMediaUrl(companyLogoUrl)}
+                      src={resolveMediaUrl(companyLogoUrl) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
                       alt={companyName || 'Company'}
                       className="w-full h-full object-contain bg-white p-0.5"
                       onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
+                        const img = e.currentTarget;
+                        if (!img.src.includes('litlogo')) {
+                          img.src = '/litlogo.jpeg';
+                        }
                       }}
                     />
                   ) : portalType === 'superadmin' ? (
