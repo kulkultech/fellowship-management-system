@@ -714,6 +714,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setIsPipelineConfigModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       queryClient.invalidateQueries({ queryKey: ['admin-program-pipeline', activeProgramSlug] });
+      queryClient.invalidateQueries({ queryKey: ['program', orgSlug, activeProgramSlug] });
+      if (updated.slug) {
+        queryClient.invalidateQueries({ queryKey: ['admin-program-pipeline', updated.slug] });
+        queryClient.invalidateQueries({ queryKey: ['program', orgSlug, updated.slug] });
+      }
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err.message || 'Failed to update pipeline modules');
@@ -936,6 +941,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [editFormOpenDate, setEditFormOpenDate] = useState('');
   const [editFormEndDate, setEditFormEndDate] = useState('');
   const [editFormStatus, setEditFormStatus] = useState<'published' | 'draft' | 'archived'>('published');
+  const [editFormEnableMCQ, setEditFormEnableMCQ] = useState(true);
+  const [editFormQuestionSetId, setEditFormQuestionSetId] = useState('');
+  const [editFormDuration, setEditFormDuration] = useState(30);
+  const [editFormPassingScore, setEditFormPassingScore] = useState(70);
   const [uploadingEditBanner, setUploadingEditBanner] = useState(false);
   const [isTestLinkCopied, setIsTestLinkCopied] = useState(false);
 
@@ -948,6 +957,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     setEditFormOpenDate(toDateTimeLocalValue(targetProg.open_date));
     setEditFormEndDate(toDateTimeLocalValue(targetProg.end_date));
     setEditFormStatus((targetProg.status as any) || 'published');
+    setEditFormEnableMCQ(targetProg.enable_mcq ?? true);
+    setEditFormQuestionSetId(targetProg.question_set_id || (allQuestionSets.length > 0 ? allQuestionSets[0].id : ''));
+    setEditFormDuration(targetProg.logic_test_duration_minutes || 30);
+    setEditFormPassingScore(targetProg.logic_test_passing_score || 70);
     setIsEditProgramModalOpen(true);
   };
 
@@ -997,6 +1010,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       open_date?: string;
       end_date?: string;
       status?: string;
+      question_set_id?: string;
+      enable_mcq?: boolean;
+      logic_test_duration_minutes?: number;
+      logic_test_passing_score?: number;
     }) =>
       adminService.updateProgram(payload.progId, {
         slug: payload.slug,
@@ -1006,6 +1023,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         open_date: payload.open_date,
         end_date: payload.end_date,
         status: payload.status,
+        question_set_id: payload.question_set_id,
+        enable_mcq: payload.enable_mcq,
+        logic_test_duration_minutes: payload.logic_test_duration_minutes,
+        logic_test_passing_score: payload.logic_test_passing_score,
       }),
     onSuccess: (updated) => {
       toast.success(`Program "${updated.name}" updated successfully!`);
@@ -1014,8 +1035,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       }
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       queryClient.invalidateQueries({ queryKey: ['program', orgSlug, updated.slug] });
+      queryClient.invalidateQueries({ queryKey: ['admin-program-pipeline', updated.slug] });
       if (editTargetProgram?.slug && editTargetProgram.slug !== updated.slug) {
         queryClient.invalidateQueries({ queryKey: ['program', orgSlug, editTargetProgram.slug] });
+        queryClient.invalidateQueries({ queryKey: ['admin-program-pipeline', editTargetProgram.slug] });
       }
       setIsEditProgramModalOpen(false);
       setEditTargetProgram(null);
@@ -1376,6 +1399,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             <span>Add Track</span>
           </button>
 
+          {/* Configure Tests & Pipeline */}
+          <button
+            onClick={() => {
+              const currentProg = program || allPrograms.find((p) => p.slug === activeProgramSlug);
+              if (currentProg) handleOpenPipelineConfig(currentProg);
+            }}
+            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+            title="Configure Question Set and Screening Pipeline"
+          >
+            <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
+            <span>Tests & Pipeline</span>
+          </button>
+
           {/* Edit Active Program Details Button */}
           <button
             onClick={() => {
@@ -1623,11 +1659,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                         <Layers className="w-3 h-3 text-slate-400" />
                                         <span>General / Trackless</span>
                                       </span>
-                                      {prog.enable_mcq && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200" title={prog.question_set_name ? `Question Set: ${prog.question_set_name}` : 'Timed Logic Test'}>
+                                      {prog.enable_mcq ? (
+                                        <button
+                                          onClick={() => handleOpenPipelineConfig(prog)}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition cursor-pointer"
+                                          title={`Click to change Question Set (Currently: ${prog.question_set_name || 'Timed Logic'})`}
+                                        >
                                           <BrainCircuit className="w-2.5 h-2.5 text-amber-600" />
                                           <span className="truncate max-w-[120px]">{prog.question_set_name || 'Timed Logic'}</span>
-                                        </span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleOpenPipelineConfig(prog)}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 hover:bg-amber-50 text-slate-500 hover:text-amber-800 border border-dashed border-slate-300 hover:border-amber-300 transition cursor-pointer"
+                                          title="Click to configure logic test and question bank"
+                                        >
+                                          <BrainCircuit className="w-2.5 h-2.5 text-slate-400" />
+                                          <span>+ Add Logic Test</span>
+                                        </button>
                                       )}
                                     </div>
                                   );
@@ -1663,6 +1712,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                     >
                                       <ExternalLink className="w-3.5 h-3.5" />
                                     </a>
+
+                                    <button
+                                      onClick={() => handleOpenPipelineConfig(prog)}
+                                      className="p-1.5 rounded-full hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-slate-200 transition"
+                                      title="Configure Question Set & Logic Test"
+                                    >
+                                      <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
+                                    </button>
 
                                     <button
                                       onClick={() => handleOpenEditProgramModal(prog)}
@@ -4813,6 +4870,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     open_date: fromDateTimeLocalValue(editFormOpenDate),
                     end_date: fromDateTimeLocalValue(editFormEndDate),
                     status: editFormStatus,
+                    question_set_id: editFormEnableMCQ && editFormQuestionSetId ? editFormQuestionSetId : undefined,
+                    enable_mcq: editFormEnableMCQ,
+                    logic_test_duration_minutes: editFormDuration,
+                    logic_test_passing_score: editFormPassingScore,
                   });
                 }}
                 className="space-y-5"
@@ -4988,6 +5049,107 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       Optional timestamp when public submissions close.
                     </p>
                   </div>
+                </div>
+
+                {/* Timed Logic Test & Question Set Configuration */}
+                <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                        <BrainCircuit className="w-4 h-4 text-amber-700" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Timed Logic Test & Question Bank</h4>
+                        <p className="text-[11px] text-slate-500">Choose the question set used for logic screening tests.</p>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editFormEnableMCQ}
+                        onChange={(e) => setEditFormEnableMCQ(e.target.checked)}
+                        className="w-4 h-4 text-kulkul-purple rounded border-slate-300 focus:ring-kulkul-purple"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Enable Test</span>
+                    </label>
+                  </div>
+
+                  {editFormEnableMCQ && (
+                    <div className="space-y-3 pt-2 border-t border-amber-100 animate-in fade-in duration-150">
+                      <div>
+                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
+                          <span>Question Bank / Reusable Test Set</span>
+                          {editFormQuestionSetId && (
+                            <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Linked
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          value={editFormQuestionSetId}
+                          onChange={(e) => {
+                            const qSetId = e.target.value;
+                            setEditFormQuestionSetId(qSetId);
+                            const selectedSet = allQuestionSets.find((s) => s.id === qSetId);
+                            if (selectedSet) {
+                              if (selectedSet.duration_minutes) setEditFormDuration(selectedSet.duration_minutes);
+                              if (selectedSet.passing_score) setEditFormPassingScore(selectedSet.passing_score);
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 font-medium outline-none transition"
+                        >
+                          <option value="">-- Choose Question Set from Bank --</option>
+                          {allQuestionSets.map((qs) => (
+                            <option key={qs.id} value={qs.id}>
+                              {qs.name} ({qs.category} · {qs.questions?.length || qs.total_questions || 0} Qs · {qs.duration_minutes}m · {qs.passing_score}%)
+                            </option>
+                          ))}
+                        </select>
+                        {editFormQuestionSetId ? (
+                          <p className="text-[10px] text-emerald-700 mt-1 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                            <span>
+                              Applicants taking this program's test will receive questions from this bank.
+                            </span>
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            Select a question set to attach to this program, or customize per track.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                            Duration (Mins)
+                          </label>
+                          <input
+                            type="number"
+                            min={5}
+                            max={180}
+                            value={editFormDuration}
+                            onChange={(e) => setEditFormDuration(parseInt(e.target.value) || 30)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white outline-none focus:border-kulkul-purple"
+                          />
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                            Passing Score (%)
+                          </label>
+                          <input
+                            type="number"
+                            min={10}
+                            max={100}
+                            value={editFormPassingScore}
+                            onChange={(e) => setEditFormPassingScore(parseInt(e.target.value) || 70)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white outline-none focus:border-kulkul-purple"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Test Mode Link Box */}

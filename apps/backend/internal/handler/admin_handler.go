@@ -645,13 +645,17 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateProgramDetailsRequest struct {
-	Slug        string     `json:"slug"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	ImageURL    string     `json:"image_url"`
-	OpenDate    *time.Time `json:"open_date,omitempty"`
-	EndDate     *time.Time `json:"end_date,omitempty"`
-	Status      string     `json:"status,omitempty"`
+	Slug                     string     `json:"slug"`
+	Name                     string     `json:"name"`
+	Description              string     `json:"description"`
+	ImageURL                 string     `json:"image_url"`
+	OpenDate                 *time.Time `json:"open_date,omitempty"`
+	EndDate                  *time.Time `json:"end_date,omitempty"`
+	Status                   string     `json:"status,omitempty"`
+	QuestionSetID            *uuid.UUID `json:"question_set_id,omitempty"`
+	EnableMCQ                *bool      `json:"enable_mcq,omitempty"`
+	LogicTestDurationMinutes *int       `json:"logic_test_duration_minutes,omitempty"`
+	LogicTestPassingScore    *int       `json:"logic_test_passing_score,omitempty"`
 }
 
 func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Request) {
@@ -698,6 +702,43 @@ func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if req.EnableMCQ != nil || req.QuestionSetID != nil || req.LogicTestDurationMinutes != nil || req.LogicTestPassingScore != nil {
+		duration := 30
+		if req.LogicTestDurationMinutes != nil && *req.LogicTestDurationMinutes > 0 {
+			duration = *req.LogicTestDurationMinutes
+		} else if updated.LogicTestDurationMinutes > 0 {
+			duration = updated.LogicTestDurationMinutes
+		}
+
+		passingScore := 70
+		if req.LogicTestPassingScore != nil && *req.LogicTestPassingScore > 0 {
+			passingScore = *req.LogicTestPassingScore
+		} else if updated.LogicTestPassingScore > 0 {
+			passingScore = updated.LogicTestPassingScore
+		}
+
+		enableMCQ := updated.EnableMCQ
+		if req.EnableMCQ != nil {
+			enableMCQ = *req.EnableMCQ
+		}
+
+		qSetID := updated.QuestionSetID
+		if req.QuestionSetID != nil {
+			qSetID = req.QuestionSetID
+		}
+
+		_, _ = h.programRepo.UpdateConfig(r.Context(), id, duration, passingScore, updated.AllowRetake)
+		if updated.AIInterviewRubric != nil {
+			if up, err := h.programRepo.UpdatePipelineWithRubric(r.Context(), id, qSetID, enableMCQ, updated.EnableAIInterview, updated.AIInterviewInstructions, updated.AIInterviewQuestions, updated.AIInterviewRubric); err == nil && up != nil {
+				updated = up
+			}
+		} else {
+			if up, err := h.programRepo.UpdatePipeline(r.Context(), id, qSetID, enableMCQ, updated.EnableAIInterview, updated.AIInterviewInstructions, updated.AIInterviewQuestions); err == nil && up != nil {
+				updated = up
+			}
+		}
+	}
+
 	httpx.JSON(w, http.StatusOK, updated)
 }
 
@@ -737,12 +778,27 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 	// 1. Update basic duration and passing score
 	_, _ = h.programRepo.UpdateConfig(r.Context(), id, req.LogicTestDurationMinutes, req.LogicTestPassingScore, req.AllowRetake)
 
+	// Fetch existing program to avoid wiping existing instructions or rubric if not provided
+	existing, _ := h.programRepo.GetByID(r.Context(), id)
+	instructions := req.AIInterviewInstructions
+	if instructions == "" && existing != nil {
+		instructions = existing.AIInterviewInstructions
+	}
+	questions := req.AIInterviewQuestions
+	if len(questions) == 0 && existing != nil && len(existing.AIInterviewQuestions) > 0 {
+		questions = existing.AIInterviewQuestions
+	}
+	rubric := req.AIInterviewRubric
+	if rubric == nil && existing != nil {
+		rubric = existing.AIInterviewRubric
+	}
+
 	// 2. Update pipeline toggles, questions and rubric
 	var updated *model.Program
-	if req.AIInterviewRubric != nil {
-		updated, err = h.programRepo.UpdatePipelineWithRubric(r.Context(), id, req.QuestionSetID, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions, req.AIInterviewRubric)
+	if rubric != nil {
+		updated, err = h.programRepo.UpdatePipelineWithRubric(r.Context(), id, req.QuestionSetID, req.EnableMCQ, req.EnableAIInterview, instructions, questions, rubric)
 	} else {
-		updated, err = h.programRepo.UpdatePipeline(r.Context(), id, req.QuestionSetID, req.EnableMCQ, req.EnableAIInterview, req.AIInterviewInstructions, req.AIInterviewQuestions)
+		updated, err = h.programRepo.UpdatePipeline(r.Context(), id, req.QuestionSetID, req.EnableMCQ, req.EnableAIInterview, instructions, questions)
 	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update pipeline config")

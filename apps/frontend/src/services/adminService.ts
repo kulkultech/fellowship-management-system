@@ -72,6 +72,10 @@ export const adminService = {
       open_date?: string;
       end_date?: string;
       status?: string;
+      question_set_id?: string;
+      enable_mcq?: boolean;
+      logic_test_duration_minutes?: number;
+      logic_test_passing_score?: number;
     }
   ): Promise<Program> => {
     const { data } = await apiClient.put<Program>(`/admin/programs/${programId}`, payload);
