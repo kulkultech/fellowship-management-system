@@ -92,6 +92,18 @@ export const SuperadminDashboardPage: React.FC = () => {
     },
   });
 
+  const deleteProgramMutation = useMutation({
+    mutationFn: (programId: string) => adminService.deleteProgram(programId),
+    onSuccess: () => {
+      toast.success('Program deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['superadmin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to delete program');
+    },
+  });
+
   // Filtered Companies
   const filteredCompanies = companiesList.filter((comp) => {
     const matchesSearch =
@@ -514,6 +526,22 @@ export const SuperadminDashboardPage: React.FC = () => {
                                 <span>Public Link</span>
                                 <ExternalLink className="w-3 h-3" />
                               </a>
+                              <button
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Are you sure you want to delete program "${prog.name}"?\nAll associated tracks, stages, and candidate submissions will be permanently removed.`
+                                    )
+                                  ) {
+                                    deleteProgramMutation.mutate(prog.id);
+                                  }
+                                }}
+                                disabled={deleteProgramMutation.isPending}
+                                className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition shrink-0"
+                                title="Delete program"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </td>
                         </tr>

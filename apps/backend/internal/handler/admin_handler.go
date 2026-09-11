@@ -597,13 +597,35 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 	}
 
 	claims, _ := middleware.GetUser(r.Context())
-	orgID, err := h.resolveOrgID(r, claims)
-	if err != nil || orgID == uuid.Nil {
-		httpx.Error(w, http.StatusBadRequest, "organization context not found")
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	if err := h.programRepo.Delete(r.Context(), programID, orgID); err != nil {
+	prog, err := h.programRepo.GetByID(r.Context(), programID)
+	if err != nil {
+		if errors.Is(err, repository.ErrProgramNotFound) {
+			httpx.Error(w, http.StatusNotFound, "program not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to check program")
+		return
+	}
+
+	// Superadmin can delete any program across the system. Org admin can delete their org's programs.
+	if claims.Role != model.RoleSuperadmin {
+		orgID, _ := h.resolveOrgID(r, claims)
+		if orgID == uuid.Nil && claims.OrganizationID != nil {
+			orgID = *claims.OrganizationID
+		}
+		rsaOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		if orgID != uuid.Nil && prog.OrganizationID != orgID && prog.OrganizationID != rsaOrgID && orgID != rsaOrgID {
+			httpx.Error(w, http.StatusForbidden, "unauthorized to delete program of another organization")
+			return
+		}
+	}
+
+	if err := h.programRepo.Delete(r.Context(), programID, uuid.Nil); err != nil {
 		if errors.Is(err, repository.ErrProgramNotFound) {
 			httpx.Error(w, http.StatusNotFound, "program not found")
 			return

@@ -852,18 +852,29 @@ func (r *ProgramRepository) Delete(ctx context.Context, id uuid.UUID, orgID uuid
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
+		found := false
 		for key, p := range r.memPrograms {
 			if p.ID == id {
-				delete(r.memPrograms, key)
-				return nil
+				if orgID == uuid.Nil || p.OrganizationID == orgID || p.OrganizationID == uuid.MustParse("00000000-0000-0000-0000-000000000001") {
+					delete(r.memPrograms, key)
+					found = true
+				}
 			}
+		}
+		if found {
+			return nil
 		}
 		return ErrProgramNotFound
 	}
 
-	// For superadmin or fallback org, allow deleting if id matches
-	query := `DELETE FROM programs WHERE id = $1 AND (organization_id = $2 OR organization_id = '00000000-0000-0000-0000-000000000001'::uuid)`
-	tag, err := r.pool.Exec(ctx, query, id, orgID)
+	query := `DELETE FROM programs WHERE id = $1`
+	var args []any
+	args = append(args, id)
+	if orgID != uuid.Nil {
+		query += ` AND (organization_id = $2 OR organization_id = '00000000-0000-0000-0000-000000000001'::uuid)`
+		args = append(args, orgID)
+	}
+	tag, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("program_repo: delete: %w", err)
 	}

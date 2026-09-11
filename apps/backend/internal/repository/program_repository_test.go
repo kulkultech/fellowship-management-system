@@ -125,3 +125,37 @@ func TestProgramRepository_CreateAndUpdatePipeline_WithQuestionSet(t *testing.T)
 		t.Fatalf("expected fetched question set id %v, got %v", newQSetID, fetched.QuestionSetID)
 	}
 }
+
+func TestProgramRepository_Delete(t *testing.T) {
+	repo := repository.NewProgramRepository(nil)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	progID := uuid.New()
+
+	_, err := repo.Create(ctx, &model.Program{
+		ID:             progID,
+		OrganizationID: orgID,
+		Slug:           "deletable-program",
+		Name:           "Deletable Program",
+	})
+	if err != nil {
+		t.Fatalf("unexpected create error: %v", err)
+	}
+
+	// 1. Delete with non-existent ID fails
+	if err := repo.Delete(ctx, uuid.New(), uuid.Nil); err != repository.ErrProgramNotFound {
+		t.Errorf("expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 2. Delete with matching ID succeeds
+	if err := repo.Delete(ctx, progID, uuid.Nil); err != nil {
+		t.Fatalf("unexpected delete error: %v", err)
+	}
+
+	// 3. Confirm program is gone
+	if _, err := repo.GetByID(ctx, progID); err != repository.ErrProgramNotFound {
+		t.Errorf("expected ErrProgramNotFound after deletion, got %v", err)
+	}
+}
+

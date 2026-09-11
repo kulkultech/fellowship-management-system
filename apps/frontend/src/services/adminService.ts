@@ -77,8 +77,9 @@ export const adminService = {
     return data;
   },
 
-  deleteProgram: async (programId: string): Promise<void> => {
-    await apiClient.delete(`/admin/programs/${programId}`);
+  deleteProgram: async (programId: string, orgId?: string): Promise<void> => {
+    const params = orgId ? { org_id: orgId } : undefined;
+    await apiClient.delete(`/admin/programs/${programId}`, { params });
   },
 
   updatePipelineConfig: async (programId: string, payload: PipelineConfigPayload): Promise<Program> => {

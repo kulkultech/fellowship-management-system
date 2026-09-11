@@ -1013,13 +1013,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   });
 
   const deleteProgramMutation = useMutation({
-    mutationFn: (progId: string) => adminService.deleteProgram(progId),
+    mutationFn: (progId: string) => adminService.deleteProgram(progId, impersonatedOrgId),
     onSuccess: (_, deletedId) => {
       toast.success('Program deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['program'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-program-tracks'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
       const remaining = allPrograms.filter((p) => p.id !== deletedId);
       if (remaining.length > 0) {
         setActiveProgramSlug(remaining[0].slug);
+      } else {
+        setActiveProgramSlug('');
       }
       setSelectedTrackFilter('');
       setCurrentView('programs');
@@ -1373,12 +1378,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           {/* Delete Active Program Button */}
           <button
             onClick={() => {
+              const progToDelete = program || allPrograms.find((p) => p.slug === activeProgramSlug);
+              if (!progToDelete?.id) {
+                toast.error('No program selected to delete');
+                return;
+              }
               if (
                 window.confirm(
-                  `Are you sure you want to delete program "${program?.name || activeProgramSlug}"?\nAll associated tracks, stages, and applicant assessments will be permanently removed.`
+                  `Are you sure you want to delete program "${progToDelete.name || activeProgramSlug}"?\nAll associated tracks, stages, and applicant assessments will be permanently removed.`
                 )
               ) {
-                deleteProgramMutation.mutate(programId);
+                deleteProgramMutation.mutate(progToDelete.id);
               }
             }}
             disabled={deleteProgramMutation.isPending}
