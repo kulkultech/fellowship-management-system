@@ -40,6 +40,9 @@ type AIInterviewQuestionItem struct {
 }
 
 type AIInterviewRubric struct {
+	Name                   string                    `json:"name,omitempty"`
+	Instructions           string                    `json:"instructions,omitempty"`
+	TotalPoints            int                       `json:"total_points,omitempty"`
 	PreparationTimeSeconds int                       `json:"preparation_time_seconds"` // e.g. 60
 	ResponseTimeSeconds    int                       `json:"response_time_seconds"`    // e.g. 90
 	AllowRerecord          bool                      `json:"allow_rerecord"`           // e.g. false

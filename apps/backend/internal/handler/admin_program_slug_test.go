@@ -102,3 +102,80 @@ func TestAdminHandler_UpdateProgramSlug(t *testing.T) {
 		t.Errorf("expected name 'LIT Scholarship Cohort 2026', got '%s'", updated.Name)
 	}
 }
+
+func TestAdminHandler_UpdateProgramRubric_AcceptsNameAndInstructions(t *testing.T) {
+	h, progRepo, orgRepo := newAdminProgramSlugTestHandler()
+	ctx := context.Background()
+
+	org, err := orgRepo.Register(ctx, "acme", "Acme Corp", "admin@acme.test", "", model.OrgStatusApproved)
+	if err != nil {
+		t.Fatalf("failed to register org: %v", err)
+	}
+
+	prog, err := progRepo.Create(ctx, &model.Program{
+		ID:             uuid.New(),
+		OrganizationID: org.ID,
+		Slug:           "acme-fellowship",
+		Name:           "Acme Fellowship",
+		OpenDate:       time.Now(),
+		EndDate:        time.Now().Add(10 * 24 * time.Hour),
+		Status:         "published",
+	})
+	if err != nil {
+		t.Fatalf("failed to create program: %v", err)
+	}
+
+	claims := &auth.Claims{
+		UserID:         uuid.New(),
+		Email:          "admin@acme.test",
+		Role:           "org_admin",
+		OrganizationID: &org.ID,
+	}
+
+	// Payload containing name, instructions, total_points (which previously failed with json: unknown field "name")
+	rubricPayload := map[string]any{
+		"name":                     "Acme AI Interview Rubric",
+		"instructions":             "Review candidate responses thoroughly",
+		"scoring_guideline":        "Standard guideline",
+		"preparation_time_seconds": 60,
+		"response_time_seconds":    90,
+		"allow_rerecord":          false,
+		"total_points":             100,
+		"questions": []map[string]any{
+			{
+				"id":         1,
+				"theme":      "Introduction",
+				"question":   "Please introduce yourself.",
+				"max_points": 15,
+				"criteria": []map[string]any{
+					{"id": "q1_c1", "criterion": "Clear introduction", "points": 15},
+				},
+			},
+		},
+	}
+	body, _ := json.Marshal(rubricPayload)
+
+	r := chi.NewRouter()
+	r.Put("/programs/{id}/rubric", h.UpdateProgramRubric)
+
+	req := httptest.NewRequest(http.MethodPut, "/programs/"+prog.ID.String()+"/rubric", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(middleware.WithUser(req.Context(), claims))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	updated, err := progRepo.GetByID(ctx, prog.ID)
+	if err != nil {
+		t.Fatalf("failed to get program: %v", err)
+	}
+	if updated.AIInterviewRubric == nil {
+		t.Fatalf("expected rubric to be saved, but was nil")
+	}
+	if updated.AIInterviewRubric.Name != "Acme AI Interview Rubric" {
+		t.Errorf("expected rubric name 'Acme AI Interview Rubric', got '%s'", updated.AIInterviewRubric.Name)
+	}
+}

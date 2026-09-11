@@ -29,7 +29,6 @@ func Error(w http.ResponseWriter, status int, msg string) {
 func Decode(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(dst); err != nil {
 		var syntaxErr *json.SyntaxError
