@@ -310,16 +310,16 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		}
 	}
 
-	// Clean up only the old obsolete lit-sda program
-	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE slug = 'lit-sda'")
+	// Ensure any stale programs (lit2026, lit-sda) are removed so the organization admin can create programs from scratch
+	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE slug IN ('lit2026', 'lit-sda')")
 
-	// Seed LIT Scholarship 2026 program & MCQ Question Banks into PostgreSQL (assigned to Ladies in Tech Network)
+	// Seed all LIT MCQ Question Banks into PostgreSQL (assigned to Ladies in Tech Network)
 	targetLITOrgID := litOrgID
 	if targetLITOrgID == "" {
 		targetLITOrgID = rsaOrgID
 	}
 	if err := SeedLITAssessmentPrograms(ctx, pool, targetLITOrgID, logger); err != nil {
-		logger.Warn("automigrate: seed lit scholarship program error", slog.Any("error", err))
+		logger.Warn("automigrate: seed lit question bank error", slog.Any("error", err))
 	}
 
 	// Automatic database self-healing on startup:
