@@ -51,6 +51,7 @@ tsconfig.tsbuildinfo
 bin/
 apps/backend/bin/
 apps/backend/uploads/
+uploads/
 *.exe
 *.exe~
 *.dll

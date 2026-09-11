@@ -36,13 +36,19 @@ type OptionItem struct {
 }
 
 // SeedLITAssessmentPrograms populates all LIT 2025/2026 tracks and their MCQ test banks into PostgreSQL.
-func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID string, logger *slog.Logger) error {
-	if pool == nil || rsaOrgID == "" {
+// It associates the LIT 2026 Fellowship Program exclusively with Ladies in Tech Network.
+func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOrgID string, logger *slog.Logger) error {
+	if pool == nil || targetOrgID == "" {
 		return nil
 	}
 
 	// Clean up any stale program (lit-sda)
-	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1::uuid AND slug = 'lit-sda'", rsaOrgID)
+	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE slug = 'lit-sda'")
+
+	// Ensure lit2026 and its applicants and question sets are associated with targetOrgID
+	_, _ = pool.Exec(ctx, "UPDATE programs SET organization_id = $1::uuid WHERE slug = 'lit2026'", targetOrgID)
+	_, _ = pool.Exec(ctx, "UPDATE applicants SET organization_id = $1::uuid WHERE program_id IN (SELECT id FROM programs WHERE slug = 'lit2026')", targetOrgID)
+	_, _ = pool.Exec(ctx, "UPDATE question_sets SET organization_id = $1::uuid WHERE id IN ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000023')", targetOrgID)
 
 	var data QuestionBankData
 	if err := json.Unmarshal(litQuestionsJSON, &data); err != nil {
@@ -64,7 +70,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 		{
 			Slug:        "lit2026",
 			Name:        "LIT 2026 Fellowship Program",
-			Description: "The flagship talent acceleration fellowship program by Acme Academy and Kulkul Tech. Choose your specialization track to begin evaluation.",
+			Description: "The flagship talent acceleration fellowship program by Ladies in Tech Network and Kulkul Tech. Choose your specialization track to begin evaluation.",
 			Tracks: []struct {
 				Slug          string
 				Name          string
@@ -137,6 +143,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 			)
 			VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, now(), now())
 			ON CONFLICT (id) DO UPDATE SET
+				organization_id = EXCLUDED.organization_id,
 				name = EXCLUDED.name,
 				description = EXCLUDED.description,
 				category = EXCLUDED.category,
@@ -144,7 +151,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 				passing_score = EXCLUDED.passing_score,
 				updated_at = now()
 		`
-		if _, err := pool.Exec(ctx, seedSetQuery, qs.ID, rsaOrgID, qs.Name, qs.Description, qs.Category, qs.DurationMinutes, qs.PassingScore); err != nil {
+		if _, err := pool.Exec(ctx, seedSetQuery, qs.ID, targetOrgID, qs.Name, qs.Description, qs.Category, qs.DurationMinutes, qs.PassingScore); err != nil {
 			logger.Warn("seed_lit: error upserting question set", slog.String("name", qs.Name), slog.Any("error", err))
 		}
 
@@ -185,7 +192,7 @@ func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, rsaOrgID
 				updated_at = now()
 			RETURNING id::text
 		`
-		if err := pool.QueryRow(ctx, seedProgQuery, rsaOrgID, p.Slug, p.Name, p.Description, string(litRubricJSON)).Scan(&progID); err != nil {
+		if err := pool.QueryRow(ctx, seedProgQuery, targetOrgID, p.Slug, p.Name, p.Description, string(litRubricJSON)).Scan(&progID); err != nil {
 			logger.Warn("seed_lit: error upserting program", slog.String("slug", p.Slug), slog.Any("error", err))
 			continue
 		}

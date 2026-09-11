@@ -278,17 +278,13 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		logger.Warn("automigrate: seed users error", slog.Any("error", err))
 	}
 
-	// Seed all LIT 2025/2026 Assessment Programs & MCQ Question Banks into PostgreSQL
-	if err := SeedLITAssessmentPrograms(ctx, pool, rsaOrgID, logger); err != nil {
-		logger.Warn("automigrate: seed lit programs error", slog.Any("error", err))
-	}
-
-	// Ensure legitimate Ladies in Tech Network organization is preserved / present with hello@ email
+	// Ensure legitimate Ladies in Tech Network organization is preserved / present with official logo and hello@ email
 	seedLITOrgQuery := `
 		INSERT INTO organizations (slug, name, logo_url, status, contact_email, admin_email, created_at, updated_at)
-		VALUES ('ladies-in-tech', 'Ladies in Tech Network', '', 'approved', 'hello@ladiesintech.network', 'hello@ladiesintech.network', now(), now())
+		VALUES ('ladies-in-tech', 'Ladies in Tech Network', '/uploads/logos/litlogo.jpeg', 'approved', 'hello@ladiesintech.network', 'hello@ladiesintech.network', now(), now())
 		ON CONFLICT (slug) DO UPDATE SET 
 			name = 'Ladies in Tech Network',
+			logo_url = CASE WHEN organizations.logo_url IS NULL OR organizations.logo_url = '' THEN '/uploads/logos/litlogo.jpeg' ELSE organizations.logo_url END,
 			contact_email = 'hello@ladiesintech.network',
 			admin_email = 'hello@ladiesintech.network',
 			status = 'approved',
@@ -312,6 +308,15 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		if _, err := pool.Exec(ctx, seedLITAdminQuery, litOrgID, string(passHash)); err != nil {
 			logger.Warn("automigrate: seed ladies in tech admin error", slog.Any("error", err))
 		}
+	}
+
+	// Seed all LIT 2025/2026 Assessment Programs & MCQ Question Banks into PostgreSQL (assigned to Ladies in Tech Network)
+	targetLITOrgID := litOrgID
+	if targetLITOrgID == "" {
+		targetLITOrgID = rsaOrgID
+	}
+	if err := SeedLITAssessmentPrograms(ctx, pool, targetLITOrgID, logger); err != nil {
+		logger.Warn("automigrate: seed lit programs error", slog.Any("error", err))
 	}
 
 	// Automatic database self-healing on startup:
