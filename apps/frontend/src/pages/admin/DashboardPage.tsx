@@ -135,7 +135,6 @@ import {
   Upload,
   UploadCloud,
   Sliders,
-  Sparkles,
   BrainCircuit,
   Building2,
 } from 'lucide-react';
@@ -2117,52 +2116,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 ))}
               </div>
             </div>
-
-            {/* Direct General Admission Notice when 0 tracks exist */}
-            {programTracks.length === 0 && (() => {
-              const currentProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program;
-              return (
-                <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-700 shadow-2xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-bold shrink-0">
-                      <Sparkles className="w-4 h-4 text-kulkul-purple" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-800">Single General Track Active:</span>
-                        {currentProg?.enable_mcq && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                            <BrainCircuit className="w-3 h-3 text-amber-700" />
-                            Logic Test Set: {currentProg.question_set_name || 'Default Logic Test'}
-                            {currentProg.question_count ? ` (${currentProg.question_count} Qs)` : ''}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-slate-600 mt-0.5">
-                        Candidates apply directly to this program without choosing specialization tracks. Tracks are 100% optional and can be added anytime.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {currentProg && (
-                      <button
-                        onClick={() => handleOpenPipelineConfig(currentProg)}
-                        className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold transition whitespace-nowrap shadow-2xs text-2xs flex items-center gap-1.5"
-                      >
-                        <Sliders className="w-3 h-3 text-slate-500" />
-                        Configure Logic Test
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleOpenCreateTrack(activeProgramSlug)}
-                      className="px-3.5 py-1.5 rounded-xl bg-white border border-purple-200 text-kulkul-purple hover:bg-purple-50 font-bold transition whitespace-nowrap shadow-2xs text-2xs"
-                    >
-                      + Add Track (Optional)
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Candidates Table */}
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
