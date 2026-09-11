@@ -82,7 +82,7 @@ func (r *OrgRepository) Register(ctx context.Context, slug, name, contactEmail, 
 		VALUES ($1, $2, $3, $3, $4, $5, now(), now())
 		ON CONFLICT (slug) DO UPDATE SET 
 			name = EXCLUDED.name, 
-			contact_email = EXCLUDED.contact_email,
+			contact_email = CASE WHEN EXCLUDED.contact_email IS NOT NULL AND EXCLUDED.contact_email <> '' THEN EXCLUDED.contact_email ELSE organizations.contact_email END,
 			admin_email = CASE WHEN organizations.admin_email IS NULL OR organizations.admin_email = '' THEN EXCLUDED.contact_email ELSE organizations.admin_email END,
 			logo_url = EXCLUDED.logo_url, 
 			status = EXCLUDED.status,

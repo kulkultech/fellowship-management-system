@@ -247,24 +247,23 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	}
 	logger.Info("Database schema verified and migrated successfully")
 
-	// Clean up any rogue duplicate organization, user, or temporary question sets from previous mistake
-	_, _ = pool.Exec(ctx, "DELETE FROM users WHERE organization_id = '00000000-0000-0000-0000-000000000004' OR email = 'admin@ladiesintech.net' OR email ILIKE '%ladiesintech.net'")
-	_, _ = pool.Exec(ctx, "DELETE FROM organizations WHERE id = '00000000-0000-0000-0000-000000000004' OR slug = 'ladies-in-tech-network' OR name ILIKE '%ladies in tech%' OR contact_email ILIKE '%ladiesintech.net'")
+	// Clean up rogue duplicate organization, user, or temporary question sets strictly created by previous mistake
+	_, _ = pool.Exec(ctx, "DELETE FROM users WHERE organization_id = '00000000-0000-0000-0000-000000000004' OR email = 'admin@ladiesintech.net'")
+	_, _ = pool.Exec(ctx, "DELETE FROM organizations WHERE id = '00000000-0000-0000-0000-000000000004' OR (slug = 'ladies-in-tech-network' AND contact_email = 'contact@ladiesintech.net')")
 	_, _ = pool.Exec(ctx, "DELETE FROM mcq_questions WHERE question_set_id = '00000000-0000-0000-0000-000000000040'")
-	_, _ = pool.Exec(ctx, "DELETE FROM question_sets WHERE id = '00000000-0000-0000-0000-000000000040' OR name ILIKE '%ladies in tech%'")
+	_, _ = pool.Exec(ctx, "DELETE FROM question_sets WHERE id = '00000000-0000-0000-0000-000000000040'")
 
 	// Seed default organization (without logo)
 	var rsaOrgID string
 	seedOrgQuery := `
 		INSERT INTO organizations (id, slug, name, logo_url, status, contact_email, created_at, updated_at)
 		VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'rsa', 'Acme Academy', '', 'approved', 'contact@rsa.org', now(), now())
-		ON CONFLICT (slug) DO UPDATE SET name = 'Acme Academy', logo_url = '', updated_at = now()
+		ON CONFLICT (slug) DO UPDATE SET name = 'Acme Academy', contact_email = 'contact@rsa.org', logo_url = '', updated_at = now()
 		RETURNING id::text
 	`
 	if err := pool.QueryRow(ctx, seedOrgQuery).Scan(&rsaOrgID); err != nil {
 		logger.Warn("automigrate: seed org error", slog.Any("error", err))
 	}
-	_, _ = pool.Exec(ctx, "UPDATE organizations SET name = 'Acme Academy', logo_url = '' WHERE slug = 'rsa'")
 
 	// Seed default Admin & Superadmin
 	passHash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
@@ -273,7 +272,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		VALUES 
 			($1::uuid, 'admin@rsa.org', $2, 'RSA Reviewer Admin', 'org_admin', now(), now()),
 			(NULL, 'superadmin@fellowhire.com', $2, 'FellowHire SuperAdmin', 'superadmin', now(), now())
-		ON CONFLICT (email) DO UPDATE SET name = 'RSA Reviewer Admin', updated_at = now()
+		ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, updated_at = now()
 	`
 	if _, err := pool.Exec(ctx, seedUsersQuery, rsaOrgID, string(passHash)); err != nil {
 		logger.Warn("automigrate: seed users error", slog.Any("error", err))
@@ -282,6 +281,37 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	// Seed all LIT 2025/2026 Assessment Programs & MCQ Question Banks into PostgreSQL
 	if err := SeedLITAssessmentPrograms(ctx, pool, rsaOrgID, logger); err != nil {
 		logger.Warn("automigrate: seed lit programs error", slog.Any("error", err))
+	}
+
+	// Ensure legitimate Ladies in Tech Network organization is preserved / present with hello@ email
+	seedLITOrgQuery := `
+		INSERT INTO organizations (slug, name, logo_url, status, contact_email, admin_email, created_at, updated_at)
+		VALUES ('ladies-in-tech', 'Ladies in Tech Network', '', 'approved', 'hello@ladiesintech.network', 'hello@ladiesintech.network', now(), now())
+		ON CONFLICT (slug) DO UPDATE SET 
+			name = 'Ladies in Tech Network',
+			contact_email = 'hello@ladiesintech.network',
+			admin_email = 'hello@ladiesintech.network',
+			status = 'approved',
+			updated_at = now()
+		RETURNING id::text
+	`
+	var litOrgID string
+	if err := pool.QueryRow(ctx, seedLITOrgQuery).Scan(&litOrgID); err != nil {
+		_ = pool.QueryRow(ctx, "SELECT id::text FROM organizations WHERE slug = 'ladies-in-tech' LIMIT 1").Scan(&litOrgID)
+	}
+
+	if litOrgID != "" {
+		seedLITAdminQuery := `
+			INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
+			VALUES ($1::uuid, 'hello@ladiesintech.network', $2, 'Ladies in Tech Admin', 'org_admin', now(), now())
+			ON CONFLICT (email) DO UPDATE SET 
+				organization_id = EXCLUDED.organization_id,
+				role = 'org_admin',
+				updated_at = now()
+		`
+		if _, err := pool.Exec(ctx, seedLITAdminQuery, litOrgID, string(passHash)); err != nil {
+			logger.Warn("automigrate: seed ladies in tech admin error", slog.Any("error", err))
+		}
 	}
 
 	// Automatic database self-healing on startup:

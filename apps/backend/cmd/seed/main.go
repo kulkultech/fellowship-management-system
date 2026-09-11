@@ -39,7 +39,7 @@ func main() {
 	logger.Info("Seeding initial assessment platform data...")
 
 	// 1. Organization: RSA (No logo)
-	org, err := orgRepo.Create(ctx, "rsa", "Acme Academy", "")
+	org, err := orgRepo.Register(ctx, "rsa", "Acme Academy", "contact@rsa.org", "", "approved")
 	if err != nil {
 		logger.Error("failed to seed RSA organization", "error", err)
 		os.Exit(1)
