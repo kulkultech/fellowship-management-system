@@ -436,7 +436,11 @@ func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.
 				return *claims.OrganizationID, nil
 			}
 		}
-		// 3. Superadmin default: return primary "rsa" organization
+		// 3. Superadmin default: return primary seeded organization (or fallback to rsa slug)
+		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		if org, err := h.orgRepo.GetByID(ctx, primaryID); err == nil && org != nil {
+			return org.ID, nil
+		}
 		org, err := h.orgRepo.GetBySlug(ctx, "rsa")
 		if err == nil && org != nil && org.ID != uuid.Nil {
 			return org.ID, nil
@@ -641,6 +645,7 @@ func (h *AdminHandler) DeleteProgram(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateProgramDetailsRequest struct {
+	Slug        string     `json:"slug"`
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	ImageURL    string     `json:"image_url"`
@@ -672,6 +677,7 @@ func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Reque
 	updated, err := h.programRepo.UpdateDetails(
 		r.Context(),
 		id,
+		strings.TrimSpace(req.Slug),
 		trimmedName,
 		strings.TrimSpace(req.Description),
 		strings.TrimSpace(req.ImageURL),
@@ -682,6 +688,10 @@ func (h *AdminHandler) UpdateProgramDetails(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		if errors.Is(err, repository.ErrProgramNotFound) {
 			httpx.Error(w, http.StatusNotFound, "program not found")
+			return
+		}
+		if strings.Contains(err.Error(), "already in use") {
+			httpx.JSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 			return
 		}
 		httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("failed to update program details: %v", err))
@@ -1574,6 +1584,11 @@ func (h *AdminHandler) GetCurrentOrganization(w http.ResponseWriter, r *http.Req
 	targetOrgID, _ := h.resolveOrgID(r, claims)
 	org, err := h.orgRepo.GetByID(r.Context(), targetOrgID)
 	if err != nil {
+		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		if fallbackOrg, fErr := h.orgRepo.GetByID(r.Context(), primaryID); fErr == nil && fallbackOrg != nil {
+			httpx.JSON(w, http.StatusOK, fallbackOrg)
+			return
+		}
 		if fallbackOrg, fErr := h.orgRepo.GetBySlug(r.Context(), "rsa"); fErr == nil && fallbackOrg != nil {
 			httpx.JSON(w, http.StatusOK, fallbackOrg)
 			return

@@ -65,6 +65,7 @@ export const adminService = {
   updateProgram: async (
     programId: string,
     payload: {
+      slug?: string;
       name: string;
       description?: string;
       image_url?: string;

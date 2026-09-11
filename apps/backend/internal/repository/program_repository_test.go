@@ -37,9 +37,12 @@ func TestProgramRepository_UpdateDetails(t *testing.T) {
 	newOpen := time.Now().Add(24 * time.Hour)
 	newEnd := time.Now().Add(30 * 24 * time.Hour)
 	newImage := "https://example.com/banner.png"
-	updated, err := repo.UpdateDetails(ctx, progID, "Renamed Fellowship 2026", "Updated description text", newImage, &newOpen, &newEnd, "draft")
+	updated, err := repo.UpdateDetails(ctx, progID, "renamed-fellowship-2026", "Renamed Fellowship 2026", "Updated description text", newImage, &newOpen, &newEnd, "draft")
 	if err != nil {
 		t.Fatalf("unexpected error updating details: %v", err)
+	}
+	if updated.Slug != "renamed-fellowship-2026" {
+		t.Errorf("expected slug 'renamed-fellowship-2026', got '%s'", updated.Slug)
 	}
 	if updated.Name != "Renamed Fellowship 2026" {
 		t.Errorf("expected name 'Renamed Fellowship 2026', got '%s'", updated.Name)

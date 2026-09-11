@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -443,12 +444,24 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	return &p, nil
 }
 
-func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, name, description, imageURL string, openDate, endDate *time.Time, status string) (*model.Program, error) {
+func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, slug, name, description, imageURL string, openDate, endDate *time.Time, status string) (*model.Program, error) {
+	cleanSlug := strings.ToLower(strings.TrimSpace(slug))
+
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		for _, p := range r.memPrograms {
+		for oldKey, p := range r.memPrograms {
 			if p.ID == id {
+				if cleanSlug != "" && cleanSlug != p.Slug {
+					for _, other := range r.memPrograms {
+						if other.ID != id && other.OrganizationID == p.OrganizationID && other.Slug == cleanSlug {
+							return nil, fmt.Errorf("program slug '%s' is already in use for this organization", cleanSlug)
+						}
+					}
+					delete(r.memPrograms, oldKey)
+					p.Slug = cleanSlug
+					r.memPrograms[fmt.Sprintf("%s:%s", cleanSlug, cleanSlug)] = p
+				}
 				p.Name = name
 				if description != "" {
 					p.Description = description
@@ -472,14 +485,23 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 		return nil, ErrProgramNotFound
 	}
 
+	if cleanSlug != "" {
+		var count int
+		err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM programs WHERE organization_id = (SELECT organization_id FROM programs WHERE id = $1) AND slug = $2 AND id != $1", id, cleanSlug).Scan(&count)
+		if err == nil && count > 0 {
+			return nil, fmt.Errorf("program slug '%s' is already in use for this organization", cleanSlug)
+		}
+	}
+
 	query := `
 		UPDATE programs
-		SET name = $2,
-			description = $3,
-			image_url = CASE WHEN $4::text = '' THEN image_url ELSE $4::text END,
-			open_date = COALESCE($5, open_date),
-			end_date = COALESCE($6, end_date),
-			status = CASE WHEN $7::text = '' THEN status ELSE $7::text END,
+		SET slug = CASE WHEN $2::text = '' THEN slug ELSE $2::text END,
+			name = $3,
+			description = $4,
+			image_url = CASE WHEN $5::text = '' THEN image_url ELSE $5::text END,
+			open_date = COALESCE($6, open_date),
+			end_date = COALESCE($7, end_date),
+			status = CASE WHEN $8::text = '' THEN status ELSE $8::text END,
 			updated_at = now()
 		WHERE id = $1
 		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
@@ -491,7 +513,7 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 	`
 	var p model.Program
 	var rawQuestions, rawStages, rawRubric, rawSchema []byte
-	err := r.pool.QueryRow(ctx, query, id, name, description, imageURL, openDate, endDate, status).Scan(
+	err := r.pool.QueryRow(ctx, query, id, cleanSlug, name, description, imageURL, openDate, endDate, status).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
@@ -503,6 +525,9 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, nam
 		return nil, ErrProgramNotFound
 	}
 	if err != nil {
+		if strings.Contains(err.Error(), "23505") || strings.Contains(err.Error(), "unique") {
+			return nil, fmt.Errorf("program slug '%s' is already in use for this organization", cleanSlug)
+		}
 		return nil, fmt.Errorf("program_repo: update details: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)

@@ -929,6 +929,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   // Program Edit Details Modal State
   const [isEditProgramModalOpen, setIsEditProgramModalOpen] = useState(false);
   const [editTargetProgram, setEditTargetProgram] = useState<Program | null>(null);
+  const [editFormSlug, setEditFormSlug] = useState('');
   const [editFormName, setEditFormName] = useState('');
   const [editFormDesc, setEditFormDesc] = useState('');
   const [editFormImage, setEditFormImage] = useState('');
@@ -940,6 +941,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const handleOpenEditProgramModal = (targetProg: Program) => {
     setEditTargetProgram(targetProg);
+    setEditFormSlug(targetProg.slug || '');
     setEditFormName(targetProg.name || '');
     setEditFormDesc(targetProg.description || '');
     setEditFormImage(targetProg.image_url || '');
@@ -988,6 +990,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const updateProgramMutation = useMutation({
     mutationFn: (payload: {
       progId: string;
+      slug?: string;
       name: string;
       description?: string;
       image_url?: string;
@@ -996,6 +999,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       status?: string;
     }) =>
       adminService.updateProgram(payload.progId, {
+        slug: payload.slug,
         name: payload.name,
         description: payload.description,
         image_url: payload.image_url,
@@ -1005,8 +1009,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       }),
     onSuccess: (updated) => {
       toast.success(`Program "${updated.name}" updated successfully!`);
+      if (updated.slug) {
+        setActiveProgramSlug(updated.slug);
+      }
       queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
       queryClient.invalidateQueries({ queryKey: ['program', orgSlug, updated.slug] });
+      if (editTargetProgram?.slug && editTargetProgram.slug !== updated.slug) {
+        queryClient.invalidateQueries({ queryKey: ['program', orgSlug, editTargetProgram.slug] });
+      }
       setIsEditProgramModalOpen(false);
       setEditTargetProgram(null);
     },
@@ -4790,8 +4800,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     toast.error('Program title is required');
                     return;
                   }
+                  if (!editFormSlug.trim()) {
+                    toast.error('Program URL slug is required');
+                    return;
+                  }
                   updateProgramMutation.mutate({
                     progId: editTargetProgram.id,
+                    slug: editFormSlug.trim().toLowerCase(),
                     name: editFormName.trim(),
                     description: editFormDesc.trim(),
                     image_url: editFormImage.trim(),
@@ -4831,6 +4846,49 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <option value="archived">Archived</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Program URL Slug */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Program URL Slug <span className="text-rose-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const autoSlug = editFormName
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-+|-+$/g, '');
+                        if (autoSlug) setEditFormSlug(autoSlug);
+                      }}
+                      className="text-2xs font-bold text-kulkul-purple hover:underline"
+                    >
+                      Generate from title
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400">
+                      /programs/{orgSlug}/
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={editFormSlug}
+                      onChange={(e) => {
+                        const sanitized = e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, '-');
+                        setEditFormSlug(sanitized);
+                      }}
+                      placeholder="e.g. fellowship-2026"
+                      className="w-full pl-36 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-mono font-semibold text-slate-900 outline-none transition"
+                    />
+                  </div>
+                  <p className="text-2xs text-slate-400 mt-1">
+                    Candidate portal URL: <code className="font-mono text-kulkul-purple font-semibold">/programs/{orgSlug}/{editFormSlug || 'slug'}</code>
+                  </p>
                 </div>
 
                 <div>
@@ -5001,6 +5059,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           onClose={() => setIsCompanySettingsOpen(false)}
           portalType="company_admin"
           initialTab="company"
+          initialOrg={orgProfile || user?.organization}
         />
       </DashboardLayout>
   );

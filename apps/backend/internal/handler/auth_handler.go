@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/google/uuid"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
@@ -341,11 +342,17 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	var orgIDStr *string
 	var orgInfo *OrganizationInfo
-	if user.OrganizationID != nil {
-		s := user.OrganizationID.String()
+	targetOrgID := user.OrganizationID
+	if targetOrgID == nil && claims.Role == model.RoleSuperadmin {
+		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		targetOrgID = &primaryID
+	}
+
+	if targetOrgID != nil {
+		s := targetOrgID.String()
 		orgIDStr = &s
 
-		org, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
+		org, err := h.orgRepo.GetByID(r.Context(), *targetOrgID)
 		if err == nil && org != nil {
 			orgInfo = &OrganizationInfo{
 				ID:           org.ID.String(),
@@ -403,10 +410,16 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If user is associated with an organization and company fields are provided, update company
+	// If user is associated with an organization (or superadmin managing primary org) and company fields are provided, update company
 	var orgInfo *OrganizationInfo
-	if user.OrganizationID != nil {
-		currentOrg, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
+	targetOrgID := user.OrganizationID
+	if targetOrgID == nil && claims.Role == model.RoleSuperadmin {
+		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		targetOrgID = &primaryID
+	}
+
+	if targetOrgID != nil {
+		currentOrg, err := h.orgRepo.GetByID(r.Context(), *targetOrgID)
 		if err == nil && currentOrg != nil {
 			newSlug := currentOrg.Slug
 			if req.CompanySlug != nil && strings.TrimSpace(*req.CompanySlug) != "" {

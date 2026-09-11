@@ -18,10 +18,11 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { authService } from '@/services/authService';
+import { adminService } from '@/services/adminService';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { uploadService } from '@/services/uploadService';
 import { useQueryClient } from '@tanstack/react-query';
-import type { UpdateProfilePayload } from '@/services/types';
+import type { UpdateProfilePayload, Organization } from '@/services/types';
 import toast from 'react-hot-toast';
 
 interface EditProfileModalProps {
@@ -30,6 +31,7 @@ interface EditProfileModalProps {
   portalType?: 'company_admin' | 'superadmin' | 'candidate';
   candidateEmail?: string;
   initialTab?: 'personal' | 'company';
+  initialOrg?: Organization;
 }
 
 // Sleek avatar presets using DiceBear for instant selection
@@ -48,6 +50,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   portalType,
   candidateEmail,
   initialTab = 'personal',
+  initialOrg,
 }) => {
   const { user } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
@@ -102,11 +105,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setShowAvatarUrlInput(false);
       setShowLogoUrlInput(false);
 
-      if (user?.organization) {
-        setCompanySlug(user.organization.slug || '');
-        setCompanyName(user.organization.name || '');
-        setCompanyLogoUrl(user.organization.logo_url || '');
-        setCompanyContactEmail(user.organization.contact_email || '');
+      const targetOrg = initialOrg || user?.organization;
+      if (targetOrg) {
+        setCompanySlug(targetOrg.slug || '');
+        setCompanyName(targetOrg.name || '');
+        setCompanyLogoUrl(targetOrg.logo_url || '');
+        setCompanyContactEmail(targetOrg.contact_email || '');
       } else {
         setCompanySlug('');
         setCompanyName('');
@@ -117,7 +121,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       // Default tab: personal profile or initialTab
       setActiveTab(initialTab);
     }
-  }, [isOpen, user, initialTab]);
+  }, [isOpen, user, initialTab, initialOrg]);
 
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,6 +207,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         if (companyName.trim()) payload.company_name = companyName.trim();
         payload.company_logo_url = companyLogoUrl.trim();
         if (companyContactEmail.trim()) payload.company_contact_email = companyContactEmail.trim();
+
+        // Also call adminService.updateOrganization to guarantee persistence across admin endpoints
+        const targetOrg = initialOrg || user?.organization;
+        try {
+          await adminService.updateOrganization(
+            {
+              slug: companySlug.trim().toLowerCase(),
+              name: companyName.trim() || targetOrg?.name || 'Company',
+              contact_email: companyContactEmail.trim(),
+              logo_url: companyLogoUrl.trim(),
+            },
+            targetOrg?.id
+          );
+        } catch (orgErr) {
+          console.warn('adminService.updateOrganization direct call fallback:', orgErr);
+        }
       }
 
       // Submit update to backend API
