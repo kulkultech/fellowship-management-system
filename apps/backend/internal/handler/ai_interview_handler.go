@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -444,7 +445,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
-	if err != nil {
+	if err != nil || aiSession == nil {
 		if isDemo {
 			aiSession = h.getOrCreateDemoSession(r.Context(), token)
 		}
@@ -455,6 +456,9 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 	}
 
 	var recordingURL string
+	var videoBytes []byte
+	var ext string
+	var mediaType string
 	contentType := r.Header.Get("Content-Type")
 
 	// 1. Try multipart/form-data parse if Content-Type indicates multipart
@@ -465,35 +469,18 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 			if fileErr != nil {
 				file, header, fileErr = r.FormFile("file")
 			}
+			if fileErr != nil {
+				file, header, fileErr = r.FormFile("recording")
+			}
 
 			if fileErr == nil && file != nil {
 				defer file.Close()
+				ext = strings.ToLower(filepath.Ext(header.Filename))
+				mediaType = header.Header.Get("Content-Type")
 
-				ext := filepath.Ext(header.Filename)
-				if ext == "" {
-					ext = ".webm"
-				}
-				filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
-				objectKey := "recordings/" + filename
-
-				mediaType := header.Header.Get("Content-Type")
-				if mediaType == "" {
-					mediaType = "video/webm"
-				}
-
-				if h.storage != nil {
-					recordingURL, _ = h.storage.Upload(r.Context(), objectKey, file, header.Size, mediaType)
-				} else {
-					uploadDir := "./uploads/recordings"
-					_ = os.MkdirAll(uploadDir, 0755)
-					destPath := filepath.Join(uploadDir, filename)
-					dest, destErr := os.Create(destPath)
-					if destErr == nil {
-						defer dest.Close()
-						if _, copyErr := io.Copy(dest, file); copyErr == nil {
-							recordingURL = "/api/v1/uploads/recordings/" + filename
-						}
-					}
+				var buf bytes.Buffer
+				if _, copyErr := io.Copy(&buf, file); copyErr == nil {
+					videoBytes = buf.Bytes()
 				}
 			}
 		}
@@ -501,43 +488,54 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 
 	// 2. Direct binary video stream fallback (e.g. video/webm, video/mp4, application/octet-stream,
 	// or when client multipart boundary was missing and r.Body is unread)
-	if recordingURL == "" && r.Body != nil && r.ContentLength != 0 {
-		ext := ".webm"
-		if strings.Contains(contentType, "mp4") {
-			ext = ".mp4"
-		}
-		filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
-		objectKey := "recordings/" + filename
-
-		mediaType := contentType
-		if mediaType == "" || mediaType == "application/octet-stream" || strings.HasPrefix(mediaType, "multipart/") {
-			mediaType = "video/webm"
-		}
-
+	if len(videoBytes) == 0 && r.Body != nil {
+		var buf bytes.Buffer
 		limitReader := io.LimitReader(r.Body, 100<<20) // 100MB max limit
-		if h.storage != nil {
-			recordingURL, _ = h.storage.Upload(r.Context(), objectKey, limitReader, r.ContentLength, mediaType)
-		} else {
-			uploadDir := "./uploads/recordings"
-			_ = os.MkdirAll(uploadDir, 0755)
-			destPath := filepath.Join(uploadDir, filename)
-			dest, destErr := os.Create(destPath)
-			if destErr == nil {
-				defer dest.Close()
-				if written, copyErr := io.Copy(dest, limitReader); copyErr == nil && written > 0 {
-					recordingURL = "/api/v1/uploads/recordings/" + filename
-				}
+		if _, copyErr := io.Copy(&buf, limitReader); copyErr == nil {
+			videoBytes = buf.Bytes()
+			if strings.Contains(contentType, "mp4") {
+				ext = ".mp4"
 			}
+			mediaType = contentType
 		}
 	}
 
 	// 3. Fallback: JSON body { "recording_url": "..." }
-	if recordingURL == "" && r.Body != nil {
+	if len(videoBytes) == 0 && r.Body != nil {
 		var req struct {
 			RecordingURL string `json:"recording_url"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.RecordingURL != "" {
+		if err := json.NewDecoder(bytes.NewReader(videoBytes)).Decode(&req); err == nil && req.RecordingURL != "" {
 			recordingURL = req.RecordingURL
+		}
+	}
+
+	if ext == "" {
+		ext = ".webm"
+	}
+	if mediaType == "" || mediaType == "application/octet-stream" || strings.HasPrefix(mediaType, "multipart/") {
+		mediaType = "video/webm"
+	}
+
+	filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
+	objectKey := "recordings/" + filename
+
+	// Guaranteed local disk save first so candidate video is never lost!
+	if len(videoBytes) > 0 {
+		uploadDir := "./uploads/recordings"
+		_ = os.MkdirAll(uploadDir, 0755)
+		destPath := filepath.Join(uploadDir, filename)
+		if dest, destErr := os.Create(destPath); destErr == nil {
+			_, _ = dest.Write(videoBytes)
+			dest.Close()
+			recordingURL = "/api/v1/uploads/recordings/" + filename
+		}
+
+		// Mirror to remote storage if configured (Cloudflare R2)
+		if h.storage != nil {
+			if remoteURL, upErr := h.storage.Upload(r.Context(), objectKey, bytes.NewReader(videoBytes), int64(len(videoBytes)), mediaType); upErr == nil && remoteURL != "" {
+				recordingURL = remoteURL
+			}
 		}
 	}
 

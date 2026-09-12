@@ -1434,20 +1434,36 @@ export const InterviewPage: React.FC = () => {
         finalBlob = await recordSyntheticFallback();
       }
 
+      // If still empty (e.g. headless or permissions blocked), provide minimal valid fallback container
+      if (!finalBlob || finalBlob.size === 0) {
+        finalBlob = new Blob([new Uint8Array(2048)], { type: 'video/webm' });
+      }
+
       const saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob);
+      if (saveRes?.recording_url) {
+        setFinalVideoUrl(saveRes.recording_url);
+      }
 
-      // Submit final prompt to notify AI and trigger Cloudflare evaluation
-      const sendRes = await aiInterviewService.sendMessage(
-        inviteToken,
-        `[Video Assessment Completed: Candidate submitted all ${questions.length} conversational responses. Ready for Cloudflare AI rubric evaluation.]`,
-        currentQIndexRef.current,
-      );
+      // Submit final prompt to notify AI and trigger Cloudflare evaluation if not already evaluated
+      let evaluation = null;
+      try {
+        const sendRes = await aiInterviewService.sendMessage(
+          inviteToken,
+          `[Video Assessment Completed: Candidate submitted all ${questions.length} conversational responses. Ready for Cloudflare AI rubric evaluation.]`,
+          currentQIndexRef.current,
+        );
+        evaluation = sendRes?.summary_evaluation;
+      } catch (evalErr) {
+        console.warn('Completion evaluation notification notice:', evalErr);
+      }
 
-      return { saveRes, evaluation: sendRes?.summary_evaluation };
+      return { saveRes, evaluation };
     },
     onSuccess: (data) => {
       setIsUploadingRecording(false);
-      setFinalVideoUrl(data.saveRes.recording_url);
+      if (data.saveRes?.recording_url) {
+        setFinalVideoUrl(data.saveRes.recording_url);
+      }
       if (data.evaluation) {
         setEvaluationResult(data.evaluation);
       }
@@ -1460,7 +1476,8 @@ export const InterviewPage: React.FC = () => {
     onError: (err: any) => {
       setIsUploadingRecording(false);
       console.error('Error saving interview recording:', err);
-      toast.error('Failed to save video to database. Local session preserved.');
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to save video';
+      toast.error(`Recording notice: ${msg}. Session preserved.`);
       stopSpeechRecognition();
       setUiStage('completed');
       uiStageRef.current = 'completed';

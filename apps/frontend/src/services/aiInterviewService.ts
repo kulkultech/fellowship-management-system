@@ -51,7 +51,7 @@ export const aiInterviewService = {
         formData,
         {
           headers: {
-            'Content-Type': undefined,
+            'Content-Type': 'multipart/form-data',
           },
         },
       );

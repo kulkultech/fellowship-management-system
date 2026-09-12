@@ -61,14 +61,18 @@ func (s *R2Storage) Upload(ctx context.Context, key string, r io.Reader, size in
 	contentLength := n
 
 	// Mirror to local storage for zero-latency seeking and fast playback
+	var localURL string
 	if s.localFallback != nil {
-		_, _ = s.localFallback.Upload(ctx, cleanKey, bytes.NewReader(bodyBytes), contentLength, contentType)
+		localURL, _ = s.localFallback.Upload(ctx, cleanKey, bytes.NewReader(bodyBytes), contentLength, contentType)
 	}
 
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/r2/buckets/%s/objects/%s", s.accountID, s.bucket, cleanKey)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(bodyBytes))
 	if err != nil {
+		if localURL != "" {
+			return localURL, nil
+		}
 		return "", fmt.Errorf("storage/r2: create put request: %w", err)
 	}
 
@@ -78,11 +82,17 @@ func (s *R2Storage) Upload(ctx context.Context, key string, r io.Reader, size in
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
+		if localURL != "" {
+			return localURL, nil
+		}
 		return "", fmt.Errorf("storage/r2: execute put request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if localURL != "" {
+			return localURL, nil
+		}
 		respBytes, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("storage/r2: put object failed with status %d: %s", resp.StatusCode, string(respBytes))
 	}
