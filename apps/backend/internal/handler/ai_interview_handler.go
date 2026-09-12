@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,6 +65,69 @@ type AIInterviewSessionResponse struct {
 	Rubric              *model.AIInterviewRubric `json:"rubric,omitempty"`
 }
 
+func (h *AIInterviewHandler) getOrCreateDemoSession(ctx context.Context, token string) *model.AIInterview {
+	aiSession, err := h.aiInterviewRepo.GetByToken(ctx, token)
+	if err == nil && aiSession != nil {
+		return aiSession
+	}
+
+	// Find existing program and org for demo
+	var demoOrgID uuid.UUID
+	var demoProgID uuid.UUID
+	var demoTrackID *uuid.UUID
+
+	if p, err := h.programRepo.GetByID(ctx, uuid.MustParse("00000000-0000-0000-0000-000000000003")); err == nil && p != nil {
+		demoOrgID = p.OrganizationID
+		demoProgID = p.ID
+	}
+	if demoOrgID == uuid.Nil {
+		demoOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	}
+	if demoProgID == uuid.Nil {
+		if progs, err := h.programRepo.ListByOrg(ctx, demoOrgID); err == nil && len(progs) > 0 {
+			demoProgID = progs[0].ID
+		}
+	}
+
+	demoAppID := uuid.MustParse("00000000-0000-0000-0000-000000000099")
+	demoApplicant := &model.Applicant{
+		ID:             demoAppID,
+		OrganizationID: demoOrgID,
+		ProgramID:      demoProgID,
+		TrackID:        demoTrackID,
+		FullName:       "KulKul Demo Reviewer",
+		FirstName:      "KulKul",
+		LastName:       "Reviewer",
+		Email:          "demo-reviewer@kulkul.tech",
+		CurrentStage:   model.StageAIInterviewInvited,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	app, _, _ := h.applicantRepo.CreateOrGet(ctx, demoApplicant)
+	if app != nil {
+		demoAppID = app.ID
+	}
+
+	aiSession, _ = h.aiInterviewRepo.CreateInvitationWithTrack(ctx, demoAppID, demoProgID, demoTrackID, token, time.Now().Add(365*24*time.Hour))
+	if aiSession == nil {
+		aiSession = &model.AIInterview{
+			ID:                  uuid.New(),
+			ApplicantID:         demoAppID,
+			ProgramID:           demoProgID,
+			TrackID:             demoTrackID,
+			InvitationToken:     token,
+			InvitationExpiresAt: time.Now().Add(365 * 24 * time.Hour),
+			Status:              model.AIInterviewInvited,
+			Transcript:          []model.ChatMessage{},
+			ScorecardScore:      0,
+			RecordingStatus:     "pending",
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
+		}
+	}
+	return aiSession
+}
+
 func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "inviteToken")
 	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
@@ -82,58 +146,7 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil || aiSession == nil {
 		if isDemo {
-			// Find existing program and org for demo
-			var demoOrgID uuid.UUID
-			var demoProgID uuid.UUID
-			var demoTrackID *uuid.UUID
-
-			if p, err := h.programRepo.GetByID(r.Context(), uuid.MustParse("00000000-0000-0000-0000-000000000003")); err == nil && p != nil {
-				demoOrgID = p.OrganizationID
-				demoProgID = p.ID
-			}
-			if demoOrgID == uuid.Nil {
-				demoOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-			}
-			if demoProgID == uuid.Nil {
-				demoProgID = uuid.MustParse("00000000-0000-0000-0000-000000000003")
-			}
-
-			demoAppID := uuid.MustParse("00000000-0000-0000-0000-000000000099")
-			demoApplicant := &model.Applicant{
-				ID:             demoAppID,
-				OrganizationID: demoOrgID,
-				ProgramID:      demoProgID,
-				TrackID:        demoTrackID,
-				FullName:       "KulKul Demo Reviewer",
-				FirstName:      "KulKul",
-				LastName:       "Reviewer",
-				Email:          "demo-reviewer@kulkul.tech",
-				CurrentStage:   model.StageAIInterviewInvited,
-				CreatedAt:      time.Now(),
-				UpdatedAt:      time.Now(),
-			}
-			app, _, _ := h.applicantRepo.CreateOrGet(r.Context(), demoApplicant)
-			if app != nil {
-				demoAppID = app.ID
-			}
-
-			aiSession, _ = h.aiInterviewRepo.CreateInvitationWithTrack(r.Context(), demoAppID, demoProgID, demoTrackID, token, time.Now().Add(365*24*time.Hour))
-			if aiSession == nil {
-				aiSession = &model.AIInterview{
-					ID:                  uuid.New(),
-					ApplicantID:         demoAppID,
-					ProgramID:           demoProgID,
-					TrackID:             demoTrackID,
-					InvitationToken:     token,
-					InvitationExpiresAt: time.Now().Add(365 * 24 * time.Hour),
-					Status:              model.AIInterviewInvited,
-					Transcript:          []model.ChatMessage{},
-					ScorecardScore:      0,
-					RecordingStatus:     "pending",
-					CreatedAt:           time.Now(),
-					UpdatedAt:           time.Now(),
-				}
-			}
+			aiSession = h.getOrCreateDemoSession(r.Context(), token)
 		} else if errors.Is(err, repository.ErrAIInterviewNotFound) {
 			httpx.Error(w, http.StatusNotFound, "interview session not found")
 			return
@@ -237,11 +250,17 @@ type SendMessageResponse struct {
 
 func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "inviteToken")
+	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
 	if err != nil {
-		httpx.Error(w, http.StatusNotFound, "interview not found")
-		return
+		if isDemo {
+			aiSession = h.getOrCreateDemoSession(r.Context(), token)
+		}
+		if aiSession == nil {
+			httpx.Error(w, http.StatusNotFound, "interview not found")
+			return
+		}
 	}
 
 	if aiSession.Status == model.AIInterviewCompleted {
@@ -417,65 +436,98 @@ type UploadRecordingResponse struct {
 
 func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "inviteToken")
+	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
 	if err != nil {
-		httpx.Error(w, http.StatusNotFound, "interview not found")
-		return
+		if isDemo {
+			aiSession = h.getOrCreateDemoSession(r.Context(), token)
+		}
+		if aiSession == nil {
+			httpx.Error(w, http.StatusNotFound, "interview not found")
+			return
+		}
 	}
 
 	var recordingURL string
-
 	contentType := r.Header.Get("Content-Type")
+
+	// 1. Try multipart/form-data parse if Content-Type indicates multipart
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// Limit to 100MB for video recording uploads
-		if err := r.ParseMultipartForm(100 << 20); err != nil {
-			httpx.Error(w, http.StatusBadRequest, "failed to parse multipart video form or file too large")
-			return
-		}
-
-		file, header, err := r.FormFile("video")
-		if err == nil && file != nil {
-			defer file.Close()
-
-			ext := filepath.Ext(header.Filename)
-			if ext == "" {
-				ext = ".webm"
-			}
-			filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
-			objectKey := "recordings/" + filename
-
-			mediaType := header.Header.Get("Content-Type")
-			if mediaType == "" {
-				mediaType = "video/webm"
+		if err := r.ParseMultipartForm(100 << 20); err == nil {
+			file, header, fileErr := r.FormFile("video")
+			if fileErr != nil {
+				file, header, fileErr = r.FormFile("file")
 			}
 
-			if h.storage != nil {
-				recordingURL, err = h.storage.Upload(r.Context(), objectKey, file, header.Size, mediaType)
-				if err != nil {
-					httpx.Error(w, http.StatusInternalServerError, "failed to save recording file to storage")
-					return
+			if fileErr == nil && file != nil {
+				defer file.Close()
+
+				ext := filepath.Ext(header.Filename)
+				if ext == "" {
+					ext = ".webm"
 				}
-			} else {
-				uploadDir := "./uploads/recordings"
-				_ = os.MkdirAll(uploadDir, 0755)
-				destPath := filepath.Join(uploadDir, filename)
-				dest, err := os.Create(destPath)
-				if err != nil {
-					httpx.Error(w, http.StatusInternalServerError, "failed to save recording file on server")
-					return
+				filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
+				objectKey := "recordings/" + filename
+
+				mediaType := header.Header.Get("Content-Type")
+				if mediaType == "" {
+					mediaType = "video/webm"
 				}
-				defer dest.Close()
-				if _, err := io.Copy(dest, file); err != nil {
-					httpx.Error(w, http.StatusInternalServerError, "failed to write recording file data")
-					return
+
+				if h.storage != nil {
+					recordingURL, _ = h.storage.Upload(r.Context(), objectKey, file, header.Size, mediaType)
+				} else {
+					uploadDir := "./uploads/recordings"
+					_ = os.MkdirAll(uploadDir, 0755)
+					destPath := filepath.Join(uploadDir, filename)
+					dest, destErr := os.Create(destPath)
+					if destErr == nil {
+						defer dest.Close()
+						if _, copyErr := io.Copy(dest, file); copyErr == nil {
+							recordingURL = "/api/v1/uploads/recordings/" + filename
+						}
+					}
 				}
-				recordingURL = "/uploads/recordings/" + filename
 			}
 		}
 	}
 
-	if recordingURL == "" {
+	// 2. Direct binary video stream fallback (e.g. video/webm, video/mp4, application/octet-stream,
+	// or when client multipart boundary was missing and r.Body is unread)
+	if recordingURL == "" && r.Body != nil && r.ContentLength != 0 {
+		ext := ".webm"
+		if strings.Contains(contentType, "mp4") {
+			ext = ".mp4"
+		}
+		filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
+		objectKey := "recordings/" + filename
+
+		mediaType := contentType
+		if mediaType == "" || mediaType == "application/octet-stream" || strings.HasPrefix(mediaType, "multipart/") {
+			mediaType = "video/webm"
+		}
+
+		limitReader := io.LimitReader(r.Body, 100<<20) // 100MB max limit
+		if h.storage != nil {
+			recordingURL, _ = h.storage.Upload(r.Context(), objectKey, limitReader, r.ContentLength, mediaType)
+		} else {
+			uploadDir := "./uploads/recordings"
+			_ = os.MkdirAll(uploadDir, 0755)
+			destPath := filepath.Join(uploadDir, filename)
+			dest, destErr := os.Create(destPath)
+			if destErr == nil {
+				defer dest.Close()
+				if written, copyErr := io.Copy(dest, limitReader); copyErr == nil && written > 0 {
+					recordingURL = "/api/v1/uploads/recordings/" + filename
+				}
+			}
+		}
+	}
+
+	// 3. Fallback: JSON body { "recording_url": "..." }
+	if recordingURL == "" && r.Body != nil {
 		var req struct {
 			RecordingURL string `json:"recording_url"`
 		}
@@ -485,13 +537,23 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 	}
 
 	if recordingURL == "" {
-		httpx.Error(w, http.StatusBadRequest, "no video recording data provided")
+		httpx.Error(w, http.StatusBadRequest, "no video recording data provided or failed to process recording")
 		return
+	}
+
+	// Standardize URL path with /api/v1 prefix if saved locally
+	if strings.HasPrefix(recordingURL, "/uploads/") && !strings.HasPrefix(recordingURL, "/api/v1/uploads/") {
+		recordingURL = "/api/v1" + recordingURL
 	}
 
 	if err := h.aiInterviewRepo.UpdateRecording(r.Context(), aiSession.ID, recordingURL, "ready"); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update recording in database")
 		return
+	}
+
+	// Ensure applicant stage is updated if completed
+	if aiSession.ApplicantID != uuid.Nil {
+		_ = h.applicantRepo.UpdateStage(r.Context(), aiSession.ApplicantID, model.StageAIInterviewCompleted)
 	}
 
 	httpx.JSON(w, http.StatusOK, UploadRecordingResponse{

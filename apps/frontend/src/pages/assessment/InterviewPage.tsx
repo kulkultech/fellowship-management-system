@@ -1355,18 +1355,39 @@ export const InterviewPage: React.FC = () => {
 
   // Mutation to persist video to database and complete session
   const saveInterviewMutation = useMutation({
+    retry: 2,
     mutationFn: async () => {
       if (!inviteToken) throw new Error('Missing interview invite token');
       setIsUploadingRecording(true);
       stopSpeech();
       stopSpeechRecognition();
 
-      // Finalize continuous master session recorder if active
+      // Finalize continuous master session recorder if active with 2.5s safety timeout
       if (sessionRecorderRef.current && sessionRecorderRef.current.state !== 'inactive') {
         await new Promise<void>((resolve) => {
-          if (!sessionRecorderRef.current) return resolve();
-          sessionRecorderRef.current.onstop = () => resolve();
-          sessionRecorderRef.current.stop();
+          let resolved = false;
+          const done = () => {
+            if (!resolved) {
+              resolved = true;
+              resolve();
+            }
+          };
+          const timer = setTimeout(done, 2500);
+          try {
+            if (sessionRecorderRef.current) {
+              sessionRecorderRef.current.onstop = () => {
+                clearTimeout(timer);
+                done();
+              };
+              sessionRecorderRef.current.stop();
+            } else {
+              clearTimeout(timer);
+              done();
+            }
+          } catch (_) {
+            clearTimeout(timer);
+            done();
+          }
         });
       }
 

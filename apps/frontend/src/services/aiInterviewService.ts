@@ -38,16 +38,40 @@ export const aiInterviewService = {
       });
       return data;
     }
-    const formData = new FormData();
+
     const isMp4 = video.type && video.type.includes('mp4');
     const filename = isMp4 ? 'interview_recording.mp4' : 'interview_recording.webm';
-    formData.append('video', video, filename);
-    const { data } = await apiClient.post<SaveRecordingResult>(`/interviews/${inviteToken}/recording`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return data;
+
+    // Primary: Standard FormData upload with automatic browser boundary calculation
+    try {
+      const formData = new FormData();
+      formData.append('video', video, filename);
+      const { data } = await apiClient.post<SaveRecordingResult>(
+        `/interviews/${inviteToken}/recording`,
+        formData,
+        {
+          headers: {
+            'Content-Type': undefined,
+          },
+        },
+      );
+      return data;
+    } catch (formErr) {
+      console.warn('FormData video upload encountered error, attempting direct binary stream fallback:', formErr);
+
+      // Resilient Fallback: Direct binary video stream upload
+      const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
+      const { data } = await apiClient.post<SaveRecordingResult>(
+        `/interviews/${inviteToken}/recording`,
+        video,
+        {
+          headers: {
+            'Content-Type': contentType,
+          },
+        },
+      );
+      return data;
+    }
   },
 
   resetSession: async (inviteToken: string): Promise<AIInterviewSession> => {

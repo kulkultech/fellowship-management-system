@@ -4154,7 +4154,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </span>
                               <div className="flex items-center gap-3">
                                 <a
-                                  href={applicantDetail.ai_screen.recording_url}
+                                  href={resolveMediaUrl(applicantDetail.ai_screen.recording_url)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white font-semibold transition"
@@ -4163,7 +4163,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   <span>Open in New Tab</span>
                                 </a>
                                 <a
-                                  href={applicantDetail.ai_screen.recording_url}
+                                  href={resolveMediaUrl(applicantDetail.ai_screen.recording_url)}
                                   target="_blank"
                                   rel="noreferrer"
                                   download
