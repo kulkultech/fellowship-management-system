@@ -90,9 +90,12 @@ export const SuperadminDashboardPage: React.FC = () => {
       toast.success('Company deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['superadmin-companies'] });
       queryClient.invalidateQueries({ queryKey: ['admin-companies'] });
+      queryClient.invalidateQueries({ queryKey: ['superadmin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-organization-profile'] });
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to delete company');
+      toast.error(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to delete company');
     },
   });
 

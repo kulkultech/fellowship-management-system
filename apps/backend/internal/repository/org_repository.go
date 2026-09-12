@@ -332,20 +332,44 @@ func (r *OrgRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return ErrOrgNotFound
 	}
 
-	// Clean up child relationships
-	_, _ = r.pool.Exec(ctx, "DELETE FROM test_submissions WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
-	_, _ = r.pool.Exec(ctx, "DELETE FROM applicants WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
-	_, _ = r.pool.Exec(ctx, "DELETE FROM mcq_questions WHERE question_set_id IN (SELECT id FROM question_sets WHERE organization_id = $1)", id)
-	_, _ = r.pool.Exec(ctx, "DELETE FROM question_sets WHERE organization_id = $1", id)
-	_, _ = r.pool.Exec(ctx, "DELETE FROM program_tracks WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
-	_, _ = r.pool.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1", id)
-	_, _ = r.pool.Exec(ctx, "DELETE FROM users WHERE organization_id = $1", id)
-	tag, err := r.pool.Exec(ctx, "DELETE FROM organizations WHERE id = $1", id)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("org_repo: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Unlink question sets from programs and tracks first
+	_, _ = tx.Exec(ctx, "UPDATE programs SET question_set_id = NULL WHERE organization_id = $1", id)
+	_, _ = tx.Exec(ctx, "UPDATE program_tracks SET question_set_id = NULL WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
+
+	// 2. Delete test submissions and AI interviews
+	_, _ = tx.Exec(ctx, "DELETE FROM ai_interviews WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1) OR applicant_id IN (SELECT id FROM applicants WHERE organization_id = $1)", id)
+	_, _ = tx.Exec(ctx, "DELETE FROM test_submissions WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1) OR applicant_id IN (SELECT id FROM applicants WHERE organization_id = $1)", id)
+
+	// 3. Delete applicants
+	_, _ = tx.Exec(ctx, "DELETE FROM applicants WHERE organization_id = $1", id)
+
+	// 4. Delete mcq questions, question sets, tracks, and programs
+	_, _ = tx.Exec(ctx, "DELETE FROM mcq_questions WHERE question_set_id IN (SELECT id FROM question_sets WHERE organization_id = $1) OR program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
+	_, _ = tx.Exec(ctx, "DELETE FROM question_sets WHERE organization_id = $1", id)
+	_, _ = tx.Exec(ctx, "DELETE FROM program_tracks WHERE program_id IN (SELECT id FROM programs WHERE organization_id = $1)", id)
+	_, _ = tx.Exec(ctx, "DELETE FROM programs WHERE organization_id = $1", id)
+
+	// 5. Delete organization users (except platform superadmins)
+	_, _ = tx.Exec(ctx, "DELETE FROM users WHERE organization_id = $1 AND role <> 'superadmin'", id)
+	_, _ = tx.Exec(ctx, "UPDATE users SET organization_id = NULL WHERE organization_id = $1", id)
+
+	// 6. Delete the organization
+	tag, err := tx.Exec(ctx, "DELETE FROM organizations WHERE id = $1", id)
 	if err != nil {
 		return fmt.Errorf("org_repo: delete: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrOrgNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("org_repo: commit delete: %w", err)
 	}
 	return nil
 }

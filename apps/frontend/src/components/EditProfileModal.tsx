@@ -203,25 +203,29 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
 
       if (isCompanyUser) {
-        if (companySlug.trim()) payload.company_slug = companySlug.trim().toLowerCase();
-        if (companyName.trim()) payload.company_name = companyName.trim();
-        payload.company_logo_url = companyLogoUrl.trim();
-        if (companyContactEmail.trim()) payload.company_contact_email = companyContactEmail.trim();
+        if (user?.role !== 'superadmin') {
+          if (companySlug.trim()) payload.company_slug = companySlug.trim().toLowerCase();
+          if (companyName.trim()) payload.company_name = companyName.trim();
+          payload.company_logo_url = companyLogoUrl.trim();
+          if (companyContactEmail.trim()) payload.company_contact_email = companyContactEmail.trim();
+        }
 
         // Also call adminService.updateOrganization to guarantee persistence across admin endpoints
         const targetOrg = initialOrg || user?.organization;
-        try {
-          await adminService.updateOrganization(
-            {
-              slug: companySlug.trim().toLowerCase(),
-              name: companyName.trim() || targetOrg?.name || 'Company',
-              contact_email: companyContactEmail.trim(),
-              logo_url: companyLogoUrl.trim(),
-            },
-            targetOrg?.id
-          );
-        } catch (orgErr) {
-          console.warn('adminService.updateOrganization direct call fallback:', orgErr);
+        if (targetOrg?.id || user?.role !== 'superadmin') {
+          try {
+            await adminService.updateOrganization(
+              {
+                slug: companySlug.trim().toLowerCase(),
+                name: companyName.trim() || targetOrg?.name || 'Company',
+                contact_email: companyContactEmail.trim(),
+                logo_url: companyLogoUrl.trim(),
+              },
+              targetOrg?.id
+            );
+          } catch (orgErr) {
+            console.warn('adminService.updateOrganization direct call fallback:', orgErr);
+          }
         }
       }
 

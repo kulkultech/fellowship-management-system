@@ -410,13 +410,9 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If user is associated with an organization (or superadmin managing primary org) and company fields are provided, update company
+	// If user is associated with an organization and company fields are provided, update company
 	var orgInfo *OrganizationInfo
 	targetOrgID := user.OrganizationID
-	if targetOrgID == nil && claims.Role == model.RoleSuperadmin {
-		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-		targetOrgID = &primaryID
-	}
 
 	if targetOrgID != nil {
 		currentOrg, err := h.orgRepo.GetByID(r.Context(), *targetOrgID)

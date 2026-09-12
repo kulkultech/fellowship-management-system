@@ -140,3 +140,135 @@ func TestAdminHandler_UpdateCompanyDetails_Superadmin(t *testing.T) {
 		t.Errorf("expected status 409 Conflict, got %d: %s", collideW.Code, collideW.Body.String())
 	}
 }
+
+func TestAdminHandler_DeleteCompany(t *testing.T) {
+	h, _, orgRepo := newAdminCompanyTestHandler()
+	ctx := context.Background()
+
+	org, err := orgRepo.Register(ctx, "delete-me", "Delete Me Corp", "del@test.com", "", model.OrgStatusApproved)
+	if err != nil {
+		t.Fatalf("failed to register org: %v", err)
+	}
+
+	superClaims := &auth.Claims{
+		UserID: uuid.New(),
+		Email:  "superadmin@kulkul.tech",
+		Role:   "superadmin",
+	}
+
+	orgAdminClaims := &auth.Claims{
+		UserID:         uuid.New(),
+		Email:          "admin@delete-me.test",
+		Role:           "org_admin",
+		OrganizationID: &org.ID,
+	}
+
+	r := chi.NewRouter()
+	r.Delete("/companies/{id}", h.DeleteCompany)
+
+	// 1. Non-superadmin cannot delete company
+	forbiddenReq := httptest.NewRequest(http.MethodDelete, "/companies/"+org.ID.String(), nil)
+	forbiddenReq = forbiddenReq.WithContext(middleware.WithUser(forbiddenReq.Context(), orgAdminClaims))
+	w1 := httptest.NewRecorder()
+	r.ServeHTTP(w1, forbiddenReq)
+	if w1.Code != http.StatusForbidden {
+		t.Errorf("expected status 403 Forbidden, got %d", w1.Code)
+	}
+
+	// 2. Cannot delete primary system organization
+	primaryID := "00000000-0000-0000-0000-000000000001"
+	primaryReq := httptest.NewRequest(http.MethodDelete, "/companies/"+primaryID, nil)
+	primaryReq = primaryReq.WithContext(middleware.WithUser(primaryReq.Context(), superClaims))
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, primaryReq)
+	if w2.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400 Bad Request for primary org, got %d", w2.Code)
+	}
+
+	// 3. Superadmin successfully deletes company
+	successReq := httptest.NewRequest(http.MethodDelete, "/companies/"+org.ID.String(), nil)
+	successReq = successReq.WithContext(middleware.WithUser(successReq.Context(), superClaims))
+	w3 := httptest.NewRecorder()
+	r.ServeHTTP(w3, successReq)
+	if w3.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: %s", w3.Code, w3.Body.String())
+	}
+
+	// Verify org is deleted
+	_, err = orgRepo.GetByID(ctx, org.ID)
+	if err == nil {
+		t.Errorf("expected deleted org to not be found, but it was found")
+	}
+
+	// 4. Deleting nonexistent company returns 404
+	w4 := httptest.NewRecorder()
+	r.ServeHTTP(w4, successReq)
+	if w4.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 Not Found, got %d", w4.Code)
+	}
+}
+
+func TestAdminHandler_UpdateCompanySlug_DoesNotDuplicate(t *testing.T) {
+	h, _, orgRepo := newAdminCompanyTestHandler()
+	ctx := context.Background()
+
+	org, err := orgRepo.Register(ctx, "ladies-in-tech", "Ladies in Tech", "lit@test.com", "", model.OrgStatusApproved)
+	if err != nil {
+		t.Fatalf("failed to register org: %v", err)
+	}
+
+	superClaims := &auth.Claims{
+		UserID: uuid.New(),
+		Email:  "superadmin@kulkul.tech",
+		Role:   "superadmin",
+	}
+
+	r := chi.NewRouter()
+	r.Put("/companies/{id}", h.UpdateCompanyDetails)
+
+	// Update slug from ladies-in-tech to lit-network
+	payload := map[string]string{
+		"name": "Ladies in Tech Network",
+		"slug": "lit-network",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPut, "/companies/"+org.ID.String(), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(middleware.WithUser(req.Context(), superClaims))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify org count remains exactly 2 (rsa + lit-network, no duplicate company created)
+	orgs, err := orgRepo.List(ctx, "")
+	if err != nil {
+		t.Fatalf("failed to list orgs: %v", err)
+	}
+	if len(orgs) != 2 {
+		t.Errorf("expected exactly 2 orgs (rsa + lit-network), got %d", len(orgs))
+	}
+
+	// Old slug must no longer exist
+	_, err = orgRepo.GetBySlug(ctx, "ladies-in-tech")
+	if err == nil {
+		t.Errorf("expected old slug 'ladies-in-tech' to be deleted from repo map, but it still exists")
+	}
+
+	// New slug must exist with the same org ID
+	updatedOrg, err := orgRepo.GetBySlug(ctx, "lit-network")
+	if err != nil {
+		t.Fatalf("failed to get updated org by new slug: %v", err)
+	}
+	if updatedOrg.ID != org.ID {
+		t.Errorf("expected updated org ID %s, got %s", org.ID, updatedOrg.ID)
+	}
+	if updatedOrg.Name != "Ladies in Tech Network" {
+		t.Errorf("expected name 'Ladies in Tech Network', got '%s'", updatedOrg.Name)
+	}
+}
+
+
