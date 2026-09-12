@@ -31,7 +31,7 @@ func NewMCQRepository(pool *pgxpool.Pool) *MCQRepository {
 	progID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
 
 	var bank QuestionBankData
-	if err := json.Unmarshal(litQuestionsJSON, &bank); err == nil && len(bank.QAAssessment) > 0 {
+	if err := json.Unmarshal(defaultQuestionsJSON, &bank); err == nil && len(bank.QAAssessment) > 0 {
 		for _, q := range bank.QAAssessment {
 			var opts []model.MCQOption
 			for _, o := range q.Options {

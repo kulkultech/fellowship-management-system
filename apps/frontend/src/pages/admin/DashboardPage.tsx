@@ -244,7 +244,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [defaultView]);
 
   // Active Program selection
-  const [activeProgramSlug, setActiveProgramSlug] = useState('lit2026');
+  const [activeProgramSlug, setActiveProgramSlug] = useState('');
   const [isCompanySettingsOpen, setIsCompanySettingsOpen] = useState(false);
 
   // Fetch current organization details (supports superadmin impersonation)
@@ -254,7 +254,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   });
 
   // Current company slug
-  const orgSlug = orgProfile?.slug || user?.organization?.slug || 'rsa';
+  const orgSlug = orgProfile?.slug || user?.organization?.slug || '';
 
   // Load All Programs for Company
   const { data: allPrograms = [] } = useQuery({
@@ -274,13 +274,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   useEffect(() => {
     if (allPrograms.length > 0) {
-      if (!allPrograms.some((p) => p.slug === activeProgramSlug)) {
+      if (!activeProgramSlug || !allPrograms.some((p) => p.slug === activeProgramSlug)) {
         setActiveProgramSlug(allPrograms[0].slug);
       }
-    } else if (orgSlug !== 'rsa') {
+    } else {
       setActiveProgramSlug('');
     }
-  }, [allPrograms, orgSlug, activeProgramSlug]);
+  }, [allPrograms, activeProgramSlug]);
 
   // Load Active Program Details
   const { data: programData } = useQuery({
@@ -1617,17 +1617,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <td className="py-4 px-6 align-middle">
                                 <div className="flex items-center gap-3.5">
                                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
-                                    {prog.image_url || prog.slug === 'lit2026' ? (
+                                    {prog.image_url ? (
                                       <img
-                                        src={resolveMediaUrl(prog.image_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp'}
+                                        src={resolveMediaUrl(prog.image_url)}
                                         alt={prog.name}
                                         className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          const img = e.currentTarget;
-                                          if (!img.src.includes('lithero')) {
-                                            img.src = '/lithero.webp';
-                                          }
-                                        }}
                                       />
                                     ) : (
                                       <Layers className="w-5 h-5 text-kulkul-orange" />
@@ -1794,17 +1788,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        {company.logo_url || company.slug === 'ladies-in-tech' ? (
+                        {company.logo_url ? (
                           <img
-                            src={resolveMediaUrl(company.logo_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
+                            src={resolveMediaUrl(company.logo_url)}
                             alt={company.name}
                             className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
-                            onError={(e) => {
-                              const img = e.currentTarget;
-                              if (!img.src.includes('litlogo')) {
-                                img.src = '/litlogo.jpeg';
-                              }
-                            }}
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-lg">

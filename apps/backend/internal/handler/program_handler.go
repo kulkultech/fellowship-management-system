@@ -354,11 +354,7 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	// Resolve schema for dynamic field requirements
 	schema := program.ApplicationFormSchema
 	if schema == nil {
-		if program.Slug == "lit2026" {
-			schema = model.DefaultRSAFormSchema()
-		} else {
-			schema = model.DefaultCompanyFormSchema()
-		}
+		schema = model.DefaultStandardFormSchema()
 	}
 
 	type stdCheck struct {
@@ -545,7 +541,7 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 				passingScore = targetTrack.LogicTestPassingScore
 			}
 		}
-		testURL := fmt.Sprintf("%s/lit2026/test/%s", h.frontendURL, newSub.TestToken)
+		testURL := fmt.Sprintf("%s/test/%s", h.frontendURL, newSub.TestToken)
 		_ = h.emailSvc.SendApplicationReceivedEmail(applicant.Email, applicant.FullName, program.Name, trackName, testURL, duration, passingScore)
 	}
 

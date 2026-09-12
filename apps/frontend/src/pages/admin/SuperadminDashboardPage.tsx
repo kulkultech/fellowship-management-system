@@ -325,17 +325,11 @@ export const SuperadminDashboardPage: React.FC = () => {
                           <td className="py-4 px-6 align-middle">
                             <div className="flex items-center gap-3.5">
                               <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
-                                {company.logo_url || company.slug === 'ladies-in-tech' ? (
+                                {company.logo_url ? (
                                   <img
-                                    src={resolveMediaUrl(company.logo_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
+                                    src={resolveMediaUrl(company.logo_url)}
                                     alt={company.name}
                                     className="w-full h-full object-contain p-0.5 bg-white"
-                                    onError={(e) => {
-                                      const img = e.currentTarget;
-                                      if (!img.src.includes('litlogo')) {
-                                        img.src = '/litlogo.jpeg';
-                                      }
-                                    }}
                                   />
                                 ) : (
                                   <Building2 className="w-5 h-5 text-kulkul-orange" />
@@ -506,21 +500,15 @@ export const SuperadminDashboardPage: React.FC = () => {
                           <td className="py-4 px-6 align-middle">
                             <div className="flex items-center gap-3.5">
                               <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
-                                {prog.image_url || prog.slug === 'lit2026' ? (
-                                  <img
-                                    src={resolveMediaUrl(prog.image_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp'}
-                                    alt={prog.name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      const img = e.currentTarget;
-                                      if (!img.src.includes('lithero')) {
-                                        img.src = '/lithero.webp';
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <Layers className="w-5 h-5 text-kulkul-orange" />
-                                )}
+                                {prog.image_url ? (
+                                   <img
+                                     src={resolveMediaUrl(prog.image_url)}
+                                     alt={prog.name}
+                                     className="w-full h-full object-cover"
+                                   />
+                                 ) : (
+                                   <Layers className="w-5 h-5 text-kulkul-orange" />
+                                 )}
                               </div>
                               <div className="min-w-0">
                                 <div className="font-extrabold text-slate-900 text-sm truncate">

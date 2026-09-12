@@ -212,24 +212,24 @@ func TestAdminHandler_UpdateCompanySlug_DoesNotDuplicate(t *testing.T) {
 	h, _, orgRepo := newAdminCompanyTestHandler()
 	ctx := context.Background()
 
-	org, err := orgRepo.Register(ctx, "ladies-in-tech", "Ladies in Tech", "lit@test.com", "", model.OrgStatusApproved)
+	org, err := orgRepo.Register(ctx, "beta-academy", "Beta Academy", "beta@test.com", "", model.OrgStatusApproved)
 	if err != nil {
 		t.Fatalf("failed to register org: %v", err)
 	}
 
 	superClaims := &auth.Claims{
 		UserID: uuid.New(),
-		Email:  "superadmin@kulkul.tech",
+		Email:  "superadmin@fellowhire.com",
 		Role:   "superadmin",
 	}
 
 	r := chi.NewRouter()
 	r.Put("/companies/{id}", h.UpdateCompanyDetails)
 
-	// Update slug from ladies-in-tech to lit-network
+	// Update slug from beta-academy to beta-network
 	payload := map[string]string{
-		"name": "Ladies in Tech Network",
-		"slug": "lit-network",
+		"name": "Beta Academy Network",
+		"slug": "beta-network",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -243,31 +243,31 @@ func TestAdminHandler_UpdateCompanySlug_DoesNotDuplicate(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Verify org count remains exactly 2 (rsa + lit-network, no duplicate company created)
+	// Verify org count remains exactly 2 (rsa + beta-network, no duplicate company created)
 	orgs, err := orgRepo.List(ctx, "")
 	if err != nil {
 		t.Fatalf("failed to list orgs: %v", err)
 	}
 	if len(orgs) != 2 {
-		t.Errorf("expected exactly 2 orgs (rsa + lit-network), got %d", len(orgs))
+		t.Errorf("expected exactly 2 orgs (rsa + beta-network), got %d", len(orgs))
 	}
 
 	// Old slug must no longer exist
-	_, err = orgRepo.GetBySlug(ctx, "ladies-in-tech")
+	_, err = orgRepo.GetBySlug(ctx, "beta-academy")
 	if err == nil {
-		t.Errorf("expected old slug 'ladies-in-tech' to be deleted from repo map, but it still exists")
+		t.Errorf("expected old slug 'beta-academy' to be deleted from repo map, but it still exists")
 	}
 
 	// New slug must exist with the same org ID
-	updatedOrg, err := orgRepo.GetBySlug(ctx, "lit-network")
+	updatedOrg, err := orgRepo.GetBySlug(ctx, "beta-network")
 	if err != nil {
 		t.Fatalf("failed to get updated org by new slug: %v", err)
 	}
 	if updatedOrg.ID != org.ID {
 		t.Errorf("expected updated org ID %s, got %s", org.ID, updatedOrg.ID)
 	}
-	if updatedOrg.Name != "Ladies in Tech Network" {
-		t.Errorf("expected name 'Ladies in Tech Network', got '%s'", updatedOrg.Name)
+	if updatedOrg.Name != "Beta Academy Network" {
+		t.Errorf("expected name 'Beta Academy Network', got '%s'", updatedOrg.Name)
 	}
 }
 

@@ -42,7 +42,7 @@ func NewQuestionSetRepository(pool *pgxpool.Pool) *QuestionSetRepository {
 
 	// Parse embedded question banks for seeds
 	var bank QuestionBankData
-	_ = json.Unmarshal(litQuestionsJSON, &bank)
+	_ = json.Unmarshal(defaultQuestionsJSON, &bank)
 
 	var fsQuestions []model.MCQQuestion
 	for _, q := range bank.FullstackAssessment {

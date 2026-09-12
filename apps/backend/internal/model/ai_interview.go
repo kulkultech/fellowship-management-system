@@ -99,8 +99,8 @@ type AIInterview struct {
 	UpdatedAt           time.Time          `json:"updated_at"`
 }
 
-// DefaultLITRubric returns the exact AI interview questions, timing, criteria, and scoring scale from Workflow.pdf
-func DefaultLITRubric() *AIInterviewRubric {
+// DefaultAIInterviewRubric returns the standard AI interview questions, timing, criteria, and scoring scale
+func DefaultAIInterviewRubric() *AIInterviewRubric {
 	return &AIInterviewRubric{
 		PreparationTimeSeconds: 60,
 		ResponseTimeSeconds:    90,
@@ -182,4 +182,9 @@ func DefaultLITRubric() *AIInterviewRubric {
 			},
 		},
 	}
+}
+
+// DefaultLITRubric is a backwards-compatible alias for DefaultAIInterviewRubric
+func DefaultLITRubric() *AIInterviewRubric {
+	return DefaultAIInterviewRubric()
 }

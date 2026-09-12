@@ -41,7 +41,7 @@ func TestAdminHandler_UpdateProgramSlug(t *testing.T) {
 	h, progRepo, orgRepo := newAdminProgramSlugTestHandler()
 	ctx := context.Background()
 
-	org, err := orgRepo.Register(ctx, "lit-network", "LIT Network", "admin@lit.test", "", model.OrgStatusApproved)
+	org, err := orgRepo.Register(ctx, "alpha-org", "Alpha Org", "admin@alpha.test", "", model.OrgStatusApproved)
 	if err != nil {
 		t.Fatalf("failed to register org: %v", err)
 	}
@@ -51,8 +51,8 @@ func TestAdminHandler_UpdateProgramSlug(t *testing.T) {
 	prog, err := progRepo.Create(ctx, &model.Program{
 		ID:             uuid.New(),
 		OrganizationID: org.ID,
-		Slug:           "lit2026",
-		Name:           "LIT Fellowship 2026",
+		Slug:           "fellowship-2026",
+		Name:           "Tech Fellowship 2026",
 		Description:    "Original description",
 		OpenDate:       open,
 		EndDate:        end,
@@ -64,15 +64,15 @@ func TestAdminHandler_UpdateProgramSlug(t *testing.T) {
 
 	claims := &auth.Claims{
 		UserID:         uuid.New(),
-		Email:          "admin@lit.test",
+		Email:          "admin@alpha.test",
 		Role:           "org_admin",
 		OrganizationID: &org.ID,
 	}
 
-	// 1. Update program slug from lit2026 -> lit-scholarship-2026
+	// 1. Update program slug from fellowship-2026 -> fellowship-cohort-2026
 	updatePayload := map[string]any{
-		"slug":        "lit-scholarship-2026",
-		"name":        "LIT Scholarship Cohort 2026",
+		"slug":        "fellowship-cohort-2026",
+		"name":        "Tech Scholarship Cohort 2026",
 		"description": "Updated description",
 	}
 	body, _ := json.Marshal(updatePayload)
@@ -95,11 +95,11 @@ func TestAdminHandler_UpdateProgramSlug(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get updated program: %v", err)
 	}
-	if updated.Slug != "lit-scholarship-2026" {
-		t.Errorf("expected slug 'lit-scholarship-2026', got '%s'", updated.Slug)
+	if updated.Slug != "fellowship-cohort-2026" {
+		t.Errorf("expected slug 'fellowship-cohort-2026', got '%s'", updated.Slug)
 	}
-	if updated.Name != "LIT Scholarship Cohort 2026" {
-		t.Errorf("expected name 'LIT Scholarship Cohort 2026', got '%s'", updated.Name)
+	if updated.Name != "Tech Scholarship Cohort 2026" {
+		t.Errorf("expected name 'Tech Scholarship Cohort 2026', got '%s'", updated.Name)
 	}
 }
 

@@ -50,7 +50,7 @@ type ApplicationFormSchema struct {
 	FieldOrder       []string                       `json:"field_order,omitempty"`
 }
 
-func DefaultRSAFormSchema() *ApplicationFormSchema {
+func DefaultStandardFormSchema() *ApplicationFormSchema {
 	return &ApplicationFormSchema{
 		Title:            "Candidate Intake Form",
 		Description:      "Submit your academic background, IT major, and contact details for fellowship consideration.",
@@ -106,6 +106,11 @@ func DefaultRSAFormSchema() *ApplicationFormSchema {
 			"referral_source", "linkedin_url", "github_url", "profile_picture", "resume",
 		},
 	}
+}
+
+// DefaultRSAFormSchema is a backwards-compatible alias for DefaultStandardFormSchema
+func DefaultRSAFormSchema() *ApplicationFormSchema {
+	return DefaultStandardFormSchema()
 }
 
 func DefaultCompanyFormSchema() *ApplicationFormSchema {

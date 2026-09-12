@@ -387,7 +387,7 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 						expiresAt,
 					)
 				}
-				interviewURL := fmt.Sprintf("%s/lit2026/interview/%s", h.frontendURL, inviteToken)
+				interviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, inviteToken)
 				_ = h.emailSvc.SendAIInterviewInvitationEmail(
 					applicant.Email,
 					applicant.FullName,

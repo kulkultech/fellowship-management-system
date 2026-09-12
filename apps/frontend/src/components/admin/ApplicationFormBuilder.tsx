@@ -5,7 +5,6 @@ import type { Program, ApplicationFormSchema, CustomFormField, FormFieldType } f
 import {
   STANDARD_FIELD_KEYS,
   STANDARD_FIELD_METADATA,
-  DEFAULT_RSA_SCHEMA,
   DEFAULT_COMPANY_SCHEMA,
   getResolvedFieldOrder,
   type StandardFieldKey,
@@ -45,9 +44,6 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
         parsed.field_order = getResolvedFieldOrder(parsed.fields, parsed.custom_fields);
       }
       return parsed;
-    }
-    if (program.slug === 'lit2026') {
-      return JSON.parse(JSON.stringify(DEFAULT_RSA_SCHEMA));
     }
     return JSON.parse(JSON.stringify(DEFAULT_COMPANY_SCHEMA));
   };
@@ -222,7 +218,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
   };
 
   const handleResetToDefault = () => {
-    const defaultData = program.slug === 'lit2026' ? DEFAULT_RSA_SCHEMA : DEFAULT_COMPANY_SCHEMA;
+    const defaultData = DEFAULT_COMPANY_SCHEMA;
     if (confirm('Reset form configuration to default template?')) {
       setSchema(JSON.parse(JSON.stringify(defaultData)));
       toast.success('Reset form to default template');

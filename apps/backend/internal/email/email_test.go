@@ -41,9 +41,9 @@ func TestEmailTemplates(t *testing.T) {
 	})
 
 	t.Run("ApplicationReceivedEmail", func(t *testing.T) {
-		subj, html, _ := buildApplicationReceivedEmail("Jane Doe", "LIT 2026", "Fullstack Track", "https://fellowhire.kul.to/lit2026/test/abc", frontendURL, supportEmail, 30, 70)
-		if !strings.Contains(subj, "LIT 2026") {
-			t.Errorf("expected subject to contain LIT 2026")
+		subj, html, _ := buildApplicationReceivedEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", "https://fellowhire.kul.to/test/abc", frontendURL, supportEmail, 30, 70)
+		if !strings.Contains(subj, "Tech Fellowship 2026") {
+			t.Errorf("expected subject to contain Tech Fellowship 2026")
 		}
 		if !strings.Contains(html, "Start Timed Logic Assessment") {
 			t.Errorf("expected html to contain test button")
@@ -51,7 +51,7 @@ func TestEmailTemplates(t *testing.T) {
 	})
 
 	t.Run("LogicTestSubmittedEmail", func(t *testing.T) {
-		subj, html, _ := buildLogicTestSubmittedEmail("Jane Doe", "LIT 2026", "Fullstack Track", "https://fellowhire.kul.to/lit2026/result/abc", frontendURL, supportEmail)
+		subj, html, _ := buildLogicTestSubmittedEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", "https://fellowhire.kul.to/result/abc", frontendURL, supportEmail)
 		if !strings.Contains(subj, "Answers Received") {
 			t.Errorf("expected subject to contain Answers Received")
 		}
@@ -61,7 +61,7 @@ func TestEmailTemplates(t *testing.T) {
 	})
 
 	t.Run("LogicTestResultEmail_Passed", func(t *testing.T) {
-		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "LIT 2026", "Fullstack Track", 92, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/interview", frontendURL, supportEmail)
+		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", 92, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/interview", frontendURL, supportEmail)
 		if !strings.Contains(subj, "Congratulations") {
 			t.Errorf("expected passed subject to contain Congratulations")
 		}
@@ -71,7 +71,7 @@ func TestEmailTemplates(t *testing.T) {
 	})
 
 	t.Run("LogicTestResultEmail_Failed", func(t *testing.T) {
-		subj, html, _ := buildLogicTestResultEmail("John Smith", "LIT 2026", "Fullstack Track", 55, 70, false, "https://fellowhire.kul.to/result", "", frontendURL, supportEmail)
+		subj, html, _ := buildLogicTestResultEmail("John Smith", "Tech Fellowship 2026", "Fullstack Track", 55, 70, false, "https://fellowhire.kul.to/result", "", frontendURL, supportEmail)
 		if !strings.Contains(subj, "Assessment Results") {
 			t.Errorf("expected failed subject to contain Assessment Results")
 		}
@@ -81,7 +81,7 @@ func TestEmailTemplates(t *testing.T) {
 	})
 
 	t.Run("AIInterviewInvitationEmail", func(t *testing.T) {
-		subj, html, _ := buildAIInterviewInvitationEmail("Jane Doe", "LIT 2026", "Fullstack Track", "https://fellowhire.kul.to/lit2026/interview/abc", frontendURL, supportEmail, time.Now().Add(7*24*time.Hour))
+		subj, html, _ := buildAIInterviewInvitationEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", "https://fellowhire.kul.to/interview/abc", frontendURL, supportEmail, time.Now().Add(7*24*time.Hour))
 		if !strings.Contains(subj, "Official Invitation") {
 			t.Errorf("expected invitation subject")
 		}

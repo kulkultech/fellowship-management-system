@@ -9,7 +9,6 @@ import { Footer } from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import type { ApplicationFormSchema, CustomFormField } from '@/services/types';
 import {
-  DEFAULT_RSA_SCHEMA,
   DEFAULT_COMPANY_SCHEMA,
   getResolvedFieldOrder,
 } from '@/services/formSchema';
@@ -53,18 +52,19 @@ const FINAL_YEAR_SEMESTERS = [
 ];
 
 const REFERRAL_SOURCES = [
-  'Referral',
-  'LIT Network Social Media',
-  'LIT Network Community',
-  'Other Community',
+  'Referral / Colleague',
+  'Company Social Media',
+  'Tech Community / Campus Event',
+  'Job Board / LinkedIn',
+  'Other',
 ];
 
 export const ApplyPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams<{ orgSlug?: string; programSlug?: string; trackSlug?: string }>();
-  const orgSlug = params.orgSlug || 'rsa';
-  const programSlug = params.programSlug || 'lit2026';
+  const orgSlug = params.orgSlug || '';
+  const programSlug = params.programSlug || '';
 
   const queryParams = new URLSearchParams(location.search);
   const trackSlugFromQuery = queryParams.get('track') || '';
@@ -291,8 +291,7 @@ export const ApplyPage: React.FC = () => {
   }, [previewToken, isPreviewMode]);
 
   // Determine active schema (dynamic fallback)
-  const isRSADefault = orgSlug === 'rsa' || programSlug === 'lit2026';
-  const defaultSchema = isRSADefault ? DEFAULT_RSA_SCHEMA : DEFAULT_COMPANY_SCHEMA;
+  const defaultSchema = DEFAULT_COMPANY_SCHEMA;
   const schema: ApplicationFormSchema = program?.application_form_schema || defaultSchema;
   const fieldConfigs = schema.fields || defaultSchema.fields;
   const customFields: CustomFormField[] = schema.custom_fields || [];
@@ -381,14 +380,14 @@ export const ApplyPage: React.FC = () => {
           icon: 'ℹ️',
         });
         if (res.test_token) {
-          navigate(`/lit2026/result/${res.test_token}`);
+          navigate(`/result/${res.test_token}`);
           return;
         }
       }
 
       if (res.stage === 'ai_interview_invited' && res.ai_interview_invite_token) {
         toast.success(res.message || 'Proceeding to AI Technical Screening!');
-        navigate(`/lit2026/interview/${res.ai_interview_invite_token}`);
+        navigate(`/interview/${res.ai_interview_invite_token}`);
         return;
       }
 

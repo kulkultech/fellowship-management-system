@@ -359,10 +359,10 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 					trackName = tr.Name
 				}
 			}
-			resultURL := fmt.Sprintf("%s/lit2026/result/%s", h.frontendURL, submission.TestToken)
+			resultURL := fmt.Sprintf("%s/result/%s", h.frontendURL, submission.TestToken)
 			aiInterviewURL := ""
 			if inviteToken != nil {
-				aiInterviewURL = fmt.Sprintf("%s/lit2026/interview/%s", h.frontendURL, *inviteToken)
+				aiInterviewURL = fmt.Sprintf("%s/interview/%s", h.frontendURL, *inviteToken)
 			}
 
 			// Trigger 3: Email after logic test submission

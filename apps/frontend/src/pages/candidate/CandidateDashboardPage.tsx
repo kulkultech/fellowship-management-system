@@ -260,17 +260,11 @@ export const CandidateDashboardPage: React.FC = () => {
                       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
                         <div className="flex items-start gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 font-bold text-lg shadow-2xs">
-                            {app.org_logo_url || app.org_slug === 'ladies-in-tech' ? (
+                            {app.org_logo_url ? (
                               <img
-                                src={resolveMediaUrl(app.org_logo_url) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
+                                src={resolveMediaUrl(app.org_logo_url)}
                                 alt={app.org_name}
                                 className="w-8 h-8 rounded-xl object-contain bg-white"
-                                onError={(e) => {
-                                  const img = e.currentTarget;
-                                  if (!img.src.includes('litlogo')) {
-                                    img.src = '/litlogo.jpeg';
-                                  }
-                                }}
                               />
                             ) : (
                               <Building2 className="w-6 h-6" />
@@ -296,7 +290,7 @@ export const CandidateDashboardPage: React.FC = () => {
                         <div className="flex items-center gap-3 w-full lg:w-auto">
                           {app.test_token && (app.current_stage === 'applied' || app.current_stage === 'test_in_progress') && (
                             <button
-                              onClick={() => navigate(`/lit2026/test/${app.test_token}`)}
+                              onClick={() => navigate(`/test/${app.test_token}`)}
                               className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm transition flex items-center justify-center gap-2"
                             >
                               <span>Take Timed Test</span>
@@ -306,7 +300,7 @@ export const CandidateDashboardPage: React.FC = () => {
 
                           {app.test_token && (app.current_stage === 'test_completed' || app.current_stage === 'test_failed') && (
                             <button
-                              onClick={() => navigate(`/lit2026/result/${app.test_token}`)}
+                              onClick={() => navigate(`/result/${app.test_token}`)}
                               className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition flex items-center justify-center gap-2"
                             >
                               <span>View Scorecard</span>
@@ -316,7 +310,7 @@ export const CandidateDashboardPage: React.FC = () => {
 
                           {app.interview_token && app.current_stage === 'ai_interview_invited' && (
                             <button
-                              onClick={() => navigate(`/lit2026/interview/${app.interview_token}`)}
+                              onClick={() => navigate(`/interview/${app.interview_token}`)}
                               className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition flex items-center justify-center gap-2 animate-pulse"
                             >
                               <Terminal className="w-4 h-4 text-kulkul-orange" />
@@ -392,7 +386,7 @@ export const CandidateDashboardPage: React.FC = () => {
 
                     {app.test_token && (
                       <button
-                        onClick={() => navigate(app.test_status === 'completed' ? `/lit2026/result/${app.test_token}` : `/lit2026/test/${app.test_token}`)}
+                        onClick={() => navigate(app.test_status === 'completed' ? `/result/${app.test_token}` : `/test/${app.test_token}`)}
                         className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
                       >
                         <span>{app.test_status === 'completed' ? 'View Itemized Scorecard' : 'Start Logic Assessment'}</span>
@@ -446,7 +440,7 @@ export const CandidateDashboardPage: React.FC = () => {
 
                     {app.interview_token && (
                       <button
-                        onClick={() => navigate(`/lit2026/interview/${app.interview_token}`)}
+                        onClick={() => navigate(`/interview/${app.interview_token}`)}
                         className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
                       >
                         <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />

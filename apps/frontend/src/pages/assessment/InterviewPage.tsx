@@ -426,7 +426,7 @@ export const InterviewPage: React.FC = () => {
         hint: q.criteria?.length ? q.criteria.map((c) => `${c.criterion} (${c.points} pts)`).join(' • ') : '',
       }));
     }
-    // Fallback default LIT questions from Workflow.pdf
+    // Fallback default AI interview questions from standard rubric
     return [
       {
         id: 1,

@@ -147,7 +147,7 @@ export const ResultPage: React.FC = () => {
 
                 <div className="mt-6">
                   <button
-                    onClick={() => navigate(`/lit2026/interview/${result.ai_interview_invite_token}`)}
+                    onClick={() => navigate(`/interview/${result.ai_interview_invite_token}`)}
                     className="w-full sm:w-auto stitch-pill stitch-pill-orange text-base px-8 py-3.5"
                   >
                     <span>Enter Technical Screen Room</span>

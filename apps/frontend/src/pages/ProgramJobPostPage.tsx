@@ -15,11 +15,12 @@ import {
   AlertCircle,
   Layers,
   Bot,
+  Building,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const ProgramJobPostPage: React.FC = () => {
-  const { orgSlug = 'rsa', programSlug = 'lit2026' } = useParams<{ orgSlug: string; programSlug: string }>();
+  const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
   const navigate = useNavigate();
   const [isCopied, setIsCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -89,14 +90,9 @@ export const ProgramJobPostPage: React.FC = () => {
 
   const programImage =
     resolveMediaUrl(program.image_url) ||
-    (program.slug === 'lit2026' ? 'https://ladiesintech.network/wp-content/uploads/2026/07/lithero-1024x576.webp' : '') ||
-    '/lithero.webp';
+    'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80';
 
-  const orgLogo =
-    resolveMediaUrl(org?.logo_url) ||
-    (org?.slug === 'ladies-in-tech' || program.slug === 'lit2026'
-      ? 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'
-      : '/litlogo.jpeg');
+  const orgLogo = resolveMediaUrl(org?.logo_url);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -111,12 +107,6 @@ export const ProgramJobPostPage: React.FC = () => {
               src={programImage}
               alt={program.name}
               className="w-full h-full object-cover opacity-85"
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (!img.src.includes('lithero')) {
-                  img.src = '/lithero.webp';
-                }
-              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
 
@@ -145,19 +135,17 @@ export const ProgramJobPostPage: React.FC = () => {
             <div className="absolute bottom-6 left-6 right-6 text-white space-y-2.5">
               {/* Organization Branding Badge with Logo */}
               <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md shadow-md border border-white/40">
-                <img
-                  src={orgLogo}
-                  alt={org?.name || 'Ladies in Tech Network'}
-                  className="w-5 h-5 rounded-full object-contain"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (!img.src.includes('litlogo')) {
-                      img.src = '/litlogo.jpeg';
-                    }
-                  }}
-                />
+                {orgLogo ? (
+                  <img
+                    src={orgLogo}
+                    alt={org?.name || 'Organization'}
+                    className="w-5 h-5 rounded-full object-contain"
+                  />
+                ) : (
+                  <Building className="w-4 h-4 text-kulkul-purple" />
+                )}
                 <span className="text-xs font-black uppercase tracking-wider text-kulkul-purple">
-                  {org?.name || 'Ladies in Tech Network'}
+                  {org?.name || 'Organization'}
                 </span>
               </div>
 

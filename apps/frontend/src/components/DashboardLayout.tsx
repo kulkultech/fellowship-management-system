@@ -452,17 +452,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         (e.target as HTMLElement).style.display = 'none';
                       }}
                     />
-                  ) : portalType === 'company_admin' && (companyLogoUrl || user?.organization?.slug === 'ladies-in-tech') ? (
+                  ) : portalType === 'company_admin' && companyLogoUrl ? (
                     <img
-                      src={resolveMediaUrl(companyLogoUrl) || 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg'}
+                      src={resolveMediaUrl(companyLogoUrl)}
                       alt={companyName || 'Company'}
                       className="w-full h-full object-contain bg-white p-0.5"
-                      onError={(e) => {
-                        const img = e.currentTarget;
-                        if (!img.src.includes('litlogo')) {
-                          img.src = '/litlogo.jpeg';
-                        }
-                      }}
                     />
                   ) : portalType === 'superadmin' ? (
                     <ShieldCheck className="w-5 h-5 text-kulkul-orange" />

@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed lit_questions_data.json
-var litQuestionsJSON []byte
+//go:embed default_questions_data.json
+var defaultQuestionsJSON []byte
 
 type QuestionBankData struct {
 	QAAssessment        []QuestionItem `json:"qa_assessment"`
@@ -33,20 +33,17 @@ type OptionItem struct {
 	Text string `json:"text"`
 }
 
-// SeedLITAssessmentPrograms populates all LIT 2025/2026 tracks and their MCQ test banks into PostgreSQL.
-// It associates the LIT 2026 Fellowship Program exclusively with Ladies in Tech Network.
-func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOrgID string, logger *slog.Logger) error {
+// SeedDefaultAssessmentPrograms populates standard assessment question banks into PostgreSQL.
+func SeedDefaultAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOrgID string, logger *slog.Logger) error {
 	if pool == nil || targetOrgID == "" {
 		return nil
 	}
 
-	// Clean up any stale program (lit2026, lit-sda) so the user can create a fresh program from the UI
-	_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE slug IN ('lit2026', 'lit-sda')")
 	_, _ = pool.Exec(ctx, "UPDATE question_sets SET organization_id = $1::uuid WHERE id IN ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000023')", targetOrgID)
 
 	var data QuestionBankData
-	if err := json.Unmarshal(litQuestionsJSON, &data); err != nil {
-		return fmt.Errorf("seed_lit: unmarshal json: %w", err)
+	if err := json.Unmarshal(defaultQuestionsJSON, &data); err != nil {
+		return fmt.Errorf("seed_default: unmarshal json: %w", err)
 	}
 
 	// 1. Seed Reusable Question Sets into Database
@@ -181,5 +178,7 @@ func splitSemicolonCSV(line string) []string {
 	return parts
 }
 
-
-
+// SeedLITAssessmentPrograms is a backwards-compatible alias for SeedDefaultAssessmentPrograms
+func SeedLITAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOrgID string, logger *slog.Logger) error {
+	return SeedDefaultAssessmentPrograms(ctx, pool, targetOrgID, logger)
+}

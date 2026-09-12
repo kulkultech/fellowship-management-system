@@ -31,7 +31,7 @@ export const STANDARD_FIELD_METADATA: Record<
   resume: { label: 'Resume / CV (PDF)', description: 'Candidate uploaded curriculum vitae' },
 };
 
-export const DEFAULT_RSA_SCHEMA: ApplicationFormSchema = {
+export const DEFAULT_STANDARD_SCHEMA: ApplicationFormSchema = {
   title: 'Candidate Fellowship Application',
   description: 'Complete your intake profile to unlock the timed logic test and interactive AI screening room.',
   submit_button_text: 'Submit Application & Begin Evaluation',
@@ -201,3 +201,6 @@ export const getResolvedFieldOrder = (
 
   return order;
 };
+
+// Backwards-compatible alias
+export const DEFAULT_RSA_SCHEMA = DEFAULT_STANDARD_SCHEMA;

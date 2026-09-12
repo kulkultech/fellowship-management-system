@@ -66,7 +66,7 @@ func TestCloudflareEvaluator_SynthesizeSpeech_Live(t *testing.T) {
 func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_BriefAnswer(t *testing.T) {
 	evaluator := ai.NewCloudflareEvaluator(config.CloudflareConfig{}, slog.Default())
 
-	q := model.DefaultLITRubric().Questions[0]
+	q := model.DefaultAIInterviewRubric().Questions[0]
 	conv := []model.ChatMessage{
 		{
 			Role:    "candidate",

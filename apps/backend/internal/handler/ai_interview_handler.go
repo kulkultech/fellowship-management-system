@@ -87,10 +87,7 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 			var demoProgID uuid.UUID
 			var demoTrackID *uuid.UUID
 
-			if p, _, err := h.programRepo.GetByOrgSlugAndProgramSlug(r.Context(), "rsa", "lit2026"); err == nil && p != nil {
-				demoOrgID = p.OrganizationID
-				demoProgID = p.ID
-			} else if p, err := h.programRepo.GetByID(r.Context(), uuid.MustParse("00000000-0000-0000-0000-000000000003")); err == nil && p != nil {
+			if p, err := h.programRepo.GetByID(r.Context(), uuid.MustParse("00000000-0000-0000-0000-000000000003")); err == nil && p != nil {
 				demoOrgID = p.OrganizationID
 				demoProgID = p.ID
 			}
@@ -182,7 +179,7 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		rubric = program.AIInterviewRubric
 	}
 	if rubric == nil {
-		rubric = model.DefaultLITRubric()
+		rubric = model.DefaultAIInterviewRubric()
 	}
 
 	// If transcript is empty, seed with first question from rubric or legacy question pool
@@ -277,7 +274,7 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		rubric = program.AIInterviewRubric
 	}
 	if rubric == nil || len(rubric.Questions) == 0 {
-		rubric = model.DefaultLITRubric()
+		rubric = model.DefaultAIInterviewRubric()
 	}
 
 	if qIdx >= len(rubric.Questions) {

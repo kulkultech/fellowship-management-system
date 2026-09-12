@@ -107,8 +107,8 @@ func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRu
 	if len(rawRubric) > 0 && string(rawRubric) != "null" {
 		_ = json.Unmarshal(rawRubric, &p.AIInterviewRubric)
 	}
-	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
-		p.AIInterviewRubric = model.DefaultLITRubric()
+	if p.AIInterviewRubric == nil {
+		p.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	if p.PreviewToken == uuid.Nil {
 		p.PreviewToken = uuid.New()
@@ -120,11 +120,7 @@ func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRu
 		_ = json.Unmarshal(rawSchema, &p.ApplicationFormSchema)
 	}
 	if p.ApplicationFormSchema == nil {
-		if p.Slug == "lit2026" {
-			p.ApplicationFormSchema = model.DefaultRSAFormSchema()
-		} else {
-			p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
-		}
+		p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 	}
 }
 
@@ -157,15 +153,11 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	if p.Status == "" {
 		p.Status = "published"
 	}
-	if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
-		p.AIInterviewRubric = model.DefaultLITRubric()
+	if p.AIInterviewRubric == nil {
+		p.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	if p.ApplicationFormSchema == nil {
-		if p.Slug == "lit2026" {
-			p.ApplicationFormSchema = model.DefaultRSAFormSchema()
-		} else {
-			p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
-		}
+		p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 	}
 
 	if r.pool == nil {
@@ -273,15 +265,11 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		if len(p.ApplicationStages) == 0 {
 			p.ApplicationStages = DefaultApplicationStages()
 		}
-		if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
-			p.AIInterviewRubric = model.DefaultLITRubric()
+		if p.AIInterviewRubric == nil {
+			p.AIInterviewRubric = model.DefaultAIInterviewRubric()
 		}
 		if p.ApplicationFormSchema == nil {
-			if p.Slug == "lit2026" {
-				p.ApplicationFormSchema = model.DefaultRSAFormSchema()
-			} else {
-				p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
-			}
+			p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 		}
 		org := &model.Organization{
 			ID:        p.OrganizationID,
@@ -343,15 +331,11 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 				if len(p.ApplicationStages) == 0 {
 					p.ApplicationStages = DefaultApplicationStages()
 				}
-				if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
-					p.AIInterviewRubric = model.DefaultLITRubric()
+				if p.AIInterviewRubric == nil {
+					p.AIInterviewRubric = model.DefaultAIInterviewRubric()
 				}
 				if p.ApplicationFormSchema == nil {
-					if p.Slug == "lit2026" {
-						p.ApplicationFormSchema = model.DefaultRSAFormSchema()
-					} else {
-						p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
-					}
+					p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 				}
 				return p, nil
 			}
@@ -816,15 +800,11 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 				if len(p.ApplicationStages) == 0 {
 					p.ApplicationStages = DefaultApplicationStages()
 				}
-				if p.AIInterviewRubric == nil && p.Slug == "lit2026" {
-					p.AIInterviewRubric = model.DefaultLITRubric()
+				if p.AIInterviewRubric == nil {
+					p.AIInterviewRubric = model.DefaultAIInterviewRubric()
 				}
 				if p.ApplicationFormSchema == nil {
-					if p.Slug == "lit2026" {
-						p.ApplicationFormSchema = model.DefaultRSAFormSchema()
-					} else {
-						p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
-					}
+					p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 				}
 				list = append(list, *p)
 			}

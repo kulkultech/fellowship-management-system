@@ -251,8 +251,8 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	logger.Info("Database schema verified and migrated successfully")
 
 	// Clean up rogue duplicate organization, user, or temporary question sets strictly created by previous mistake
-	_, _ = pool.Exec(ctx, "DELETE FROM users WHERE organization_id = '00000000-0000-0000-0000-000000000004' OR email = 'admin@ladiesintech.net'")
-	_, _ = pool.Exec(ctx, "DELETE FROM organizations WHERE id = '00000000-0000-0000-0000-000000000004' OR (slug = 'ladies-in-tech-network' AND contact_email = 'contact@ladiesintech.net')")
+	_, _ = pool.Exec(ctx, "DELETE FROM users WHERE organization_id = '00000000-0000-0000-0000-000000000004'")
+	_, _ = pool.Exec(ctx, "DELETE FROM organizations WHERE id = '00000000-0000-0000-0000-000000000004'")
 	_, _ = pool.Exec(ctx, "DELETE FROM mcq_questions WHERE question_set_id = '00000000-0000-0000-0000-000000000040'")
 	_, _ = pool.Exec(ctx, "DELETE FROM question_sets WHERE id = '00000000-0000-0000-0000-000000000040'")
 
@@ -281,43 +281,27 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		logger.Warn("automigrate: seed users error", slog.Any("error", err))
 	}
 
-	// Check if Ladies in Tech Network organization already exists (even if its slug was renamed)
-	var litOrgID string
-	_ = pool.QueryRow(ctx, "SELECT id::text FROM organizations WHERE slug = 'ladies-in-tech' OR contact_email = 'hello@ladiesintech.network' OR admin_email = 'hello@ladiesintech.network' LIMIT 1").Scan(&litOrgID)
+	// Check if a secondary sample organization exists
+	var sampleOrgID string
+	_ = pool.QueryRow(ctx, "SELECT id::text FROM organizations WHERE id <> '00000000-0000-0000-0000-000000000001' LIMIT 1").Scan(&sampleOrgID)
 
 	// Only seed initial sample company if database has NO organizations other than default primary (fresh database)
-	if litOrgID == "" {
-		var otherOrgCount int
-		_ = pool.QueryRow(ctx, "SELECT count(*) FROM organizations WHERE id <> '00000000-0000-0000-0000-000000000001'").Scan(&otherOrgCount)
-		if otherOrgCount == 0 {
-			seedLITOrgQuery := `
-				INSERT INTO organizations (slug, name, logo_url, status, contact_email, admin_email, created_at, updated_at)
-				VALUES ('ladies-in-tech', 'Ladies in Tech Network', 'https://ladiesintech.network/wp-content/uploads/2026/07/litlogo.jpeg', 'approved', 'hello@ladiesintech.network', 'hello@ladiesintech.network', now(), now())
-				RETURNING id::text
-			`
-			_ = pool.QueryRow(ctx, seedLITOrgQuery).Scan(&litOrgID)
-		}
+	if sampleOrgID == "" {
+		seedSampleOrgQuery := `
+			INSERT INTO organizations (slug, name, logo_url, status, contact_email, admin_email, created_at, updated_at)
+			VALUES ('partner-fellowship', 'Partner Fellowship Network', '', 'approved', 'partner@fellowhire.com', 'partner@fellowhire.com', now(), now())
+			RETURNING id::text
+		`
+		_ = pool.QueryRow(ctx, seedSampleOrgQuery).Scan(&sampleOrgID)
 	}
 
-	if litOrgID != "" {
-		seedLITAdminQuery := `
-			INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
-			VALUES ($1::uuid, 'hello@ladiesintech.network', $2, 'Ladies in Tech Admin', 'org_admin', now(), now())
-			ON CONFLICT (email) DO NOTHING
-		`
-		if _, err := pool.Exec(ctx, seedLITAdminQuery, litOrgID, string(passHash)); err != nil {
-			logger.Warn("automigrate: seed ladies in tech admin error", slog.Any("error", err))
-		}
-
-		// Ensure any stale test programs (lit2026, lit-sda) are removed
-		_, _ = pool.Exec(ctx, "DELETE FROM programs WHERE slug IN ('lit2026', 'lit-sda')")
-
-		// Seed LIT MCQ Question Banks into PostgreSQL only if this org has 0 question sets
+	if sampleOrgID != "" {
+		// Seed default MCQ Question Banks into PostgreSQL only if this org has 0 question sets
 		var qsCount int
-		_ = pool.QueryRow(ctx, "SELECT count(*) FROM question_sets WHERE organization_id = $1", litOrgID).Scan(&qsCount)
+		_ = pool.QueryRow(ctx, "SELECT count(*) FROM question_sets WHERE organization_id = $1", sampleOrgID).Scan(&qsCount)
 		if qsCount == 0 {
-			if err := SeedLITAssessmentPrograms(ctx, pool, litOrgID, logger); err != nil {
-				logger.Warn("automigrate: seed lit question bank error", slog.Any("error", err))
+			if err := SeedDefaultAssessmentPrograms(ctx, pool, sampleOrgID, logger); err != nil {
+				logger.Warn("automigrate: seed default question bank error", slog.Any("error", err))
 			}
 		}
 	}

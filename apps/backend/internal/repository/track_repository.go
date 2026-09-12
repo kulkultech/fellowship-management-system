@@ -28,17 +28,17 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		pool:      pool,
 		memTracks: make(map[uuid.UUID]*model.Track),
 	}
-	litProgID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	seedProgID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
 	t1ID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
 	t2ID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
 	set1ID := uuid.MustParse("00000000-0000-0000-0000-000000000021") // Fullstack
 	set2ID := uuid.MustParse("00000000-0000-0000-0000-000000000022") // QA
 
-	litRubric := model.DefaultLITRubric()
+	defaultRubric := model.DefaultAIInterviewRubric()
 
 	repo.memTracks[t2ID] = &model.Track{
 		ID:                       t2ID,
-		ProgramID:                litProgID,
+		ProgramID:                seedProgID,
 		QuestionSetID:            &set1ID,
 		QuestionSetName:          "Fullstack Software Engineering Assessment",
 		QuestionCount:            41,
@@ -50,7 +50,7 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		LogicTestPassingScore:    70,
 		AllowRetake:              false,
 		EnableAIInterview:        true,
-		AIInterviewRubric:        litRubric,
+		AIInterviewRubric:        defaultRubric,
 		AIInterviewQuestions: []string{
 			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
 			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
@@ -63,7 +63,7 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 	}
 	repo.memTracks[t1ID] = &model.Track{
 		ID:                       t1ID,
-		ProgramID:                litProgID,
+		ProgramID:                seedProgID,
 		QuestionSetID:            &set2ID,
 		QuestionSetName:          "QA & Test Automation Screening",
 		QuestionCount:            38,
@@ -75,7 +75,7 @@ func NewTrackRepository(pool *pgxpool.Pool) *TrackRepository {
 		LogicTestPassingScore:    70,
 		AllowRetake:              false,
 		EnableAIInterview:        true,
-		AIInterviewRubric:        litRubric,
+		AIInterviewRubric:        defaultRubric,
 		AIInterviewQuestions: []string{
 			"Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?",
 			"Tell us about a time when you had to learn something difficult or unfamiliar, whether in your studies, a project, or personal development. How did you approach it, and what was the outcome?",
@@ -162,7 +162,7 @@ func (r *TrackRepository) Create(ctx context.Context, t *model.Track) (*model.Tr
 		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
 	}
 	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
-		res.AIInterviewRubric = model.DefaultLITRubric()
+		res.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	return &res, nil
 }
@@ -249,7 +249,7 @@ func (r *TrackRepository) Update(ctx context.Context, t *model.Track) (*model.Tr
 		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
 	}
 	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
-		res.AIInterviewRubric = model.DefaultLITRubric()
+		res.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	return &res, nil
 }
@@ -316,7 +316,7 @@ func (r *TrackRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubric
 		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
 	}
 	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
-		res.AIInterviewRubric = model.DefaultLITRubric()
+		res.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	return &res, nil
 }
@@ -330,7 +330,7 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 			return nil, ErrTrackNotFound
 		}
 		if track.AIInterviewRubric == nil && (track.Slug == "fullstack" || track.Slug == "qa-automation") {
-			track.AIInterviewRubric = model.DefaultLITRubric()
+			track.AIInterviewRubric = model.DefaultAIInterviewRubric()
 		}
 		return track, nil
 	}
@@ -370,7 +370,7 @@ func (r *TrackRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Tra
 		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
 	}
 	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
-		res.AIInterviewRubric = model.DefaultLITRubric()
+		res.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	return &res, nil
 }
@@ -382,7 +382,7 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 		for _, t := range r.memTracks {
 			if t.ProgramID == programID && t.Slug == slug {
 				if t.AIInterviewRubric == nil && (t.Slug == "fullstack" || t.Slug == "qa-automation") {
-					t.AIInterviewRubric = model.DefaultLITRubric()
+					t.AIInterviewRubric = model.DefaultAIInterviewRubric()
 				}
 				return t, nil
 			}
@@ -425,7 +425,7 @@ func (r *TrackRepository) GetBySlug(ctx context.Context, programID uuid.UUID, sl
 		_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
 	}
 	if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
-		res.AIInterviewRubric = model.DefaultLITRubric()
+		res.AIInterviewRubric = model.DefaultAIInterviewRubric()
 	}
 	return &res, nil
 }
@@ -439,7 +439,7 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 			if t.ProgramID == programID {
 				item := *t
 				if item.AIInterviewRubric == nil && (item.Slug == "fullstack" || item.Slug == "qa-automation") {
-					item.AIInterviewRubric = model.DefaultLITRubric()
+					item.AIInterviewRubric = model.DefaultAIInterviewRubric()
 				}
 				list = append(list, item)
 			}
@@ -486,7 +486,7 @@ func (r *TrackRepository) ListByProgram(ctx context.Context, programID uuid.UUID
 			_ = json.Unmarshal(rawRubric, &res.AIInterviewRubric)
 		}
 		if res.AIInterviewRubric == nil && (res.Slug == "fullstack" || res.Slug == "qa-automation") {
-			res.AIInterviewRubric = model.DefaultLITRubric()
+			res.AIInterviewRubric = model.DefaultAIInterviewRubric()
 		}
 		list = append(list, res)
 	}

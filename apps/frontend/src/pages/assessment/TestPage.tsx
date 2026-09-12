@@ -54,7 +54,7 @@ export const TestPage: React.FC = () => {
       toast('You have already completed this test. Redirecting to your official scorecard.', {
         icon: 'ℹ️',
       });
-      navigate(`/lit2026/result/${testToken}`);
+      navigate(`/result/${testToken}`);
     }
   }, [testSession, testToken, navigate]);
 
@@ -127,10 +127,10 @@ export const TestPage: React.FC = () => {
             The assessment token could not be verified or has already been evaluated.
           </p>
           <button
-            onClick={() => navigate('/lit2026/apply')}
+            onClick={() => navigate(-1)}
             className="w-full py-3 px-4 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full shadow transition"
           >
-            Return to Application
+            Return to Previous Page
           </button>
         </div>
       </div>
