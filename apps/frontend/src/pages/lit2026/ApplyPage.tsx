@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
@@ -8,6 +8,11 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import type { ApplicationFormSchema, CustomFormField } from '@/services/types';
+import {
+  DEFAULT_RSA_SCHEMA,
+  DEFAULT_COMPANY_SCHEMA,
+  getResolvedFieldOrder,
+} from '@/services/formSchema';
 import {
   ArrowRight,
   AlertCircle,
@@ -53,56 +58,6 @@ const REFERRAL_SOURCES = [
   'LIT Network Community',
   'Other Community',
 ];
-
-const DEFAULT_RSA_SCHEMA: ApplicationFormSchema = {
-  title: 'Candidate Fellowship Application',
-  description: 'Complete your intake profile to unlock the timed logic test and interactive AI screening room.',
-  submit_button_text: 'Submit Application & Begin Evaluation',
-  fields: {
-    phone: { enabled: true, required: true },
-    date_of_birth: { enabled: true, required: true },
-    university: { enabled: true, required: true },
-    major: {
-      enabled: true,
-      required: true,
-      options: IT_MAJORS,
-    },
-    semester: {
-      enabled: true,
-      required: true,
-      options: FINAL_YEAR_SEMESTERS,
-    },
-    referral_source: {
-      enabled: true,
-      required: true,
-      options: REFERRAL_SOURCES,
-    },
-    resume: { enabled: true, required: true },
-    profile_picture: { enabled: true, required: false },
-    linkedin_url: { enabled: true, required: false },
-    github_url: { enabled: false, required: false },
-  },
-  custom_fields: [],
-};
-
-const DEFAULT_COMPANY_SCHEMA: ApplicationFormSchema = {
-  title: 'Candidate Application',
-  description: 'Please provide your contact information and supporting documents.',
-  submit_button_text: 'Submit Application',
-  fields: {
-    phone: { enabled: true, required: true },
-    date_of_birth: { enabled: false, required: false },
-    university: { enabled: false, required: false },
-    major: { enabled: false, required: false },
-    semester: { enabled: false, required: false },
-    referral_source: { enabled: false, required: false },
-    resume: { enabled: true, required: true },
-    profile_picture: { enabled: false, required: false },
-    linkedin_url: { enabled: true, required: false },
-    github_url: { enabled: true, required: false },
-  },
-  custom_fields: [],
-};
 
 export const ApplyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -341,6 +296,10 @@ export const ApplyPage: React.FC = () => {
   const schema: ApplicationFormSchema = program?.application_form_schema || defaultSchema;
   const fieldConfigs = schema.fields || defaultSchema.fields;
   const customFields: CustomFormField[] = schema.custom_fields || [];
+
+  const activeFieldOrder = useMemo(() => {
+    return getResolvedFieldOrder(fieldConfigs, customFields, schema.field_order);
+  }, [fieldConfigs, customFields, schema.field_order]);
 
   const majorOptions = fieldConfigs.major?.options && fieldConfigs.major.options.length > 0
     ? fieldConfigs.major.options
@@ -765,16 +724,6 @@ export const ApplyPage: React.FC = () => {
     );
   }
 
-  const hasPhone = fieldConfigs.phone?.enabled !== false;
-  const hasDob = fieldConfigs.date_of_birth?.enabled !== false;
-  const hasLinkedin = fieldConfigs.linkedin_url?.enabled !== false;
-  const hasGithub = Boolean(fieldConfigs.github_url?.enabled);
-  const hasAcademicSection = (
-    fieldConfigs.university?.enabled !== false ||
-    fieldConfigs.major?.enabled !== false ||
-    fieldConfigs.semester?.enabled !== false
-  );
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar hideAdminButton={true} />
@@ -849,45 +798,6 @@ export const ApplyPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Date of Birth & Phone Number (Dynamic) */}
-              {(hasDob || hasPhone) && (
-                <div className={`grid grid-cols-1 ${hasDob && hasPhone ? 'sm:grid-cols-2' : ''} gap-4`}>
-                  {hasDob && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        Date of Birth {fieldConfigs.date_of_birth?.required && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="date"
-                        required={fieldConfigs.date_of_birth?.required}
-                        value={formData.dateOfBirth}
-                        onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
-                      />
-                    </div>
-                  )}
-
-                  {hasPhone && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        Phone Number {fieldConfigs.phone?.required && <span className="text-red-500">*</span>}
-                      </label>
-                      <div className="relative">
-                        <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="tel"
-                          required={fieldConfigs.phone?.required}
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          placeholder="e.g. +62 812-3456-7890"
-                          className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Email Address (Locked & Verified via Google) */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
@@ -912,148 +822,6 @@ export const ApplyPage: React.FC = () => {
                   Verified with your Google account. All assessments, invitations, and scorecards are synced with your Candidate Dashboard.
                 </p>
               </div>
-
-              {/* Links: LinkedIn & GitHub Profile (Dynamic) */}
-              {(hasLinkedin || hasGithub) && (
-                <div className={`grid grid-cols-1 ${hasLinkedin && hasGithub ? 'sm:grid-cols-2' : ''} gap-4`}>
-                  {hasLinkedin && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        LinkedIn Profile URL{' '}
-                        {fieldConfigs.linkedin_url?.required ? (
-                          <span className="text-red-500">*</span>
-                        ) : (
-                          <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
-                        )}
-                      </label>
-                      <div className="relative">
-                        <Linkedin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="url"
-                          required={fieldConfigs.linkedin_url?.required}
-                          value={formData.linkedinUrl}
-                          onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
-                          placeholder="https://linkedin.com/in/yourname"
-                          className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {hasGithub && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        GitHub / Portfolio URL{' '}
-                        {fieldConfigs.github_url?.required ? (
-                          <span className="text-red-500">*</span>
-                        ) : (
-                          <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
-                        )}
-                      </label>
-                      <div className="relative">
-                        <Github className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="url"
-                          required={fieldConfigs.github_url?.required}
-                          value={formData.githubUrl}
-                          onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
-                          placeholder="https://github.com/yourusername"
-                          className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Section: Academic Background (Dynamic) */}
-              {hasAcademicSection && (
-                <>
-                  <div className="border-b border-slate-100 pb-2 pt-3">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Academic Background</h2>
-                  </div>
-
-                  {/* University Name */}
-                  {fieldConfigs.university?.enabled !== false && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        University Name {fieldConfigs.university?.required && <span className="text-red-500">*</span>}
-                      </label>
-                      <div className="relative">
-                        <GraduationCap className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          required={fieldConfigs.university?.required}
-                          value={formData.university}
-                          onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-                          placeholder="e.g. Universitas Indonesia / ITB / Telkom University"
-                          className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Major & Semester */}
-                  {(fieldConfigs.major?.enabled !== false || fieldConfigs.semester?.enabled !== false) && (
-                    <div className={`grid grid-cols-1 ${fieldConfigs.major?.enabled !== false && fieldConfigs.semester?.enabled !== false ? 'sm:grid-cols-2' : ''} gap-4`}>
-                      {fieldConfigs.major?.enabled !== false && (
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            Major {fieldConfigs.major?.required && <span className="text-red-500">*</span>}
-                          </label>
-                          <select
-                            required={fieldConfigs.major?.required}
-                            value={formData.major}
-                            onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
-                          >
-                            <option value="" disabled>Select major</option>
-                            {majorOptions.map((m) => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                          </select>
-
-                          {/* Specific Major Input if Other is selected */}
-                          {formData.major.includes('Other') && (
-                            <div className="mt-3">
-                              <label className="block text-2xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                                Specific Major Name <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                required
-                                value={customMajor}
-                                onChange={(e) => setCustomMajor(e.target.value)}
-                                placeholder="e.g. Game Development / Bio-informatics / Network Security"
-                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-slate-50/70"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {fieldConfigs.semester?.enabled !== false && (
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            Semester / Academic Status {fieldConfigs.semester?.required && <span className="text-red-500">*</span>}
-                          </label>
-                          <select
-                            required={fieldConfigs.semester?.required}
-                            value={formData.semester}
-                            onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
-                          >
-                            <option value="" disabled>Select semester status</option>
-                            {semesterOptions.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
 
               {/* Section: Specialization Track (Optional / Only if tracks configured) */}
               {tracks.length > 0 && (
@@ -1084,264 +852,307 @@ export const ApplyPage: React.FC = () => {
                 </>
               )}
 
-              {/* How did you hear about us? (Dynamic) */}
-              {fieldConfigs.referral_source?.enabled !== false && (
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    How did you hear about us? {fieldConfigs.referral_source?.required && <span className="text-red-500">*</span>}
-                  </label>
-                  <select
-                    required={fieldConfigs.referral_source?.required}
-                    value={formData.referralSource}
-                    onChange={(e) => setFormData({ ...formData, referralSource: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
-                  >
-                    <option value="" disabled>Choose one option</option>
-                    {referralOptions.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Profile Photo Upload (Dynamic) */}
-              {fieldConfigs.profile_picture?.enabled !== false && (
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Candidate Profile Photo{' '}
-                    {fieldConfigs.profile_picture?.required ? (
-                      <span className="text-red-500">*</span>
-                    ) : (
-                      <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
-                    )}
-                  </label>
-                  {uploadingPhoto ? (
-                    <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-200 flex items-center justify-center gap-2 animate-pulse">
-                      <div className="w-5 h-5 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
-                      <span className="text-xs font-bold text-kulkul-purple">Uploading photo to Cloudflare R2...</span>
-                    </div>
-                  ) : formData.profilePictureUrl ? (
-                    <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={resolveMediaUrl(formData.profilePictureUrl)}
-                          alt="Profile avatar"
-                          className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                        />
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">Profile Photo</div>
-                          <div className="text-2xs text-emerald-600 font-semibold">Stored on Cloudflare R2</div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRemoveProfilePhoto}
-                        className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
-                        title="Remove photo"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
-                      <Camera className="w-5 h-5 text-slate-400 group-hover:text-kulkul-purple transition" />
-                      <div className="text-left">
-                        <div className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
-                          Click to upload profile photo
-                        </div>
-                        <div className="text-2xs text-slate-400">JPG, PNG, WebP up to 5MB (Cloudflare R2)</div>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp"
-                        onChange={handleProfilePhotoUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-
-              {/* Resume File Upload (Dynamic) */}
-              {fieldConfigs.resume?.enabled !== false && (
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Resume / CV{' '}
-                    {fieldConfigs.resume?.required ? (
-                      <span className="text-red-500">*</span>
-                    ) : (
-                      <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
-                    )}
-                  </label>
-                  {uploadingResume ? (
-                    <div className="p-5 rounded-xl bg-purple-50/50 border border-purple-200 flex flex-col items-center justify-center gap-2 animate-pulse">
-                      <div className="w-6 h-6 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
-                      <span className="text-xs font-bold text-kulkul-purple">Uploading resume to Cloudflare R2...</span>
-                    </div>
-                  ) : formData.resumeUrl ? (
-                    <div className="flex items-center justify-between p-3.5 px-4 rounded-xl bg-kulkul-purple/5 border border-kulkul-purple/20">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-kulkul-purple/10 flex items-center justify-center text-kulkul-purple font-bold">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 line-clamp-1">{resumeFileName || 'Resume.pdf'}</div>
-                          <div className="text-2xs text-emerald-600 font-semibold">{resumeFileSize ? `${resumeFileSize} • Stored on Cloudflare R2` : 'Stored on Cloudflare R2'}</div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRemoveResume}
-                        className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
-                        title="Remove file"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
-                      <Upload className="w-6 h-6 text-slate-400 group-hover:text-kulkul-purple transition mb-1.5" />
-                      <span className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
-                        Click to upload Resume / CV
-                      </span>
-                      <span className="text-2xs text-slate-400 mt-0.5">PDF up to 10MB (Cloudflare R2)</span>
-                      <input
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        onChange={handleResumeUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-
-              {/* Section: Custom Questions Configured by Company */}
-              {customFields.length > 0 && (
+              {/* Section: Dynamic Questions & Background Ordered by Form Builder */}
+              {activeFieldOrder.length > 0 && (
                 <>
                   <div className="border-b border-slate-100 pb-2 pt-3">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">
-                      Additional Information
+                      Application Questions & Details
                     </h2>
                   </div>
 
-                  <div className="space-y-4">
-                    {customFields.map((field) => (
-                      <div key={field.id} className="space-y-1.5">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                          {field.label} {field.required && <span className="text-red-500">*</span>}
-                        </label>
-                        {field.help_text && (
-                          <p className="text-2xs text-slate-500">{field.help_text}</p>
-                        )}
+                  <div className="space-y-5">
+                    {activeFieldOrder.map((fieldKey) => {
+                      if (fieldKey === 'phone') {
+                        const req = fieldConfigs.phone?.required;
+                        return (
+                          <div key="phone">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              Phone Number {req && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="relative">
+                              <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="tel"
+                                required={req}
+                                value={formData.phone}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                placeholder="e.g. +62 812-3456-7890"
+                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              />
+                            </div>
+                          </div>
+                        );
+                      }
 
-                        {field.type === 'text' && (
-                          <input
-                            type="text"
-                            required={field.required}
-                            value={customResponses[field.id] || ''}
-                            onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                            placeholder={field.placeholder || 'Enter your response'}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                          />
-                        )}
-
-                        {field.type === 'textarea' && (
-                          <textarea
-                            rows={3}
-                            required={field.required}
-                            value={customResponses[field.id] || ''}
-                            onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                            placeholder={field.placeholder || 'Write your response here...'}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition resize-y"
-                          />
-                        )}
-
-                        {field.type === 'number' && (
-                          <div className="relative">
-                            <Hash className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                      if (fieldKey === 'date_of_birth') {
+                        const req = fieldConfigs.date_of_birth?.required;
+                        return (
+                          <div key="date_of_birth">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              Date of Birth {req && <span className="text-red-500">*</span>}
+                            </label>
                             <input
-                              type="number"
-                              required={field.required}
-                              value={customResponses[field.id] || ''}
-                              onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                              placeholder={field.placeholder || '0'}
-                              className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              type="date"
+                              required={req}
+                              value={formData.dateOfBirth}
+                              onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                             />
                           </div>
-                        )}
+                        );
+                      }
 
-                        {field.type === 'url' && (
-                          <div className="relative">
-                            <Globe className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                            <input
-                              type="url"
-                              required={field.required}
-                              value={customResponses[field.id] || ''}
-                              onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                              placeholder={field.placeholder || 'https://...'}
-                              className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
-                            />
+                      if (fieldKey === 'linkedin_url') {
+                        const req = fieldConfigs.linkedin_url?.required;
+                        return (
+                          <div key="linkedin_url">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              LinkedIn Profile URL{' '}
+                              {req ? (
+                                <span className="text-red-500">*</span>
+                              ) : (
+                                <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <Linkedin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="url"
+                                required={req}
+                                value={formData.linkedinUrl}
+                                onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
+                                placeholder="https://linkedin.com/in/yourname"
+                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              />
+                            </div>
                           </div>
-                        )}
+                        );
+                      }
 
-                        {field.type === 'select' && (
-                          <select
-                            required={field.required}
-                            value={customResponses[field.id] || ''}
-                            onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
-                          >
-                            <option value="" disabled>Select an option</option>
-                            {(field.options || []).map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        )}
+                      if (fieldKey === 'github_url') {
+                        const req = fieldConfigs.github_url?.required;
+                        return (
+                          <div key="github_url">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              GitHub / Portfolio URL{' '}
+                              {req ? (
+                                <span className="text-red-500">*</span>
+                              ) : (
+                                <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <Github className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="url"
+                                required={req}
+                                value={formData.githubUrl}
+                                onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
+                                placeholder="https://github.com/yourusername"
+                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              />
+                            </div>
+                          </div>
+                        );
+                      }
 
-                        {field.type === 'radio' && (
-                          <div className="space-y-2 pt-1">
-                            {(field.options || []).map((opt) => (
-                              <label key={opt} className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-700">
+                      if (fieldKey === 'university') {
+                        const req = fieldConfigs.university?.required;
+                        return (
+                          <div key="university">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              University Name {req && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="relative">
+                              <GraduationCap className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                required={req}
+                                value={formData.university}
+                                onChange={(e) => setFormData({ ...formData, university: e.target.value })}
+                                placeholder="e.g. Universitas Indonesia / ITB / Telkom University"
+                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              />
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (fieldKey === 'major') {
+                        const req = fieldConfigs.major?.required;
+                        return (
+                          <div key="major">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              Major {req && <span className="text-red-500">*</span>}
+                            </label>
+                            <select
+                              required={req}
+                              value={formData.major}
+                              onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                            >
+                              <option value="" disabled>Select major</option>
+                              {majorOptions.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+
+                            {/* Specific Major Input if Other is selected */}
+                            {formData.major.includes('Other') && (
+                              <div className="mt-3">
+                                <label className="block text-2xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                                  Specific Major Name <span className="text-red-500">*</span>
+                                </label>
                                 <input
-                                  type="radio"
-                                  name={field.id}
-                                  value={opt}
-                                  checked={customResponses[field.id] === opt}
-                                  onChange={() => setCustomResponses((prev) => ({ ...prev, [field.id]: opt }))}
-                                  className="w-4 h-4 text-kulkul-purple focus:ring-kulkul-purple"
+                                  type="text"
+                                  required
+                                  value={customMajor}
+                                  onChange={(e) => setCustomMajor(e.target.value)}
+                                  placeholder="e.g. Game Development / Bio-informatics / Network Security"
+                                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-slate-50/70"
                                 />
-                                <span>{opt}</span>
-                              </label>
-                            ))}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        );
+                      }
 
-                        {field.type === 'file' && (
-                          <div>
-                            {uploadingCustomFiles[field.id] ? (
+                      if (fieldKey === 'semester') {
+                        const req = fieldConfigs.semester?.required;
+                        return (
+                          <div key="semester">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              Semester / Academic Status {req && <span className="text-red-500">*</span>}
+                            </label>
+                            <select
+                              required={req}
+                              value={formData.semester}
+                              onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                            >
+                              <option value="" disabled>Select semester status</option>
+                              {semesterOptions.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+
+                      if (fieldKey === 'referral_source') {
+                        const req = fieldConfigs.referral_source?.required;
+                        return (
+                          <div key="referral_source">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              How did you hear about us? {req && <span className="text-red-500">*</span>}
+                            </label>
+                            <select
+                              required={req}
+                              value={formData.referralSource}
+                              onChange={(e) => setFormData({ ...formData, referralSource: e.target.value })}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                            >
+                              <option value="" disabled>Choose one option</option>
+                              {referralOptions.map((r) => (
+                                <option key={r} value={r}>{r}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+
+                      if (fieldKey === 'profile_picture') {
+                        const req = fieldConfigs.profile_picture?.required;
+                        return (
+                          <div key="profile_picture">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              Candidate Profile Photo{' '}
+                              {req ? (
+                                <span className="text-red-500">*</span>
+                              ) : (
+                                <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                              )}
+                            </label>
+                            {uploadingPhoto ? (
                               <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-200 flex items-center justify-center gap-2 animate-pulse">
                                 <div className="w-5 h-5 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
-                                <span className="text-xs font-bold text-kulkul-purple">Uploading file...</span>
+                                <span className="text-xs font-bold text-kulkul-purple">Uploading photo to Cloudflare R2...</span>
                               </div>
-                            ) : customResponses[field.id] ? (
+                            ) : formData.profilePictureUrl ? (
+                              <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
+                                <div className="flex items-center gap-3">
+                                  <img
+                                    src={resolveMediaUrl(formData.profilePictureUrl)}
+                                    alt="Profile avatar"
+                                    className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                                  />
+                                  <div>
+                                    <div className="text-xs font-bold text-slate-900">Profile Photo</div>
+                                    <div className="text-2xs text-emerald-600 font-semibold">Stored on Cloudflare R2</div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveProfilePhoto}
+                                  className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+                                  title="Remove photo"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
+                                <Camera className="w-5 h-5 text-slate-400 group-hover:text-kulkul-purple transition" />
+                                <div className="text-left">
+                                  <div className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
+                                    Click to upload profile photo
+                                  </div>
+                                  <div className="text-2xs text-slate-400">JPG, PNG, WebP up to 5MB (Cloudflare R2)</div>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg, image/webp"
+                                  onChange={handleProfilePhotoUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      if (fieldKey === 'resume') {
+                        const req = fieldConfigs.resume?.required;
+                        return (
+                          <div key="resume">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                              Resume / CV{' '}
+                              {req ? (
+                                <span className="text-red-500">*</span>
+                              ) : (
+                                <span className="text-xs font-normal text-slate-400 lowercase">(optional)</span>
+                              )}
+                            </label>
+                            {uploadingResume ? (
+                              <div className="p-5 rounded-xl bg-purple-50/50 border border-purple-200 flex flex-col items-center justify-center gap-2 animate-pulse">
+                                <div className="w-6 h-6 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
+                                <span className="text-xs font-bold text-kulkul-purple">Uploading resume to Cloudflare R2...</span>
+                              </div>
+                            ) : formData.resumeUrl ? (
                               <div className="flex items-center justify-between p-3.5 px-4 rounded-xl bg-kulkul-purple/5 border border-kulkul-purple/20">
                                 <div className="flex items-center gap-3">
                                   <div className="w-9 h-9 rounded-xl bg-kulkul-purple/10 flex items-center justify-center text-kulkul-purple font-bold">
                                     <FileText className="w-5 h-5" />
                                   </div>
                                   <div>
-                                    <div className="text-xs font-bold text-slate-900 line-clamp-1">
-                                      {customResponses[`${field.id}_filename`] || 'Uploaded Document'}
-                                    </div>
-                                    <div className="text-2xs text-emerald-600 font-semibold">
-                                      {customResponses[`${field.id}_filesize`] || 'Attached'}
-                                    </div>
+                                    <div className="text-xs font-bold text-slate-900 line-clamp-1">{resumeFileName || 'Resume.pdf'}</div>
+                                    <div className="text-2xs text-emerald-600 font-semibold">{resumeFileSize ? `${resumeFileSize} • Stored on Cloudflare R2` : 'Stored on Cloudflare R2'}</div>
                                   </div>
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveCustomFile(field.id)}
+                                  onClick={handleRemoveResume}
                                   className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
                                   title="Remove file"
                                 >
@@ -1349,25 +1160,171 @@ export const ApplyPage: React.FC = () => {
                                 </button>
                               </div>
                             ) : (
-                              <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
-                                <Upload className="w-5 h-5 text-slate-400 group-hover:text-kulkul-purple transition" />
-                                <div className="text-left">
-                                  <div className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
-                                    Click to attach file
-                                  </div>
-                                  <div className="text-2xs text-slate-400">PDF, DOCX, ZIP up to 15MB</div>
-                                </div>
+                              <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
+                                <Upload className="w-6 h-6 text-slate-400 group-hover:text-kulkul-purple transition mb-1.5" />
+                                <span className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
+                                  Click to upload Resume / CV
+                                </span>
+                                <span className="text-2xs text-slate-400 mt-0.5">PDF up to 10MB (Cloudflare R2)</span>
                                 <input
                                   type="file"
-                                  onChange={(e) => handleCustomFileUpload(field.id, e)}
+                                  accept=".pdf,application/pdf"
+                                  onChange={handleResumeUpload}
                                   className="hidden"
                                 />
                               </label>
                             )}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        );
+                      }
+
+                      // Custom questions
+                      const field = customFields.find((cf) => cf.id === fieldKey);
+                      if (!field) return null;
+
+                      return (
+                        <div key={field.id} className="space-y-1.5">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                          </label>
+                          {field.help_text && (
+                            <p className="text-2xs text-slate-500">{field.help_text}</p>
+                          )}
+
+                          {field.type === 'text' && (
+                            <input
+                              type="text"
+                              required={field.required}
+                              value={customResponses[field.id] || ''}
+                              onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                              placeholder={field.placeholder || 'Enter your response'}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                            />
+                          )}
+
+                          {field.type === 'textarea' && (
+                            <textarea
+                              rows={3}
+                              required={field.required}
+                              value={customResponses[field.id] || ''}
+                              onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                              placeholder={field.placeholder || 'Write your response here...'}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition resize-y"
+                            />
+                          )}
+
+                          {field.type === 'number' && (
+                            <div className="relative">
+                              <Hash className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="number"
+                                required={field.required}
+                                value={customResponses[field.id] || ''}
+                                onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                                placeholder={field.placeholder || '0'}
+                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              />
+                            </div>
+                          )}
+
+                          {field.type === 'url' && (
+                            <div className="relative">
+                              <Globe className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="url"
+                                required={field.required}
+                                value={customResponses[field.id] || ''}
+                                onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                                placeholder={field.placeholder || 'https://...'}
+                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              />
+                            </div>
+                          )}
+
+                          {field.type === 'select' && (
+                            <select
+                              required={field.required}
+                              value={customResponses[field.id] || ''}
+                              onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                            >
+                              <option value="" disabled>Select an option</option>
+                              {(field.options || []).map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          )}
+
+                          {field.type === 'radio' && (
+                            <div className="space-y-2 pt-1">
+                              {(field.options || []).map((opt) => (
+                                <label key={opt} className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-700">
+                                  <input
+                                    type="radio"
+                                    name={field.id}
+                                    value={opt}
+                                    checked={customResponses[field.id] === opt}
+                                    onChange={() => setCustomResponses((prev) => ({ ...prev, [field.id]: opt }))}
+                                    className="w-4 h-4 text-kulkul-purple focus:ring-kulkul-purple"
+                                  />
+                                  <span>{opt}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+
+                          {field.type === 'file' && (
+                            <div>
+                              {uploadingCustomFiles[field.id] ? (
+                                <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-200 flex items-center justify-center gap-2 animate-pulse">
+                                  <div className="w-5 h-5 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
+                                  <span className="text-xs font-bold text-kulkul-purple">Uploading file...</span>
+                                </div>
+                              ) : customResponses[field.id] ? (
+                                <div className="flex items-center justify-between p-3.5 px-4 rounded-xl bg-kulkul-purple/5 border border-kulkul-purple/20">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-kulkul-purple/10 flex items-center justify-center text-kulkul-purple font-bold">
+                                      <FileText className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-slate-900 line-clamp-1">
+                                        {customResponses[`${field.id}_filename`] || 'Uploaded Document'}
+                                      </div>
+                                      <div className="text-2xs text-emerald-600 font-semibold">
+                                        {customResponses[`${field.id}_filesize`] || 'Attached'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveCustomFile(field.id)}
+                                    className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+                                    title="Remove file"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="border-2 border-dashed border-slate-200 hover:border-kulkul-purple/50 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer transition bg-slate-50/50 hover:bg-slate-50 group">
+                                  <Upload className="w-5 h-5 text-slate-400 group-hover:text-kulkul-purple transition" />
+                                  <div className="text-left">
+                                    <div className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
+                                      Click to attach file
+                                    </div>
+                                    <div className="text-2xs text-slate-400">PDF, DOCX, ZIP up to 15MB</div>
+                                  </div>
+                                  <input
+                                    type="file"
+                                    onChange={(e) => handleCustomFileUpload(field.id, e)}
+                                    className="hidden"
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}

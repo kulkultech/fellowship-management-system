@@ -97,6 +97,7 @@ export interface ApplicationFormSchema {
   submit_button_text?: string;
   fields: Record<string, StandardFieldConfig>;
   custom_fields: CustomFormField[];
+  field_order?: string[];
 }
 
 export interface Program {

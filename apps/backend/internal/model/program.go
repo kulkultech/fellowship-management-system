@@ -47,6 +47,7 @@ type ApplicationFormSchema struct {
 	SubmitButtonText string                         `json:"submit_button_text,omitempty"`
 	Fields           map[string]StandardFieldConfig `json:"fields,omitempty"`
 	CustomFields     []CustomFormField              `json:"custom_fields,omitempty"`
+	FieldOrder       []string                       `json:"field_order,omitempty"`
 }
 
 func DefaultRSAFormSchema() *ApplicationFormSchema {
@@ -100,6 +101,10 @@ func DefaultRSAFormSchema() *ApplicationFormSchema {
 			"github_url":      {Enabled: false, Required: false},
 		},
 		CustomFields: []CustomFormField{},
+		FieldOrder: []string{
+			"phone", "date_of_birth", "university", "major", "semester",
+			"referral_source", "linkedin_url", "github_url", "profile_picture", "resume",
+		},
 	}
 }
 
@@ -143,6 +148,9 @@ func DefaultCompanyFormSchema() *ApplicationFormSchema {
 				HelpText:    "Link to your projects or live code examples",
 				Required:    false,
 			},
+		},
+		FieldOrder: []string{
+			"phone", "linkedin_url", "github_url", "years_experience", "portfolio_url", "resume",
 		},
 	}
 }
