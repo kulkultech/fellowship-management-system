@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,4 +165,28 @@ func TestCloudflareEvaluator_TranscribeAudio_TinyEn(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	t.Logf("tiny-en status: %d, body: %s", resp.StatusCode, string(body))
+}
+
+func TestCloudflareEvaluator_CleanTechnicalASR(t *testing.T) {
+	evaluator := ai.NewCloudflareEvaluator(config.CloudflareConfig{}, slog.Default())
+	ctx := context.Background()
+
+	input := "i built a beckon service using fast epi and post grease database deployed with darker and coober netees"
+	cleaned := evaluator.CleanTechnicalASR(ctx, input)
+
+	if !strings.Contains(cleaned, "backend") {
+		t.Errorf("expected 'backend', got %s", cleaned)
+	}
+	if !strings.Contains(cleaned, "FastAPI") {
+		t.Errorf("expected 'FastAPI', got %s", cleaned)
+	}
+	if !strings.Contains(cleaned, "PostgreSQL") {
+		t.Errorf("expected 'PostgreSQL', got %s", cleaned)
+	}
+	if !strings.Contains(cleaned, "Docker") {
+		t.Errorf("expected 'Docker', got %s", cleaned)
+	}
+	if !strings.Contains(cleaned, "Kubernetes") {
+		t.Errorf("expected 'Kubernetes', got %s", cleaned)
+	}
 }

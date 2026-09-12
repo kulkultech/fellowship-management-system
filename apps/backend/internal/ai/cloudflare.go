@@ -680,7 +680,8 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 		return "", fmt.Errorf("Cloudflare Workers AI credentials not configured")
 	}
 
-	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper-tiny-en", e.config.AccountID)
+	// Upgrade: Use full multilingual Whisper model (@cf/openai/whisper) for high precision on ESL/accented audio
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper", e.config.AccountID)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(audioData))
 	if err != nil {
@@ -725,9 +726,123 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 
 	text := strings.TrimSpace(cfResp.Result.Text)
 	lower := strings.ToLower(text)
-	if lower == "[blank_audio]" || lower == "thank you." || lower == "thank you" || lower == "thanks for watching." || lower == "thanks for watching" {
+	if lower == "[blank_audio]" || lower == "thank you." || lower == "thank you" || lower == "thanks for watching." || lower == "thanks for watching" || lower == "saasaa." || lower == "saasaa" {
 		return "", nil
 	}
-	return text, nil
+
+	// Clean phonetic ASR typos and normalize technical terms
+	cleaned := e.CleanTechnicalASR(ctx, text)
+	return cleaned, nil
+}
+
+// CleanTechnicalASR normalizes common phonetic speech-to-text mishearings and technical term typos.
+func (e *CloudflareEvaluator) CleanTechnicalASR(ctx context.Context, rawText string) string {
+	trimmed := strings.TrimSpace(rawText)
+	if trimmed == "" {
+		return rawText
+	}
+
+	// 1. Fast regex dictionary normalization for common tech terms
+	replacements := []struct {
+		re  *regexp.Regexp
+		rep string
+	}{
+		{regexp.MustCompile(`(?i)\b(beckon)\b`), "backend"},
+		{regexp.MustCompile(`(?i)\b(back end)\b`), "backend"},
+		{regexp.MustCompile(`(?i)\b(front end)\b`), "frontend"},
+		{regexp.MustCompile(`(?i)\b(darker|doc ker)\b`), "Docker"},
+		{regexp.MustCompile(`(?i)\b(post grease sql|post grease|postgre sql|postgre)\b`), "PostgreSQL"},
+		{regexp.MustCompile(`(?i)\b(coober netees|coobernetes|kuber netes)\b`), "Kubernetes"},
+		{regexp.MustCompile(`(?i)\b(fast epi)\b`), "FastAPI"},
+		{regexp.MustCompile(`(?i)\b(type script)\b`), "TypeScript"},
+		{regexp.MustCompile(`(?i)\b(java script)\b`), "JavaScript"},
+		{regexp.MustCompile(`(?i)\b(see eye see dee)\b`), "CI/CD"},
+		{regexp.MustCompile(`(?i)\b(git hub)\b`), "GitHub"},
+		{regexp.MustCompile(`(?i)\b(git lab)\b`), "GitLab"},
+		{regexp.MustCompile(`(?i)\b(go lang)\b`), "Golang"},
+		{regexp.MustCompile(`(?i)\b(rest epi)\b`), "REST API"},
+		{regexp.MustCompile(`(?i)\b(graph ql|graf ql)\b`), "GraphQL"},
+		{regexp.MustCompile(`(?i)\b(mongo db)\b`), "MongoDB"},
+		{regexp.MustCompile(`(?i)\b(read is)\b`), "Redis"},
+		{regexp.MustCompile(`(?i)\b(next js|nextjs)\b`), "Next.js"},
+		{regexp.MustCompile(`(?i)\b(node js|nodejs)\b`), "Node.js"},
+		{regexp.MustCompile(`(?i)\b(view js|vue js|vuejs)\b`), "Vue.js"},
+		{regexp.MustCompile(`(?i)\b(my sequel|my sql)\b`), "MySQL"},
+		{regexp.MustCompile(`(?i)\b(sequel light|sql lite)\b`), "SQLite"},
+		{regexp.MustCompile(`(?i)\b(micro services)\b`), "microservices"},
+		{regexp.MustCompile(`(?i)\b(g r p c)\b`), "gRPC"},
+		{regexp.MustCompile(`(?i)\b(engine x)\b`), "Nginx"},
+		{regexp.MustCompile(`(?i)\b(rabbit m q)\b`), "RabbitMQ"},
+	}
+
+	normalized := trimmed
+	for _, r := range replacements {
+		normalized = r.re.ReplaceAllString(normalized, r.rep)
+	}
+
+	// 2. If short utterance or LLM not configured, return dictionary normalized text
+	words := strings.Fields(normalized)
+	if len(words) < 4 || !e.config.Enabled() {
+		return normalized
+	}
+
+	// 3. Fast LLM micro-pass for nuanced phonetic cleaning (timeout 2.5s)
+	llmCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancel()
+
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/meta/llama-3.1-8b-instruct", e.config.AccountID)
+	reqBody := cloudflareChatRequest{
+		Messages: []cloudflareMessage{
+			{
+				Role: "system",
+				Content: `You are an ASR speech-to-text corrector for candidate fellowship interviews.
+Fix obvious phonetic speech-to-text mishearings and typos, especially technical vocabulary (e.g., Docker, Kubernetes, PostgreSQL, FastAPI, React, REST API, Git, Golang, Rust, Python, microservices).
+CRUCIAL: Strictly preserve the candidate's exact words, phrasing, meaning, and tone. Do NOT expand, summarize, or answer the question. Only output the corrected text directly without quotes or prefix.`,
+			},
+			{
+				Role:    "user",
+				Content: normalized,
+			},
+		},
+		MaxTokens:   300,
+		Temperature: 0.1,
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return normalized
+	}
+
+	httpReq, err := http.NewRequestWithContext(llmCtx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return normalized
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(httpReq)
+	if err != nil {
+		return normalized
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return normalized
+	}
+
+	var cfResp struct {
+		Result struct {
+			Response string `json:"response"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err == nil && strings.TrimSpace(cfResp.Result.Response) != "" {
+		cleaned := strings.TrimSpace(cfResp.Result.Response)
+		// Sanity check: Ensure LLM didn't hallucinate an entirely different speech
+		if len(cleaned) > 0 && len(cleaned) < len(normalized)*3 {
+			return cleaned
+		}
+	}
+
+	return normalized
 }
 

@@ -302,10 +302,18 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	currentQ := rubric.Questions[qIdx]
 	qIdxCopy := qIdx
 
+	// Handle video recording completion sentinel signal
+	isCompletionSentinel := strings.HasPrefix(req.Message, "[Video Assessment Completed")
+
 	// Clean candidate message if metadata tag was prepended
 	cleanMsg := strings.TrimSpace(req.Message)
 	if idx := strings.Index(cleanMsg, "]: "); idx != -1 {
 		cleanMsg = strings.TrimSpace(cleanMsg[idx+3:])
+	}
+
+	// Clean phonetic ASR typos and normalize technical terms
+	if !isCompletionSentinel && h.aiEvaluator != nil && cleanMsg != "" {
+		cleanMsg = h.aiEvaluator.CleanTechnicalASR(r.Context(), cleanMsg)
 	}
 
 	// Append candidate response with precise question index tracking
@@ -315,9 +323,6 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		Timestamp:     now,
 		QuestionIndex: &qIdxCopy,
 	})
-
-	// Handle video recording completion sentinel signal
-	isCompletionSentinel := strings.HasPrefix(req.Message, "[Video Assessment Completed")
 
 	// Find conversation turns for the current question
 	var conversationForCurrentQ []model.ChatMessage
