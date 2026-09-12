@@ -41,37 +41,61 @@ export const aiInterviewService = {
 
     const isMp4 = video.type && video.type.includes('mp4');
     const filename = isMp4 ? 'interview_recording.mp4' : 'interview_recording.webm';
+    const baseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
+    const uploadUrl = `${baseUrl}/interviews/${inviteToken}/recording`;
 
-    // Primary: Standard FormData upload with automatic browser boundary calculation
+    // Attempt 1: Browser native fetch with FormData (native boundary calculation, avoids Axios application/json header clash)
     try {
       const formData = new FormData();
       formData.append('video', video, filename);
-      const { data } = await apiClient.post<SaveRecordingResult>(
-        `/interviews/${inviteToken}/recording`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        },
-      );
-      return data;
-    } catch (formErr) {
-      console.warn('FormData video upload encountered error, attempting direct binary stream fallback:', formErr);
 
-      // Resilient Fallback: Direct binary video stream upload
-      const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
-      const { data } = await apiClient.post<SaveRecordingResult>(
-        `/interviews/${inviteToken}/recording`,
-        video,
-        {
-          headers: {
-            'Content-Type': contentType,
-          },
-        },
-      );
-      return data;
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        return (await res.json()) as SaveRecordingResult;
+      }
+      console.warn(`FormData upload returned HTTP ${res.status}, attempting direct binary stream fallback...`);
+    } catch (fetchErr) {
+      console.warn('FormData fetch upload failed, attempting direct binary stream fallback:', fetchErr);
     }
+
+    // Attempt 2: Browser native fetch with raw binary stream
+    try {
+      const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+        },
+        body: video,
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        return (await res.json()) as SaveRecordingResult;
+      }
+      console.warn(`Binary stream upload returned HTTP ${res.status}, attempting Axios fallback...`);
+    } catch (streamErr) {
+      console.warn('Binary stream fetch upload failed, attempting Axios fallback:', streamErr);
+    }
+
+    // Attempt 3: Axios with FormData
+    const formData = new FormData();
+    formData.append('video', video, filename);
+    const { data } = await apiClient.post<SaveRecordingResult>(
+      `/interviews/${inviteToken}/recording`,
+      formData,
+      {
+        headers: {
+          'Content-Type': undefined,
+        },
+      },
+    );
+    return data;
   },
 
   resetSession: async (inviteToken: string): Promise<AIInterviewSession> => {

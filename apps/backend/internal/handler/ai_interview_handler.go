@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -461,52 +463,63 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 	var mediaType string
 	contentType := r.Header.Get("Content-Type")
 
-	// 1. Try multipart/form-data parse if Content-Type indicates multipart
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		// Limit to 100MB for video recording uploads
-		if err := r.ParseMultipartForm(100 << 20); err == nil {
-			file, header, fileErr := r.FormFile("video")
-			if fileErr != nil {
-				file, header, fileErr = r.FormFile("file")
-			}
-			if fileErr != nil {
-				file, header, fileErr = r.FormFile("recording")
-			}
+	// Read entire request body into buffer first (up to 100MB) so it is never prematurely drained
+	bodyReader := io.LimitReader(r.Body, 100<<20)
+	rawBody, err := io.ReadAll(bodyReader)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "failed to read upload payload")
+		return
+	}
 
-			if fileErr == nil && file != nil {
-				defer file.Close()
-				ext = strings.ToLower(filepath.Ext(header.Filename))
-				mediaType = header.Header.Get("Content-Type")
+	// 1. Try parsing multipart form if Content-Type indicates multipart or body starts with boundary delimiter "--"
+	if strings.Contains(contentType, "multipart/form-data") || bytes.HasPrefix(rawBody, []byte("--")) {
+		boundary := ""
+		if _, params, pErr := mime.ParseMediaType(contentType); pErr == nil {
+			boundary = params["boundary"]
+		}
+		if boundary == "" && bytes.HasPrefix(rawBody, []byte("--")) {
+			firstLineEnd := bytes.IndexByte(rawBody, '\n')
+			if firstLineEnd > 2 {
+				boundary = string(bytes.TrimSpace(rawBody[2:firstLineEnd]))
+			}
+		}
 
-				var buf bytes.Buffer
-				if _, copyErr := io.Copy(&buf, file); copyErr == nil {
-					videoBytes = buf.Bytes()
+		if boundary != "" {
+			mr := multipart.NewReader(bytes.NewReader(rawBody), boundary)
+			for {
+				part, pErr := mr.NextPart()
+				if pErr != nil {
+					break
+				}
+				pName := part.FormName()
+				if pName == "video" || pName == "file" || pName == "recording" || strings.Contains(part.Header.Get("Content-Type"), "video") {
+					partData, _ := io.ReadAll(part)
+					if len(partData) > 0 {
+						videoBytes = partData
+						if part.FileName() != "" {
+							ext = strings.ToLower(filepath.Ext(part.FileName()))
+						}
+						mediaType = part.Header.Get("Content-Type")
+						break
+					}
 				}
 			}
 		}
 	}
 
-	// 2. Direct binary video stream fallback (e.g. video/webm, video/mp4, application/octet-stream,
-	// or when client multipart boundary was missing and r.Body is unread)
-	if len(videoBytes) == 0 && r.Body != nil {
-		var buf bytes.Buffer
-		limitReader := io.LimitReader(r.Body, 100<<20) // 100MB max limit
-		if _, copyErr := io.Copy(&buf, limitReader); copyErr == nil {
-			videoBytes = buf.Bytes()
+	// 2. Direct binary stream or JSON payload fallback
+	if len(videoBytes) == 0 && len(rawBody) > 0 {
+		var req struct {
+			RecordingURL string `json:"recording_url"`
+		}
+		if jsonErr := json.Unmarshal(rawBody, &req); jsonErr == nil && req.RecordingURL != "" {
+			recordingURL = req.RecordingURL
+		} else {
+			videoBytes = rawBody
 			if strings.Contains(contentType, "mp4") {
 				ext = ".mp4"
 			}
 			mediaType = contentType
-		}
-	}
-
-	// 3. Fallback: JSON body { "recording_url": "..." }
-	if len(videoBytes) == 0 && r.Body != nil {
-		var req struct {
-			RecordingURL string `json:"recording_url"`
-		}
-		if err := json.NewDecoder(bytes.NewReader(videoBytes)).Decode(&req); err == nil && req.RecordingURL != "" {
-			recordingURL = req.RecordingURL
 		}
 	}
 
@@ -519,8 +532,9 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 
 	filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
 	objectKey := "recordings/" + filename
+	localURL := "/api/v1/uploads/recordings/" + filename
 
-	// Guaranteed local disk save first so candidate video is never lost!
+	// Guaranteed local disk save first so candidate video is immediately safe on disk
 	if len(videoBytes) > 0 {
 		uploadDir := "./uploads/recordings"
 		_ = os.MkdirAll(uploadDir, 0755)
@@ -528,14 +542,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		if dest, destErr := os.Create(destPath); destErr == nil {
 			_, _ = dest.Write(videoBytes)
 			dest.Close()
-			recordingURL = "/api/v1/uploads/recordings/" + filename
-		}
-
-		// Mirror to remote storage if configured (Cloudflare R2)
-		if h.storage != nil {
-			if remoteURL, upErr := h.storage.Upload(r.Context(), objectKey, bytes.NewReader(videoBytes), int64(len(videoBytes)), mediaType); upErr == nil && remoteURL != "" {
-				recordingURL = remoteURL
-			}
+			recordingURL = localURL
 		}
 	}
 
@@ -549,6 +556,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		recordingURL = "/api/v1" + recordingURL
 	}
 
+	// Persist immediate readiness in DB with local disk URL so candidate UI receives instant confirmation
 	if err := h.aiInterviewRepo.UpdateRecording(r.Context(), aiSession.ID, recordingURL, "ready"); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update recording in database")
 		return
@@ -557,6 +565,17 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 	// Ensure applicant stage is updated if completed
 	if aiSession.ApplicantID != uuid.Nil {
 		_ = h.applicantRepo.UpdateStage(r.Context(), aiSession.ApplicantID, model.StageAIInterviewCompleted)
+	}
+
+	// Asynchronously mirror to Cloudflare R2 without blocking HTTP response
+	if h.storage != nil && len(videoBytes) > 0 {
+		go func(key, mType string, data []byte, sessID uuid.UUID) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+			if remoteURL, upErr := h.storage.Upload(bgCtx, key, bytes.NewReader(data), int64(len(data)), mType); upErr == nil && remoteURL != "" {
+				_ = h.aiInterviewRepo.UpdateRecording(bgCtx, sessID, remoteURL, "ready")
+			}
+		}(objectKey, mediaType, videoBytes, aiSession.ID)
 	}
 
 	httpx.JSON(w, http.StatusOK, UploadRecordingResponse{

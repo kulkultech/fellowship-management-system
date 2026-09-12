@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { aiInterviewService } from '@/services/aiInterviewService';
+import { aiInterviewService, type SaveRecordingResult } from '@/services/aiInterviewService';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { AssessmentAccessGuard } from '@/components/AssessmentAccessGuard';
@@ -1439,9 +1439,22 @@ export const InterviewPage: React.FC = () => {
         finalBlob = new Blob([new Uint8Array(2048)], { type: 'video/webm' });
       }
 
-      const saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob);
-      if (saveRes?.recording_url) {
-        setFinalVideoUrl(saveRes.recording_url);
+      let saveRes: SaveRecordingResult | null = null;
+      try {
+        saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob);
+        if (saveRes?.recording_url) {
+          setFinalVideoUrl(saveRes.recording_url);
+        }
+      } catch (saveErr) {
+        console.warn('First saveRecording attempt notice, retrying upload...', saveErr);
+        try {
+          saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob);
+          if (saveRes?.recording_url) {
+            setFinalVideoUrl(saveRes.recording_url);
+          }
+        } catch (retryErr: any) {
+          console.error('saveRecording persistent upload notice:', retryErr);
+        }
       }
 
       // Submit final prompt to notify AI and trigger Cloudflare evaluation if not already evaluated
