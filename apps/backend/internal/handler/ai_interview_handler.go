@@ -1,14 +1,11 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -266,23 +263,12 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if aiSession.Status == model.AIInterviewCompleted {
-		httpx.Error(w, http.StatusBadRequest, "interview already completed")
-		return
-	}
-
 	program, _ := h.programRepo.GetByID(r.Context(), aiSession.ProgramID)
 
 	var req SendMessageRequest
 	if err := httpx.Decode(w, r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
-	}
-
-	now := time.Now()
-	qIdx := req.CurrentQuestionIndex
-	if qIdx < 0 {
-		qIdx = 0
 	}
 
 	// Resolve rubric
@@ -297,6 +283,25 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	}
 	if rubric == nil || len(rubric.Questions) == 0 {
 		rubric = model.DefaultAIInterviewRubric()
+	}
+
+	if aiSession.Status == model.AIInterviewCompleted {
+		httpx.JSON(w, http.StatusOK, SendMessageResponse{
+			AIMessage:            "Thank you for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric.",
+			IsFollowUp:           false,
+			CurrentQuestionIndex: len(rubric.Questions) - 1,
+			FollowUpCount:        0,
+			IsCompleted:          true,
+			SummaryEvaluation:    aiSession.SummaryEvaluation,
+			ScorecardScore:       aiSession.ScorecardScore,
+		})
+		return
+	}
+
+	now := time.Now()
+	qIdx := req.CurrentQuestionIndex
+	if qIdx < 0 {
+		qIdx = 0
 	}
 
 	if qIdx >= len(rubric.Questions) {
@@ -425,6 +430,16 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInProgress)
 	}
 
+	// Proactively pre-synthesize speech audio into disk cache in parallel so frontend /tts arrives instantly
+	if h.aiEvaluator != nil && strings.TrimSpace(aiReply) != "" {
+		go func(reply string) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			_, _, _ = h.aiEvaluator.SynthesizeSpeech(bgCtx, reply, "luna")
+			_, _, _ = h.aiEvaluator.SynthesizeSpeech(bgCtx, reply, "orion")
+		}(aiReply)
+	}
+
 	httpx.JSON(w, http.StatusOK, SendMessageResponse{
 		AIMessage:            aiReply,
 		IsFollowUp:           isFollowUp,
@@ -457,35 +472,27 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	var recordingURL string
-	var videoBytes []byte
-	var ext string
-	var mediaType string
-	contentType := r.Header.Get("Content-Type")
+	uploadDir := "./uploads/recordings"
+	_ = os.MkdirAll(uploadDir, 0755)
 
-	// Read entire request body into buffer first (up to 100MB) so it is never prematurely drained
-	bodyReader := io.LimitReader(r.Body, 100<<20)
-	rawBody, err := io.ReadAll(bodyReader)
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "failed to read upload payload")
-		return
+	ext := ".webm"
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "mp4") {
+		ext = ".mp4"
 	}
 
-	// 1. Try parsing multipart form if Content-Type indicates multipart or body starts with boundary delimiter "--"
-	if strings.Contains(contentType, "multipart/form-data") || bytes.HasPrefix(rawBody, []byte("--")) {
-		boundary := ""
-		if _, params, pErr := mime.ParseMediaType(contentType); pErr == nil {
-			boundary = params["boundary"]
-		}
-		if boundary == "" && bytes.HasPrefix(rawBody, []byte("--")) {
-			firstLineEnd := bytes.IndexByte(rawBody, '\n')
-			if firstLineEnd > 2 {
-				boundary = string(bytes.TrimSpace(rawBody[2:firstLineEnd]))
-			}
-		}
+	filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
+	destPath := filepath.Join(uploadDir, filename)
 
-		if boundary != "" {
-			mr := multipart.NewReader(bytes.NewReader(rawBody), boundary)
+	var recordingURL string
+	var mediaType string
+	var savedSize int64
+	var isSaved bool
+
+	// 1. Try streaming multipart form if Content-Type indicates multipart
+	if strings.Contains(contentType, "multipart/form-data") {
+		mr, mrErr := r.MultipartReader()
+		if mrErr == nil {
 			for {
 				part, pErr := mr.NextPart()
 				if pErr != nil {
@@ -493,60 +500,72 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 				}
 				pName := part.FormName()
 				if pName == "video" || pName == "file" || pName == "recording" || strings.Contains(part.Header.Get("Content-Type"), "video") {
-					partData, _ := io.ReadAll(part)
-					if len(partData) > 0 {
-						videoBytes = partData
-						if part.FileName() != "" {
-							ext = strings.ToLower(filepath.Ext(part.FileName()))
+					partFileName := part.FileName()
+					if strings.HasSuffix(strings.ToLower(partFileName), ".mp4") {
+						ext = ".mp4"
+						filename = fmt.Sprintf("%s_%s.mp4", aiSession.ID.String(), uuid.New().String()[:8])
+						destPath = filepath.Join(uploadDir, filename)
+					}
+					mediaType = part.Header.Get("Content-Type")
+
+					dest, createErr := os.Create(destPath)
+					if createErr == nil {
+						written, copyErr := io.Copy(dest, io.LimitReader(part, 500<<20))
+						dest.Close()
+						if copyErr == nil && written > 0 {
+							savedSize = written
+							isSaved = true
+							break
 						}
-						mediaType = part.Header.Get("Content-Type")
-						break
 					}
 				}
 			}
 		}
 	}
 
-	// 2. Direct binary stream or JSON payload fallback
-	if len(videoBytes) == 0 && len(rawBody) > 0 {
-		var req struct {
+	// 2. Direct streaming fallback (e.g. video/webm, video/mp4, or missing multipart boundary)
+	if !isSaved && r.Body != nil {
+		// Peek first 1024 bytes to check if it is JSON { "recording_url": "..." }
+		peekBuf := make([]byte, 1024)
+		n, _ := io.ReadFull(r.Body, peekBuf)
+		peekBytes := peekBuf[:n]
+
+		var jsonReq struct {
 			RecordingURL string `json:"recording_url"`
 		}
-		if jsonErr := json.Unmarshal(rawBody, &req); jsonErr == nil && req.RecordingURL != "" {
-			recordingURL = req.RecordingURL
-		} else {
-			videoBytes = rawBody
-			if strings.Contains(contentType, "mp4") {
-				ext = ".mp4"
+		if jsonErr := json.Unmarshal(peekBytes, &jsonReq); jsonErr == nil && jsonReq.RecordingURL != "" {
+			recordingURL = jsonReq.RecordingURL
+			isSaved = true
+		} else if len(peekBytes) > 0 {
+			// Direct stream into disk file: write peekBytes then copy remainder of r.Body
+			dest, createErr := os.Create(destPath)
+			if createErr == nil {
+				_, _ = dest.Write(peekBytes)
+				written, copyErr := io.Copy(dest, io.LimitReader(r.Body, 500<<20))
+				dest.Close()
+				totalWritten := int64(len(peekBytes)) + written
+				if copyErr == nil && totalWritten > 0 {
+					savedSize = totalWritten
+					isSaved = true
+					mediaType = contentType
+				}
 			}
-			mediaType = contentType
 		}
 	}
 
-	if ext == "" {
-		ext = ".webm"
-	}
 	if mediaType == "" || mediaType == "application/octet-stream" || strings.HasPrefix(mediaType, "multipart/") {
-		mediaType = "video/webm"
-	}
-
-	filename := fmt.Sprintf("%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
-	objectKey := "recordings/" + filename
-	localURL := "/api/v1/uploads/recordings/" + filename
-
-	// Guaranteed local disk save first so candidate video is immediately safe on disk
-	if len(videoBytes) > 0 {
-		uploadDir := "./uploads/recordings"
-		_ = os.MkdirAll(uploadDir, 0755)
-		destPath := filepath.Join(uploadDir, filename)
-		if dest, destErr := os.Create(destPath); destErr == nil {
-			_, _ = dest.Write(videoBytes)
-			dest.Close()
-			recordingURL = localURL
+		if ext == ".mp4" {
+			mediaType = "video/mp4"
+		} else {
+			mediaType = "video/webm"
 		}
 	}
 
-	if recordingURL == "" {
+	if isSaved && recordingURL == "" {
+		recordingURL = "/api/v1/uploads/recordings/" + filename
+	}
+
+	if recordingURL == "" || !isSaved {
 		httpx.Error(w, http.StatusBadRequest, "no video recording data provided or failed to process recording")
 		return
 	}
@@ -567,15 +586,20 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		_ = h.applicantRepo.UpdateStage(r.Context(), aiSession.ApplicantID, model.StageAIInterviewCompleted)
 	}
 
-	// Asynchronously mirror to Cloudflare R2 without blocking HTTP response
-	if h.storage != nil && len(videoBytes) > 0 {
-		go func(key, mType string, data []byte, sessID uuid.UUID) {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	// Asynchronously mirror to Cloudflare R2 from disk file without blocking HTTP response
+	if h.storage != nil && isSaved && destPath != "" {
+		go func(key, mType, filePath string, sessID uuid.UUID, fSize int64) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			if remoteURL, upErr := h.storage.Upload(bgCtx, key, bytes.NewReader(data), int64(len(data)), mType); upErr == nil && remoteURL != "" {
+			file, openErr := os.Open(filePath)
+			if openErr != nil {
+				return
+			}
+			defer file.Close()
+			if remoteURL, upErr := h.storage.Upload(bgCtx, key, file, fSize, mType); upErr == nil && remoteURL != "" {
 				_ = h.aiInterviewRepo.UpdateRecording(bgCtx, sessID, remoteURL, "ready")
 			}
-		}(objectKey, mediaType, videoBytes, aiSession.ID)
+		}("recordings/"+filename, mediaType, destPath, aiSession.ID, savedSize)
 	}
 
 	httpx.JSON(w, http.StatusOK, UploadRecordingResponse{

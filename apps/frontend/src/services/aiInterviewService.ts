@@ -17,6 +17,10 @@ export interface SaveRecordingResult {
   recording_status: string;
 }
 
+export interface SaveRecordingOptions {
+  onProgress?: (percent: number, loaded: number, total: number) => void;
+}
+
 export const aiInterviewService = {
   getSession: async (inviteToken: string): Promise<AIInterviewSession> => {
     const { data } = await apiClient.get<AIInterviewSession>(`/interviews/${inviteToken}`);
@@ -31,7 +35,11 @@ export const aiInterviewService = {
     return data;
   },
 
-  saveRecording: async (inviteToken: string, video: Blob | string): Promise<SaveRecordingResult> => {
+  saveRecording: async (
+    inviteToken: string,
+    video: Blob | string,
+    options?: SaveRecordingOptions,
+  ): Promise<SaveRecordingResult> => {
     if (typeof video === 'string') {
       const { data } = await apiClient.post<SaveRecordingResult>(`/interviews/${inviteToken}/recording`, {
         recording_url: video,
@@ -44,7 +52,52 @@ export const aiInterviewService = {
     const baseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
     const uploadUrl = `${baseUrl}/interviews/${inviteToken}/recording`;
 
-    // Attempt 1: Browser native fetch with FormData (native boundary calculation, avoids Axios application/json header clash)
+    // Attempt 1: XMLHttpRequest with granular upload progress
+    try {
+      const result = await new Promise<SaveRecordingResult>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', uploadUrl);
+        xhr.withCredentials = true;
+
+        if (xhr.upload && options?.onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && event.total > 0) {
+              const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+              options.onProgress!(percent, event.loaded, event.total);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const parsed = JSON.parse(xhr.responseText);
+              if (options?.onProgress) {
+                options.onProgress(100, video.size, video.size);
+              }
+              resolve(parsed);
+            } catch (jsonErr) {
+              reject(jsonErr);
+            }
+          } else {
+            reject(new Error(`Upload failed with HTTP ${xhr.status}: ${xhr.responseText}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error during video upload'));
+        xhr.ontimeout = () => reject(new Error('Timeout during video upload'));
+
+        const formData = new FormData();
+        formData.append('video', video, filename);
+        xhr.send(formData);
+      });
+
+      return result;
+    } catch (xhrErr) {
+      console.warn('XHR with progress upload failed, trying fetch fallback:', xhrErr);
+    }
+
+    // Attempt 2: Browser native fetch fallback with FormData
     try {
       const formData = new FormData();
       formData.append('video', video, filename);
@@ -56,6 +109,7 @@ export const aiInterviewService = {
       });
 
       if (res.ok) {
+        if (options?.onProgress) options.onProgress(100, video.size, video.size);
         return (await res.json()) as SaveRecordingResult;
       }
       console.warn(`FormData upload returned HTTP ${res.status}, attempting direct binary stream fallback...`);
@@ -63,39 +117,23 @@ export const aiInterviewService = {
       console.warn('FormData fetch upload failed, attempting direct binary stream fallback:', fetchErr);
     }
 
-    // Attempt 2: Browser native fetch with raw binary stream
-    try {
-      const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': contentType,
-        },
-        body: video,
-        credentials: 'include',
-      });
-
-      if (res.ok) {
-        return (await res.json()) as SaveRecordingResult;
-      }
-      console.warn(`Binary stream upload returned HTTP ${res.status}, attempting Axios fallback...`);
-    } catch (streamErr) {
-      console.warn('Binary stream fetch upload failed, attempting Axios fallback:', streamErr);
-    }
-
-    // Attempt 3: Axios with FormData
-    const formData = new FormData();
-    formData.append('video', video, filename);
-    const { data } = await apiClient.post<SaveRecordingResult>(
-      `/interviews/${inviteToken}/recording`,
-      formData,
-      {
-        headers: {
-          'Content-Type': undefined,
-        },
+    // Attempt 3: Direct binary stream upload
+    const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': contentType,
       },
-    );
-    return data;
+      body: video,
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      if (options?.onProgress) options.onProgress(100, video.size, video.size);
+      return (await res.json()) as SaveRecordingResult;
+    }
+    const errText = await res.text();
+    throw new Error(`Upload failed (${res.status}): ${errText}`);
   },
 
   resetSession: async (inviteToken: string): Promise<AIInterviewSession> => {

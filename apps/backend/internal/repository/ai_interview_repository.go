@@ -76,9 +76,9 @@ func (r *AIInterviewRepository) CreateInvitationWithTrack(
 		ON CONFLICT (invitation_token) WHERE invitation_token IS NOT NULL DO UPDATE SET
 			invitation_expires_at = EXCLUDED.invitation_expires_at,
 			updated_at = now()
-		RETURNING id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), invitation_expires_at,
+		RETURNING id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), COALESCE(invitation_expires_at, expires_at, now()),
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
-			recording_status, COALESCE(recording_url, ''), status, created_at, updated_at
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at
 	`
 	var ai model.AIInterview
 	var rawTranscript []byte
@@ -107,9 +107,9 @@ func (r *AIInterviewRepository) GetByToken(ctx context.Context, token string) (*
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), invitation_expires_at,
+		SELECT id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), COALESCE(invitation_expires_at, expires_at, now()),
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
-			recording_status, COALESCE(recording_url, ''), status, created_at, updated_at
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at
 		FROM ai_interviews
 		WHERE invitation_token = $1 OR invite_token = $1
 		ORDER BY created_at DESC
@@ -154,12 +154,12 @@ func (r *AIInterviewRepository) GetByApplicantID(ctx context.Context, applicantI
 	}
 
 	query := `
-		SELECT id, applicant_id, program_id, track_id, invitation_token, invitation_expires_at,
+		SELECT id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), COALESCE(invitation_expires_at, expires_at, now()),
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
-			recording_status, COALESCE(recording_url, ''), status, created_at, updated_at
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at
 		FROM ai_interviews
 		WHERE applicant_id = $1
-		ORDER BY created_at DESC
+		ORDER BY (CASE WHEN recording_url IS NOT NULL AND recording_url != '' THEN 1 WHEN status = 'completed' THEN 2 ELSE 3 END), created_at DESC
 		LIMIT 1
 	`
 	var ai model.AIInterview
@@ -266,6 +266,11 @@ func (r *AIInterviewRepository) UpdateRecording(
 			if ai.ID == id {
 				ai.RecordingURL = recordingURL
 				ai.RecordingStatus = recordingStatus
+				if ai.Status != model.AIInterviewCompleted {
+					ai.Status = model.AIInterviewCompleted
+					now := time.Now()
+					ai.CompletedAt = &now
+				}
 				ai.UpdatedAt = time.Now()
 				return nil
 			}
@@ -277,6 +282,8 @@ func (r *AIInterviewRepository) UpdateRecording(
 		UPDATE ai_interviews
 		SET recording_url = $2,
 			recording_status = $3,
+			status = CASE WHEN status = 'completed' THEN status ELSE 'completed'::varchar END,
+			completed_at = COALESCE(completed_at, now()),
 			updated_at = now()
 		WHERE id = $1
 	`

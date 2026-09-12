@@ -22,6 +22,9 @@ import {
   FileText,
   User,
   Radio,
+  CheckCircle2,
+  UploadCloud,
+  Loader2,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -33,6 +36,9 @@ export interface ChatMessageItem {
   timestamp: string;
   questionIndex?: number;
 }
+
+export type VoiceGender = 'female' | 'male';
+export const VOICE_GENDER_STORAGE_KEY = 'kulkul_ai_interview_voice_gender';
 
 interface RecordedItem {
   blob: Blob;
@@ -297,8 +303,11 @@ export const InterviewPage: React.FC = () => {
     enabled: !!inviteToken,
   });
 
-  // UI Stages: 'lobby' | 'interview' | 'completed'
-  const [uiStage, setUiStage] = useState<'lobby' | 'interview' | 'completed'>('lobby');
+  // UI Stages: 'lobby' | 'interview' | 'finalizing' | 'completed'
+  const [uiStage, setUiStage] = useState<'lobby' | 'interview' | 'finalizing' | 'completed'>('lobby');
+  const [uploadPercent, setUploadPercent] = useState<number>(0);
+  const [finalizingStep, setFinalizingStep] = useState<'packaging' | 'uploading' | 'evaluating' | 'ready'>('packaging');
+  const [recordedFileSizeMB, setRecordedFileSizeMB] = useState<number | null>(null);
 
   // Media Stream & Device State
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -351,19 +360,82 @@ export const InterviewPage: React.FC = () => {
   // Conversational AI Voice & Follow-up State
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+
   const [activeFollowUp, setActiveFollowUp] = useState<{
     questionText: string;
     followUpCount: number;
     parentQuestionIndex: number;
   } | null>(null);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
-  const ttsSpeaker = 'orion';
-  const ttsSpeakerRef = useRef<'orion'>('orion');
+
+  // Configurable AI Interviewer Voice (Default is Woman / 'female' -> 'luna', 'male' -> 'orion')
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(VOICE_GENDER_STORAGE_KEY);
+      if (saved === 'male' || saved === 'female') return saved;
+    }
+    return 'female';
+  });
+  const ttsSpeakerRef = useRef<'luna' | 'orion'>(voiceGender === 'male' ? 'orion' : 'luna');
+
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const currentSourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const sharedAudioRef = useRef<HTMLAudioElement | null>(null);
   const decodedBufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
   const audioBlobUrlCacheRef = useRef<Map<string, string>>(new Map());
+  const inFlightTtsPromisesRef = useRef<Map<string, Promise<{ buffer?: AudioBuffer; url?: string } | null>>>(new Map());
+
+  // Switch voice gender dynamically and persist preference
+  const switchVoiceGender = (newGender: VoiceGender) => {
+    stopSpeech();
+    setVoiceGender(newGender);
+    const speakerName: 'luna' | 'orion' = newGender === 'male' ? 'orion' : 'luna';
+    ttsSpeakerRef.current = speakerName;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(VOICE_GENDER_STORAGE_KEY, newGender);
+    }
+    toast.success(`Switched AI voice to ${newGender === 'female' ? 'Woman (Luna)' : 'Man (Orion)'}`, {
+      icon: newGender === 'female' ? '👩' : '👨',
+    });
+
+    // Proactively pre-fetch transitions for the selected voice in the background
+    if (questions.length > 0) {
+      questions.forEach((q, idx) => {
+        if (idx >= currentQIndexRef.current) {
+          const transitionText =
+            idx === 0
+              ? `Welcome to your AI interview! Let's begin with Question 1: ${q.prompt}`
+              : `Thank you! Moving on to Question ${idx + 1}: ${q.prompt}`;
+          fetchTtsAudio(transitionText, speakerName);
+        }
+      });
+      const closingText =
+        'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
+      fetchTtsAudio(closingText, speakerName);
+    }
+  };
+
+  // Preview voice sample in lobby
+  const previewVoice = async (gender: VoiceGender) => {
+    stopSpeech();
+    const speakerName = gender === 'male' ? 'orion' : 'luna';
+    const sampleText =
+      gender === 'female'
+        ? "Hello! I am your AI interviewer. I'm excited to hear about your experience today."
+        : 'Hello! I am your AI interviewer. I look forward to our conversation today.';
+
+    setIsAiSpeaking(true);
+    isAiSpeakingRef.current = true;
+    const res = await fetchTtsAudio(sampleText, speakerName);
+    if (res?.buffer) {
+      playAudioBuffer(res.buffer);
+    } else if (res?.url) {
+      playAudioUrl(res.url);
+    } else {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+    }
+  };
 
   // Conversational Chat & Streaming State
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
@@ -391,7 +463,7 @@ export const InterviewPage: React.FC = () => {
   } | null>(null);
   const silenceTimeoutRef = useRef<any>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const uiStageRef = useRef<'lobby' | 'interview' | 'completed'>('lobby');
+  const uiStageRef = useRef<'lobby' | 'interview' | 'finalizing' | 'completed'>('lobby');
   const stopSpeechRef = useRef<() => void>(() => {});
 
   // Keep references synced with reactive state
@@ -1161,6 +1233,11 @@ export const InterviewPage: React.FC = () => {
       sharedAudioRef.current.pause();
       sharedAudioRef.current.currentTime = 0;
     }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (_) {}
+    }
     setIsAiSpeaking(false);
     isAiSpeakingRef.current = false;
     turnAudioChunksRef.current = [];
@@ -1274,53 +1351,63 @@ export const InterviewPage: React.FC = () => {
     if (audioBlobUrlCacheRef.current.has(cacheKey)) {
       return { url: audioBlobUrlCacheRef.current.get(cacheKey)! };
     }
-
-    try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-      const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, speaker }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Cloudflare Workers AI TTS server returned status ${res.status}`);
-      }
-
-      const arrayBuffer = await res.arrayBuffer();
-      if (arrayBuffer.byteLength < 100) {
-        throw new Error('TTS returned empty audio');
-      }
-
-      // Initialize AudioContext if needed
-      if (!audioContextRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) {
-          audioContextRef.current = new AudioCtx();
-        }
-      }
-
-      if (audioContextRef.current) {
-        try {
-          const bufferCopy = arrayBuffer.slice(0);
-          const decoded = await audioContextRef.current.decodeAudioData(bufferCopy);
-          decodedBufferCacheRef.current.set(cacheKey, decoded);
-          return { buffer: decoded };
-        } catch (decodeErr) {
-          console.warn('Web Audio decode failed, falling back to Blob URL:', decodeErr);
-        }
-      }
-
-      const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(blob);
-      audioBlobUrlCacheRef.current.set(cacheKey, audioUrl);
-      return { url: audioUrl };
-    } catch (err) {
-      console.error('Cloudflare Workers AI TTS request failed:', err);
-      return null;
+    if (inFlightTtsPromisesRef.current.has(cacheKey)) {
+      return inFlightTtsPromisesRef.current.get(cacheKey)!;
     }
+
+    const promise = (async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+        const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanText, speaker }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Cloudflare Workers AI TTS server returned status ${res.status}`);
+        }
+
+        const arrayBuffer = await res.arrayBuffer();
+        if (arrayBuffer.byteLength < 100) {
+          throw new Error('TTS returned empty audio');
+        }
+
+        // Initialize AudioContext if needed
+        if (!audioContextRef.current) {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtx) {
+            audioContextRef.current = new AudioCtx();
+          }
+        }
+
+        if (audioContextRef.current) {
+          try {
+            const bufferCopy = arrayBuffer.slice(0);
+            const decoded = await audioContextRef.current.decodeAudioData(bufferCopy);
+            decodedBufferCacheRef.current.set(cacheKey, decoded);
+            return { buffer: decoded };
+          } catch (decodeErr) {
+            console.warn('Web Audio decode failed, falling back to Blob URL:', decodeErr);
+          }
+        }
+
+        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(blob);
+        audioBlobUrlCacheRef.current.set(cacheKey, audioUrl);
+        return { url: audioUrl };
+      } catch (err) {
+        console.error('Cloudflare Workers AI TTS request failed:', err);
+        return null;
+      } finally {
+        inFlightTtsPromisesRef.current.delete(cacheKey);
+      }
+    })();
+
+    inFlightTtsPromisesRef.current.set(cacheKey, promise);
+    return promise;
   };
 
   // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) - 100% human voice, zero robot fallback
@@ -1360,6 +1447,103 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
+  // Synchronously coordinate AI text display and voice start so they begin at the exact same instant
+  const speakAndPresentAiMessage = async (
+    text: string,
+    messageItem: ChatMessageItem
+  ) => {
+    const cleanText = text
+      .replace(/\[.*?\]/g, '')
+      .replace(/[\*#_`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const speaker = ttsSpeakerRef.current;
+    const cacheKey = `${speaker}:${cleanText}`;
+    const cachedBuffer = decodedBufferCacheRef.current.get(cacheKey);
+    const cachedUrl = audioBlobUrlCacheRef.current.get(cacheKey);
+
+    if (cachedBuffer || cachedUrl || isVoiceMuted) {
+      // 1. Audio is already in memory or voice is muted -> show text and play voice simultaneously in 0ms!
+      setChatMessages((prev) => [...prev, messageItem]);
+      if (!isVoiceMuted) {
+        if (cachedBuffer) {
+          playAudioBuffer(cachedBuffer);
+        } else if (cachedUrl) {
+          playAudioUrl(cachedUrl);
+        }
+      }
+      return;
+    }
+
+    // 2. Audio is not yet in client cache (e.g. dynamic follow-up):
+    // Show AI response in the transcript immediately and trigger audio with race fallback
+    setChatMessages((prev) => [...prev, messageItem]);
+
+    const fetchPromise = fetchTtsAudio(cleanText, speaker);
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 650));
+
+    try {
+      const result = await Promise.race([fetchPromise, timeoutPromise]);
+      if (result) {
+        // High-speed TTS response received! Start playing human voice immediately!
+        if (result.buffer) {
+          playAudioBuffer(result.buffer);
+        } else if (result.url) {
+          playAudioUrl(result.url);
+        }
+      } else {
+        // Exceeded 650ms: start browser speech synthesis immediately so voice starts without waiting
+        if ('speechSynthesis' in window && !isVoiceMuted) {
+          try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(cleanText);
+            utter.rate = 1.05;
+            utter.pitch = 1.0;
+            const voices = window.speechSynthesis.getVoices();
+            const naturalVoice = voices.find(
+              (v) =>
+                (v.name.includes('Natural') ||
+                  v.name.includes('Samantha') ||
+                  v.name.includes('Karen') ||
+                  v.name.includes('Daniel') ||
+                  v.name.includes('Google') ||
+                  v.lang.startsWith('en')) &&
+                !v.name.includes('Compact')
+            );
+            if (naturalVoice) utter.voice = naturalVoice;
+
+            utter.onstart = () => {
+              setIsAiSpeaking(true);
+              isAiSpeakingRef.current = true;
+            };
+            utter.onend = () => {
+              setIsAiSpeaking(false);
+              isAiSpeakingRef.current = false;
+            };
+            utter.onerror = () => {
+              setIsAiSpeaking(false);
+              isAiSpeakingRef.current = false;
+            };
+            window.speechSynthesis.speak(utter);
+          } catch {
+            fetchPromise.then((res) => {
+              if (res?.buffer) playAudioBuffer(res.buffer);
+              else if (res?.url) playAudioUrl(res.url);
+            });
+          }
+        } else {
+          fetchPromise.then((res) => {
+            if (res?.buffer) playAudioBuffer(res.buffer);
+            else if (res?.url) playAudioUrl(res.url);
+          });
+        }
+      }
+    } catch {
+      speakAI(cleanText);
+    }
+  };
+
   // Toggle AI Voice Mute
   const toggleVoiceMute = () => {
     if (!isVoiceMuted) {
@@ -1376,21 +1560,42 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  // Pre-fetch Question 1 audio while in lobby so it plays with 0ms delay upon entering chamber
+  // Proactive background pre-fetching of all interview questions & transitions so they play in 0ms
   useEffect(() => {
-    if (questions.length > 0 && uiStage === 'lobby') {
-      const firstQ = questions[0];
-      const welcomeText = `Welcome to your AI interview! Let's begin with Question 1: ${firstQ.prompt}`;
-      fetchTtsAudio(welcomeText, ttsSpeaker);
-    }
-  }, [questions, uiStage, ttsSpeaker]);
+    if (questions.length === 0) return;
+    const speaker = ttsSpeakerRef.current;
+
+    // 1. Welcome / Question 1
+    const firstQ = questions[0];
+    const welcomeText = `Welcome to your AI interview! Let's begin with Question 1: ${firstQ.prompt}`;
+    fetchTtsAudio(welcomeText, speaker);
+
+    // 2. All subsequent question transitions (Question 2, 3, 4, 5...)
+    questions.forEach((q, idx) => {
+      if (idx > 0) {
+        const transitionText = `Thank you! Moving on to Question ${idx + 1}: ${q.prompt}`;
+        setTimeout(() => {
+          fetchTtsAudio(transitionText, speaker);
+        }, idx * 250);
+      }
+    });
+
+    // 3. Closing completion text
+    const closingText =
+      'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
+    setTimeout(() => {
+      fetchTtsAudio(closingText, speaker);
+    }, (questions.length + 1) * 250);
+  }, [questions]);
 
   // Mutation to persist video to database and complete session
   const saveInterviewMutation = useMutation({
-    retry: 2,
-    mutationFn: async () => {
+    retry: 1,
+    mutationFn: async (vars?: { evaluation?: EvaluationSummary }) => {
       if (!inviteToken) throw new Error('Missing interview invite token');
       setIsUploadingRecording(true);
+      setFinalizingStep('packaging');
+      setUploadPercent(0);
       stopSpeech();
       stopSpeechRecognition();
 
@@ -1439,9 +1644,20 @@ export const InterviewPage: React.FC = () => {
         finalBlob = new Blob([new Uint8Array(2048)], { type: 'video/webm' });
       }
 
+      const sizeMB = parseFloat((finalBlob.size / (1024 * 1024)).toFixed(1));
+      setRecordedFileSizeMB(sizeMB);
+      setFinalizingStep('uploading');
+
       let saveRes: SaveRecordingResult | null = null;
       try {
-        saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob);
+        saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob, {
+          onProgress: (pct) => {
+            setUploadPercent(pct);
+            if (pct >= 99) {
+              setFinalizingStep('evaluating');
+            }
+          },
+        });
         if (saveRes?.recording_url) {
           setFinalVideoUrl(saveRes.recording_url);
         }
@@ -1457,18 +1673,25 @@ export const InterviewPage: React.FC = () => {
         }
       }
 
-      // Submit final prompt to notify AI and trigger Cloudflare evaluation if not already evaluated
-      let evaluation = null;
-      try {
-        const sendRes = await aiInterviewService.sendMessage(
-          inviteToken,
-          `[Video Assessment Completed: Candidate submitted all ${questions.length} conversational responses. Ready for Cloudflare AI rubric evaluation.]`,
-          currentQIndexRef.current,
-        );
-        evaluation = sendRes?.summary_evaluation;
-      } catch (evalErr) {
-        console.warn('Completion evaluation notification notice:', evalErr);
+      setFinalizingStep('evaluating');
+
+      // Use precomputed evaluation passed from commitCandidateTurn if available
+      let evaluation: EvaluationSummary | null = vars?.evaluation || null;
+      if (!evaluation) {
+        try {
+          const sendRes = await aiInterviewService.sendMessage(
+            inviteToken,
+            `[Video Assessment Completed: Candidate submitted all ${questions.length} conversational responses. Ready for Cloudflare AI rubric evaluation.]`,
+            currentQIndexRef.current,
+          );
+          evaluation = sendRes?.summary_evaluation || null;
+        } catch (evalErr) {
+          console.warn('Completion evaluation notification notice:', evalErr);
+        }
       }
+
+      setFinalizingStep('ready');
+      await new Promise((r) => setTimeout(r, 600));
 
       return { saveRes, evaluation };
     },
@@ -1496,6 +1719,28 @@ export const InterviewPage: React.FC = () => {
       uiStageRef.current = 'completed';
     },
   });
+
+  // Explicitly finish and finalize the entire interview session
+  const handleFinishInterview = useCallback(() => {
+    stopSpeech();
+    stopSpeechRecognition();
+    const closingText =
+      'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
+    const completeMsg: ChatMessageItem = {
+      id: `ai-complete-${Date.now()}`,
+      sender: 'ai',
+      text: closingText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setChatMessages((prev) => [...prev, completeMsg]);
+    speakAI(closingText);
+
+    setUiStage('finalizing');
+    uiStageRef.current = 'finalizing';
+    setFinalizingStep('packaging');
+
+    saveInterviewMutation.mutate({});
+  }, [speakAI, stopSpeech, saveInterviewMutation]);
 
   // End-of-Utterance Turn Submission (Dual-Pass Transcription: Live Web Speech preview + Cloudflare Whisper high-precision finalization)
   const commitCandidateTurn = async (candidateText?: string) => {
@@ -1549,6 +1794,13 @@ export const InterviewPage: React.FC = () => {
     }
 
     if (!textToSubmit || textToSubmit.length < 2) {
+      if (currentQIndexRef.current >= questions.length - 1) {
+        // Candidate reached the final question and clicked submit/done -> finalize interview!
+        setIsEvaluatingAnswer(false);
+        isEvaluatingAnswerRef.current = false;
+        handleFinishInterview();
+        return;
+      }
       setIsEvaluatingAnswer(false);
       isEvaluatingAnswerRef.current = false;
       toast('Please speak your answer into the microphone before clicking Done Speaking.', { icon: '🎙️' });
@@ -1587,6 +1839,28 @@ export const InterviewPage: React.FC = () => {
       const res = await aiInterviewService.sendMessage(inviteToken, textToSubmit, currentQIndexRef.current);
 
       if (res.is_follow_up) {
+        // If candidate is on the last question and ALREADY completed a follow-up turn,
+        // finish the interview instead of indefinitely asking follow-ups!
+        if (currentQIndexRef.current >= questions.length - 1 && activeFollowUpRef.current) {
+          const closingText =
+            'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
+          const completeMsg: ChatMessageItem = {
+            id: `ai-complete-${Date.now()}`,
+            sender: 'ai',
+            text: closingText,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+          await speakAndPresentAiMessage(closingText, completeMsg);
+
+          stopSpeechRecognition();
+          setUiStage('finalizing');
+          uiStageRef.current = 'finalizing';
+          setFinalizingStep('packaging');
+
+          saveInterviewMutation.mutate({ evaluation: res.summary_evaluation });
+          return;
+        }
+
         // AI asks conversational follow-up question
         const followUpText = res.ai_message;
         const followUpMsg: ChatMessageItem = {
@@ -1596,7 +1870,6 @@ export const InterviewPage: React.FC = () => {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           questionIndex: currentQIndexRef.current,
         };
-        setChatMessages((prev) => [...prev, followUpMsg]);
         setActiveFollowUp({
           questionText: followUpText,
           followUpCount: res.follow_up_count || 1,
@@ -1608,7 +1881,7 @@ export const InterviewPage: React.FC = () => {
           parentQuestionIndex: currentQIndexRef.current,
         };
 
-        speakAI(followUpText);
+        await speakAndPresentAiMessage(followUpText, followUpMsg);
       } else {
         // Candidate response was accepted -> advance to next question
         setActiveFollowUp(null);
@@ -1623,11 +1896,18 @@ export const InterviewPage: React.FC = () => {
             text: closingText,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
-          setChatMessages((prev) => [...prev, completeMsg]);
-          speakAI(closingText);
+          await speakAndPresentAiMessage(closingText, completeMsg);
 
-          // Finalize master session video recording & complete
-          saveInterviewMutation.mutate();
+          // Stop mic recognition immediately
+          stopSpeechRecognition();
+
+          // Immediately transition to the dedicated finalizing animation screen!
+          setUiStage('finalizing');
+          uiStageRef.current = 'finalizing';
+          setFinalizingStep('packaging');
+
+          // Finalize master session video recording & complete with precomputed evaluation
+          saveInterviewMutation.mutate({ evaluation: res.summary_evaluation });
         } else {
           const nextIndex =
             res.current_question_index !== undefined && res.current_question_index > currentQIndexRef.current
@@ -1646,13 +1926,21 @@ export const InterviewPage: React.FC = () => {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             questionIndex: nextIndex,
           };
-          setChatMessages((prev) => [...prev, nextMsg]);
-          speakAI(transitionText);
+          await speakAndPresentAiMessage(transitionText, nextMsg);
         }
       }
     } catch (err) {
       console.error('Error submitting candidate turn:', err);
-      toast.error('Network delay processing turn. You can speak again or click Done Speaking.');
+      if (currentQIndexRef.current >= questions.length - 1) {
+        toast('Finalizing interview and uploading recording...', { icon: '⏳' });
+        stopSpeechRecognition();
+        setUiStage('finalizing');
+        uiStageRef.current = 'finalizing';
+        setFinalizingStep('packaging');
+        saveInterviewMutation.mutate({});
+      } else {
+        toast.error('Network delay processing turn. You can speak again or click Done Speaking.');
+      }
     } finally {
       setIsEvaluatingAnswer(false);
       isEvaluatingAnswerRef.current = false;
@@ -1783,7 +2071,8 @@ export const InterviewPage: React.FC = () => {
         sessionChunksRef.current = [];
         const sessionRecorder = new MediaRecorder(activeStream, {
           ...(mimeType ? { mimeType } : {}),
-          videoBitsPerSecond: 1_200_000,
+          videoBitsPerSecond: 600_000,
+          audioBitsPerSecond: 64_000,
         });
         sessionRecorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
@@ -1821,10 +2110,7 @@ export const InterviewPage: React.FC = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         questionIndex: 0,
       };
-      setChatMessages([initMsg]);
-      setTimeout(() => {
-        speakAI(welcomeText);
-      }, 400);
+      speakAndPresentAiMessage(welcomeText, initMsg);
     }
   };
 
@@ -2068,6 +2354,99 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* AI Interviewer Voice Preference */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-slate-50 border border-purple-100 text-left space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
+                      <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                        AI Interviewer Voice
+                      </h3>
+                      <p className="text-3xs text-slate-500">
+                        Choose your preferred AI conversational voice for all questions and follow-ups.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-3xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                    {voiceGender === 'female' ? '👩 Woman Voice Active' : '👨 Man Voice Active'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option 1: Woman Voice (Luna) - Default */}
+                  <div
+                    onClick={() => switchVoiceGender('female')}
+                    className={`p-3 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
+                      voiceGender === 'female'
+                        ? 'bg-white border-kulkul-purple shadow-xs ring-2 ring-kulkul-purple/10'
+                        : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                        voiceGender === 'female' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        👩
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-900">Woman (Luna)</span>
+                          <span className="text-3xs font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Default</span>
+                        </div>
+                        <p className="text-3xs text-slate-500">Natural, warm, professional</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        previewVoice('female');
+                      }}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 transition"
+                      title="Preview Woman Voice"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Option 2: Man Voice (Orion) */}
+                  <div
+                    onClick={() => switchVoiceGender('male')}
+                    className={`p-3 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
+                      voiceGender === 'male'
+                        ? 'bg-white border-kulkul-purple shadow-xs ring-2 ring-kulkul-purple/10'
+                        : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                        voiceGender === 'male' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        👨
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-900">Man (Orion)</span>
+                        <p className="text-3xs text-slate-500">Calm, clear, conversational</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        previewVoice('male');
+                      }}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 transition"
+                      title="Preview Man Voice"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Enter Interview Button */}
               <div className="pt-2 border-t border-slate-100">
                 <button
@@ -2207,7 +2586,7 @@ export const InterviewPage: React.FC = () => {
           </div>
 
           {/* Main Dual-Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-stretch min-h-[580px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-start min-h-0">
             {/* LEFT COLUMN: Candidate Live Studio Feed (Bigger Video: 7 cols on lg, 8 cols on xl) */}
             <div className="lg:col-span-7 xl:col-span-8 stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
               <div className="flex-1 flex flex-col justify-center">
@@ -2318,32 +2697,59 @@ export const InterviewPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <button
-                    onClick={() => {
-                      commitCandidateTurn(liveCandidateTranscript);
-                    }}
-                    disabled={isEvaluatingAnswer || isUploadingRecording}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
-                    title="Submit current answer"
-                  >
-                    {isEvaluatingAnswer ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                        <span>Transcribing &amp; Evaluating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Done Speaking</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </>
-                    )}
-                  </button>
+                  {currentQIndex >= questions.length - 1 ? (
+                    <button
+                      onClick={() => {
+                        if (liveCandidateTranscript && liveCandidateTranscript.trim().length >= 2) {
+                          commitCandidateTurn(liveCandidateTranscript);
+                        } else {
+                          handleFinishInterview();
+                        }
+                      }}
+                      disabled={isEvaluatingAnswer || isUploadingRecording}
+                      className="px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
+                      title="Finish and submit video interview"
+                    >
+                      {isEvaluatingAnswer || isUploadingRecording ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                          <span>Finalizing Assessment...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Finish &amp; Submit Assessment</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        commitCandidateTurn(liveCandidateTranscript);
+                      }}
+                      disabled={isEvaluatingAnswer || isUploadingRecording}
+                      className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
+                      title="Submit current answer"
+                    >
+                      {isEvaluatingAnswer ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                          <span>Transcribing &amp; Evaluating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Done Speaking</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* RIGHT COLUMN: Real-Time Clean Chat Stream (Smaller Chat: 5 cols on lg, 4 cols on xl) */}
-            <div className="lg:col-span-5 xl:col-span-4 stitch-card bg-white border border-slate-200/90 rounded-3xl shadow-2xs flex flex-col h-[560px] lg:h-auto overflow-hidden">
+            <div className="lg:col-span-5 xl:col-span-4 stitch-card bg-white border border-slate-200/90 rounded-3xl shadow-2xs flex flex-col h-[560px] lg:h-[620px] xl:h-[640px] max-h-[calc(100vh-180px)] min-h-[460px] overflow-hidden lg:sticky lg:top-24">
               {/* Clean Chat Header */}
               <div className="p-3.5 sm:p-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2367,8 +2773,38 @@ export const InterviewPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Audio Mute Toggle */}
+                {/* Voice Gender Switcher + Audio Mute Toggle */}
                 <div className="flex items-center gap-2 shrink-0">
+                  {/* Voice Gender Toggle Pill */}
+                  <div className="flex items-center bg-slate-200/80 p-0.5 rounded-full border border-slate-300/60 text-3xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => switchVoiceGender('female')}
+                      className={`px-2 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
+                        voiceGender === 'female'
+                          ? 'bg-white text-purple-700 shadow-2xs font-extrabold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Switch to Woman voice (Luna)"
+                    >
+                      <span>👩</span>
+                      <span className="hidden sm:inline">Woman</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => switchVoiceGender('male')}
+                      className={`px-2 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
+                        voiceGender === 'male'
+                          ? 'bg-white text-purple-700 shadow-2xs font-extrabold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Switch to Man voice (Orion)"
+                    >
+                      <span>👨</span>
+                      <span className="hidden sm:inline">Man</span>
+                    </button>
+                  </div>
+
                   <button
                     onClick={toggleVoiceMute}
                     className={`p-2 rounded-full transition cursor-pointer ${
@@ -2384,7 +2820,7 @@ export const InterviewPage: React.FC = () => {
               </div>
 
               {/* Chat Messages Stream */}
-              <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5">
+              <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 sm:p-4 space-y-3.5 scroll-smooth">
                 {chatMessages.map((msg) => {
                   const isAi = msg.sender === 'ai';
                   return (
@@ -2482,6 +2918,138 @@ export const InterviewPage: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* STAGE 2.5: FINALIZING & UPLOADING ANIMATION SCREEN */}
+      {uiStage === 'finalizing' && (
+        <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
+          <div className="w-full bg-slate-900/90 border border-slate-800/90 backdrop-blur-xl rounded-3xl p-8 sm:p-12 shadow-2xl text-center space-y-8 relative overflow-hidden">
+            {/* Ambient background glow */}
+            <div className="absolute -top-24 -left-24 w-72 h-72 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-emerald-600/15 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Glowing animated orb */}
+            <div className="relative flex items-center justify-center w-28 h-28 mx-auto">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-500/30 via-indigo-500/20 to-emerald-500/30 animate-spin [animation-duration:5s]" />
+              <div className="absolute inset-2 rounded-full bg-slate-900 border border-slate-700/60 flex items-center justify-center shadow-inner">
+                {finalizingStep === 'ready' ? (
+                  <CheckCircle2 className="w-12 h-12 text-emerald-400 animate-bounce" />
+                ) : finalizingStep === 'evaluating' ? (
+                  <Sparkles className="w-12 h-12 text-amber-400 animate-pulse" />
+                ) : (
+                  <UploadCloud className="w-12 h-12 text-indigo-400 animate-pulse" />
+                )}
+              </div>
+            </div>
+
+            {/* Header copy */}
+            <div className="space-y-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-3xs font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <Radio className="w-3 h-3 text-purple-400 animate-pulse" />
+                <span>Session Concluded</span>
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Finalizing Your Video Assessment
+              </h1>
+              <p className="text-sm text-slate-400 max-w-md mx-auto">
+                Packaging high-definition recording, preserving your responses, and compiling admissions AI evaluation.
+              </p>
+            </div>
+
+            {/* Stepper Status Box */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-6 text-left space-y-5">
+              {/* Step 1: Master Video Assembly */}
+              <div className="flex items-start gap-3.5">
+                <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-white">Master Video Finalized</p>
+                    {recordedFileSizeMB && (
+                      <span className="text-3xs font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        {recordedFileSizeMB} MB
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-3xs text-slate-400 mt-0.5">Continuous camera & microphone stream encoded.</p>
+                </div>
+              </div>
+
+              {/* Step 2: Upload Recording */}
+              <div className="flex items-start gap-3.5">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  finalizingStep === 'evaluating' || finalizingStep === 'ready'
+                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
+                    : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-400'
+                }`}>
+                  {finalizingStep === 'evaluating' || finalizingStep === 'ready' ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-white">Uploading Recording to Storage</p>
+                    <span className="text-3xs font-mono font-bold text-indigo-400">
+                      {finalizingStep === 'evaluating' || finalizingStep === 'ready' ? '100%' : `${uploadPercent}%`}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-slate-900 rounded-full mt-2 overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-300 ease-out"
+                      style={{
+                        width: `${finalizingStep === 'evaluating' || finalizingStep === 'ready' ? 100 : Math.max(8, uploadPercent)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-3xs text-slate-400 mt-1.5">
+                    {finalizingStep === 'evaluating' || finalizingStep === 'ready'
+                      ? 'Video successfully stored in database and synced with review portal.'
+                      : 'Transferring encrypted recording chunks to persistent storage...'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3: Admissions AI Rubric Analysis */}
+              <div className="flex items-start gap-3.5">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  finalizingStep === 'ready'
+                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
+                    : finalizingStep === 'evaluating'
+                    ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
+                    : 'bg-slate-800 border border-slate-700 text-slate-500'
+                }`}>
+                  {finalizingStep === 'ready' ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : finalizingStep === 'evaluating' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white">Admissions AI Evaluation</p>
+                  <p className="text-3xs text-slate-400 mt-0.5">
+                    {finalizingStep === 'ready'
+                      ? 'Technical acumen, problem-solving, and communication rubric evaluated.'
+                      : finalizingStep === 'evaluating'
+                      ? 'Running Cloudflare AI rubric evaluation on full conversational transcript...'
+                      : 'Awaiting recording synchronization.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom reminder notice */}
+            <div className="flex items-center justify-center gap-2 text-2xs text-slate-500">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+              <span>Please do not close or refresh this tab while your submission is completing.</span>
             </div>
           </div>
         </main>
