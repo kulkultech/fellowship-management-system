@@ -1986,49 +1986,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
                 )}
 
-                <button
-                  onClick={() => handleOpenCreateTrack(activeProgramSlug)}
-                  className="px-3.5 py-1.5 rounded-full bg-white hover:bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
-                  title="Create new specialization track for this program (Optional)"
-                >
-                  <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
-                  <span>Add Track (Optional)</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const currentProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program;
-                    if (currentProg) handleOpenPipelineConfig(currentProg);
-                  }}
-                  className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
-                  title="Configure Logic Test & AI Interview modules for this program"
-                >
-                  <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
-                  <span>Pipeline Modules</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setCurrentView('form_builder');
-                  }}
-                  className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
-                  title="Configure candidate intake fields and custom questions"
-                >
-                  <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
-                  <span>Application Form</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const currentProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program;
-                    if (currentProg) handleOpenRubricPage(currentProg);
-                  }}
-                  className="px-3.5 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200 text-kulkul-purple text-xs font-bold shadow-2xs transition flex items-center gap-1.5 whitespace-nowrap"
-                  title="Configure AI Interview Questions, Prompts & Rubric"
-                >
-                  <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
-                  <span>AI Rubric & Prompts</span>
-                </button>
 
                 {[
                   { label: 'All Candidates', value: '' },
