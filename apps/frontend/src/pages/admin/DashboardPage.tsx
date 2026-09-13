@@ -219,7 +219,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [csvImportTargetSet, setCsvImportTargetSet] = useState<QuestionSet | null>(null);
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [openedQuestionSetId, setOpenedQuestionSetId] = useState<string | null>(null);
-  const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   // AI Interview Rubric Editor State
   const [rubricTargetProgram, setRubricTargetProgram] = useState<Program | null>(null);
@@ -427,9 +426,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const handleCopyProgramLink = (slug: string = activeProgramSlug) => {
     const url = getPublicProgramUrl(slug);
     navigator.clipboard.writeText(url);
-    setIsLinkCopied(true);
     toast.success('Shareable candidate program link copied!');
-    setTimeout(() => setIsLinkCopied(false), 2500);
   };
 
   const handleOpenCreateTrack = (progSlug?: string) => {
@@ -1209,18 +1206,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     currentView === 'programs'
       ? 'programs'
       : currentView === 'create_program'
-      ? 'launch-new-program-nav'
+      ? 'programs'
       : currentView === 'questions'
       ? 'questions'
-      : currentView === 'stages'
-      ? `stages-${activeProgramSlug}`
-      : currentView === 'form_builder'
-      ? `form-builder-${activeProgramSlug}`
-      : currentView === 'ai_rubric'
-      ? `ai-rubric-${activeProgramSlug}`
       : selectedTrackFilter
       ? `track-${selectedTrackFilter}`
-      : `all-candidates-${activeProgramSlug}`;
+      : `program-${activeProgramSlug}`;
 
   const navItems: NavItem[] = [
     {
@@ -1232,35 +1223,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         setCurrentView('programs');
       },
       isExpanded: true,
-      children: [
-        ...allPrograms.map((p) => {
-          const isCurrentActiveProg = p.slug === activeProgramSlug;
-          const tracksForThisProg = isCurrentActiveProg ? programTracks : [];
+      children: allPrograms.map((p) => {
+        const isCurrentActiveProg = p.slug === activeProgramSlug;
+        const tracksForThisProg = isCurrentActiveProg ? programTracks : (p.tracks || []);
 
-          return {
-            id: `program-${p.slug}`,
-            label: p.name,
-            icon: Layers,
-            badge: isCurrentActiveProg ? applicants.length : undefined,
-            isExpanded: isCurrentActiveProg,
-            onClick: () => {
-              setActiveProgramSlug(p.slug);
-              setSelectedTrackFilter('');
-              setCurrentView('pipeline');
-            },
-            children: [
-              {
-                id: `all-candidates-${p.slug}`,
-                label: 'All Candidates',
-                icon: Users,
-                badge: isCurrentActiveProg ? applicants.length : undefined,
-                onClick: () => {
-                  setActiveProgramSlug(p.slug);
-                  setSelectedTrackFilter('');
-                  setCurrentView('pipeline');
-                },
-              },
-              ...tracksForThisProg.map((t) => ({
+        return {
+          id: `program-${p.slug}`,
+          label: p.name,
+          icon: Layers,
+          badge: isCurrentActiveProg ? applicants.length : undefined,
+          isExpanded: isCurrentActiveProg,
+          onClick: () => {
+            setActiveProgramSlug(p.slug);
+            setSelectedTrackFilter('');
+            setCurrentView('pipeline');
+          },
+          children: tracksForThisProg.length > 0
+            ? tracksForThisProg.map((t) => ({
                 id: `track-${t.id}`,
                 label: t.name,
                 icon: Award,
@@ -1269,53 +1248,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   setSelectedTrackFilter(t.id);
                   setCurrentView('pipeline');
                 },
-              })),
-              {
-                id: `add-track-${p.slug}`,
-                label: 'Add Track (Optional)',
-                icon: Plus,
-                onClick: () => {
-                  handleOpenCreateTrack(p.slug);
-                },
-              },
-              {
-                id: `stages-${p.slug}`,
-                label: 'Application Stages',
-                icon: Workflow,
-                onClick: () => {
-                  setActiveProgramSlug(p.slug);
-                  setCurrentView('stages');
-                },
-              },
-              {
-                id: `form-builder-${p.slug}`,
-                label: 'Application Form',
-                icon: FileText,
-                onClick: () => {
-                  setActiveProgramSlug(p.slug);
-                  setCurrentView('form_builder');
-                },
-              },
-              {
-                id: `ai-rubric-${p.slug}`,
-                label: 'AI Rubric & Prompts',
-                icon: Bot,
-                onClick: () => {
-                  handleOpenRubricPage(p);
-                },
-              },
-            ],
-          };
-        }),
-        {
-          id: 'launch-new-program-nav',
-          label: 'Launch New Program',
-          icon: Plus,
-          onClick: () => {
-            setCurrentView('create_program');
-          },
-        },
-      ],
+              }))
+            : undefined,
+        };
+      }),
     },
     {
       id: 'questions',
@@ -1340,112 +1276,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2.5">
-      {/* Program actions: only visible when a program is opened (not on top-level Programs directory) */}
-      {currentView !== 'programs' && programId && (
-        <>
-          {/* Program Switcher */}
-          {allPrograms.length > 1 && (
-            <select
-              value={activeProgramSlug}
-              onChange={(e) => setActiveProgramSlug(e.target.value)}
-              className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
-            >
-              {allPrograms.map((p) => (
-                <option key={p.slug} value={p.slug}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Copy Public Link Button */}
-          <button
-            onClick={() => handleCopyProgramLink(activeProgramSlug)}
-            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-            title="Copy shareable applicant link"
-          >
-            {isLinkCopied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700">Link Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-slate-500" />
-                <span>Copy Link</span>
-              </>
-            )}
-          </button>
-
-          {/* Public Page Icon */}
-          <a
-            href={getPublicProgramUrl(activeProgramSlug)}
-            target="_blank"
-            rel="noreferrer"
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 bg-white transition shadow-2xs"
-            title="Open public overview page"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-
-          {/* Add Specialization Track Button - visible only when opening a program */}
-          <button
-            onClick={() => handleOpenCreateTrack(activeProgramSlug)}
-            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-            title="Add specialization track to active program"
-          >
-            <Plus className="w-3.5 h-3.5 text-kulkul-purple" />
-            <span>Add Track</span>
-          </button>
-
-          {/* Configure Tests & Pipeline */}
-          <button
-            onClick={() => {
-              const currentProg = program || allPrograms.find((p) => p.slug === activeProgramSlug);
-              if (currentProg) handleOpenPipelineConfig(currentProg);
-            }}
-            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-            title="Configure Question Set and Screening Pipeline"
-          >
-            <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
-            <span>Tests & Pipeline</span>
-          </button>
-
-          {/* Edit Active Program Details Button */}
-          <button
-            onClick={() => {
-              if (program) handleOpenEditProgramModal(program);
-            }}
-            className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-            title="Edit program details & schedule"
-          >
-            <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
-            <span>Edit Details</span>
-          </button>
-
-          {/* Delete Active Program Button */}
-          <button
-            onClick={() => {
-              const progToDelete = program || allPrograms.find((p) => p.slug === activeProgramSlug);
-              if (!progToDelete?.id) {
-                toast.error('No program selected to delete');
-                return;
-              }
-              if (
-                window.confirm(
-                  `Are you sure you want to delete program "${progToDelete.name || activeProgramSlug}"?\nAll associated tracks, stages, and applicant assessments will be permanently removed.`
-                )
-              ) {
-                deleteProgramMutation.mutate(progToDelete.id);
-              }
-            }}
-            disabled={deleteProgramMutation.isPending}
-            className="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 bg-white transition shadow-2xs"
-            title="Delete this program"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </>
+      {/* Program switcher: only visible when a program is opened and multiple programs exist */}
+      {currentView !== 'programs' && programId && allPrograms.length > 1 && (
+        <select
+          value={activeProgramSlug}
+          onChange={(e) => setActiveProgramSlug(e.target.value)}
+          className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
+        >
+          {allPrograms.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       )}
 
       {/* Company Settings & Slug Configuration */}
@@ -1544,13 +1387,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               ) : (
                 <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[860px]">
+                    <table className="w-full text-left border-collapse table-fixed min-w-[1020px]">
                       <colgroup>
-                        <col className="w-[26%]" />
                         <col className="w-[22%]" />
+                        <col className="w-[18%]" />
+                        <col className="w-[12%]" />
                         <col className="w-[14%]" />
-                        <col className="w-[16%]" />
-                        <col className="w-[22%]" />
+                        <col className="w-[34%]" />
                       </colgroup>
                       <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                         <tr>
@@ -1630,46 +1473,93 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </td>
 
                               <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex items-center justify-end gap-2 flex-wrap">
-                                    <button
-                                      onClick={() => {
-                                        setActiveProgramSlug(prog.slug);
-                                        setCurrentView('pipeline');
-                                      }}
-                                      className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
-                                    >
-                                      <span>Manage</span>
-                                      <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
-                                    </button>
+                                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                  <button
+                                    onClick={() => {
+                                      setActiveProgramSlug(prog.slug);
+                                      setCurrentView('pipeline');
+                                    }}
+                                    className="px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
+                                    title="View & manage candidate pipeline"
+                                  >
+                                    <span>Manage</span>
+                                    <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
+                                  </button>
 
-                                    <a
-                                      href={getPublicProgramUrl(prog.slug)}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
-                                      title="Open public overview page"
-                                    >
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </a>
+                                  <button
+                                    onClick={() => handleCopyProgramLink(prog.slug)}
+                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border border-slate-200 transition"
+                                    title="Copy shareable applicant link"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
 
-                                    <button
-                                      onClick={() => handleOpenPipelineConfig(prog)}
-                                      className="p-1.5 rounded-full hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-slate-200 transition"
-                                      title="Configure Question Set & Logic Test"
-                                    >
-                                      <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
-                                    </button>
+                                  <a
+                                    href={getPublicProgramUrl(prog.slug)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border border-slate-200 transition"
+                                    title="Open public overview page"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
 
-                                    <button
-                                      onClick={() => handleOpenEditProgramModal(prog)}
-                                      className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
-                                      title="Edit program details & schedule"
-                                    >
-                                      <Sliders className="w-3.5 h-3.5" />
-                                    </button>
+                                  <button
+                                    onClick={() => handleOpenPipelineConfig(prog)}
+                                    className="p-1.5 rounded-full hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-slate-200 transition"
+                                    title="Configure Logic Test & Screening Pipeline"
+                                  >
+                                    <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
+                                  </button>
 
-                                    <button
-                                      onClick={() => {
+                                  <button
+                                    onClick={() => {
+                                      setActiveProgramSlug(prog.slug);
+                                      setCurrentView('stages');
+                                    }}
+                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                    title="Configure Application Stages"
+                                  >
+                                    <Workflow className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setActiveProgramSlug(prog.slug);
+                                      setCurrentView('form_builder');
+                                    }}
+                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                    title="Configure Application Intake Form"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenRubricPage(prog)}
+                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                    title="Configure AI Interview Rubric & Prompts"
+                                  >
+                                    <Bot className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenCreateTrack(prog.slug)}
+                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                    title="Add Specialization Track"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenEditProgramModal(prog)}
+                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                    title="Edit program details & schedule"
+                                  >
+                                    <Sliders className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
                                       if (
                                         window.confirm(
                                           `Are you sure you want to permanently delete program "${prog.name}"?\nAll associated tracks, stages, and candidate submissions will be permanently removed.`
