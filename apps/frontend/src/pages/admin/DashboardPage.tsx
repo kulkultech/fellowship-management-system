@@ -1201,17 +1201,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   };
 
-  // Active nav ID calculation for hierarchical tree
-  const activeNavId =
-    currentView === 'programs'
-      ? 'programs'
-      : currentView === 'create_program'
-      ? 'programs'
-      : currentView === 'questions'
-      ? 'questions'
-      : selectedTrackFilter
-      ? `track-${selectedTrackFilter}`
-      : `program-${activeProgramSlug}`;
+  // Active nav ID calculation
+  const activeNavId = currentView === 'questions' ? 'questions' : 'programs';
 
   const navItems: NavItem[] = [
     {
@@ -1222,36 +1213,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       onClick: () => {
         setCurrentView('programs');
       },
-      isExpanded: true,
-      children: allPrograms.map((p) => {
-        const isCurrentActiveProg = p.slug === activeProgramSlug;
-        const tracksForThisProg = isCurrentActiveProg ? programTracks : (p.tracks || []);
-
-        return {
-          id: `program-${p.slug}`,
-          label: p.name,
-          icon: Layers,
-          badge: isCurrentActiveProg ? applicants.length : undefined,
-          isExpanded: isCurrentActiveProg,
-          onClick: () => {
-            setActiveProgramSlug(p.slug);
-            setSelectedTrackFilter('');
-            setCurrentView('pipeline');
-          },
-          children: tracksForThisProg.length > 0
-            ? tracksForThisProg.map((t) => ({
-                id: `track-${t.id}`,
-                label: t.name,
-                icon: Award,
-                onClick: () => {
-                  setActiveProgramSlug(p.slug);
-                  setSelectedTrackFilter(t.id);
-                  setCurrentView('pipeline');
-                },
-              }))
-            : undefined,
-        };
-      }),
     },
     {
       id: 'questions',
