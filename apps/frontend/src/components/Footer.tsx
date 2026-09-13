@@ -27,6 +27,12 @@ export const Footer: React.FC = () => {
           <Link to="/register-company" className="hover:text-kulkul-purple transition">
             Register Company
           </Link>
+          <Link to="/privacy" className="hover:text-kulkul-purple transition">
+            Privacy Policy
+          </Link>
+          <Link to="/terms" className="hover:text-kulkul-purple transition">
+            Terms of Service
+          </Link>
           <Link to="/admin/login" className="text-kulkul-purple hover:underline font-bold">
             Sign In
           </Link>

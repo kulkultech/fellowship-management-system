@@ -14,6 +14,8 @@ import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { SuperadminDashboardPage } from '@/pages/admin/SuperadminDashboardPage';
+import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
+import { TermsOfServicePage } from '@/pages/legal/TermsOfServicePage';
 import { useUiStore } from '@/hooks/useUiStore';
 
 const queryClient = new QueryClient({
@@ -52,6 +54,12 @@ export function App() {
         <Routes>
           {/* Landing Page */}
           <Route path="/" element={<LandingPage />} />
+
+          {/* Legal Pages for Google OAuth & Compliance */}
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
           {/* Company Self-Registration */}
           <Route path="/register-company" element={<CompanyRegisterPage />} />
