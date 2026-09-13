@@ -423,11 +423,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     return `${window.location.origin}/programs/${orgSlug}/${slug}`;
   };
 
-  const handleCopyProgramLink = (slug: string = activeProgramSlug) => {
-    const url = getPublicProgramUrl(slug);
-    navigator.clipboard.writeText(url);
-    toast.success('Shareable candidate program link copied!');
-  };
 
   const handleOpenCreateTrack = (progSlug?: string) => {
     if (progSlug && progSlug !== activeProgramSlug) {
@@ -1448,13 +1443,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               ) : (
                 <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[1020px]">
+                    <table className="w-full text-left border-collapse table-fixed min-w-[860px]">
                       <colgroup>
+                        <col className="w-[26%]" />
                         <col className="w-[22%]" />
-                        <col className="w-[18%]" />
-                        <col className="w-[12%]" />
                         <col className="w-[14%]" />
-                        <col className="w-[34%]" />
+                        <col className="w-[16%]" />
+                        <col className="w-[22%]" />
                       </colgroup>
                       <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
                         <tr>
@@ -1534,32 +1529,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </td>
 
                               <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                <div className="flex items-center justify-end gap-2 flex-wrap">
                                   <button
                                     onClick={() => {
                                       setActiveProgramSlug(prog.slug);
                                       setCurrentView('pipeline');
                                     }}
-                                    className="px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
-                                    title="View & manage candidate pipeline"
+                                    className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
                                   >
                                     <span>Manage</span>
                                     <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleCopyProgramLink(prog.slug)}
-                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border border-slate-200 transition"
-                                    title="Copy shareable applicant link"
-                                  >
-                                    <Copy className="w-3.5 h-3.5" />
                                   </button>
 
                                   <a
                                     href={getPublicProgramUrl(prog.slug)}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border border-slate-200 transition"
+                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
                                     title="Open public overview page"
                                   >
                                     <ExternalLink className="w-3.5 h-3.5" />
@@ -1568,47 +1554,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   <button
                                     onClick={() => handleOpenPipelineConfig(prog)}
                                     className="p-1.5 rounded-full hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-slate-200 transition"
-                                    title="Configure Logic Test & Screening Pipeline"
+                                    title="Configure Question Set & Logic Test"
                                   >
                                     <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => {
-                                      setActiveProgramSlug(prog.slug);
-                                      setCurrentView('stages');
-                                    }}
-                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
-                                    title="Configure Application Stages"
-                                  >
-                                    <Workflow className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => {
-                                      setActiveProgramSlug(prog.slug);
-                                      setCurrentView('form_builder');
-                                    }}
-                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
-                                    title="Configure Application Intake Form"
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleOpenRubricPage(prog)}
-                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
-                                    title="Configure AI Interview Rubric & Prompts"
-                                  >
-                                    <Bot className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleOpenCreateTrack(prog.slug)}
-                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
-                                    title="Add Specialization Track"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
                                   </button>
 
                                   <button
