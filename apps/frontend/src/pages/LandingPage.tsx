@@ -5,7 +5,6 @@ import {
   Terminal,
   Sliders,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -24,11 +23,6 @@ export const LandingPage: React.FC = () => {
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[900px] h-[450px] bg-gradient-to-r from-kulkul-purple/5 via-kulkul-orange/10 to-stitch-blue/5 blur-3xl -z-10 rounded-full pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 text-center flex flex-col items-center">
-          {/* FellowHire Official Brand Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 border border-purple-100/80 text-kulkul-purple text-xs sm:text-sm font-extrabold mb-6 shadow-2xs">
-            <Sparkles className="w-4 h-4 text-kulkul-orange" />
-            <span>FellowHire &ndash; Automated Fellowship & Assessment Platform</span>
-          </div>
 
           {/* Main Headline - Exactly 2 rows */}
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight max-w-5xl">
