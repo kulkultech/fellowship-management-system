@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,5 +132,108 @@ func TestAIInterviewHandler_SendMessage_MaxTwoFollowUps(t *testing.T) {
 	respOverride := sendMsg("Short turn", 1, 2)
 	if respOverride.IsFollowUp {
 		t.Errorf("expected client followUpCount=2 to prevent follow-up, got is_follow_up=true")
+	}
+}
+
+func TestAIInterviewHandler_SendMessage_CandidateNameAndQuestionIsolation(t *testing.T) {
+	aiRepo := repository.NewAIInterviewRepository(nil)
+	appRepo := repository.NewApplicantRepository(nil)
+	progRepo := repository.NewProgramRepository(nil)
+	trackRepo := repository.NewTrackRepository(nil)
+	store, _ := storage.NewLocalStorage("/tmp/test-uploads")
+
+	evaluator := ai.NewCloudflareEvaluator(config.CloudflareConfig{}, slog.Default())
+	h := handler.NewAIInterviewHandler(aiRepo, appRepo, progRepo, trackRepo, evaluator, store)
+
+	token := "test-candidate-name-token-" + uuid.New().String()
+	appID := uuid.New()
+	progID := uuid.New()
+
+	prog := &model.Program{
+		ID:             progID,
+		OrganizationID: uuid.New(),
+		Name:           "Engineering Program",
+		AIInterviewRubric: &model.AIInterviewRubric{
+			Questions: []model.AIInterviewQuestionItem{
+				{
+					ID:       1,
+					Theme:    "Self-introduction",
+					Question: "Tell me about yourself.",
+				},
+				{
+					ID:       2,
+					Theme:    "System Design",
+					Question: "How do you design a scalable cache?",
+				},
+			},
+		},
+	}
+	_, _ = progRepo.Create(context.Background(), prog)
+
+	// Create applicant with known first name
+	applicant := &model.Applicant{
+		ID:             appID,
+		OrganizationID: prog.OrganizationID,
+		ProgramID:      progID,
+		FirstName:      "Ragil",
+		FullName:       "Ragil Zakaria",
+		Email:          "ragil@kulkul.tech",
+	}
+	_, _, _ = appRepo.CreateOrGet(context.Background(), applicant)
+
+	_, err := aiRepo.CreateInvitationWithTrack(context.Background(), appID, progID, nil, token, time.Now().Add(24*time.Hour))
+	if err != nil {
+		t.Fatalf("failed to create interview session: %v", err)
+	}
+
+	sendMsg := func(message string, qIdx int, followUpCount int, candName string) handler.SendMessageResponse {
+		reqBody := handler.SendMessageRequest{
+			Message:              message,
+			CurrentQuestionIndex: qIdx,
+			FollowUpCount:        followUpCount,
+			CandidateName:        candName,
+		}
+		bodyBytes, _ := json.Marshal(reqBody)
+
+		r := httptest.NewRequest(http.MethodPost, "/interviews/"+token+"/message", bytes.NewReader(bodyBytes))
+		r.Header.Set("Content-Type", "application/json")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("inviteToken", token)
+		r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+		h.SendMessage(w, r)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("SendMessage returned %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp handler.SendMessageResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		return resp
+	}
+
+	// Turn 1 on Question 0 with short answer: follow-up should address "Ragil"
+	resp1 := sendMsg("Hello", 0, 0, "Ragil")
+	if !resp1.IsFollowUp {
+		t.Errorf("expected follow-up, got is_follow_up=false")
+	}
+	if !strings.Contains(resp1.AIMessage, "Ragil") {
+		t.Errorf("expected follow-up to address candidate 'Ragil', got %q", resp1.AIMessage)
+	}
+
+	// Turn 2 with substantive answer: advance to Question 1 and address "Ragil"
+	longAnswer := "I have five years of experience building distributed backend systems in Go and PostgreSQL, with automated CI/CD deployment pipelines."
+	resp2 := sendMsg(longAnswer, 0, 1, "Ragil")
+	if resp2.IsFollowUp {
+		t.Errorf("expected substantive answer to advance to question 1, got follow-up: %s", resp2.AIMessage)
+	}
+	if resp2.CurrentQuestionIndex != 1 {
+		t.Errorf("expected current_question_index=1, got %d", resp2.CurrentQuestionIndex)
+	}
+	if !strings.Contains(resp2.AIMessage, "Ragil") {
+		t.Errorf("expected next question transition to address candidate 'Ragil', got %q", resp2.AIMessage)
 	}
 }

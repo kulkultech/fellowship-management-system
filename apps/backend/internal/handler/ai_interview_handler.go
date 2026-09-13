@@ -234,10 +234,12 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 			firstQ = program.AIInterviewQuestions[0]
 		}
 
+		zeroIdx := 0
 		initialMsg := model.ChatMessage{
-			Role:      "ai",
-			Message:   fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this specialization track.\n\nTo begin: %s", applicantName, displayName, firstQ),
-			Timestamp: time.Now(),
+			Role:          "ai",
+			Message:       fmt.Sprintf("Hello %s! Welcome to your AI Technical Screen for %s. I will be conducting this conversational evaluation based on questions configured for this specialization track.\n\nTo begin: %s", applicantName, displayName, firstQ),
+			Timestamp:     time.Now(),
+			QuestionIndex: &zeroIdx,
 		}
 		aiSession.Transcript = append(aiSession.Transcript, initialMsg)
 		now := time.Now()
@@ -265,6 +267,7 @@ type SendMessageRequest struct {
 	Message              string `json:"message"`
 	CurrentQuestionIndex int    `json:"current_question_index"`
 	FollowUpCount        int    `json:"follow_up_count,omitempty"`
+	CandidateName        string `json:"candidate_name,omitempty"`
 }
 
 type SendMessageResponse struct {
@@ -327,6 +330,21 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Resolve verified candidate name so AI prompts never guess or mishear names
+	candidateName := strings.TrimSpace(req.CandidateName)
+	if candidateName == "" && aiSession.ApplicantID != uuid.Nil {
+		if applicant, err := h.applicantRepo.GetByID(r.Context(), aiSession.ApplicantID); err == nil && applicant != nil {
+			if applicant.FirstName != "" {
+				candidateName = applicant.FirstName
+			} else if applicant.FullName != "" {
+				candidateName = applicant.FullName
+			}
+		}
+	}
+	if candidateName == "" {
+		candidateName = "Candidate"
+	}
+
 	now := time.Now()
 	qIdx := req.CurrentQuestionIndex
 	if qIdx < 0 {
@@ -358,7 +376,8 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		QuestionIndex: &qIdxCopy,
 	})
 
-	// Find conversation turns for the current question
+	// Find conversation turns strictly for the current question
+	// This creates an isolated background conversation for each main question to eliminate hallucinations
 	var conversationForCurrentQ []model.ChatMessage
 	followUpCount := 0
 	for _, msg := range aiSession.Transcript {
@@ -392,7 +411,7 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	if isCompletionSentinel {
 		// Video upload finished -> complete interview
 		isCompleted = true
-		aiReply = "Thank you for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric."
+		aiReply = fmt.Sprintf("Thank you %s for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric.", candidateName)
 	} else {
 		// Strict cap: A maximum of 2 follow-ups per main question is allowed.
 		// If 2 follow-ups have already been asked (or if answer is sufficient), strictly advance to next question!
@@ -402,6 +421,7 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 				currentQ,
 				conversationForCurrentQ,
 				followUpCount,
+				candidateName,
 			)
 			if err == nil && !isSufficient && strings.TrimSpace(followUp) != "" {
 				isFollowUp = true
@@ -416,11 +436,11 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 			nextQIndex = qIdx + 1
 			if nextQIndex < len(rubric.Questions) {
 				nextQ := rubric.Questions[nextQIndex]
-				aiReply = fmt.Sprintf("Thank you for your response! Next question:\n\n%s", nextQ.Question)
+				aiReply = fmt.Sprintf("Thank you for your response, %s! Next question:\n\n%s", candidateName, nextQ.Question)
 				isCompleted = false
 			} else {
 				isCompleted = true
-				aiReply = "Thank you for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric."
+				aiReply = fmt.Sprintf("Thank you %s for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric.", candidateName)
 			}
 		}
 	}
@@ -428,7 +448,7 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	if isCompleted {
 		nowComplete := time.Now()
 		if h.aiEvaluator != nil {
-			summary, err = h.aiEvaluator.EvaluateTranscript(r.Context(), rubric, aiSession.Transcript)
+			summary, err = h.aiEvaluator.EvaluateTranscript(r.Context(), rubric, aiSession.Transcript, candidateName)
 		}
 		if err != nil || summary == nil {
 			summary = &model.EvaluationSummary{

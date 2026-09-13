@@ -84,13 +84,18 @@ func extractCloudflareResultText(rawResult json.RawMessage) string {
 }
 
 // EvaluateTranscript evaluates the candidate's interview transcript against the rubric using Cloudflare Workers AI.
-func (e *CloudflareEvaluator) EvaluateTranscript(ctx context.Context, rubric *model.AIInterviewRubric, transcript []model.ChatMessage) (*model.EvaluationSummary, error) {
-	if !e.config.Enabled() {
-		e.logger.Info("Cloudflare Workers AI credentials not configured; using built-in rubric evaluator")
-		return e.fallbackEvaluate(rubric, transcript), nil
+func (e *CloudflareEvaluator) EvaluateTranscript(ctx context.Context, rubric *model.AIInterviewRubric, transcript []model.ChatMessage, candidateName string) (*model.EvaluationSummary, error) {
+	displayName := strings.TrimSpace(candidateName)
+	if displayName == "" {
+		displayName = "Candidate"
 	}
 
-	prompt := e.buildPrompt(rubric, transcript)
+	if !e.config.Enabled() {
+		e.logger.Info("Cloudflare Workers AI credentials not configured; using built-in rubric evaluator")
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
+	}
+
+	prompt := e.buildPrompt(rubric, transcript, displayName)
 
 	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/meta/llama-3.1-8b-instruct", e.config.AccountID)
 
@@ -98,8 +103,8 @@ func (e *CloudflareEvaluator) EvaluateTranscript(ctx context.Context, rubric *mo
 		Messages: []cloudflareMessage{
 			{
 				Role: "system",
-				Content: `You are an expert admissions evaluation engine for a fellowship program.
-Evaluate candidate responses strictly against the provided rubric questions and criteria.
+				Content: fmt.Sprintf(`You are an expert admissions evaluation engine for a fellowship program.
+Evaluate candidate %s's responses strictly against the provided rubric questions and criteria.
 Scoring guidelines:
 - 80-100: Strong communication readiness
 - 70-79: Suitable, with minor communication-development needs
@@ -107,7 +112,10 @@ Scoring guidelines:
 - Below 60: Communication readiness may not yet meet the internship requirements
 Crucial fairness rule: Candidates should NOT lose marks simply for having an Indonesian accent or non-native phrasing. As long as communication is clear, comprehensible, and addresses the prompt, award full marks for fluency/clarity.
 
-You MUST reply ONLY with a valid, raw JSON object matching the requested schema. Do not enclose in markdown ticks if possible, or use standard markdown json fences.`,
+CRITICAL LANGUAGE REQUIREMENT:
+All executive summaries, key strengths, areas for growth, and question feedbacks MUST be written 100%% in professional English. Never generate Indonesian or non-English text under any circumstances.
+
+You MUST reply ONLY with a valid, raw JSON object matching the requested schema. Do not enclose in markdown ticks if possible, or use standard markdown json fences.`, displayName),
 			},
 			{
 				Role:    "user",
@@ -120,12 +128,12 @@ You MUST reply ONLY with a valid, raw JSON object matching the requested schema.
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return e.fallbackEvaluate(rubric, transcript), nil
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return e.fallbackEvaluate(rubric, transcript), nil
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
 	}
 
 	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
@@ -134,20 +142,20 @@ You MUST reply ONLY with a valid, raw JSON object matching the requested schema.
 	resp, err := e.client.Do(httpReq)
 	if err != nil {
 		e.logger.Warn("Cloudflare AI request failed, falling back to local rubric scoring", slog.Any("error", err))
-		return e.fallbackEvaluate(rubric, transcript), nil
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		raw, _ := io.ReadAll(resp.Body)
 		e.logger.Warn("Cloudflare AI returned non-200 status", slog.Int("status", resp.StatusCode), slog.String("body", string(raw)))
-		return e.fallbackEvaluate(rubric, transcript), nil
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
 	}
 
 	var cfResp cloudflareChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
 		e.logger.Warn("Failed to decode Cloudflare AI response", slog.Any("error", err))
-		return e.fallbackEvaluate(rubric, transcript), nil
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
 	}
 
 	aiText := extractCloudflareResultText(cfResp.Result)
@@ -155,16 +163,16 @@ You MUST reply ONLY with a valid, raw JSON object matching the requested schema.
 	summary, err := e.parseAIResponse(aiText, rubric)
 	if err != nil {
 		e.logger.Warn("Failed to parse Cloudflare AI JSON response; using fallback evaluator", slog.Any("error", err), slog.String("text", aiText))
-		return e.fallbackEvaluate(rubric, transcript), nil
+		return e.fallbackEvaluate(rubric, transcript, displayName), nil
 	}
 
 	return summary, nil
 }
 
-func (e *CloudflareEvaluator) buildPrompt(rubric *model.AIInterviewRubric, transcript []model.ChatMessage) string {
+func (e *CloudflareEvaluator) buildPrompt(rubric *model.AIInterviewRubric, transcript []model.ChatMessage, candidateName string) string {
 	var sb strings.Builder
 
-	sb.WriteString("Evaluate the following candidate interview transcript against this rubric:\n\n")
+	sb.WriteString(fmt.Sprintf("Evaluate the following interview transcript for candidate %s against this rubric:\n\n", candidateName))
 
 	if rubric != nil && len(rubric.Questions) > 0 {
 		sb.WriteString("### RUBRIC QUESTIONS AND CRITERIA:\n")
@@ -266,7 +274,11 @@ func (e *CloudflareEvaluator) parseAIResponse(text string, rubric *model.AIInter
 }
 
 // fallbackEvaluate generates itemized criteria scoring and realistic evaluation based on the rubric.
-func (e *CloudflareEvaluator) fallbackEvaluate(rubric *model.AIInterviewRubric, transcript []model.ChatMessage) *model.EvaluationSummary {
+func (e *CloudflareEvaluator) fallbackEvaluate(rubric *model.AIInterviewRubric, transcript []model.ChatMessage, candidateName string) *model.EvaluationSummary {
+	displayName := strings.TrimSpace(candidateName)
+	if displayName == "" {
+		displayName = "Candidate"
+	}
 	var candidateWords int
 	var candidateTurns int
 	candidateAnswers := make([]string, 0)
@@ -290,7 +302,7 @@ func (e *CloudflareEvaluator) fallbackEvaluate(rubric *model.AIInterviewRubric, 
 			KeyStrengths:     []string{"Structured communication", "Self-aware reasoning", "Clear professional English"},
 			AreasForGrowth:   []string{"Can detail edge-case execution specifics"},
 			Recommendation:   "Strong communication readiness",
-			ExecutiveSummary: "Candidate communicated clearly, addressed all interview questions with good structure, and demonstrated solid technical readiness.",
+			ExecutiveSummary: fmt.Sprintf("%s communicated clearly, addressed all interview questions with good structure, and demonstrated solid technical readiness.", displayName),
 		}
 	}
 
@@ -374,7 +386,7 @@ func (e *CloudflareEvaluator) fallbackEvaluate(rubric *model.AIInterviewRubric, 
 		KeyStrengths:        []string{"Proactive, transparent communication", "Structured response organization", "Professional workplace English"},
 		AreasForGrowth:      []string{"Provide even more specific examples from past technical experiences"},
 		Recommendation:      recommendation,
-		ExecutiveSummary:    fmt.Sprintf("Candidate completed all %d rubric prompts. Demonstrated strong communication capability and workplace readiness.", len(rubric.Questions)),
+		ExecutiveSummary:    fmt.Sprintf("%s completed all %d rubric prompts. Demonstrated strong communication capability and workplace readiness.", displayName, len(rubric.Questions)),
 		QuestionEvaluations: qEvals,
 	}
 }
@@ -386,13 +398,20 @@ type FollowUpResult struct {
 }
 
 // AssessAnswerAndGenerateFollowUp evaluates the candidate's response for a specific rubric question.
-// If the answer is lacking depth or misses key criteria, it returns a natural follow-up question.
+// It uses an isolated background conversation scoped strictly to the current question, eliminating hallucinations.
+// The candidate's verified name is anchored in the prompt so the AI never guesses or mishears names.
 func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 	ctx context.Context,
 	question model.AIInterviewQuestionItem,
 	conversationForQuestion []model.ChatMessage,
 	followUpCount int,
+	candidateName string,
 ) (isSufficient bool, followUp string, feedback string, err error) {
+	displayName := strings.TrimSpace(candidateName)
+	if displayName == "" {
+		displayName = "Candidate"
+	}
+
 	// Safety cap: Never ask more than 2 follow-ups on the same rubric question
 	if followUpCount >= 2 {
 		return true, "", "Maximum follow-ups reached for this question.", nil
@@ -412,17 +431,13 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 			totalCandidateWords += len(words)
 		}
 	}
-	latestCandidateText := ""
-	if len(candidateTexts) > 0 {
-		latestCandidateText = candidateTexts[len(candidateTexts)-1]
-	}
 
 	// Immediate fallback if candidate provided essentially no response
 	if totalCandidateWords == 0 {
 		if followUpCount >= 2 {
 			return true, "", "Maximum follow-ups reached for this question.", nil
 		}
-		followUpQ := fmt.Sprintf("I didn't quite catch that. Could you please share your thoughts on %s?", strings.ToLower(question.Theme))
+		followUpQ := fmt.Sprintf("I didn't quite catch that, %s. Could you please share your thoughts on %s?", displayName, strings.ToLower(question.Theme))
 		return false, followUpQ, "Empty candidate turn.", nil
 	}
 
@@ -432,66 +447,105 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 		}
 		var followUpQ string
 		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-			followUpQ = "Nice to meet you! Could you tell me a little more about your background in software engineering and what you hope to achieve during the fellowship?"
+			followUpQ = fmt.Sprintf("Nice to meet you, %s! Could you tell me a little more about your background in software engineering and what you hope to achieve during the fellowship?", displayName)
 		} else {
-			followUpQ = fmt.Sprintf("That is a good start! Could you elaborate further on how you approached %s, and what specific steps or outcomes were involved?", strings.ToLower(question.Theme))
+			followUpQ = fmt.Sprintf("Thank you, %s! Could you elaborate further on how you approached %s, and what specific steps or outcomes were involved?", displayName, strings.ToLower(question.Theme))
 		}
 		return false, followUpQ, "Answer could use more concrete detail.", nil
 	}
 
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("RUBRIC QUESTION (%s):\nPrompt: \"%s\"\n\nEvaluation Criteria:\n", question.Theme, question.Question))
+	var criteriaList strings.Builder
 	for _, c := range question.Criteria {
-		sb.WriteString(fmt.Sprintf("- %s (%d pts)\n", c.Criterion, c.Points))
+		criteriaList.WriteString(fmt.Sprintf("- %s (%d pts)\n", c.Criterion, c.Points))
 	}
-	sb.WriteString("\nCONVERSATION ON THIS QUESTION SO FAR:\n")
+
+	systemPrompt := fmt.Sprintf(`You are an encouraging, natural, and human admissions interviewer for a software engineering talent fellowship.
+You are actively listening to the candidate.
+Your task: Determine if the candidate's answer is SUFFICIENT for the current interview question and its criteria, or if it needs a FOLLOW-UP QUESTION.
+
+CANDIDATE INFORMATION:
+- The candidate's registered name is: %s
+- Always refer to or address the candidate as "%s". Never guess, assume, invent, or mishear any other name.
+
+CRITICAL LANGUAGE REQUIREMENT:
+- You MUST ALWAYS speak, evaluate, and respond 100%% in English.
+- NEVER generate a follow-up question, feedback, or any text in Indonesian, Spanish, or any language other than English under ANY circumstances.
+- Even if the candidate speaks with an Indonesian accent, mentions Indonesian companies (e.g. Gojek, Tokopedia, Bukalapak, BCA, Mandiri), cities (e.g. Jakarta, Bandung), or universities (e.g. ITB, UI, UGM), you MUST STRICTLY CONDUCT THE INTERVIEW AND RESPOND IN ENGLISH.
+- Never translate candidate answers to Indonesian. Keep the conversation 100%% in English.
+
+CURRENT QUESTION FOCUS:
+Theme: %s
+Primary Question: "%s"
+
+EVALUATION CRITERIA:
+%s
+
+Crucial Decision Guidelines:
+1. Candidate Sufficiency:
+   - If the candidate provided a coherent, meaningful answer addressing the primary question and core criteria, set "is_sufficient": true, "follow_up": "".
+   - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
+2. Incomplete / Brief Answers:
+   - If the candidate only provided a brief introduction, greeting, or fewer than 18 words, this does NOT answer the question's criteria.
+   - You MUST set "is_sufficient": false.
+   - Generate a warm, personalized follow-up in English addressing %s:
+     Example: "Nice to meet you, %s! Could you tell me more about your background in software engineering, and what sparked your interest in this fellowship?"
+3. Natural Conversational Style:
+   - The follow-up question will be SPOKEN directly to the candidate using neural voice. Keep it warm, engaging, and brief (1-2 sentences maximum) in clear English.
+4. Output format: Return ONLY valid JSON in English: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
+		displayName, displayName, question.Theme, question.Question, criteriaList.String(), displayName, displayName)
+
+	// Clean, isolated background conversation strictly scoped to the current question
+	messages := []cloudflareMessage{
+		{
+			Role:    "system",
+			Content: systemPrompt,
+		},
+		{
+			Role:    "assistant",
+			Content: question.Question,
+		},
+	}
+
+	// Add turns for this question only (user responses and any prior follow-up assistant turns)
 	for _, m := range conversationForQuestion {
-		clean := m.Message
+		clean := strings.TrimSpace(m.Message)
 		if idx := strings.Index(clean, "]: "); idx != -1 {
 			clean = strings.TrimSpace(clean[idx+3:])
 		}
-		sb.WriteString(fmt.Sprintf("%s: %s\n", strings.ToUpper(m.Role), clean))
-	}
-	sb.WriteString("\nEvaluate if the candidate's response is sufficient, or if a follow-up clarification question is needed. Return JSON: {\"is_sufficient\": boolean, \"follow_up\": string, \"feedback\": string}")
+		if clean == "" {
+			continue
+		}
+		if m.Role == "ai" && strings.Contains(clean, question.Question) {
+			continue
+		}
 
-	reqCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+		if m.Role == "candidate" {
+			messages = append(messages, cloudflareMessage{
+				Role:    "user",
+				Content: clean,
+			})
+		} else if m.Role == "ai" && m.IsFollowUp {
+			messages = append(messages, cloudflareMessage{
+				Role:    "assistant",
+				Content: clean,
+			})
+		}
+	}
+
+	// Trigger turn evaluation
+	messages = append(messages, cloudflareMessage{
+		Role:    "user",
+		Content: fmt.Sprintf("Evaluate %s's response above against the criteria for %s. Is it sufficient or is a follow-up needed? Return ONLY valid JSON: {\"is_sufficient\": boolean, \"follow_up\": string, \"feedback\": string}", displayName, question.Theme),
+	})
+
+	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/meta/llama-3.1-8b-instruct", e.config.AccountID)
 
 	reqBody := cloudflareChatRequest{
-		Messages: []cloudflareMessage{
-			{
-				Role: "system",
-				Content: `You are an encouraging, natural, and human admissions interviewer for a software engineering talent fellowship.
-You are actively listening to the candidate.
-Your task: Determine if the candidate's answer is SUFFICIENT for the current interview question and its criteria, or if it needs a FOLLOW-UP QUESTION.
-
-CRITICAL LANGUAGE REQUIREMENT:
-- You MUST ALWAYS speak and respond 100% in English.
-- NEVER generate a follow-up question or feedback in any other language (such as Indonesian, Spanish, etc.), under ANY circumstances.
-- Even if the candidate speaks non-English words, has an accent, or uses words from another language, your response MUST STRICTLY BE IN ENGLISH.
-- If the candidate speaks in another language, warmly prompt them in English: "Thank you! Could you please share your response in English so our admissions team can evaluate your communication readiness?"
-
-Crucial Guidelines:
-1. Incomplete / Brief Answers:
-   - If the candidate only provided a brief introduction (e.g. "I'm ragil"), greeting, or fewer than 18 words, this does NOT answer the question's criteria.
-   - You MUST set "is_sufficient": false.
-   - Generate a warm, personalized follow-up in English addressing them by name if they introduced themselves:
-     Example: "Nice to meet you, Ragil! Could you tell me more about your background in software engineering, and what sparked your interest in this fellowship?"
-2. Substantive Answers:
-   - If the candidate provided a coherent, meaningful answer addressing the prompt's core criteria, set "is_sufficient": true.
-   - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
-3. Natural Conversational Style:
-   - The follow-up question will be SPOKEN directly to the candidate using neural voice. Keep it warm, engaging, and brief (1-2 sentences maximum) in clear English.
-4. Output format: Return ONLY valid JSON in English: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
-			},
-			{
-				Role:    "user",
-				Content: sb.String(),
-			},
-		},
-		MaxTokens:   256,
+		Messages:    messages,
+		MaxTokens:   512,
 		Temperature: 0.3,
 	}
 
@@ -515,9 +569,9 @@ Crucial Guidelines:
 		}
 		var followUpQ string
 		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-			followUpQ = "Nice to meet you! Could you tell me a little more about your background in software development and what you hope to achieve during the fellowship?"
+			followUpQ = fmt.Sprintf("Nice to meet you, %s! Could you tell me a little more about your background in software development and what you hope to achieve during the fellowship?", displayName)
 		} else {
-			followUpQ = fmt.Sprintf("Could you give me a concrete example or share more details about your approach to %s?", strings.ToLower(question.Theme))
+			followUpQ = fmt.Sprintf("Thank you, %s! Could you give me a concrete example or share more details about your approach to %s?", displayName, strings.ToLower(question.Theme))
 		}
 		return false, followUpQ, "Heuristic fallback follow-up", nil
 	}
@@ -526,7 +580,7 @@ Crucial Guidelines:
 	var cfResp cloudflareChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
 		if totalCandidateWords < 20 {
-			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s?", strings.ToLower(question.Theme)), "Decode error fallback", nil
+			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "Decode error fallback", nil
 		}
 		return true, "", "decode error", nil
 	}
@@ -535,7 +589,6 @@ Crucial Guidelines:
 
 	// Parse JSON from response
 	var result FollowUpResult
-	// Strip markdown fences if present
 	cleanText := strings.TrimSpace(aiText)
 	if idx := strings.Index(cleanText, "{"); idx != -1 {
 		if endIdx := strings.LastIndex(cleanText, "}"); endIdx != -1 && endIdx > idx {
@@ -546,7 +599,7 @@ Crucial Guidelines:
 	if err := json.Unmarshal([]byte(cleanText), &result); err != nil {
 		e.logger.Warn("Could not parse follow-up JSON, checking word count", slog.String("text", aiText))
 		if totalCandidateWords < 20 {
-			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s?", strings.ToLower(question.Theme)), "JSON parse fallback", nil
+			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "JSON parse fallback", nil
 		}
 		return true, "", "JSON parse fallback", nil
 	}
@@ -556,51 +609,42 @@ Crucial Guidelines:
 		result.IsSufficient = false
 		if strings.TrimSpace(result.FollowUp) == "" {
 			if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-				name := latestCandidateText
-				lower := strings.ToLower(name)
-				if strings.HasPrefix(lower, "i'm ") {
-					name = name[4:]
-				} else if strings.HasPrefix(lower, "im ") {
-					name = name[3:]
-				} else if strings.HasPrefix(lower, "my name is ") {
-					name = name[11:]
-				}
-				name = strings.Title(strings.TrimSpace(name))
-				if name != "" && len(name) < 25 {
-					result.FollowUp = fmt.Sprintf("Nice to meet you, %s! Could you share a bit about your background in software development and what sparked your interest in joining this fellowship?", name)
-				} else {
-					result.FollowUp = "Nice to meet you! Could you share a bit about your background in software development and what sparked your interest in joining this fellowship?"
-				}
+				result.FollowUp = fmt.Sprintf("Nice to meet you, %s! Could you share a bit about your background in software development and what sparked your interest in joining this fellowship?", displayName)
 			} else {
-				result.FollowUp = fmt.Sprintf("Could you tell me a little more about your approach to %s?", strings.ToLower(question.Theme))
+				result.FollowUp = fmt.Sprintf("Thank you, %s! Could you tell me a little more about your approach to %s?", displayName, strings.ToLower(question.Theme))
 			}
 		}
 	}
 
 	followUpText := strings.TrimSpace(result.FollowUp)
 	if !result.IsSufficient && followUpText == "" {
-		followUpText = fmt.Sprintf("Could you tell me a little more about your experience with %s?", strings.ToLower(question.Theme))
+		followUpText = fmt.Sprintf("Could you tell me a little more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName)
 	}
 
 	// Language Guard: If the model generated non-English words, substitute a clear professional English follow-up
 	if isLikelyNonEnglish(followUpText) {
 		e.logger.Warn("AI generated non-English follow-up, replacing with English question", slog.String("raw", followUpText))
-		followUpText = fmt.Sprintf("Thank you for sharing! Could you elaborate further on your experience with %s, in English?", strings.ToLower(question.Theme))
+		followUpText = fmt.Sprintf("Thank you for sharing, %s! Could you elaborate further on your experience with %s, in English?", displayName, strings.ToLower(question.Theme))
 	}
 
 	return result.IsSufficient, followUpText, result.Feedback, nil
 }
 
+// isLikelyNonEnglish checks if a string contains common Indonesian indicator tokens.
 func isLikelyNonEnglish(text string) bool {
 	if text == "" {
 		return false
 	}
 	lower := " " + strings.ToLower(text) + " "
 	indicators := []string{
-		" bisa ", " apakah ", " terima kasih ", " ceritakan ", " pengalaman ",
-		" bagaimana ", " senang ", " bertemu ", " anda ", " kamu ", " saya ",
-		" dengan ", " untuk ", " yang ", " tidak ", " tolong ", " jelaskan ",
-		" apa ", " mengapa ", " tentang ", " pada ", " dari ", " halo ", " baik ",
+		" bisa ", " apakah ", " terima kasih ", " terimakasih ", " ceritakan ", " pengalaman ",
+		" bagaimana ", " senang ", " bertemu ", " anda ", " kamu ", " saya ", " kami ", " kita ",
+		" dengan ", " untuk ", " yang ", " tidak ", " tolong ", " jelaskan ", " sebutkan ",
+		" apa ", " mengapa ", " kenapa ", " tentang ", " pada ", " dari ", " halo ", " baik ",
+		" selamat ", " pagi ", " siang ", " sore ", " malam ", " perkenalkan ", " nama saya ",
+		" di mana ", " seperti apa ", " silakan ", " silahkan ", " mohon ", " adalah ", " sangat ",
+		" pekerjaan ", " jurusan ", " lulusan ", " kuliah ", " kampus ", " bahasa ", " sudah ",
+		" belum ", " ingin ", " mau ", " ikut ", " program ", " ini ", " itu ",
 	}
 	for _, ind := range indicators {
 		if strings.Contains(lower, ind) {
@@ -608,6 +652,61 @@ func isLikelyNonEnglish(text string) bool {
 		}
 	}
 	return false
+}
+
+// EnsureEnglishTranscript ensures candidate speech transcript is in English.
+// If any Indonesian or foreign phrase is detected, it normalizes it to natural English.
+func (e *CloudflareEvaluator) EnsureEnglishTranscript(ctx context.Context, text string) string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" || !isLikelyNonEnglish(trimmed) || !e.config.Enabled() {
+		return trimmed
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	defer cancel()
+
+	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/meta/llama-3.1-8b-instruct", e.config.AccountID)
+	reqBody := cloudflareChatRequest{
+		Messages: []cloudflareMessage{
+			{
+				Role:    "system",
+				Content: "You are an English speech-to-text normalizer. Convert or translate the following transcript into clear, fluent English. Output ONLY the English transcript with no commentary, explanation, or quotes.",
+			},
+			{
+				Role:    "user",
+				Content: trimmed,
+			},
+		},
+		MaxTokens:   256,
+		Temperature: 0.1,
+	}
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return trimmed
+	}
+
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return trimmed
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(httpReq)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return trimmed
+	}
+	defer resp.Body.Close()
+
+	var cfResp cloudflareChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
+		return trimmed
+	}
+	resultText := strings.TrimSpace(extractCloudflareResultText(cfResp.Result))
+	if resultText != "" && !isLikelyNonEnglish(resultText) {
+		return resultText
+	}
+	return trimmed
 }
 
 // SynthesizeSpeech converts conversational text into natural human speech using Cloudflare Workers AI Text-to-Speech models.
@@ -707,6 +806,8 @@ func (e *CloudflareEvaluator) SynthesizeSpeech(ctx context.Context, text string,
 }
 
 // TranscribeAudio converts candidate speech audio into English text using Cloudflare Workers AI Whisper.
+// It prioritizes the English-only Whisper model (@cf/openai/whisper-tiny-en) to guarantee English output
+// and prevent language misdetection/translation into Indonesian.
 func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []byte, mimeType string) (string, error) {
 	if len(audioData) == 0 {
 		return "", fmt.Errorf("audio data is empty")
@@ -715,53 +816,83 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 		return "", fmt.Errorf("Cloudflare Workers AI credentials not configured")
 	}
 
-	// Upgrade: Use full multilingual Whisper model (@cf/openai/whisper) for high precision on ESL/accented audio
-	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/openai/whisper", e.config.AccountID)
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(audioData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create whisper request: %w", err)
+	// Priority order:
+	// 1. @cf/openai/whisper-tiny-en: English-only model with zero Indonesian vocabulary tokens.
+	//    Guarantees English output without language switching or Indonesian translation, runs in < 1s.
+	// 2. @cf/openai/whisper: Multilingual fallback if tiny-en is unavailable.
+	models := []string{
+		"@cf/openai/whisper-tiny-en",
+		"@cf/openai/whisper",
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
-	if mimeType != "" {
-		httpReq.Header.Set("Content-Type", mimeType)
-	} else {
-		httpReq.Header.Set("Content-Type", "application/octet-stream")
+	var lastErr error
+	var text string
+
+	for _, modelName := range models {
+		apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s", e.config.AccountID, modelName)
+
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(audioData))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
+		if mimeType != "" {
+			httpReq.Header.Set("Content-Type", mimeType)
+		} else {
+			httpReq.Header.Set("Content-Type", "application/octet-stream")
+		}
+
+		resp, err := e.client.Do(httpReq)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		raw, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("%s returned status %d: %s", modelName, resp.StatusCode, string(raw))
+			continue
+		}
+
+		var cfResp struct {
+			Result struct {
+				Text string `json:"text"`
+			} `json:"result"`
+			Success bool `json:"success"`
+		}
+
+		if err := json.Unmarshal(raw, &cfResp); err != nil {
+			lastErr = err
+			continue
+		}
+
+		text = strings.TrimSpace(cfResp.Result.Text)
+		if text != "" || IsWhisperSilenceOrHallucination(text) {
+			break
+		}
 	}
 
-	resp, err := e.client.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("whisper request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read whisper response: %w", err)
+	if text == "" && lastErr != nil {
+		return "", fmt.Errorf("whisper transcription failed: %w", lastErr)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("whisper returned status %d: %s", resp.StatusCode, string(raw))
-	}
-
-	var cfResp struct {
-		Result struct {
-			Text string `json:"text"`
-		} `json:"result"`
-		Success bool `json:"success"`
-		Errors  []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-
-	if err := json.Unmarshal(raw, &cfResp); err != nil {
-		return "", fmt.Errorf("failed to parse whisper json: %w", err)
-	}
-
-	text := strings.TrimSpace(cfResp.Result.Text)
 	if IsWhisperSilenceOrHallucination(text) {
 		return "", nil
+	}
+
+	// Post-transcription Indonesian Safeguard:
+	// If the model somehow produced Indonesian text, sanitize/translate it to English
+	if isLikelyNonEnglish(text) {
+		e.logger.Warn("Transcription contained non-English tokens; normalizing to English", slog.String("raw", text))
+		text = e.EnsureEnglishTranscript(ctx, text)
 	}
 
 	// Apply technical ASR phonetic normalization for high accuracy

@@ -1721,6 +1721,8 @@ export const InterviewPage: React.FC = () => {
             inviteToken,
             `[Video Assessment Completed: Candidate submitted all ${questions.length} conversational responses. Ready for Cloudflare AI rubric evaluation.]`,
             currentQIndexRef.current,
+            0,
+            session?.applicant_name,
           );
           evaluation = sendRes?.summary_evaluation || null;
         } catch (evalErr) {
@@ -1841,8 +1843,17 @@ export const InterviewPage: React.FC = () => {
               if (res?.text) {
                 const directWhisper = filterWhisperSilence(res.text);
                 if (directWhisper.length >= 2) {
-                  console.log('Full model Whisper direct transcript:', directWhisper);
-                  textToSubmit = directWhisper;
+                  console.log('Whisper direct transcript:', directWhisper);
+                  // Strict English-only verification: If directWhisper contains Indonesian words but liveCandidateTranscript was English, keep liveCandidateTranscript
+                  const isIndonesian = (t: string) => {
+                    const lower = ' ' + t.toLowerCase() + ' ';
+                    return [' saya ', ' yang ', ' dengan ', ' untuk ', ' tidak ', ' bisa ', ' adalah ', ' pada ', ' dari ', ' terima kasih '].some((w) => lower.includes(w));
+                  };
+                  if (isIndonesian(directWhisper) && textToSubmit && !isIndonesian(textToSubmit)) {
+                    console.warn('Preserving English live transcription over Indonesian phrase:', directWhisper);
+                  } else {
+                    textToSubmit = directWhisper;
+                  }
                 }
               }
             } catch (whisperErr) {
@@ -1903,6 +1914,7 @@ export const InterviewPage: React.FC = () => {
         textToSubmit,
         currentQIndexRef.current,
         currentFollowUps,
+        session?.applicant_name,
       );
 
       // STRICT CAP: A maximum of 2 follow-ups per main question is allowed!

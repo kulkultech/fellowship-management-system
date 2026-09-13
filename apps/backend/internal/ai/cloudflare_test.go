@@ -75,7 +75,7 @@ func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_BriefAnswer(t *test
 		},
 	}
 
-	isSufficient, followUp, _, err := evaluator.AssessAnswerAndGenerateFollowUp(context.Background(), q, conv, 0)
+	isSufficient, followUp, _, err := evaluator.AssessAnswerAndGenerateFollowUp(context.Background(), q, conv, 0, "Ragil")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,6 +86,10 @@ func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_BriefAnswer(t *test
 
 	if followUp == "" {
 		t.Errorf("expected followUp question to be generated, got empty string")
+	}
+
+	if !strings.Contains(followUp, "Ragil") {
+		t.Errorf("expected followUp question to address candidate by name 'Ragil', got %q", followUp)
 	}
 }
 
@@ -223,6 +227,25 @@ func TestIsWhisperSilenceOrHallucination(t *testing.T) {
 		if ai.IsWhisperSilenceOrHallucination(v) {
 			t.Errorf("expected '%s' to NOT be detected as hallucination, but it was", v)
 		}
+	}
+}
+
+func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_CandidateName(t *testing.T) {
+	evaluator := ai.NewCloudflareEvaluator(config.CloudflareConfig{}, slog.Default())
+	q := model.DefaultAIInterviewRubric().Questions[1]
+	conv := []model.ChatMessage{
+		{
+			Role:    "candidate",
+			Message: "Short answer",
+		},
+	}
+
+	_, followUp, _, err := evaluator.AssessAnswerAndGenerateFollowUp(context.Background(), q, conv, 0, "Budi")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(followUp, "Budi") {
+		t.Errorf("expected followUp to address candidate 'Budi', got %q", followUp)
 	}
 }
 
