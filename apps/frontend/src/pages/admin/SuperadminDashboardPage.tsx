@@ -364,19 +364,19 @@ export const SuperadminDashboardPage: React.FC = () => {
 
                           <td className="py-4 px-6 align-middle whitespace-nowrap">
                             {company.status === 'approved' && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>Approved</span>
                               </span>
                             )}
                             {company.status === 'pending_approval' && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                              <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-amber-700 animate-pulse">
                                 <Clock className="w-3.5 h-3.5 text-amber-600" />
                                 <span>Pending</span>
                               </span>
                             )}
                             {company.status === 'rejected' && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-rose-700">
                                 <XCircle className="w-3.5 h-3.5 text-rose-600" />
                                 <span>Rejected</span>
                               </span>
@@ -531,14 +531,14 @@ export const SuperadminDashboardPage: React.FC = () => {
                           </td>
 
                           <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
                               <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
                               <span>{prog.tracks ? prog.tracks.length : '2'} Tracks</span>
                             </span>
                           </td>
 
                           <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                            <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700 shrink-0">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                               <span>Admissions Open</span>
                             </span>
@@ -607,7 +607,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                     <Database className="w-4 h-4 text-slate-400" />
                     <span className="font-semibold text-slate-700">PostgreSQL Database</span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     Connected
                   </span>
@@ -618,7 +618,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                     <Cpu className="w-4 h-4 text-slate-400" />
                     <span className="font-semibold text-slate-700">AI Scoring Engine</span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     Operational
                   </span>
@@ -629,7 +629,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                     <ShieldCheck className="w-4 h-4 text-slate-400" />
                     <span className="font-semibold text-slate-700">Auth & Token Middleware</span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     Active
                   </span>

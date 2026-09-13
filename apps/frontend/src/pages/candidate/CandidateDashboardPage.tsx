@@ -77,25 +77,25 @@ export const CandidateDashboardPage: React.FC = () => {
   const getStageBadge = (stage: string, passed: boolean) => {
     switch (stage) {
       case 'accepted':
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Accepted 🎉</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">Accepted 🎉</span>;
       case 'rejected':
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">Not Selected</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800">Not Selected</span>;
       case 'ai_interview_completed':
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/30">AI Screening Completed</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">AI Screening Completed</span>;
       case 'ai_interview_invited':
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300 animate-pulse">AI Interview Invited</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-800 animate-pulse">AI Interview Invited</span>;
       case 'test_completed':
         return passed ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Assessment Passed</span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">Assessment Passed</span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Assessment Completed</span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">Assessment Completed</span>
         );
       case 'test_failed':
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Assessment Below Benchmark</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700">Assessment Below Benchmark</span>;
       case 'test_in_progress':
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">Test In Progress</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700">Test In Progress</span>;
       default:
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">Application Submitted</span>;
+        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">Application Submitted</span>;
     }
   };
 
@@ -275,7 +275,7 @@ export const CandidateDashboardPage: React.FC = () => {
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <h3 className="text-xl font-bold text-slate-900">{app.program_name}</h3>
                               {app.track_name && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20">
+                                <span className="inline-flex items-center text-xs font-bold text-kulkul-purple">
                                   {app.track_name}
                                 </span>
                               )}
@@ -373,7 +373,7 @@ export const CandidateDashboardPage: React.FC = () => {
                 {applications.map((app) => (
                   <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                      <span className="text-xs font-bold text-kulkul-purple">
                         {app.track_name || 'General'}
                       </span>
                       {getStageBadge(app.current_stage, app.test_passed)}
@@ -415,19 +415,19 @@ export const CandidateDashboardPage: React.FC = () => {
                 {applications.map((app) => (
                   <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                      <span className="text-xs font-bold text-kulkul-purple">
                         {app.track_name || 'AI Screen'}
                       </span>
                       {app.interview_status === 'completed' ? (
-                        <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700">
+                        <span className="text-2xs font-bold text-emerald-700">
                           Interview Completed
                         </span>
                       ) : app.interview_token ? (
-                        <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 animate-pulse">
+                        <span className="text-2xs font-bold text-amber-700 animate-pulse">
                           Invite Ready
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-full text-2xs font-bold bg-slate-100 text-slate-500">
+                        <span className="text-2xs font-bold text-slate-500">
                           Pending MCQ Clearance
                         </span>
                       )}

@@ -271,12 +271,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <div className="flex items-center gap-1 shrink-0 ml-1">
                         {item.badge !== undefined && (
                           <span
-                            className={`px-2 py-0.5 rounded-full text-2xs font-extrabold ${
-                              item.badgeColor
-                                ? item.badgeColor
-                                : isActive
-                                ? 'bg-white/20 text-white'
-                                : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                            className={`text-2xs font-extrabold ${
+                              isActive
+                                ? 'text-white'
+                                : 'text-slate-400 group-hover:text-slate-600'
                             }`}
                           >
                             {item.badge}
@@ -351,7 +349,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
                                 <div className="flex items-center gap-1 shrink-0 ml-1">
                                   {child.badge !== undefined && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-2xs font-bold bg-slate-100 text-slate-500">
+                                    <span className="text-2xs font-bold text-slate-400">
                                       {child.badge}
                                     </span>
                                   )}
@@ -412,7 +410,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                         </div>
 
                                         {sub.badge !== undefined && (
-                                          <span className="px-1 py-0.2 rounded text-2xs font-bold bg-slate-100 text-slate-500">
+                                          <span className="text-2xs font-bold text-slate-400">
                                             {sub.badge}
                                           </span>
                                         )}

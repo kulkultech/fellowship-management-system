@@ -1183,24 +1183,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     switch (stage) {
       case 'registered':
       case 'applied':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Applied</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-slate-700">Applied</span>;
       case 'test_in_progress':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Test In Progress</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-amber-700">Test In Progress</span>;
       case 'test_completed':
       case 'logic_test_passed':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">MCQ Completed</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-blue-700">MCQ Completed</span>;
       case 'test_failed':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">Test Failed</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-red-700">Test Failed</span>;
       case 'ai_interview_invited':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">AI Screen Pending</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-purple-700">AI Screen Pending</span>;
       case 'ai_interview_completed':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">AI Evaluated</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-emerald-700">AI Evaluated</span>;
       case 'approved_for_live':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-600 text-white">Accepted / Live</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-emerald-600">Accepted / Live</span>;
       case 'rejected':
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rejected</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-red-700">Rejected</span>;
       default:
-        return <span className="inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">{stage}</span>;
+        return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-slate-700">{stage}</span>;
     }
   };
 
@@ -1521,7 +1521,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-full text-slate-700">
+                  <span className="text-xs font-bold text-slate-500">
                     {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
                   </span>
                   <button
@@ -1617,13 +1617,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 {(() => {
                                   const count = prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : 0);
                                   return count > 0 ? (
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
                                       <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
                                       <span>{count} Tracks</span>
                                     </span>
                                   ) : (
                                     <div className="flex flex-col gap-1 items-start">
-                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                      <span className="inline-flex items-center gap-1 text-2xs font-semibold text-slate-500">
                                         <Layers className="w-3 h-3 text-slate-400" />
                                         <span>General / Trackless</span>
                                       </span>
@@ -1652,7 +1652,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap shrink-0">
+                                <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700 whitespace-nowrap shrink-0">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                                   <span>Admissions Open</span>
                                 </span>
@@ -1740,7 +1740,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </p>
               </div>
 
-              <span className="text-xs font-bold px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 shadow-2xs">
+              <span className="text-xs font-bold text-slate-500">
                 Total Companies: {companiesList.length}
               </span>
             </div>
@@ -1772,16 +1772,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </div>
 
                       {company.status === 'approved' ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                        <span className="text-2xs font-bold text-emerald-700 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
                           Approved
                         </span>
                       ) : company.status === 'rejected' ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-red-50 text-red-700 border border-red-200">
+                        <span className="text-2xs font-bold text-red-700">
                           Rejected
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse flex items-center gap-1">
+                        <span className="text-2xs font-bold text-amber-800 animate-pulse flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           Pending Review
                         </span>
@@ -1993,7 +1993,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               {/* Stage Filter Tabs & Active Track Indicator & Track Actions */}
               <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 flex-wrap">
                 {selectedTrackFilter && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-bold text-kulkul-purple shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
                     <Award className="w-3.5 h-3.5 text-kulkul-orange" />
                     <span>Track: {activeFilteredTrack?.name || 'Filtered Track'}</span>
                     {activeFilteredTrack && (
@@ -2125,7 +2125,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </td>
                           <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.track_name ? (
-                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 whitespace-nowrap">
+                              <span className="text-xs font-bold text-kulkul-purple whitespace-nowrap">
                                 {app.track_name}
                               </span>
                             ) : (
@@ -2153,7 +2153,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </td>
                           <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? (
-                              <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
+                              <span className="text-xs font-extrabold text-purple-700 whitespace-nowrap">
                                 {app.ai_score}/100
                               </span>
                             ) : (
@@ -2162,7 +2162,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </td>
                           <td className="px-6 py-4 align-middle whitespace-nowrap">
                             {app.ai_recommendation ? (
-                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 whitespace-nowrap">
+                              <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">
                                 {app.ai_recommendation}
                               </span>
                             ) : (
@@ -2293,13 +2293,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 </td>
 
                                 <td className="py-4 px-6 align-middle whitespace-nowrap">
-                                  <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-slate-100 border border-slate-200 text-slate-700">
+                                  <span className="text-2xs font-extrabold text-slate-600">
                                     {qs.category || 'Logic Assessment'}
                                   </span>
                                 </td>
 
                                 <td className="py-4 px-6 align-middle whitespace-nowrap text-xs font-bold text-slate-800">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200 text-2xs font-bold">
+                                  <span className="inline-flex items-center gap-1 text-2xs font-bold text-kulkul-purple">
                                     {qs.questions?.length || qs.total_questions || 0} Questions
                                   </span>
                                 </td>
@@ -2431,7 +2431,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         </p>
                       </div>
 
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-kulkul-purple border border-purple-200">
+                      <span className="text-xs font-bold text-kulkul-purple">
                         {editingQuestions.length} Questions Configured
                       </span>
                     </div>
@@ -2618,7 +2618,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
                                 />
                                 {q.correct_option_id === opt.id && (
-                                  <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                  <span className="text-2xs font-extrabold text-emerald-700 shrink-0">
                                     Correct Answer
                                   </span>
                                 )}
@@ -2738,7 +2738,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <span>Back to Candidate Pipeline</span>
               </button>
 
-              <span className="text-xs font-bold px-3.5 py-1.5 bg-purple-50 text-kulkul-purple border border-purple-200 rounded-full">
+              <span className="text-xs font-bold text-kulkul-purple">
                 Program: {program?.name || activeProgramSlug}
               </span>
             </div>
@@ -3953,8 +3953,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 >
                   <span>MCQ Answer Sheet</span>
                   {applicantDetail?.submission && (
-                    <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-purple-100 text-purple-700">
-                      {applicantDetail.submission.total_score}%
+                    <span className="text-3xs font-extrabold text-purple-700">
+                      ({applicantDetail.submission.total_score}%)
                     </span>
                   )}
                 </button>
@@ -3969,14 +3969,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 >
                   <span>AI Interview Assessment</span>
                   {applicantDetail?.ai_screen?.recording_url && (
-                    <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                    <span className="text-3xs font-extrabold text-emerald-700 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Video
                     </span>
                   )}
                   {applicantDetail?.ai_screen && applicantDetail.ai_screen.scorecard_score > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-3xs font-extrabold bg-purple-100 text-purple-700">
-                      {applicantDetail.ai_screen.scorecard_score}/100
+                    <span className="text-3xs font-extrabold text-purple-700">
+                      ({applicantDetail.ai_screen.scorecard_score}/100)
                     </span>
                   )}
                 </button>
@@ -4091,12 +4091,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             </span>
                           </div>
                           {applicantDetail.ai_screen.recording_url ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-3xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span className="text-3xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                               Stored in Database
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-3xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            <span className="text-3xs font-bold uppercase tracking-wider text-amber-400">
                               Recording Pending
                             </span>
                           )}
@@ -4235,7 +4235,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                         <span className="text-xs font-bold text-slate-900">
                                           Q{qe.question_id}: {qe.theme}
                                         </span>
-                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-purple-100 text-purple-900 font-mono shrink-0">
+                                        <span className="text-xs font-black text-purple-900 font-mono shrink-0">
                                           {qe.score} / {qe.max_points ?? qe.max_score ?? 20} pts
                                         </span>
                                       </div>
