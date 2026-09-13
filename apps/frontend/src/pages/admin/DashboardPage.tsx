@@ -1524,14 +1524,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <span className="text-xs font-bold text-slate-500">
                     {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentView('create_program')}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-2xs transition"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Launch New Program</span>
-                  </button>
                 </div>
               </div>
 
@@ -1613,7 +1605,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 </div>
                               </td>
 
-                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left" onClick={(e) => e.stopPropagation()}>
+                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
                                 {(() => {
                                   const count = prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : 0);
                                   return count > 0 ? (
@@ -1622,31 +1614,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       <span>{count} Tracks</span>
                                     </span>
                                   ) : (
-                                    <div className="flex flex-col gap-1 items-start">
-                                      <span className="inline-flex items-center gap-1 text-2xs font-semibold text-slate-500">
-                                        <Layers className="w-3 h-3 text-slate-400" />
-                                        <span>General / Trackless</span>
-                                      </span>
-                                      {prog.enable_mcq ? (
-                                        <button
-                                          onClick={() => handleOpenPipelineConfig(prog)}
-                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition cursor-pointer"
-                                          title={`Click to change Question Set (Currently: ${prog.question_set_name || 'Timed Logic'})`}
-                                        >
-                                          <BrainCircuit className="w-2.5 h-2.5 text-amber-600" />
-                                          <span className="truncate max-w-[120px]">{prog.question_set_name || 'Timed Logic'}</span>
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => handleOpenPipelineConfig(prog)}
-                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 hover:bg-amber-50 text-slate-500 hover:text-amber-800 border border-dashed border-slate-300 hover:border-amber-300 transition cursor-pointer"
-                                          title="Click to configure logic test and question bank"
-                                        >
-                                          <BrainCircuit className="w-2.5 h-2.5 text-slate-400" />
-                                          <span>+ Add Logic Test</span>
-                                        </button>
-                                      )}
-                                    </div>
+                                    <span className="inline-flex items-center gap-1 text-2xs font-semibold text-slate-500">
+                                      <Layers className="w-3 h-3 text-slate-400" />
+                                      <span>General / Trackless</span>
+                                    </span>
                                   );
                                 })()}
                               </td>
