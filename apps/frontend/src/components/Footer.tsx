@@ -7,12 +7,13 @@ export const Footer: React.FC = () => {
       <div className="w-full px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-6">
         {/* Brand & Copyright */}
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
-          <Link to="/" className="inline-block">
-            <img src="/kulkul-logo.svg" alt="Kulkul" className="h-7 sm:h-8 w-auto object-contain" />
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/kulkul-logo.svg" alt="FellowHire" className="h-7 sm:h-8 w-auto object-contain" />
+            <span className="font-black text-slate-900 text-base">FellowHire</span>
           </Link>
           <span className="hidden sm:inline-block text-slate-300">|</span>
           <p className="text-xs text-slate-500 font-medium">
-            &copy; {new Date().getFullYear()} Kulkul Tech &middot; All rights reserved.
+            &copy; {new Date().getFullYear()} FellowHire by Kulkul Tech &middot; All rights reserved.
           </p>
         </div>
 

@@ -47,10 +47,18 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
       <div className="w-full px-4 sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-20 sm:h-24">
-          {/* Brand Logo - Prominent Kulkul logo */}
+          {/* Brand Logo - Prominent FellowHire brand */}
           <div className="flex items-center shrink-0">
-            <Link to={showAdminNav ? "/admin/dashboard" : "/"} className="flex items-center group">
-              <img src="/kulkul-logo.svg" alt="KulKul" className="h-10 sm:h-12 w-auto object-contain transition group-hover:opacity-90" />
+            <Link to={showAdminNav ? "/admin/dashboard" : "/"} className="flex items-center gap-3 group">
+              <img src="/kulkul-logo.svg" alt="FellowHire" className="h-9 sm:h-11 w-auto object-contain transition group-hover:opacity-90" />
+              <div className="flex flex-col">
+                <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 group-hover:text-kulkul-purple transition leading-none">
+                  FellowHire
+                </span>
+                <span className="text-3xs sm:text-2xs font-bold text-slate-400 uppercase tracking-widest leading-tight mt-0.5">
+                  by Kulkul Tech
+                </span>
+              </div>
             </Link>
           </div>
 

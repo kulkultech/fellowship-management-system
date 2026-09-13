@@ -44,7 +44,7 @@ export const PrivacyPolicyPage: React.FC = () => {
               Privacy Policy
             </h1>
             <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
-              This Privacy Policy explains how the Fellowship Management System (&ldquo;Platform&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), operated by Kulkul Tech, collects, uses, protects, and discloses personal information when you use our website, applicant portals, and assessment platforms.
+              This Privacy Policy explains how FellowHire (&ldquo;Fellowship Management System&rdquo;, &ldquo;Platform&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), operated by Kulkul Tech, collects, uses, protects, and discloses personal information when you use our website, applicant portals, and assessment platforms.
             </p>
             <div className="mt-6 pt-6 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
               <div>Effective Date: <span className="text-slate-800 font-bold">September 13, 2026</span></div>
@@ -64,7 +64,7 @@ export const PrivacyPolicyPage: React.FC = () => {
                 <span>Overview & Scope</span>
               </h2>
               <p>
-                Fellowship Management System is an enterprise software platform designed to manage fellowship admissions, logic tests, and conversational AI screening interviews. We respect your privacy and are committed to protecting personal data collected through candidate applications and administrative accounts.
+                FellowHire (&ldquo;Fellowship Management System&rdquo;) is an enterprise software platform designed to manage fellowship admissions, logic tests, and conversational AI screening interviews. We respect your privacy and are committed to protecting personal data collected through candidate applications and administrative accounts.
               </p>
             </section>
 
@@ -136,7 +136,7 @@ export const PrivacyPolicyPage: React.FC = () => {
                   <span>Google Limited Use Disclosure</span>
                 </div>
                 <p className="text-xs sm:text-sm leading-relaxed text-slate-800">
-                  Fellowship Management System&rsquo;s use and transfer to any other app of information received from Google APIs will adhere to the{' '}
+                  FellowHire&rsquo;s use and transfer to any other app of information received from Google APIs will adhere to the{' '}
                   <a
                     href="https://developers.google.com/terms/api-services-user-data-policy"
                     target="_blank"

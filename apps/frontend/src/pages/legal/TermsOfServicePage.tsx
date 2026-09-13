@@ -40,7 +40,7 @@ export const TermsOfServicePage: React.FC = () => {
               Terms of Service
             </h1>
             <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
-              Please read these Terms of Service carefully before accessing or using the Fellowship Management System (&ldquo;Platform&rdquo;, &ldquo;Service&rdquo;), operated by Kulkul Tech. By accessing or using any part of the site, you agree to become bound by these terms.
+              Please read these Terms of Service carefully before accessing or using FellowHire (&ldquo;Fellowship Management System&rdquo;, &ldquo;Platform&rdquo;, &ldquo;Service&rdquo;), operated by Kulkul Tech. By accessing or using any part of the site, you agree to become bound by these terms.
             </p>
             <div className="mt-6 pt-6 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
               <div>Effective Date: <span className="text-slate-800 font-bold">September 13, 2026</span></div>
@@ -77,7 +77,7 @@ export const TermsOfServicePage: React.FC = () => {
                 <span>Description of Services</span>
               </h2>
               <p>
-                The Fellowship Management System provides an enterprise infrastructure enabling companies and organizations (&ldquo;Clients&rdquo;) to manage fellowship applications, configure multi-track screening modules, administer timed logic/technical assessments, and host automated AI-driven candidate interviews.
+                FellowHire (&ldquo;Fellowship Management System&rdquo;) provides an enterprise infrastructure enabling companies and organizations (&ldquo;Clients&rdquo;) to manage fellowship applications, configure multi-track screening modules, administer timed logic/technical assessments, and host automated AI-driven candidate interviews.
               </p>
             </section>
 
