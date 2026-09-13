@@ -12,6 +12,7 @@ import {
   AlertCircle,
   FileCheck,
   Sparkles,
+  Laptop,
 } from 'lucide-react';
 
 export const ResultPage: React.FC = () => {
@@ -144,6 +145,45 @@ export const ResultPage: React.FC = () => {
                     </span>.
                   </div>
                 )}
+
+                {/* Minimum Device Requirements Checklist Box */}
+                <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 text-left space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+                      <Laptop className="w-4 h-4 text-kulkul-purple" />
+                      <span>Minimum Device Requirements</span>
+                    </div>
+                    <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                      Pre-Flight Checklist
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-2xs text-slate-600">
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Device:</strong> Laptop/Desktop (PC/Mac)</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Browser:</strong> Chrome or Edge (v90+)</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Camera:</strong> 720p HD Webcam &amp; clear light</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Audio:</strong> Mic &amp; Headphones (prevents echo)</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Network:</strong> Stable 5+ Mbps Wi-Fi/Broadband</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>Apps:</strong> Close heavy background tabs</span>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="mt-6">
                   <button

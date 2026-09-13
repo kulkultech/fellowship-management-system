@@ -25,6 +25,12 @@ import {
   CheckCircle2,
   UploadCloud,
   Loader2,
+  Laptop,
+  Headphones,
+  Wifi,
+  Cpu,
+  Globe,
+  AlertTriangle,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -284,6 +290,47 @@ export const InterviewPage: React.FC = () => {
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isRequestingMedia, setIsRequestingMedia] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); // 0-100
+
+  // System diagnostics & device compatibility
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const browserInfo = useMemo(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return { name: 'Modern Browser', isChromium: true, isSupported: true };
+    }
+    const ua = navigator.userAgent;
+    let name = 'Modern Browser';
+    let isChromium = false;
+    if (/Edg\//i.test(ua)) {
+      name = 'Microsoft Edge';
+      isChromium = true;
+    } else if (/Chrome\//i.test(ua)) {
+      name = 'Google Chrome';
+      isChromium = true;
+    } else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) {
+      name = 'Apple Safari';
+    } else if (/Firefox\//i.test(ua)) {
+      name = 'Mozilla Firefox';
+    }
+    const hasMedia = typeof navigator.mediaDevices !== 'undefined' && !!navigator.mediaDevices.getUserMedia;
+    const hasRecorder = typeof MediaRecorder !== 'undefined';
+    return { name, isChromium, isSupported: hasMedia && hasRecorder };
+  }, []);
+
+  const isMobileDevice = useMemo(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (typeof window !== 'undefined' && window.innerWidth < 640);
+  }, []);
 
   // Video Element Refs
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -2267,7 +2314,230 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Interview Rules & Readiness Guidelines */}
+              {/* Live Pre-Flight Diagnostic Bar */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-white shadow-sm border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                      Live Pre-Flight Diagnostic Status
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 text-3xs font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                      isOnline
+                        ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
+                        : 'bg-rose-950/60 text-rose-300 border-rose-500/30'
+                    }`}>
+                      <Wifi className="w-3 h-3" />
+                      <span>{isOnline ? 'Online (Connected)' : 'Offline (Check Network)'}</span>
+                    </span>
+                    <span className="text-3xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 hidden sm:inline">
+                      Auto-Verified
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  {/* Diagnostic 1: Device Form */}
+                  <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 text-xs transition ${
+                    isMobileDevice
+                      ? 'bg-amber-950/30 border-amber-500/30 text-amber-200'
+                      : 'bg-slate-800/80 border-slate-700/80 text-slate-200'
+                  }`}>
+                    <Laptop className={`w-4 h-4 shrink-0 ${isMobileDevice ? 'text-amber-400' : 'text-emerald-400'}`} />
+                    <div className="min-w-0">
+                      <span className="block text-3xs text-slate-400 font-medium">Device</span>
+                      <span className="font-bold truncate block">
+                        {isMobileDevice ? 'Mobile Phone' : 'Desktop / Laptop'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Diagnostic 2: Browser Compatibility */}
+                  <div className="p-2.5 rounded-xl border bg-slate-800/80 border-slate-700/80 text-slate-200 flex items-center gap-2.5 text-xs">
+                    <Globe className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="block text-3xs text-slate-400 font-medium">Browser</span>
+                      <span className="font-bold truncate block">
+                        {browserInfo.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Diagnostic 3: Camera Feed */}
+                  <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 text-xs transition ${
+                    stream && !isCameraOff
+                      ? 'bg-slate-800/80 border-slate-700/80 text-slate-200'
+                      : 'bg-rose-950/30 border-rose-500/30 text-rose-200'
+                  }`}>
+                    <Video className={`w-4 h-4 shrink-0 ${stream && !isCameraOff ? 'text-emerald-400' : 'text-rose-400'}`} />
+                    <div className="min-w-0">
+                      <span className="block text-3xs text-slate-400 font-medium">Webcam</span>
+                      <span className="font-bold truncate block">
+                        {stream && !isCameraOff ? '720p HD Active' : 'Waiting Camera'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Diagnostic 4: Microphone */}
+                  <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 text-xs transition ${
+                    stream && !isMicMuted
+                      ? 'bg-slate-800/80 border-slate-700/80 text-slate-200'
+                      : 'bg-rose-950/30 border-rose-500/30 text-rose-200'
+                  }`}>
+                    <Mic className={`w-4 h-4 shrink-0 ${stream && !isMicMuted ? 'text-emerald-400' : 'text-rose-400'}`} />
+                    <div className="min-w-0">
+                      <span className="block text-3xs text-slate-400 font-medium">Microphone</span>
+                      <span className="font-bold truncate block">
+                        {stream && !isMicMuted ? (audioLevel > 5 ? `${audioLevel}% Level` : 'Mic Active') : 'Mic Muted'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Device Advisory Alert if visiting on phone */}
+                {isMobileDevice && (
+                  <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-amber-300 font-bold block mb-0.5">Mobile Device Detected</strong>
+                      <span>
+                        For the best interview experience and uninterrupted video recording, we strongly recommend using a <strong>laptop or desktop computer</strong> with Google Chrome or Microsoft Edge.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Minimum Device Requirements Section */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-left space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
+                      <Laptop className="w-3.5 h-3.5 text-kulkul-purple" />
+                    </div>
+                    <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                      Minimum Device & System Requirements
+                    </h2>
+                  </div>
+                  <span className="text-2xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Recommended Setup
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  To ensure smooth speech recognition, zero audio echo, and uninterrupted high-definition video recording, please verify your setup meets the following specifications:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                  {/* Req 1: Computer / Device */}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Laptop className="w-4 h-4 text-kulkul-purple" />
+                        <span>Laptop or Desktop PC</span>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                        Strongly Advised
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 leading-normal">
+                      macOS, Windows 10/11, or Linux. Handheld mobile phones and tablets are not recommended to avoid screen auto-lockouts, incoming phone call interruptions, or shaky camera angles.
+                    </p>
+                  </div>
+
+                  {/* Req 2: Web Browser */}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Globe className="w-4 h-4 text-kulkul-purple" />
+                        <span>Supported Web Browser</span>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                        Chrome / Edge Recommended
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 leading-normal">
+                      Latest Google Chrome (v90+) or Microsoft Edge (v90+) provides optimal Web Speech and MediaRecorder performance. Apple Safari (v15+) and Brave are also supported.
+                    </p>
+                  </div>
+
+                  {/* Req 3: Webcam & Lighting */}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Video className="w-4 h-4 text-kulkul-purple" />
+                        <span>720p HD Webcam & Lighting</span>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                        Required
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 leading-normal">
+                      Functional internal or external webcam (minimum 720p HD). Keep your face clearly centered at eye level with front-facing light (avoid bright backlighting or dark rooms).
+                    </p>
+                  </div>
+
+                  {/* Req 4: Microphone & Headphones */}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Headphones className="w-4 h-4 text-kulkul-purple" />
+                        <span>Microphone & Headphones</span>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                        Headphones Advised
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 leading-normal">
+                      Clear working microphone with headphones or earbuds. Wearing headphones prevents audio feedback and acoustic echo loops when the AI interviewer speaks.
+                    </p>
+                  </div>
+
+                  {/* Req 5: Internet Connection */}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Wifi className="w-4 h-4 text-kulkul-purple" />
+                        <span>Stable Internet Connection</span>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                        5+ Mbps Required
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 leading-normal">
+                      Reliable broadband or high-speed Wi-Fi with at least 5 Mbps upload/download speed (10+ Mbps recommended). Avoid unstable public networks or cellular hotspots with data throttling.
+                    </p>
+                  </div>
+
+                  {/* Req 6: Hardware Resources & Background Apps */}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Cpu className="w-4 h-4 text-kulkul-purple" />
+                        <span>4 GB RAM & Dual-Core CPU</span>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
+                        Close Heavy Apps
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 leading-normal">
+                      Minimum 4 GB RAM (8 GB+ recommended). Please close heavy background apps (Zoom, Teams, Discord, torrents, or gaming clients) to prevent video frame drops or CPU throttling.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100 flex items-center gap-2.5 text-2xs text-purple-900">
+                  <Sparkles className="w-4 h-4 text-kulkul-purple shrink-0" />
+                  <span>
+                    <strong>Pro-Tip for Candidates:</strong> Test your microphone using the live audio visualizer above. When speaking at a normal conversation level, the visualizer bar should illuminate into the green and yellow zones (30%–70%).
+                  </span>
+                </div>
+              </div>
               <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-left space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

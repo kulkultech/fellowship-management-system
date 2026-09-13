@@ -14,6 +14,7 @@ import {
   AlertCircle,
   ExternalLink,
   Building2,
+  Laptop,
 } from 'lucide-react';
 
 interface CandidateApplicationItem {
@@ -309,13 +310,19 @@ export const CandidateDashboardPage: React.FC = () => {
                           )}
 
                           {app.interview_token && app.current_stage === 'ai_interview_invited' && (
-                            <button
-                              onClick={() => navigate(`/interview/${app.interview_token}`)}
-                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition flex items-center justify-center gap-2 animate-pulse"
-                            >
-                              <Terminal className="w-4 h-4 text-kulkul-orange" />
-                              <span>Join AI Interview Room</span>
-                            </button>
+                            <div className="flex flex-col sm:items-end gap-1.5 w-full lg:w-auto">
+                              <button
+                                onClick={() => navigate(`/interview/${app.interview_token}`)}
+                                className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition flex items-center justify-center gap-2 animate-pulse"
+                              >
+                                <Terminal className="w-4 h-4 text-kulkul-orange" />
+                                <span>Join AI Interview Room</span>
+                              </button>
+                              <span className="text-3xs text-slate-500 font-medium flex items-center gap-1">
+                                <Laptop className="w-3 h-3 text-kulkul-purple" />
+                                <span>Laptop/Desktop &amp; Chrome/Edge required</span>
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -439,13 +446,20 @@ export const CandidateDashboardPage: React.FC = () => {
                     </div>
 
                     {app.interview_token && (
-                      <button
-                        onClick={() => navigate(`/interview/${app.interview_token}`)}
-                        className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
-                      >
-                        <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
-                        <span>{app.interview_status === 'completed' ? 'Review AI Transcript' : 'Enter AI Interview Room'}</span>
-                      </button>
+                      <div className="space-y-1.5">
+                        <button
+                          onClick={() => navigate(`/interview/${app.interview_token}`)}
+                          className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
+                        >
+                          <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
+                          <span>{app.interview_status === 'completed' ? 'Review AI Transcript' : 'Enter AI Interview Room'}</span>
+                        </button>
+                        {app.interview_status !== 'completed' && (
+                          <p className="text-3xs text-slate-500 text-center font-medium">
+                            Laptop/Desktop &amp; Chrome/Edge recommended
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}

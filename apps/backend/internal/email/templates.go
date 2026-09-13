@@ -588,11 +588,13 @@ func buildAIInterviewInvitationEmail(candidateName, programName, trackName, inte
     </table>
 
     <div class="guidelines">
-      <strong>Important Setup Checklist:</strong>
+      <strong>Minimum Device &amp; Environment Requirements:</strong>
       <ul>
-        <li><strong>Camera &amp; Microphone:</strong> Check your camera and mic in the pre-flight room before entering.</li>
-        <li><strong>Quiet Environment:</strong> Find a well-lit, quiet location free from background noise.</li>
-        <li><strong>Single-Take Response:</strong> Speak clearly; answers are evaluated by Cloudflare Workers AI with accent-fair rubrics.</li>
+        <li><strong>Computer:</strong> Laptop or Desktop computer (Windows, macOS, or Linux). Mobile phones and tablets are not recommended to avoid screen locks or call interruptions.</li>
+        <li><strong>Web Browser:</strong> Latest Google Chrome or Microsoft Edge recommended (Safari and Brave supported).</li>
+        <li><strong>Webcam &amp; Audio:</strong> Functional 720p HD webcam and clear microphone. Wearing headphones or earbuds is strongly recommended to prevent audio echo.</li>
+        <li><strong>Internet Connection:</strong> Stable broadband or high-speed Wi-Fi (minimum 5 Mbps upload/download).</li>
+        <li><strong>Environment &amp; Apps:</strong> Quiet, well-lit room. Please close heavy background software (Zoom, Teams, active downloads) beforehand.</li>
       </ul>
     </div>
 
@@ -606,7 +608,7 @@ func buildAIInterviewInvitationEmail(candidateName, programName, trackName, inte
 		expiryStr, interviewURL, interviewURL, interviewURL)
 
 	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
-	text = fmt.Sprintf("Dear %s,\n\nYou are invited to the AI Technical Video Screening for %s (%s).\n\nAccess your personal interview room:\n%s\n\nDeadline: %s\n\nGuidelines:\n- Working camera and mic\n- Quiet room with good lighting\n- 5 conversational prompts with 60s prep and 90s response\n\nGood luck!\nFellowHire Admissions Team",
+	text = fmt.Sprintf("Dear %s,\n\nYou are invited to the AI Technical Video Screening for %s (%s).\n\nAccess your personal interview room:\n%s\n\nDeadline: %s\n\nMinimum Device Requirements:\n- Laptop or Desktop computer (phones/tablets not recommended)\n- Google Chrome or Microsoft Edge browser\n- Working 720p HD webcam and microphone (headphones strongly recommended)\n- Stable internet connection (minimum 5 Mbps)\n- Quiet, well-lit room with background apps closed\n\nFormat: 5 conversational prompts with 60s prep and 90s response\n\nGood luck!\nFellowHire Admissions Team",
 		candidateName, programName, trackDisplay, interviewURL, expiryStr)
 	return
 }
