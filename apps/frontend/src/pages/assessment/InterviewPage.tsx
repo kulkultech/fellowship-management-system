@@ -466,27 +466,6 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  // Preview voice sample in lobby
-  const previewVoice = async (gender: VoiceGender) => {
-    stopSpeech();
-    const speakerName = gender === 'male' ? 'orion' : 'luna';
-    const sampleText =
-      gender === 'female'
-        ? "Hello! I am your AI interviewer. I'm excited to hear about your experience today."
-        : 'Hello! I am your AI interviewer. I look forward to our conversation today.';
-
-    setIsAiSpeaking(true);
-    isAiSpeakingRef.current = true;
-    const res = await fetchTtsAudio(sampleText, speakerName);
-    if (res?.buffer) {
-      playAudioBuffer(res.buffer);
-    } else if (res?.url) {
-      playAudioUrl(res.url);
-    } else {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-    }
-  };
 
   // Conversational Chat & Streaming State
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
@@ -2374,85 +2353,50 @@ export const InterviewPage: React.FC = () => {
 
               {/* Minimum Device Requirements Section */}
               <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-left space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
-                      <Laptop className="w-3.5 h-3.5 text-kulkul-purple" />
-                    </div>
-                    <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                      Minimum Device & System Requirements
-                    </h2>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
+                    <Laptop className="w-3.5 h-3.5 text-kulkul-purple" />
                   </div>
-                  <span className="text-2xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                    Recommended Setup
-                  </span>
+                  <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                    Minimum Device & System Requirements
+                  </h2>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
                   {/* Req 1: Computer / Device */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold">
-                      <Laptop className="w-4 h-4 text-kulkul-purple shrink-0" />
-                      <span>Laptop or Desktop PC</span>
-                    </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800 shrink-0">
-                      Strongly Advised
-                    </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
+                    <Laptop className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <span>Laptop or Desktop PC</span>
                   </div>
 
                   {/* Req 2: Web Browser */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold">
-                      <Globe className="w-4 h-4 text-kulkul-purple shrink-0" />
-                      <span>Supported Web Browser</span>
-                    </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 shrink-0">
-                      Chrome / Edge Recommended
-                    </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
+                    <Globe className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <span>Supported Web Browser</span>
                   </div>
 
                   {/* Req 3: Webcam & Lighting */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold">
-                      <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
-                      <span>720p HD Webcam & Lighting</span>
-                    </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800 shrink-0">
-                      Required
-                    </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
+                    <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <span>720p HD Webcam & Lighting</span>
                   </div>
 
                   {/* Req 4: Microphone & Headphones */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold">
-                      <Headphones className="w-4 h-4 text-kulkul-purple shrink-0" />
-                      <span>Microphone & Headphones</span>
-                    </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
-                      Headphones Advised
-                    </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
+                    <Headphones className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <span>Microphone & Headphones</span>
                   </div>
 
                   {/* Req 5: Internet Connection */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold">
-                      <Wifi className="w-4 h-4 text-kulkul-purple shrink-0" />
-                      <span>Stable Internet Connection</span>
-                    </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800 shrink-0">
-                      5+ Mbps Required
-                    </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
+                    <Wifi className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <span>Stable Internet Connection</span>
                   </div>
 
                   {/* Req 6: Hardware Resources & Background Apps */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold">
-                      <Cpu className="w-4 h-4 text-kulkul-purple shrink-0" />
-                      <span>4 GB RAM & Dual-Core CPU</span>
-                    </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 shrink-0">
-                      Close Heavy Apps
-                    </span>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
+                    <Cpu className="w-4 h-4 text-kulkul-purple shrink-0" />
+                    <span>4 GB RAM & Dual-Core CPU</span>
                   </div>
                 </div>
               </div>
@@ -2506,98 +2450,6 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* AI Interviewer Voice Preference */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-slate-50 border border-purple-100 text-left space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
-                      <Bot className="w-3.5 h-3.5 text-kulkul-purple" />
-                    </div>
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
-                        AI Interviewer Voice
-                      </h3>
-                      <p className="text-3xs text-slate-500">
-                        Choose your preferred AI conversational voice for all questions and follow-ups.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-3xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
-                    {voiceGender === 'female' ? '👩 Woman Voice Active' : '👨 Man Voice Active'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Option 1: Woman Voice (Luna) - Default */}
-                  <div
-                    onClick={() => switchVoiceGender('female')}
-                    className={`p-3 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
-                      voiceGender === 'female'
-                        ? 'bg-white border-kulkul-purple shadow-xs ring-2 ring-kulkul-purple/10'
-                        : 'bg-white/60 border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
-                        voiceGender === 'female' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        👩
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-900">Woman (Luna)</span>
-                          <span className="text-3xs font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Default</span>
-                        </div>
-                        <p className="text-3xs text-slate-500">Natural, warm, professional</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        previewVoice('female');
-                      }}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 transition"
-                      title="Preview Woman Voice"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Option 2: Man Voice (Orion) */}
-                  <div
-                    onClick={() => switchVoiceGender('male')}
-                    className={`p-3 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
-                      voiceGender === 'male'
-                        ? 'bg-white border-kulkul-purple shadow-xs ring-2 ring-kulkul-purple/10'
-                        : 'bg-white/60 border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
-                        voiceGender === 'male' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        👨
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-slate-900">Man (Orion)</span>
-                        <p className="text-3xs text-slate-500">Calm, clear, conversational</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        previewVoice('male');
-                      }}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 transition"
-                      title="Preview Man Voice"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
 
               {/* Enter Interview Button */}
               <div className="pt-2 border-t border-slate-100">
