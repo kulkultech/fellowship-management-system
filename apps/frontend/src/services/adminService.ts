@@ -258,6 +258,10 @@ export const adminService = {
     return data;
   },
 
+  deleteApplicant: async (applicantId: string): Promise<void> => {
+    await apiClient.delete(`/admin/applicants/${applicantId}`);
+  },
+
   // Superadmin Company Approvals
   listCompanies: async (status?: string): Promise<Organization[]> => {
     const { data } = await apiClient.get<{ companies: Organization[] }>('/admin/companies', {

@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
@@ -159,5 +163,55 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"email":        targetEmail,
 		"applications": items,
+	})
+}
+
+func (h *CandidateHandler) DeleteCandidateApplication(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "authentication required to delete candidate application")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	applicantID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+
+	app, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "application not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to check application")
+		return
+	}
+
+	// Candidates can only delete their own application; superadmin / org_admin can delete too
+	userEmail := strings.TrimSpace(strings.ToLower(claims.Email))
+	appEmail := strings.TrimSpace(strings.ToLower(app.Email))
+	if claims.Role != "superadmin" && claims.Role != "org_admin" && userEmail != appEmail {
+		httpx.Error(w, http.StatusForbidden, "unauthorized to delete this application")
+		return
+	}
+
+	_ = h.submissionRepo.DeleteByApplicantID(r.Context(), applicantID)
+	_ = h.aiInterviewRepo.DeleteByApplicantID(r.Context(), applicantID)
+
+	if err := h.applicantRepo.Delete(r.Context(), applicantID); err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "application not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to delete application data")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Application deleted successfully. You can now apply again.",
+		"id":      applicantID.String(),
 	})
 }

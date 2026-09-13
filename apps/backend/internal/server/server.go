@@ -180,6 +180,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Get("/auth/me", authHandler.Me)
 			protected.Put("/auth/profile", authHandler.UpdateProfile)
 			protected.Get("/candidate/applications", candidateHandler.GetCandidateApplications)
+			protected.Delete("/candidate/applications/{id}", candidateHandler.DeleteCandidateApplication)
 
 			protected.Route("/admin", func(adm chi.Router) {
 				// Require org_admin or reviewer (superadmin auto-allowed)
@@ -220,6 +221,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Get("/applicants", adminHandler.ListApplicants)
 				adm.Get("/applicants/{id}", adminHandler.GetApplicantDetail)
 				adm.Post("/applicants/{id}/stage", adminHandler.UpdateApplicantStage)
+				adm.Delete("/applicants/{id}", adminHandler.DeleteApplicant)
 
 				// Superadmin Exclusive: Company Approvals
 				adm.Group(func(super chi.Router) {

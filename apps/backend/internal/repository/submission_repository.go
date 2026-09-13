@@ -206,3 +206,22 @@ func (r *SubmissionRepository) CompleteSubmission(
 	}
 	return nil
 }
+
+func (r *SubmissionRepository) DeleteByApplicantID(ctx context.Context, applicantID uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for token, sub := range r.memSubmissions {
+			if sub.ApplicantID == applicantID {
+				delete(r.memSubmissions, token)
+			}
+		}
+		return nil
+	}
+
+	_, err := r.pool.Exec(ctx, `DELETE FROM test_submissions WHERE applicant_id = $1`, applicantID)
+	if err != nil {
+		return fmt.Errorf("submission_repo: delete by applicant id: %w", err)
+	}
+	return nil
+}

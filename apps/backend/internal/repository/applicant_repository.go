@@ -324,3 +324,42 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 	}
 	return list, rows.Err()
 }
+
+func (r *ApplicantRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if _, ok := r.memApplicants[id]; !ok {
+			return ErrApplicantNotFound
+		}
+		delete(r.memApplicants, id)
+		return nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("applicant_repo: begin delete tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Explicitly delete dependent test submissions and AI interviews (also enforced via DB ON DELETE CASCADE)
+	if _, err := tx.Exec(ctx, `DELETE FROM ai_interviews WHERE applicant_id = $1`, id); err != nil {
+		return fmt.Errorf("applicant_repo: delete ai_interviews: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM test_submissions WHERE applicant_id = $1`, id); err != nil {
+		return fmt.Errorf("applicant_repo: delete test_submissions: %w", err)
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM applicants WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("applicant_repo: delete applicant: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrApplicantNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("applicant_repo: commit delete: %w", err)
+	}
+	return nil
+}

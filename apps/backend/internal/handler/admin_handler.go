@@ -406,6 +406,61 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (h *AdminHandler) DeleteApplicant(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	applicantID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "applicant not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to check applicant")
+		return
+	}
+
+	// Superadmin can delete any applicant. Org admin/reviewer can only delete applicants of their org.
+	if claims.Role != model.RoleSuperadmin {
+		orgID, _ := h.resolveOrgID(r, claims)
+		if orgID == uuid.Nil && claims.OrganizationID != nil {
+			orgID = *claims.OrganizationID
+		}
+		rsaOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		if orgID != uuid.Nil && applicant.OrganizationID != orgID && applicant.OrganizationID != rsaOrgID && orgID != rsaOrgID {
+			httpx.Error(w, http.StatusForbidden, "unauthorized to delete applicant of another organization")
+			return
+		}
+	}
+
+	_ = h.submissionRepo.DeleteByApplicantID(r.Context(), applicantID)
+	_ = h.aiInterviewRepo.DeleteByApplicantID(r.Context(), applicantID)
+
+	if err := h.applicantRepo.Delete(r.Context(), applicantID); err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "applicant not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to delete applicant data")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Candidate application data deleted successfully",
+		"id":      applicantID.String(),
+	})
+}
+
 func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.UUID, error) {
 	ctx := r.Context()
 	if claims != nil && claims.Role == model.RoleSuperadmin {

@@ -297,3 +297,22 @@ func (r *AIInterviewRepository) UpdateRecording(
 	return nil
 }
 
+func (r *AIInterviewRepository) DeleteByApplicantID(ctx context.Context, applicantID uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for token, ai := range r.memInterviews {
+			if ai.ApplicantID == applicantID {
+				delete(r.memInterviews, token)
+			}
+		}
+		return nil
+	}
+
+	_, err := r.pool.Exec(ctx, `DELETE FROM ai_interviews WHERE applicant_id = $1`, applicantID)
+	if err != nil {
+		return fmt.Errorf("ai_interview_repo: delete by applicant id: %w", err)
+	}
+	return nil
+}
+
