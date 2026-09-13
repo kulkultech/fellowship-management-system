@@ -246,8 +246,8 @@ export const PrivacyPolicyPage: React.FC = () => {
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                   You may request complete erasure of your candidate record, test submissions, and Google profile data by sending an email with the subject line &ldquo;Data Deletion Request&rdquo; to{' '}
-                  <a href="mailto:privacy@kulkul.tech" className="text-kulkul-purple font-bold underline">
-                    privacy@kulkul.tech
+                  <a href="mailto:support@kulkul.tech" className="text-kulkul-purple font-bold underline">
+                    support@kulkul.tech
                   </a>
                   . We will process and confirm your request within 30 calendar days.
                 </p>
@@ -307,11 +307,7 @@ export const PrivacyPolicyPage: React.FC = () => {
               <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 flex items-center gap-3 text-xs sm:text-sm">
                 <Mail className="w-4 h-4 text-kulkul-purple shrink-0" />
                 <div>
-                  <div className="font-bold text-slate-900">Kulkul Tech &ndash; Privacy & Compliance</div>
-                  <a href="mailto:privacy@kulkul.tech" className="text-kulkul-purple font-semibold hover:underline">
-                    privacy@kulkul.tech
-                  </a>
-                  <span className="mx-2 text-slate-300">&bull;</span>
+                  <div className="font-bold text-slate-900">Kulkul Tech &ndash; Support & Compliance</div>
                   <a href="mailto:support@kulkul.tech" className="text-kulkul-purple font-semibold hover:underline">
                     support@kulkul.tech
                   </a>
