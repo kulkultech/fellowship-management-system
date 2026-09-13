@@ -51,14 +51,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center shrink-0">
             <Link to={showAdminNav ? "/admin/dashboard" : "/"} className="flex items-center gap-3 group">
               <img src="/kulkul-logo.svg" alt="FellowHire" className="h-9 sm:h-11 w-auto object-contain transition group-hover:opacity-90" />
-              <div className="flex flex-col">
-                <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 group-hover:text-kulkul-purple transition leading-none">
-                  FellowHire
-                </span>
-                <span className="text-3xs sm:text-2xs font-bold text-slate-400 uppercase tracking-widest leading-tight mt-0.5">
-                  by Kulkul Tech
-                </span>
-              </div>
+              <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 group-hover:text-kulkul-purple transition leading-none">
+                FellowHire
+              </span>
             </Link>
           </div>
 
