@@ -319,10 +319,8 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		cleanMsg = strings.TrimSpace(cleanMsg[idx+3:])
 	}
 
-	// Clean phonetic ASR typos and normalize technical terms
-	if !isCompletionSentinel && h.aiEvaluator != nil && cleanMsg != "" {
-		cleanMsg = h.aiEvaluator.CleanTechnicalASR(r.Context(), cleanMsg)
-	}
+	// Preserve candidate's exact transcription directly without editing
+
 
 	// Append candidate response with precise question index tracking
 	aiSession.Transcript = append(aiSession.Transcript, model.ChatMessage{

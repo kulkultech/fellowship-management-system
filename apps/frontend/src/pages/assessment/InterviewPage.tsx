@@ -237,40 +237,8 @@ const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float
   return result;
 };
 
-// Normalizes common technical terminology phonetic mishearings in speech-to-text
-const cleanTechnicalTerms = (text: string): string => {
-  if (!text) return text;
-  return text
-    .replace(/\b(beckon)\b/gi, 'backend')
-    .replace(/\b(back end)\b/gi, 'backend')
-    .replace(/\b(front end)\b/gi, 'frontend')
-    .replace(/\b(darker|doc ker)\b/gi, 'Docker')
-    .replace(/\b(post grease sql|post grease|postgre sql|postgre)\b/gi, 'PostgreSQL')
-    .replace(/\b(coober netees|coobernetes|kuber netes)\b/gi, 'Kubernetes')
-    .replace(/\b(fast epi)\b/gi, 'FastAPI')
-    .replace(/\b(type script)\b/gi, 'TypeScript')
-    .replace(/\b(java script)\b/gi, 'JavaScript')
-    .replace(/\b(see eye see dee)\b/gi, 'CI/CD')
-    .replace(/\b(git hub)\b/gi, 'GitHub')
-    .replace(/\b(git lab)\b/gi, 'GitLab')
-    .replace(/\b(go lang)\b/gi, 'Golang')
-    .replace(/\b(rest epi)\b/gi, 'REST API')
-    .replace(/\b(graph ql|graf ql)\b/gi, 'GraphQL')
-    .replace(/\b(mongo db)\b/gi, 'MongoDB')
-    .replace(/\b(read is)\b/gi, 'Redis')
-    .replace(/\b(next js|nextjs)\b/gi, 'Next.js')
-    .replace(/\b(node js|nodejs)\b/gi, 'Node.js')
-    .replace(/\b(view js|vue js|vuejs)\b/gi, 'Vue.js')
-    .replace(/\b(my sequel|my sql)\b/gi, 'MySQL')
-    .replace(/\b(sequel light|sql lite)\b/gi, 'SQLite')
-    .replace(/\b(micro services)\b/gi, 'microservices')
-    .replace(/\b(g r p c)\b/gi, 'gRPC')
-    .replace(/\b(engine x)\b/gi, 'Nginx')
-    .replace(/\b(rabbit m q)\b/gi, 'RabbitMQ');
-};
-
-// Filters out silence artifacts and common Whisper hallucinations on low background noise
-const cleanWhisperTranscript = (rawText: string): string => {
+// Filters out silence artifacts and common low-noise Whisper hallucinations without altering speech
+const filterWhisperSilence = (rawText: string): string => {
   if (!rawText) return '';
   const cleaned = rawText.trim();
   const lower = cleaned.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
@@ -281,13 +249,11 @@ const cleanWhisperTranscript = (rawText: string): string => {
     lower === 'silence' ||
     lower === 'thank you' ||
     lower === 'thanks for watching' ||
-    lower === 'subtitles by' ||
-    lower === 'you' ||
-    lower === 'bye'
+    lower === 'subtitles by'
   ) {
     return '';
   }
-  return cleanTechnicalTerms(cleaned);
+  return cleaned;
 };
 
 
@@ -983,7 +949,7 @@ export const InterviewPage: React.FC = () => {
                           .transcribeAudio(inviteTokenRef.current, wavBlob)
                           .then((res) => {
                             if (res?.text && !speechRecognitionWorkingRef.current) {
-                              const cleaned = cleanWhisperTranscript(res.text);
+                              const cleaned = filterWhisperSilence(res.text);
                               if (cleaned.length > 0) {
                                 setLiveCandidateTranscript(cleaned);
                               }
@@ -1754,12 +1720,10 @@ export const InterviewPage: React.FC = () => {
     // Stop speech if AI was somehow playing
     stopSpeech();
 
-    let textToSubmit = cleanTechnicalTerms((candidateText || liveCandidateTranscript || '').trim());
+    let textToSubmit = (candidateText || liveCandidateTranscript || '').trim();
 
-    // DUAL-PASS TRANSCRIPTION PIPELINE:
-    // Pass 1 provided instant real-time live typing via Web Speech API in the candidate bubble.
-    // Pass 2 now transcribes the turn's raw recorded audio via Cloudflare's full Whisper model + tech phonetic cleaning.
-    // We race with a 3500ms timeout so the interview never stalls or delays.
+    // Direct Whisper Speech-to-Text Transcription:
+    // Transcribes recorded audio directly using full model Whisper without altering or editing candidate words.
     const pcmChunks = [...turnPcmChunksRef.current];
     if (pcmChunks.length > 0 && inviteToken) {
       setIsEvaluatingAnswer(true);
@@ -1772,20 +1736,20 @@ export const InterviewPage: React.FC = () => {
           const wavBlob = encodeWav(pcm16k, 16000);
           const whisperPromise = aiInterviewService.transcribeAudio(inviteToken, wavBlob);
           const timeoutPromise = new Promise<{ text: string }>((_, reject) =>
-            setTimeout(() => reject(new Error('Whisper transcription timeout')), 3500)
+            setTimeout(() => reject(new Error('Whisper transcription timeout')), 4000)
           );
 
           try {
             const res = await Promise.race([whisperPromise, timeoutPromise]);
             if (res?.text) {
-              const cleaned = cleanWhisperTranscript(res.text);
-              if (cleaned.length >= 3) {
-                console.log('Dual-Pass Whisper finalized transcript:', cleaned);
-                textToSubmit = cleaned;
+              const directWhisper = filterWhisperSilence(res.text);
+              if (directWhisper.length >= 2) {
+                console.log('Full model Whisper direct transcript:', directWhisper);
+                textToSubmit = directWhisper;
               }
             }
           } catch (whisperErr) {
-            console.warn('Whisper finalization notice (using live preview fallback):', whisperErr);
+            console.warn('Whisper transcription notice (using direct speech input):', whisperErr);
           }
         }
       } catch (audioErr) {
@@ -1979,7 +1943,7 @@ export const InterviewPage: React.FC = () => {
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript + ' ';
         }
-        const text = cleanTechnicalTerms(transcript.trim());
+        const text = transcript.trim();
 
         if (text.length > 0) {
           speechRecognitionWorkingRef.current = true;

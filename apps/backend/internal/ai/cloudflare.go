@@ -464,18 +464,24 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 You are actively listening to the candidate.
 Your task: Determine if the candidate's answer is SUFFICIENT for the current interview question and its criteria, or if it needs a FOLLOW-UP QUESTION.
 
+CRITICAL LANGUAGE REQUIREMENT:
+- You MUST ALWAYS speak and respond 100% in English.
+- NEVER generate a follow-up question or feedback in any other language (such as Indonesian, Spanish, etc.), under ANY circumstances.
+- Even if the candidate speaks non-English words, has an accent, or uses words from another language, your response MUST STRICTLY BE IN ENGLISH.
+- If the candidate speaks in another language, warmly prompt them in English: "Thank you! Could you please share your response in English so our admissions team can evaluate your communication readiness?"
+
 Crucial Guidelines:
 1. Incomplete / Brief Answers:
    - If the candidate only provided a brief introduction (e.g. "I'm ragil"), greeting, or fewer than 18 words, this does NOT answer the question's criteria.
    - You MUST set "is_sufficient": false.
-   - Generate a warm, personalized follow-up addressing them by name if they introduced themselves:
+   - Generate a warm, personalized follow-up in English addressing them by name if they introduced themselves:
      Example: "Nice to meet you, Ragil! Could you tell me more about your background in software engineering, and what sparked your interest in this fellowship?"
 2. Substantive Answers:
    - If the candidate provided a coherent, meaningful answer addressing the prompt's core criteria, set "is_sufficient": true.
    - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
 3. Natural Conversational Style:
-   - The follow-up question will be SPOKEN directly to the candidate using neural voice. Keep it warm, engaging, and brief (1-2 sentences maximum).
-4. Output format: Return ONLY valid JSON: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
+   - The follow-up question will be SPOKEN directly to the candidate using neural voice. Keep it warm, engaging, and brief (1-2 sentences maximum) in clear English.
+4. Output format: Return ONLY valid JSON in English: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
 			},
 			{
 				Role:    "user",
@@ -568,11 +574,37 @@ Crucial Guidelines:
 		}
 	}
 
-	if !result.IsSufficient && strings.TrimSpace(result.FollowUp) == "" {
-		result.FollowUp = fmt.Sprintf("Could you tell me a little more about your experience with %s?", strings.ToLower(question.Theme))
+	followUpText := strings.TrimSpace(result.FollowUp)
+	if !result.IsSufficient && followUpText == "" {
+		followUpText = fmt.Sprintf("Could you tell me a little more about your experience with %s?", strings.ToLower(question.Theme))
 	}
 
-	return result.IsSufficient, strings.TrimSpace(result.FollowUp), result.Feedback, nil
+	// Language Guard: If the model generated non-English words, substitute a clear professional English follow-up
+	if isLikelyNonEnglish(followUpText) {
+		e.logger.Warn("AI generated non-English follow-up, replacing with English question", slog.String("raw", followUpText))
+		followUpText = fmt.Sprintf("Thank you for sharing! Could you elaborate further on your experience with %s, in English?", strings.ToLower(question.Theme))
+	}
+
+	return result.IsSufficient, followUpText, result.Feedback, nil
+}
+
+func isLikelyNonEnglish(text string) bool {
+	if text == "" {
+		return false
+	}
+	lower := " " + strings.ToLower(text) + " "
+	indicators := []string{
+		" bisa ", " apakah ", " terima kasih ", " ceritakan ", " pengalaman ",
+		" bagaimana ", " senang ", " bertemu ", " anda ", " kamu ", " saya ",
+		" dengan ", " untuk ", " yang ", " tidak ", " tolong ", " jelaskan ",
+		" apa ", " mengapa ", " tentang ", " pada ", " dari ", " halo ", " baik ",
+	}
+	for _, ind := range indicators {
+		if strings.Contains(lower, ind) {
+			return true
+		}
+	}
+	return false
 }
 
 // SynthesizeSpeech converts conversational text into natural human speech using Cloudflare Workers AI Text-to-Speech models.
@@ -730,9 +762,8 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 		return "", nil
 	}
 
-	// Clean phonetic ASR typos and normalize technical terms
-	cleaned := e.CleanTechnicalASR(ctx, text)
-	return cleaned, nil
+	// Return Whisper's direct authentic transcription without altering candidate speech
+	return text, nil
 }
 
 // CleanTechnicalASR normalizes common phonetic speech-to-text mishearings and technical term typos.
