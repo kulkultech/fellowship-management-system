@@ -44,7 +44,6 @@ export interface ChatMessageItem {
 
 export type VoiceGender = 'female' | 'male';
 export const VOICE_GENDER_STORAGE_KEY = 'kulkul_ai_interview_voice_gender';
-export const SPEECH_LANGUAGE_STORAGE_KEY = 'kulkul_ai_interview_speech_lang';
 
 interface RecordedItem {
   blob: Blob;
@@ -421,35 +420,6 @@ export const InterviewPage: React.FC = () => {
   // Strict client-side follow-up tracker (max 2 per main question)
   const followUpCountPerQuestionRef = useRef<Record<number, number>>({});
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
-
-  // Speech Recognition language mode: 'en-US' (default), 'en-GB' (International/Accented), 'id-ID' (Bahasa Indonesia)
-  const [speechLanguage, setSpeechLanguage] = useState<'en-US' | 'en-GB' | 'id-ID'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(SPEECH_LANGUAGE_STORAGE_KEY);
-      if (saved === 'en-US' || saved === 'en-GB' || saved === 'id-ID') return saved;
-      const navLang = navigator.language?.toLowerCase() || '';
-      if (navLang.startsWith('id')) return 'id-ID';
-    }
-    return 'en-US';
-  });
-  const speechLanguageRef = useRef<'en-US' | 'en-GB' | 'id-ID'>(speechLanguage);
-  useEffect(() => {
-    speechLanguageRef.current = speechLanguage;
-  }, [speechLanguage]);
-
-  // Switch speech recognition language and persist preference
-  const handleSelectSpeechLanguage = (lang: 'en-US' | 'en-GB' | 'id-ID') => {
-    setSpeechLanguage(lang);
-    speechLanguageRef.current = lang;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SPEECH_LANGUAGE_STORAGE_KEY, lang);
-    }
-    const label = lang === 'en-US' ? 'US English' : lang === 'en-GB' ? 'International English' : 'Bahasa Indonesia';
-    toast.success(`Speech recognition set to ${label}`, {
-      icon: lang === 'en-US' ? '🇺🇸' : lang === 'en-GB' ? '🌐' : '🇮🇩',
-    });
-    restartSpeechRecognition(100);
-  };
 
   // Configurable AI Interviewer Voice (Default is Woman / 'female' -> 'luna', 'male' -> 'orion')
   const [voiceGender, setVoiceGender] = useState<VoiceGender>(() => {
@@ -1300,6 +1270,12 @@ export const InterviewPage: React.FC = () => {
     }
     setIsAiSpeaking(false);
     isAiSpeakingRef.current = false;
+  };
+  stopSpeechRef.current = stopSpeech;
+
+  // Interrupt AI playback and immediately start clean candidate microphone listening
+  const handleInterruptAi = () => {
+    stopSpeech();
     turnAudioChunksRef.current = [];
     turnPcmChunksRef.current = [];
     hasSpokenInCurrentTurnRef.current = false;
@@ -1308,13 +1284,13 @@ export const InterviewPage: React.FC = () => {
     isCandidateSpeakingRef.current = false;
     setIsCandidateSpeaking(false);
     setLiveCandidateTranscript('');
-    restartSpeechRecognition(150);
+    restartSpeechRecognition(100);
   };
-  stopSpeechRef.current = stopSpeech;
 
   // Play decoded AudioBuffer with 0ms latency and immune to HTML5 Audio autoplay restrictions
   const playAudioBuffer = (buffer: AudioBuffer): boolean => {
     stopSpeech();
+    stopSpeechRecognition(); // Stop mic while AI speaks to prevent speaker echo contamination!
     const ctx = audioContextRef.current;
     if (!ctx) return false;
     if (ctx.state === 'suspended') {
@@ -1340,7 +1316,7 @@ export const InterviewPage: React.FC = () => {
         isCandidateSpeakingRef.current = false;
         setIsCandidateSpeaking(false);
         setLiveCandidateTranscript('');
-        restartSpeechRecognition(150);
+        restartSpeechRecognition(100); // Start fresh mic recognition now that AI finished speaking!
       };
 
       setIsAiSpeaking(true);
@@ -1357,6 +1333,7 @@ export const InterviewPage: React.FC = () => {
   // Fallback to HTML5 Audio element for blob URLs
   const playAudioUrl = (url: string) => {
     stopSpeech();
+    stopSpeechRecognition(); // Stop mic while AI speaks to prevent speaker echo contamination!
     if (!sharedAudioRef.current) {
       sharedAudioRef.current = new Audio();
     }
@@ -1379,13 +1356,14 @@ export const InterviewPage: React.FC = () => {
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
       setLiveCandidateTranscript('');
-      restartSpeechRecognition(150);
+      restartSpeechRecognition(100);
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
+      restartSpeechRecognition(100);
     };
 
     const playPromise = audio.play();
@@ -1395,6 +1373,7 @@ export const InterviewPage: React.FC = () => {
         setAutoplayBlocked(true);
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
+        restartSpeechRecognition(100);
       });
     }
   };
@@ -1810,8 +1789,16 @@ export const InterviewPage: React.FC = () => {
       silenceTimeoutRef.current = null;
     }
 
-    // Stop speech if AI was somehow playing
+    // Stop speech if AI was somehow playing and stop mic while evaluating
     stopSpeech();
+    stopSpeechRecognition();
+
+    // Flush any pending data from turn audio recorder
+    if (turnAudioRecorderRef.current && turnAudioRecorderRef.current.state === 'recording') {
+      try {
+        turnAudioRecorderRef.current.requestData();
+      } catch (_) {}
+    }
 
     let textToSubmit = (candidateText || liveCandidateTranscript || '').trim();
 
@@ -1903,11 +1890,10 @@ export const InterviewPage: React.FC = () => {
     setIsEvaluatingAnswer(true);
     isEvaluatingAnswerRef.current = true;
 
-    // Reset speech recognition & turn audio recorder for fresh next turn
+    // Reset speech recognition & clear turn audio buffers so mic is clean for next turn
     stopSpeechRecognition();
-    restartSpeechRecognition(300);
-    startTurnAudioRecorder();
     turnPcmChunksRef.current = [];
+    turnAudioChunksRef.current = [];
 
     try {
       if (!inviteToken) return;
@@ -2039,7 +2025,7 @@ export const InterviewPage: React.FC = () => {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = speechLanguageRef.current || 'en-US';
+      recognition.lang = 'en-US';
 
       recognition.onresult = (event: any) => {
         // Acoustic Echo Isolation:
@@ -2726,7 +2712,7 @@ export const InterviewPage: React.FC = () => {
                         <span>AI Speaking</span>
                       </span>
                       <button
-                        onClick={stopSpeech}
+                        onClick={handleInterruptAi}
                         className="text-3xs font-extrabold uppercase px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 hover:bg-purple-200 transition cursor-pointer"
                         title="Interrupt AI"
                       >
@@ -2754,51 +2740,6 @@ export const InterviewPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0">
-                  {/* Speech Language / Accent Mode Selector */}
-                  <div
-                    className="flex items-center bg-slate-100 p-0.5 rounded-full border border-slate-200 text-3xs font-bold"
-                    title="Select spoken language / accent for maximum transcription precision"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSpeechLanguage('en-US')}
-                      className={`px-2.5 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
-                        speechLanguage === 'en-US'
-                          ? 'bg-white text-kulkul-purple shadow-2xs font-extrabold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                      title="US English accent"
-                    >
-                      <span>🇺🇸</span>
-                      <span className="hidden sm:inline">US</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSpeechLanguage('en-GB')}
-                      className={`px-2.5 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
-                        speechLanguage === 'en-GB'
-                          ? 'bg-white text-kulkul-purple shadow-2xs font-extrabold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                      title="International / ESL English accent"
-                    >
-                      <span>🌐</span>
-                      <span className="hidden sm:inline">Intl</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSpeechLanguage('id-ID')}
-                      className={`px-2.5 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
-                        speechLanguage === 'id-ID'
-                          ? 'bg-white text-kulkul-purple shadow-2xs font-extrabold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                      title="Bahasa Indonesia"
-                    >
-                      <span>🇮🇩</span>
-                      <span className="hidden sm:inline">ID</span>
-                    </button>
-                  </div>
                   {currentQIndex >= questions.length - 1 ? (
                     <button
                       onClick={() => {

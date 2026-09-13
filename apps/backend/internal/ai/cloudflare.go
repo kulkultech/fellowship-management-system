@@ -878,69 +878,6 @@ func (e *CloudflareEvaluator) CleanTechnicalASR(ctx context.Context, rawText str
 		normalized = r.re.ReplaceAllString(normalized, r.rep)
 	}
 
-	// 2. If short utterance or LLM not configured, return dictionary normalized text
-	words := strings.Fields(normalized)
-	if len(words) < 4 || !e.config.Enabled() {
-		return normalized
-	}
-
-	// 3. Fast LLM micro-pass for nuanced phonetic cleaning (timeout 2.5s)
-	llmCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
-	defer cancel()
-
-	apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/@cf/meta/llama-3.1-8b-instruct", e.config.AccountID)
-	reqBody := cloudflareChatRequest{
-		Messages: []cloudflareMessage{
-			{
-				Role: "system",
-				Content: `You are an ASR speech-to-text corrector for candidate fellowship interviews.
-Fix obvious phonetic speech-to-text mishearings and typos, especially technical vocabulary (e.g., Docker, Kubernetes, PostgreSQL, FastAPI, React, REST API, Git, Golang, Rust, Python, microservices).
-CRUCIAL: Strictly preserve the candidate's exact words, phrasing, meaning, and tone. Do NOT expand, summarize, or answer the question. Only output the corrected text directly without quotes or prefix.`,
-			},
-			{
-				Role:    "user",
-				Content: normalized,
-			},
-		},
-		MaxTokens:   300,
-		Temperature: 0.1,
-	}
-
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return normalized
-	}
-
-	httpReq, err := http.NewRequestWithContext(llmCtx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return normalized
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+e.config.Token())
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := e.client.Do(httpReq)
-	if err != nil {
-		return normalized
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return normalized
-	}
-
-	var cfResp struct {
-		Result struct {
-			Response string `json:"response"`
-		} `json:"result"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err == nil && strings.TrimSpace(cfResp.Result.Response) != "" {
-		cleaned := strings.TrimSpace(cfResp.Result.Response)
-		// Sanity check: Ensure LLM didn't hallucinate an entirely different speech
-		if len(cleaned) > 0 && len(cleaned) < len(normalized)*3 {
-			return cleaned
-		}
-	}
-
 	return normalized
 }
 
