@@ -76,10 +76,12 @@ type StorageConfig struct {
 	S3AccessKeyID  string
 	S3SecretKey    string
 	S3UsePathStyle bool
-	R2AccountID    string
-	R2APIKey       string
-	R2Bucket       string
-	R2PublicURL    string
+	R2AccountID       string
+	R2APIKey          string
+	R2AccessKeyID     string
+	R2SecretAccessKey string
+	R2Bucket          string
+	R2PublicURL       string
 }
 
 func Load() (*Config, error) {
@@ -133,10 +135,12 @@ func Load() (*Config, error) {
 			S3AccessKeyID:  getString("S3_ACCESS_KEY_ID", ""),
 			S3SecretKey:    getString("S3_SECRET_ACCESS_KEY", ""),
 			S3UsePathStyle: getBool("S3_USE_PATH_STYLE", true),
-			R2AccountID:    getString("R2_ACCOUNT_ID", getString("CLOUDFLARE_ACCOUNT_ID", "")),
-			R2APIKey:       getString("R2_API_KEY", getString("CLOUDFLARE_API_KEY", "")),
-			R2Bucket:       getString("R2_BUCKET", "fellowhire"),
-			R2PublicURL:    getString("R2_PUBLIC_URL", ""),
+			R2AccountID:       getString("R2_ACCOUNT_ID", getString("CLOUDFLARE_ACCOUNT_ID", "")),
+			R2APIKey:          getString("R2_API_KEY", getString("CLOUDFLARE_API_KEY", "")),
+			R2AccessKeyID:     getString("R2_ACCESS_KEY_ID", getString("S3_ACCESS_KEY_ID", "")),
+			R2SecretAccessKey: getString("R2_SECRET_ACCESS_KEY", getString("S3_SECRET_ACCESS_KEY", "")),
+			R2Bucket:          getString("R2_BUCKET", "fellowhire"),
+			R2PublicURL:       getString("R2_PUBLIC_URL", ""),
 		},
 		Cloudflare: CloudflareConfig{
 			AccountID: getString("CLOUDFLARE_ACCOUNT_ID", ""),

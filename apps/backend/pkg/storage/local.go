@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type LocalStorage struct {
@@ -90,4 +91,8 @@ func (s *LocalStorage) Delete(_ context.Context, key string) error {
 func (s *LocalStorage) GetURL(key string) string {
 	cleanKey := cleanStorageKey(key)
 	return "/api/v1/uploads/" + cleanKey
+}
+
+func (s *LocalStorage) PresignUpload(_ context.Context, _ string, _ string, _ time.Duration) (*PresignedUpload, error) {
+	return nil, ErrPresignNotSupported
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -497,6 +498,91 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+const MaxRecordingSizeBytes = 1024 * 1024 * 1024 // 1GB
+
+type PresignRecordingUploadRequest struct {
+	ContentType string `json:"content_type"`
+	Size        int64  `json:"size"`
+	Filename    string `json:"filename"`
+}
+
+type PresignRecordingUploadResponse struct {
+	UploadURL    string            `json:"upload_url"`
+	Method       string            `json:"method"`
+	Headers      map[string]string `json:"headers,omitempty"`
+	FileURL      string            `json:"file_url"`
+	Key          string            `json:"key"`
+	MaxSizeBytes int64             `json:"max_size_bytes"`
+	Fallback     bool              `json:"fallback"`
+}
+
+func (h *AIInterviewHandler) PresignRecordingUpload(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "inviteToken")
+	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
+
+	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
+	if err != nil || aiSession == nil {
+		if isDemo {
+			aiSession = h.getOrCreateDemoSession(r.Context(), token)
+		}
+		if aiSession == nil {
+			httpx.Error(w, http.StatusNotFound, "interview not found")
+			return
+		}
+	}
+
+	var req PresignRecordingUploadRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	if req.Size > MaxRecordingSizeBytes {
+		httpx.Error(w, http.StatusBadRequest, "recording size exceeds the 1GB maximum allowed limit")
+		return
+	}
+
+	contentType := req.ContentType
+	if contentType == "" {
+		contentType = "video/webm"
+	}
+
+	ext := ".webm"
+	if strings.Contains(contentType, "mp4") {
+		ext = ".mp4"
+	}
+
+	key := fmt.Sprintf("recordings/%s_%s%s", aiSession.ID.String(), uuid.New().String()[:8], ext)
+
+	fallbackResponse := PresignRecordingUploadResponse{
+		UploadURL:    fmt.Sprintf("/api/v1/interviews/%s/recording", token),
+		Method:       "POST",
+		MaxSizeBytes: MaxRecordingSizeBytes,
+		Fallback:     true,
+	}
+
+	if h.storage == nil {
+		httpx.JSON(w, http.StatusOK, fallbackResponse)
+		return
+	}
+
+	presign, err := h.storage.PresignUpload(r.Context(), key, contentType, 1*time.Hour)
+	if err != nil || presign == nil {
+		slog.Info("presigned direct upload not configured or supported, providing fallback backend upload", slog.Any("error", err))
+		httpx.JSON(w, http.StatusOK, fallbackResponse)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, PresignRecordingUploadResponse{
+		UploadURL:    presign.UploadURL,
+		Method:       presign.Method,
+		Headers:      presign.Headers,
+		FileURL:      presign.FileURL,
+		Key:          presign.Key,
+		MaxSizeBytes: MaxRecordingSizeBytes,
+		Fallback:     false,
+	})
+}
+
 type UploadRecordingResponse struct {
 	Message         string `json:"message"`
 	RecordingURL    string `json:"recording_url"`
@@ -534,6 +620,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 	var mediaType string
 	var savedSize int64
 	var isSaved bool
+	var isDirectJSONConfirmation bool
 
 	// 1. Try streaming multipart form if Content-Type indicates multipart
 	if strings.Contains(contentType, "multipart/form-data") {
@@ -556,7 +643,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 
 					dest, createErr := os.Create(destPath)
 					if createErr == nil {
-						written, copyErr := io.Copy(dest, io.LimitReader(part, 500<<20))
+						written, copyErr := io.Copy(dest, io.LimitReader(part, MaxRecordingSizeBytes))
 						dest.Close()
 						if copyErr == nil && written > 0 {
 							savedSize = written
@@ -569,7 +656,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// 2. Direct streaming fallback (e.g. video/webm, video/mp4, or missing multipart boundary)
+	// 2. Direct streaming fallback (e.g. video/webm, video/mp4, or JSON { "recording_url": "..." })
 	if !isSaved && r.Body != nil {
 		// Peek first 1024 bytes to check if it is JSON { "recording_url": "..." }
 		peekBuf := make([]byte, 1024)
@@ -582,12 +669,13 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		if jsonErr := json.Unmarshal(peekBytes, &jsonReq); jsonErr == nil && jsonReq.RecordingURL != "" {
 			recordingURL = jsonReq.RecordingURL
 			isSaved = true
+			isDirectJSONConfirmation = true
 		} else if len(peekBytes) > 0 {
-			// Direct stream into disk file: write peekBytes then copy remainder of r.Body
+			// Direct stream into disk file: write peekBytes then copy remainder of r.Body (up to 1GB)
 			dest, createErr := os.Create(destPath)
 			if createErr == nil {
 				_, _ = dest.Write(peekBytes)
-				written, copyErr := io.Copy(dest, io.LimitReader(r.Body, 500<<20))
+				written, copyErr := io.Copy(dest, io.LimitReader(r.Body, MaxRecordingSizeBytes))
 				dest.Close()
 				totalWritten := int64(len(peekBytes)) + written
 				if copyErr == nil && totalWritten > 0 {
@@ -621,7 +709,7 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		recordingURL = "/api/v1" + recordingURL
 	}
 
-	// Persist immediate readiness in DB with local disk URL so candidate UI receives instant confirmation
+	// Persist immediate readiness in DB with recording URL so candidate UI receives instant confirmation
 	if err := h.aiInterviewRepo.UpdateRecording(r.Context(), aiSession.ID, recordingURL, "ready"); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to update recording in database")
 		return
@@ -632,8 +720,8 @@ func (h *AIInterviewHandler) UploadRecording(w http.ResponseWriter, r *http.Requ
 		_ = h.applicantRepo.UpdateStage(r.Context(), aiSession.ApplicantID, model.StageAIInterviewCompleted)
 	}
 
-	// Asynchronously mirror to Cloudflare R2 from disk file without blocking HTTP response
-	if h.storage != nil && isSaved && destPath != "" {
+	// Asynchronously mirror to Cloudflare R2 from disk file only when saved locally (not for direct R2 confirmations)
+	if h.storage != nil && isSaved && !isDirectJSONConfirmation && destPath != "" {
 		go func(key, mType, filePath string, sessID uuid.UUID, fSize int64) {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()

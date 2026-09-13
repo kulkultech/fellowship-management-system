@@ -21,6 +21,18 @@ export interface SaveRecordingOptions {
   onProgress?: (percent: number, loaded: number, total: number) => void;
 }
 
+export interface PresignedUploadResponse {
+  upload_url: string;
+  method: string;
+  headers?: Record<string, string>;
+  file_url?: string;
+  key?: string;
+  max_size_bytes?: number;
+  fallback?: boolean;
+}
+
+export const MAX_RECORDING_SIZE_BYTES = 1024 * 1024 * 1024; // 1GB
+
 export const aiInterviewService = {
   getSession: async (inviteToken: string): Promise<AIInterviewSession> => {
     const { data } = await apiClient.get<AIInterviewSession>(`/interviews/${inviteToken}`);
@@ -41,6 +53,21 @@ export const aiInterviewService = {
     return data;
   },
 
+  getPresignedRecordingUpload: async (
+    inviteToken: string,
+    contentType: string = 'video/webm',
+    size?: number,
+  ): Promise<PresignedUploadResponse> => {
+    const { data } = await apiClient.post<PresignedUploadResponse>(
+      `/interviews/${inviteToken}/presign-recording`,
+      {
+        content_type: contentType,
+        size,
+      },
+    );
+    return data;
+  },
+
   saveRecording: async (
     inviteToken: string,
     video: Blob | string,
@@ -53,10 +80,74 @@ export const aiInterviewService = {
       return data;
     }
 
+    if (video.size > MAX_RECORDING_SIZE_BYTES) {
+      throw new Error(
+        `Recording size (${(video.size / (1024 * 1024)).toFixed(1)}MB) exceeds maximum limit of 1GB.`,
+      );
+    }
+
     const isMp4 = video.type && video.type.includes('mp4');
+    const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
     const filename = isMp4 ? 'interview_recording.mp4' : 'interview_recording.webm';
     const baseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
-    const uploadUrl = `${baseUrl}/interviews/${inviteToken}/recording`;
+    const fallbackBackendUrl = `${baseUrl}/interviews/${inviteToken}/recording`;
+
+    // Step 1: Request presigned upload URL from backend
+    let presign: PresignedUploadResponse | null = null;
+    try {
+      presign = await aiInterviewService.getPresignedRecordingUpload(inviteToken, contentType, video.size);
+    } catch (presignErr) {
+      console.warn('Presigned upload request failed, falling back to backend upload:', presignErr);
+    }
+
+    // Step 2: Direct upload to R2 via Presigned PUT URL (Bypasses backend server proxy limits)
+    if (presign && !presign.fallback && presign.upload_url && presign.method === 'PUT') {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', presign.upload_url);
+          xhr.setRequestHeader('Content-Type', contentType);
+
+          if (xhr.upload && options?.onProgress) {
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable && event.total > 0) {
+                const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+                options.onProgress!(percent, event.loaded, event.total);
+              }
+            };
+          }
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              if (options?.onProgress) {
+                options.onProgress(100, video.size, video.size);
+              }
+              resolve();
+            } else {
+              reject(new Error(`Direct R2 upload failed with HTTP ${xhr.status}: ${xhr.responseText}`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Network error during direct R2 upload'));
+          xhr.ontimeout = () => reject(new Error('Timeout during direct R2 upload'));
+
+          xhr.send(video);
+        });
+
+        // Step 3: Confirm upload with backend, storing recording_url and setting status ready
+        const finalUrl = presign.file_url || presign.upload_url.split('?')[0];
+        const { data: confirmData } = await apiClient.post<SaveRecordingResult>(
+          `/interviews/${inviteToken}/recording`,
+          { recording_url: finalUrl },
+        );
+        return confirmData;
+      } catch (directErr) {
+        console.warn('Direct R2 presigned upload failed, attempting fallback to backend upload:', directErr);
+      }
+    }
+
+    // Fallback: Upload to backend (supports up to 1GB)
+    const uploadUrl = presign?.upload_url && presign.fallback ? presign.upload_url : fallbackBackendUrl;
 
     // Attempt 1: XMLHttpRequest with granular upload progress
     try {
@@ -124,7 +215,6 @@ export const aiInterviewService = {
     }
 
     // Attempt 3: Direct binary stream upload
-    const contentType = video.type || (isMp4 ? 'video/mp4' : 'video/webm');
     const res = await fetch(uploadUrl, {
       method: 'POST',
       headers: {

@@ -8,20 +8,28 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type R2Storage struct {
-	accountID     string
-	apiKey        string
-	bucket        string
-	publicURL     string
-	localFallback *LocalStorage
-	httpClient    *http.Client
+	accountID       string
+	apiKey          string
+	accessKeyID     string
+	secretAccessKey string
+	bucket          string
+	publicURL       string
+	localFallback   *LocalStorage
+	httpClient      *http.Client
+	s3Client        *s3.Client
+	presignClient   *s3.PresignClient
 }
 
-func NewR2Storage(accountID, apiKey, bucket, publicURL, localPath string) (*R2Storage, error) {
-	if accountID == "" || apiKey == "" {
-		return nil, fmt.Errorf("storage/r2: accountID and apiKey are required")
+func NewR2Storage(accountID, apiKey, accessKeyID, secretAccessKey, bucket, publicURL, localPath string) (*R2Storage, error) {
+	if accountID == "" || (apiKey == "" && accessKeyID == "") {
+		return nil, fmt.Errorf("storage/r2: accountID and at least apiKey or accessKeyID are required")
 	}
 	if bucket == "" {
 		bucket = "fellowhire"
@@ -32,16 +40,31 @@ func NewR2Storage(accountID, apiKey, bucket, publicURL, localPath string) (*R2St
 		local, _ = NewLocalStorage(localPath)
 	}
 
-	return &R2Storage{
-		accountID:     accountID,
-		apiKey:        apiKey,
-		bucket:        bucket,
-		publicURL:     strings.TrimRight(publicURL, "/"),
-		localFallback: local,
+	r2 := &R2Storage{
+		accountID:       accountID,
+		apiKey:          apiKey,
+		accessKeyID:     accessKeyID,
+		secretAccessKey: secretAccessKey,
+		bucket:          bucket,
+		publicURL:       strings.TrimRight(publicURL, "/"),
+		localFallback:   local,
 		httpClient: &http.Client{
 			Timeout: 120 * time.Second, // Allow sufficient time for larger video uploads
 		},
-	}, nil
+	}
+
+	if accessKeyID != "" && secretAccessKey != "" {
+		r2Endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+		s3Client := s3.New(s3.Options{
+			Region:       "auto",
+			BaseEndpoint: aws.String(r2Endpoint),
+			Credentials:  credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
+		})
+		r2.s3Client = s3Client
+		r2.presignClient = s3.NewPresignClient(s3Client)
+	}
+
+	return r2, nil
 }
 
 func (s *R2Storage) Upload(ctx context.Context, key string, r io.Reader, size int64, contentType string) (string, error) {
@@ -185,3 +208,39 @@ func (s *R2Storage) GetURL(key string) string {
 	}
 	return "/api/v1/uploads/" + cleanKey
 }
+
+func (s *R2Storage) PresignUpload(ctx context.Context, key string, contentType string, expiresIn time.Duration) (*PresignedUpload, error) {
+	if s.presignClient == nil {
+		return nil, ErrPresignNotConfigured
+	}
+	if contentType == "" {
+		contentType = "video/webm"
+	}
+	if expiresIn <= 0 {
+		expiresIn = 1 * time.Hour
+	}
+	cleanKey := cleanStorageKey(key)
+
+	putInput := &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(cleanKey),
+		ContentType: aws.String(contentType),
+	}
+
+	presignReq, err := s.presignClient.PresignPutObject(ctx, putInput, s3.WithPresignExpires(expiresIn))
+	if err != nil {
+		return nil, fmt.Errorf("storage/r2: presign put object: %w", err)
+	}
+
+	fileURL := s.GetURL(cleanKey)
+
+	return &PresignedUpload{
+		UploadURL:    presignReq.URL,
+		Method:       "PUT",
+		Headers:      map[string]string{"Content-Type": contentType},
+		FileURL:      fileURL,
+		Key:          cleanKey,
+		MaxSizeBytes: 1073741824, // 1GB
+	}, nil
+}
+
