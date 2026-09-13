@@ -1201,8 +1201,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   };
 
-  // Active nav ID calculation
-  const activeNavId = currentView === 'questions' ? 'questions' : 'programs';
+  // Active nav ID calculation for hierarchical tree
+  const activeNavId =
+    currentView === 'programs'
+      ? 'programs'
+      : currentView === 'create_program'
+      ? 'launch-new-program-nav'
+      : currentView === 'questions'
+      ? 'questions'
+      : currentView === 'stages'
+      ? `stages-${activeProgramSlug}`
+      : currentView === 'form_builder'
+      ? `form-builder-${activeProgramSlug}`
+      : currentView === 'ai_rubric'
+      ? `ai-rubric-${activeProgramSlug}`
+      : selectedTrackFilter
+      ? `track-${selectedTrackFilter}`
+      : `all-candidates-${activeProgramSlug}`;
 
   const navItems: NavItem[] = [
     {
@@ -1213,6 +1228,91 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       onClick: () => {
         setCurrentView('programs');
       },
+      isExpanded: true,
+      children: [
+        ...allPrograms.map((p) => {
+          const isCurrentActiveProg = p.slug === activeProgramSlug;
+          const tracksForThisProg = isCurrentActiveProg ? programTracks : [];
+
+          return {
+            id: `program-${p.slug}`,
+            label: p.name,
+            icon: Layers,
+            badge: isCurrentActiveProg ? applicants.length : undefined,
+            isExpanded: isCurrentActiveProg,
+            onClick: () => {
+              setActiveProgramSlug(p.slug);
+              setSelectedTrackFilter('');
+              setCurrentView('pipeline');
+            },
+            children: [
+              {
+                id: `all-candidates-${p.slug}`,
+                label: 'All Candidates',
+                icon: Users,
+                badge: isCurrentActiveProg ? applicants.length : undefined,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setSelectedTrackFilter('');
+                  setCurrentView('pipeline');
+                },
+              },
+              ...tracksForThisProg.map((t) => ({
+                id: `track-${t.id}`,
+                label: t.name,
+                icon: Award,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setSelectedTrackFilter(t.id);
+                  setCurrentView('pipeline');
+                },
+              })),
+              {
+                id: `add-track-${p.slug}`,
+                label: 'Add Track (Optional)',
+                icon: Plus,
+                onClick: () => {
+                  handleOpenCreateTrack(p.slug);
+                },
+              },
+              {
+                id: `stages-${p.slug}`,
+                label: 'Application Stages',
+                icon: Workflow,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('stages');
+                },
+              },
+              {
+                id: `form-builder-${p.slug}`,
+                label: 'Application Form',
+                icon: FileText,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('form_builder');
+                },
+              },
+              {
+                id: `ai-rubric-${p.slug}`,
+                label: 'AI Rubric & Prompts',
+                icon: Bot,
+                onClick: () => {
+                  handleOpenRubricPage(p);
+                },
+              },
+            ],
+          };
+        }),
+        {
+          id: 'launch-new-program-nav',
+          label: 'Launch New Program',
+          icon: Plus,
+          onClick: () => {
+            setCurrentView('create_program');
+          },
+        },
+      ],
     },
     {
       id: 'questions',
