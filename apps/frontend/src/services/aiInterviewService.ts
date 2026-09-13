@@ -27,10 +27,16 @@ export const aiInterviewService = {
     return data;
   },
 
-  sendMessage: async (inviteToken: string, message: string, currentQuestionIndex?: number): Promise<SendMessageResult> => {
+  sendMessage: async (
+    inviteToken: string,
+    message: string,
+    currentQuestionIndex?: number,
+    followUpCount?: number,
+  ): Promise<SendMessageResult> => {
     const { data } = await apiClient.post<SendMessageResult>(`/interviews/${inviteToken}/message`, {
       message,
       current_question_index: currentQuestionIndex,
+      follow_up_count: followUpCount,
     });
     return data;
   },

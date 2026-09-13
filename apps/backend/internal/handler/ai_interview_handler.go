@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,8 @@ type AIInterviewHandler struct {
 	trackRepo       *repository.TrackRepository
 	aiEvaluator     *ai.CloudflareEvaluator
 	storage         storage.Storage
+	demoSessions    map[string]*model.AIInterview
+	demoMu          sync.RWMutex
 }
 
 func NewAIInterviewHandler(
@@ -46,6 +49,7 @@ func NewAIInterviewHandler(
 		trackRepo:       trackRepo,
 		aiEvaluator:     aiEvaluator,
 		storage:         store,
+		demoSessions:    make(map[string]*model.AIInterview),
 	}
 }
 
@@ -66,8 +70,18 @@ type AIInterviewSessionResponse struct {
 }
 
 func (h *AIInterviewHandler) getOrCreateDemoSession(ctx context.Context, token string) *model.AIInterview {
+	h.demoMu.RLock()
+	if s, ok := h.demoSessions[token]; ok && s != nil {
+		h.demoMu.RUnlock()
+		return s
+	}
+	h.demoMu.RUnlock()
+
 	aiSession, err := h.aiInterviewRepo.GetByToken(ctx, token)
 	if err == nil && aiSession != nil {
+		h.demoMu.Lock()
+		h.demoSessions[token] = aiSession
+		h.demoMu.Unlock()
 		return aiSession
 	}
 
@@ -125,6 +139,9 @@ func (h *AIInterviewHandler) getOrCreateDemoSession(ctx context.Context, token s
 			UpdatedAt:           time.Now(),
 		}
 	}
+	h.demoMu.Lock()
+	h.demoSessions[token] = aiSession
+	h.demoMu.Unlock()
 	return aiSession
 }
 
@@ -134,14 +151,24 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 	shouldReset := r.URL.Query().Get("reset") == "true" || r.URL.Query().Get("reset") == "1"
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
-	if isDemo && shouldReset && aiSession != nil {
-		aiSession.Transcript = []model.ChatMessage{}
-		aiSession.Status = model.AIInterviewInvited
-		aiSession.SummaryEvaluation = nil
-		aiSession.ScorecardScore = 0
-		aiSession.RecordingURL = ""
-		aiSession.RecordingStatus = "pending"
-		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInvited)
+	if isDemo && aiSession == nil {
+		h.demoMu.RLock()
+		aiSession = h.demoSessions[token]
+		h.demoMu.RUnlock()
+	}
+	if isDemo && shouldReset {
+		h.demoMu.Lock()
+		delete(h.demoSessions, token)
+		h.demoMu.Unlock()
+		if aiSession != nil {
+			aiSession.Transcript = []model.ChatMessage{}
+			aiSession.Status = model.AIInterviewInvited
+			aiSession.SummaryEvaluation = nil
+			aiSession.ScorecardScore = 0
+			aiSession.RecordingURL = ""
+			aiSession.RecordingStatus = "pending"
+			_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInvited)
+		}
 	}
 
 	if err != nil || aiSession == nil {
@@ -236,6 +263,7 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 type SendMessageRequest struct {
 	Message              string `json:"message"`
 	CurrentQuestionIndex int    `json:"current_question_index"`
+	FollowUpCount        int    `json:"follow_up_count,omitempty"`
 }
 
 type SendMessageResponse struct {
@@ -321,7 +349,6 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 
 	// Preserve candidate's exact transcription directly without editing
 
-
 	// Append candidate response with precise question index tracking
 	aiSession.Transcript = append(aiSession.Transcript, model.ChatMessage{
 		Role:          "candidate",
@@ -340,6 +367,9 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 				followUpCount++
 			}
 		}
+	}
+	if req.FollowUpCount > followUpCount {
+		followUpCount = req.FollowUpCount
 	}
 
 	// Fallback for legacy transcripts without QuestionIndex
@@ -363,7 +393,8 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		isCompleted = true
 		aiReply = "Thank you for completing your video technical evaluation! Our admissions AI has analyzed your responses against the assessment rubric."
 	} else {
-		// Evaluate if answer is sufficient or if follow-up clarification is needed
+		// Strict cap: A maximum of 2 follow-ups per main question is allowed.
+		// If 2 follow-ups have already been asked (or if answer is sufficient), strictly advance to next question!
 		if followUpCount < 2 && h.aiEvaluator != nil {
 			isSufficient, followUp, _, err := h.aiEvaluator.AssessAnswerAndGenerateFollowUp(
 				r.Context(),
@@ -378,8 +409,9 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		if !isFollowUp {
-			// Answer is sufficient (or max follow-ups reached) -> progress to next question
+		if !isFollowUp || followUpCount > 2 {
+			isFollowUp = false
+			// Answer is sufficient or max follow-ups (2) reached -> strictly advance to next question
 			nextQIndex = qIdx + 1
 			if nextQIndex < len(rubric.Questions) {
 				nextQ := rubric.Questions[nextQIndex]
@@ -415,17 +447,28 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, &nowComplete, aiSession.Transcript, summary, score, model.AIInterviewCompleted)
 	}
 
-	// Append AI reply to transcript with question index and follow-up flag
+	// Append AI reply to transcript with question index and follow-up flag.
+	// If it's a follow-up, it belongs to the current question (qIdxCopy).
+	// If it advances to the next question, tag with nextQIndex so the prompt belongs to that question!
+	targetQIdx := qIdxCopy
+	if !isFollowUp && !isCompleted {
+		targetQIdx = nextQIndex
+	}
 	aiSession.Transcript = append(aiSession.Transcript, model.ChatMessage{
 		Role:          "ai",
 		Message:       aiReply,
 		Timestamp:     time.Now(),
-		QuestionIndex: &qIdxCopy,
+		QuestionIndex: &targetQIdx,
 		IsFollowUp:    isFollowUp,
 	})
 
 	if !isCompleted {
 		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInProgress)
+	}
+	if isDemo {
+		h.demoMu.Lock()
+		h.demoSessions[token] = aiSession
+		h.demoMu.Unlock()
 	}
 
 	// Proactively pre-synthesize speech audio into disk cache in parallel so frontend /tts arrives instantly
@@ -438,11 +481,16 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		}(aiReply)
 	}
 
+	respFollowUpCount := followUpCount
+	if !isFollowUp {
+		respFollowUpCount = 0
+	}
+
 	httpx.JSON(w, http.StatusOK, SendMessageResponse{
 		AIMessage:            aiReply,
 		IsFollowUp:           isFollowUp,
 		CurrentQuestionIndex: nextQIndex,
-		FollowUpCount:        followUpCount,
+		FollowUpCount:        respFollowUpCount,
 		IsCompleted:          isCompleted,
 		SummaryEvaluation:    summary,
 		ScorecardScore:       score,
@@ -614,6 +662,12 @@ func (h *AIInterviewHandler) ResetSession(w http.ResponseWriter, r *http.Request
 	if !isDemo {
 		httpx.Error(w, http.StatusForbidden, "only demo sessions can be reset")
 		return
+	}
+
+	if isDemo {
+		h.demoMu.Lock()
+		delete(h.demoSessions, token)
+		h.demoMu.Unlock()
 	}
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)

@@ -44,6 +44,7 @@ export interface ChatMessageItem {
 
 export type VoiceGender = 'female' | 'male';
 export const VOICE_GENDER_STORAGE_KEY = 'kulkul_ai_interview_voice_gender';
+export const SPEECH_LANGUAGE_STORAGE_KEY = 'kulkul_ai_interview_speech_lang';
 
 interface RecordedItem {
   blob: Blob;
@@ -245,11 +246,11 @@ const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float
 
   const rms = totalLen > 0 ? Math.sqrt(sumSquares / totalLen) : 0;
 
-  // Intelligent vocal gain scaling with noise gate:
-  // - Background air, fan noise, or quiet breathing has maxPeak < 0.06 or rms < 0.008. Never amplify noise!
-  // - Genuine speech that was spoken softly (maxPeak between 0.06 and 0.35, rms >= 0.008) is gently scaled to ~0.55 peak.
-  if (maxPeak >= 0.06 && maxPeak < 0.35 && rms >= 0.008) {
-    const scale = Math.min(2.5, 0.55 / maxPeak);
+  // Intelligent vocal gain scaling:
+  // - Background air/silence has maxPeak < 0.01 or rms < 0.001. Never amplify pure silence!
+  // - Genuine speech (soft-spoken or laptop mic) is scaled cleanly to ~0.60 peak with up to 6x gain boost.
+  if (maxPeak > 0.01 && maxPeak < 0.55 && rms > 0.001) {
+    const scale = Math.min(6.0, 0.60 / maxPeak);
     for (let i = 0; i < totalLen; i++) {
       merged[i] = Math.max(-1, Math.min(1, merged[i] * scale));
     }
@@ -417,7 +418,38 @@ export const InterviewPage: React.FC = () => {
     followUpCount: number;
     parentQuestionIndex: number;
   } | null>(null);
+  // Strict client-side follow-up tracker (max 2 per main question)
+  const followUpCountPerQuestionRef = useRef<Record<number, number>>({});
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
+
+  // Speech Recognition language mode: 'en-US' (default), 'en-GB' (International/Accented), 'id-ID' (Bahasa Indonesia)
+  const [speechLanguage, setSpeechLanguage] = useState<'en-US' | 'en-GB' | 'id-ID'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SPEECH_LANGUAGE_STORAGE_KEY);
+      if (saved === 'en-US' || saved === 'en-GB' || saved === 'id-ID') return saved;
+      const navLang = navigator.language?.toLowerCase() || '';
+      if (navLang.startsWith('id')) return 'id-ID';
+    }
+    return 'en-US';
+  });
+  const speechLanguageRef = useRef<'en-US' | 'en-GB' | 'id-ID'>(speechLanguage);
+  useEffect(() => {
+    speechLanguageRef.current = speechLanguage;
+  }, [speechLanguage]);
+
+  // Switch speech recognition language and persist preference
+  const handleSelectSpeechLanguage = (lang: 'en-US' | 'en-GB' | 'id-ID') => {
+    setSpeechLanguage(lang);
+    speechLanguageRef.current = lang;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SPEECH_LANGUAGE_STORAGE_KEY, lang);
+    }
+    const label = lang === 'en-US' ? 'US English' : lang === 'en-GB' ? 'International English' : 'Bahasa Indonesia';
+    toast.success(`Speech recognition set to ${label}`, {
+      icon: lang === 'en-US' ? '🇺🇸' : lang === 'en-GB' ? '🌐' : '🇮🇩',
+    });
+    restartSpeechRecognition(100);
+  };
 
   // Configurable AI Interviewer Voice (Default is Woman / 'female' -> 'luna', 'male' -> 'orion')
   const [voiceGender, setVoiceGender] = useState<VoiceGender>(() => {
@@ -658,6 +690,7 @@ export const InterviewPage: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
       setCurrentQIndex(0);
       setActiveFollowUp(null);
+      followUpCountPerQuestionRef.current = {};
       if (sessionRecorderRef.current && sessionRecorderRef.current.state !== 'inactive') {
         try {
           sessionRecorderRef.current.stop();
@@ -1785,43 +1818,55 @@ export const InterviewPage: React.FC = () => {
     // Direct Whisper Speech-to-Text Transcription:
     // Transcribes recorded audio directly using full model Whisper without altering or editing candidate words.
     const pcmChunks = [...turnPcmChunksRef.current];
-    if (pcmChunks.length > 0 && inviteToken) {
-      const energy = analyzeAudioEnergy(pcmChunks);
-      // Gating against pure ambient air noise / quiet fan / room reverberation:
-      // Genuine human speech has peak >= 0.05 and rms >= 0.007.
-      // If peak is < 0.05 or rms < 0.007, the buffer contains only air movement or silence.
-      if (energy.maxPeak >= 0.05 && energy.rms >= 0.007) {
+    if (inviteToken) {
+      const energy = pcmChunks.length > 0 ? analyzeAudioEnergy(pcmChunks) : { maxPeak: 0, rms: 0, totalSamples: 0 };
+      // Gating: Run Whisper for any audible utterance (peak >= 0.012 or rms >= 0.001)
+      const hasVoicePcm = pcmChunks.length > 0 && (energy.maxPeak >= 0.012 || energy.rms >= 0.001);
+      const hasMediaChunks = turnAudioChunksRef.current.length > 0;
+
+      if (hasVoicePcm || hasMediaChunks) {
         setIsEvaluatingAnswer(true);
         isEvaluatingAnswerRef.current = true;
 
         try {
-          const inputRate = audioContextRef.current?.sampleRate || 44100;
-          const pcm16k = downsampleTo16k(pcmChunks, inputRate);
-          if (pcm16k.length > 4000) {
-            const wavBlob = encodeWav(pcm16k, 16000);
-            const whisperPromise = aiInterviewService.transcribeAudio(inviteToken, wavBlob);
+          let audioBlobToSend: Blob | null = null;
+          if (hasVoicePcm) {
+            const inputRate = audioContextRef.current?.sampleRate || 44100;
+            const pcm16k = downsampleTo16k(pcmChunks, inputRate);
+            if (pcm16k.length >= 2000) {
+              audioBlobToSend = encodeWav(pcm16k, 16000);
+            }
+          }
+          if (!audioBlobToSend && hasMediaChunks) {
+            audioBlobToSend = new Blob(turnAudioChunksRef.current, {
+              type: turnAudioChunksRef.current[0]?.type || 'audio/webm',
+            });
+          }
+
+          if (audioBlobToSend) {
+            const whisperPromise = aiInterviewService.transcribeAudio(inviteToken, audioBlobToSend);
             const timeoutPromise = new Promise<{ text: string }>((_, reject) =>
               setTimeout(() => reject(new Error('Whisper transcription timeout')), 15000)
             );
 
-          try {
-            const res = await Promise.race([whisperPromise, timeoutPromise]);
-            if (res?.text) {
-              const directWhisper = filterWhisperSilence(res.text);
-              if (directWhisper.length >= 2) {
-                console.log('Full model Whisper direct transcript:', directWhisper);
-                textToSubmit = directWhisper;
+            try {
+              const res = await Promise.race([whisperPromise, timeoutPromise]);
+              if (res?.text) {
+                const directWhisper = filterWhisperSilence(res.text);
+                if (directWhisper.length >= 2) {
+                  console.log('Full model Whisper direct transcript:', directWhisper);
+                  textToSubmit = directWhisper;
+                }
               }
+            } catch (whisperErr) {
+              console.warn('Whisper transcription notice (using direct speech input):', whisperErr);
             }
-          } catch (whisperErr) {
-            console.warn('Whisper transcription notice (using direct speech input):', whisperErr);
           }
+        } catch (audioErr) {
+          console.warn('Audio processing for Whisper notice:', audioErr);
         }
-      } catch (audioErr) {
-        console.warn('Audio processing for Whisper notice:', audioErr);
       }
     }
-  }
 
     if (!textToSubmit || textToSubmit.length < 2) {
       if (currentQIndexRef.current >= questions.length - 1) {
@@ -1845,7 +1890,7 @@ export const InterviewPage: React.FC = () => {
     lastCandidateSpeechTimeRef.current = 0;
     consecutiveSpeechFramesRef.current = 0;
 
-    // Append candidate message to chat thread
+    // Append candidate message to chat thread with high-precision transcription
     const candMsg: ChatMessageItem = {
       id: `cand-${Date.now()}`,
       sender: 'candidate',
@@ -1866,30 +1911,18 @@ export const InterviewPage: React.FC = () => {
 
     try {
       if (!inviteToken) return;
-      const res = await aiInterviewService.sendMessage(inviteToken, textToSubmit, currentQIndexRef.current);
+      const currentFollowUps = followUpCountPerQuestionRef.current[currentQIndexRef.current] || 0;
+      const res = await aiInterviewService.sendMessage(
+        inviteToken,
+        textToSubmit,
+        currentQIndexRef.current,
+        currentFollowUps,
+      );
 
-      if (res.is_follow_up) {
-        // If candidate is on the last question and ALREADY completed a follow-up turn,
-        // finish the interview instead of indefinitely asking follow-ups!
-        if (currentQIndexRef.current >= questions.length - 1 && activeFollowUpRef.current) {
-          const closingText =
-            'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
-          const completeMsg: ChatMessageItem = {
-            id: `ai-complete-${Date.now()}`,
-            sender: 'ai',
-            text: closingText,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          };
-          await speakAndPresentAiMessage(closingText, completeMsg);
-
-          stopSpeechRecognition();
-          setUiStage('finalizing');
-          uiStageRef.current = 'finalizing';
-          setFinalizingStep('packaging');
-
-          saveInterviewMutation.mutate({ evaluation: res.summary_evaluation });
-          return;
-        }
+      // STRICT CAP: A maximum of 2 follow-ups per main question is allowed!
+      if (res.is_follow_up && currentFollowUps < 2) {
+        const nextFollowUpNum = currentFollowUps + 1;
+        followUpCountPerQuestionRef.current[currentQIndexRef.current] = nextFollowUpNum;
 
         // AI asks conversational follow-up question
         const followUpText = res.ai_message;
@@ -1902,18 +1935,18 @@ export const InterviewPage: React.FC = () => {
         };
         setActiveFollowUp({
           questionText: followUpText,
-          followUpCount: res.follow_up_count || 1,
+          followUpCount: nextFollowUpNum,
           parentQuestionIndex: currentQIndexRef.current,
         });
         activeFollowUpRef.current = {
           questionText: followUpText,
-          followUpCount: res.follow_up_count || 1,
+          followUpCount: nextFollowUpNum,
           parentQuestionIndex: currentQIndexRef.current,
         };
 
         await speakAndPresentAiMessage(followUpText, followUpMsg);
       } else {
-        // Candidate response was accepted -> advance to next question
+        // Candidate response was accepted OR max 2 follow-ups reached -> advance to next question
         setActiveFollowUp(null);
         activeFollowUpRef.current = null;
 
@@ -1946,6 +1979,7 @@ export const InterviewPage: React.FC = () => {
 
           setCurrentQIndex(nextIndex);
           currentQIndexRef.current = nextIndex;
+          followUpCountPerQuestionRef.current[nextIndex] = 0;
 
           const nextQ = questions[nextIndex];
           const transitionText = `Thank you! Moving on to Question ${nextIndex + 1}: ${nextQ.prompt}`;
@@ -2005,7 +2039,7 @@ export const InterviewPage: React.FC = () => {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      recognition.lang = speechLanguageRef.current || 'en-US';
 
       recognition.onresult = (event: any) => {
         // Acoustic Echo Isolation:
@@ -2141,6 +2175,7 @@ export const InterviewPage: React.FC = () => {
     currentQIndexRef.current = 0;
     setActiveFollowUp(null);
     activeFollowUpRef.current = null;
+    followUpCountPerQuestionRef.current = {};
     setLiveCandidateTranscript('');
 
     // 3. Start continuous speech recognition & turn audio recorder
@@ -2522,8 +2557,14 @@ export const InterviewPage: React.FC = () => {
                     </button>
                   )}
                 </div>
-                <div className="text-xs text-slate-500 font-medium">
-                  {session.applicant_name} &bull; Question {currentQIndex + 1} of {questions.length}
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                  <span>{session.applicant_name} &bull; Question {currentQIndex + 1} of {questions.length}</span>
+                  {activeFollowUp && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple font-bold text-3xs border border-purple-200">
+                      <Bot className="w-2.5 h-2.5" />
+                      Follow-up {activeFollowUp.followUpCount} of 2
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -2670,9 +2711,9 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Efficient Action Bar (Status + Done Speaking Button) */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs">
+              {/* Efficient Action Bar (Status + Language Selector + Done Speaking Button) */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs flex-wrap">
                   {isEvaluatingAnswer ? (
                     <div className="flex items-center gap-2 text-kulkul-purple font-semibold text-xs">
                       <RefreshCw className="w-4 h-4 animate-spin text-kulkul-purple" />
@@ -2703,9 +2744,61 @@ export const InterviewPage: React.FC = () => {
                       <span>{audioLevel > 24 ? 'Listening (speaking)...' : 'Speak anytime'}</span>
                     </div>
                   )}
+
+                  {activeFollowUp && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-3xs border border-purple-200 shadow-2xs">
+                      <Bot className="w-3 h-3" />
+                      <span>Follow-up {activeFollowUp.followUpCount} of 2</span>
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {/* Speech Language / Accent Mode Selector */}
+                  <div
+                    className="flex items-center bg-slate-100 p-0.5 rounded-full border border-slate-200 text-3xs font-bold"
+                    title="Select spoken language / accent for maximum transcription precision"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSpeechLanguage('en-US')}
+                      className={`px-2.5 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
+                        speechLanguage === 'en-US'
+                          ? 'bg-white text-kulkul-purple shadow-2xs font-extrabold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="US English accent"
+                    >
+                      <span>🇺🇸</span>
+                      <span className="hidden sm:inline">US</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSpeechLanguage('en-GB')}
+                      className={`px-2.5 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
+                        speechLanguage === 'en-GB'
+                          ? 'bg-white text-kulkul-purple shadow-2xs font-extrabold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="International / ESL English accent"
+                    >
+                      <span>🌐</span>
+                      <span className="hidden sm:inline">Intl</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSpeechLanguage('id-ID')}
+                      className={`px-2.5 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
+                        speechLanguage === 'id-ID'
+                          ? 'bg-white text-kulkul-purple shadow-2xs font-extrabold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Bahasa Indonesia"
+                    >
+                      <span>🇮🇩</span>
+                      <span className="hidden sm:inline">ID</span>
+                    </button>
+                  </div>
                   {currentQIndex >= questions.length - 1 ? (
                     <button
                       onClick={() => {

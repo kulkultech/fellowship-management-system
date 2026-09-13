@@ -419,13 +419,16 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 
 	// Immediate fallback if candidate provided essentially no response
 	if totalCandidateWords == 0 {
+		if followUpCount >= 2 {
+			return true, "", "Maximum follow-ups reached for this question.", nil
+		}
 		followUpQ := fmt.Sprintf("I didn't quite catch that. Could you please share your thoughts on %s?", strings.ToLower(question.Theme))
 		return false, followUpQ, "Empty candidate turn.", nil
 	}
 
 	if !e.config.Enabled() {
-		if totalCandidateWords >= 20 {
-			return true, "", "Sufficient word count and coverage.", nil
+		if totalCandidateWords >= 20 || followUpCount >= 2 {
+			return true, "", "Sufficient word count or max follow-ups reached.", nil
 		}
 		var followUpQ string
 		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
