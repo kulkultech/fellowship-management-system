@@ -498,7 +498,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                       filteredPrograms.map((prog) => (
                         <tr key={prog.id} className="hover:bg-slate-50/90 transition">
                           <td className="py-4 px-6 align-middle">
-                            <div className="flex items-center gap-3.5">
+                            <div className="flex items-center gap-3.5 h-10">
                               <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                 {prog.image_url ? (
                                    <img
@@ -510,19 +510,19 @@ export const SuperadminDashboardPage: React.FC = () => {
                                    <Layers className="w-5 h-5 text-kulkul-orange" />
                                  )}
                               </div>
-                              <div className="min-w-0">
-                                <div className="font-extrabold text-slate-900 text-sm truncate">
+                              <div className="min-w-0 flex flex-col justify-center">
+                                <div className="font-extrabold text-slate-900 text-sm truncate leading-tight">
                                   {prog.name}
                                 </div>
-                                <div className="text-2xs font-mono text-slate-400 mt-0.5">
+                                <div className="text-2xs font-mono text-slate-400 mt-0.5 leading-tight">
                                   slug: {prog.slug}
                                 </div>
                               </div>
                             </div>
                           </td>
 
-                          <td className="py-4 px-6 align-middle whitespace-nowrap text-xs text-slate-600">
-                            <div className="font-semibold text-slate-800 flex items-center gap-2">
+                          <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
+                            <div className="flex items-center gap-2 h-10 text-xs font-semibold text-slate-700">
                               <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                               <span>
                                 {new Date(prog.open_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} &ndash; {new Date(prog.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -531,21 +531,23 @@ export const SuperadminDashboardPage: React.FC = () => {
                           </td>
 
                           <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
-                              <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
-                              <span>{prog.tracks ? prog.tracks.length : '2'} Tracks</span>
-                            </span>
+                            <div className="flex items-center gap-1.5 h-10">
+                              <Layers className="w-3.5 h-3.5 text-kulkul-purple shrink-0" />
+                              <span className="text-xs font-semibold text-kulkul-purple">
+                                {prog.tracks ? prog.tracks.length : '2'} Tracks
+                              </span>
+                            </div>
                           </td>
 
                           <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                            <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700 shrink-0">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              <span>Admissions Open</span>
-                            </span>
+                            <div className="flex items-center gap-2 h-10">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                              <span className="text-xs font-semibold text-emerald-700">Admissions Open</span>
+                            </div>
                           </td>
 
                           <td className="py-4 px-6 align-middle text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2 shrink-0">
+                            <div className="flex items-center justify-end gap-2 h-10 shrink-0">
                               <Link
                                 to="/admin/dashboard"
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition text-xs font-bold shadow-2xs shrink-0"

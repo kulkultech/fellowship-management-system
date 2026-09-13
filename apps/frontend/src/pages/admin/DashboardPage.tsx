@@ -1472,7 +1472,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               }}
                             >
                               <td className="py-4 px-6 align-middle">
-                                <div className="flex items-center gap-3.5">
+                                <div className="flex items-center gap-3.5 h-10">
                                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                     {prog.image_url ? (
                                       <img
@@ -1484,19 +1484,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       <Layers className="w-5 h-5 text-kulkul-orange" />
                                     )}
                                   </div>
-                                  <div className="min-w-0">
-                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate">
+                                  <div className="min-w-0 flex flex-col justify-center">
+                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate leading-tight">
                                       {prog.name}
                                     </div>
                                     <div className="mt-0.5">
-                                      <span className="text-2xs font-mono text-slate-400">/{prog.slug}</span>
+                                      <span className="text-2xs font-mono text-slate-400 leading-tight">/{prog.slug}</span>
                                     </div>
                                   </div>
                                 </div>
                               </td>
 
-                              <td className="py-4 px-6 align-middle whitespace-nowrap text-xs text-slate-600">
-                                <div className="font-semibold text-slate-800 flex items-center gap-2">
+                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
+                                <div className="flex items-center gap-2 h-10 text-xs font-semibold text-slate-700">
                                   <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                                   <span>
                                     {new Date(prog.open_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} &ndash; {new Date(prog.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1507,29 +1507,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
                                 {(() => {
                                   const count = prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : 0);
-                                  return count > 0 ? (
-                                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
-                                      <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
-                                      <span>{count} Tracks</span>
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 text-2xs font-semibold text-slate-500">
-                                      <Layers className="w-3 h-3 text-slate-400" />
-                                      <span>General / Trackless</span>
-                                    </span>
+                                  return (
+                                    <div className="flex items-center gap-1.5 h-10">
+                                      <Layers className={`w-3.5 h-3.5 shrink-0 ${count > 0 ? 'text-kulkul-purple' : 'text-slate-400'}`} />
+                                      <span className={`text-xs font-semibold ${count > 0 ? 'text-kulkul-purple' : 'text-slate-500'}`}>
+                                        {count > 0 ? `${count} Tracks` : 'General / Trackless'}
+                                      </span>
+                                    </div>
                                   );
                                 })()}
                               </td>
 
                               <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
-                                <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700 whitespace-nowrap shrink-0">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                                  <span>Admissions Open</span>
-                                </span>
+                                <div className="flex items-center gap-2 h-10">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                  <span className="text-xs font-semibold text-emerald-700">Admissions Open</span>
+                                </div>
                               </td>
 
                               <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-end gap-2 flex-wrap">
+                                <div className="flex items-center justify-end gap-2 h-10">
                                   <button
                                     onClick={() => {
                                       setActiveProgramSlug(prog.slug);
