@@ -204,7 +204,25 @@ const encodeWav = (samples: Float32Array, sampleRate: number): Blob => {
   return new Blob([buffer], { type: 'audio/wav' });
 };
 
-// Merges Float32Array PCM chunks, applies gentle gain normalization, and resamples to target rate (16000Hz)
+// Measures peak and RMS energy to separate actual speech from air noise / room fan / silence
+const analyzeAudioEnergy = (chunks: Float32Array[]): { maxPeak: number; rms: number; totalSamples: number } => {
+  let maxPeak = 0;
+  let sumSq = 0;
+  let totalSamples = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    totalSamples += chunk.length;
+    for (let j = 0; j < chunk.length; j++) {
+      const absVal = Math.abs(chunk[j]);
+      if (absVal > maxPeak) maxPeak = absVal;
+      sumSq += absVal * absVal;
+    }
+  }
+  const rms = totalSamples > 0 ? Math.sqrt(sumSq / totalSamples) : 0;
+  return { maxPeak, rms, totalSamples };
+};
+
+// Merges Float32Array PCM chunks, applies intelligent noise-floor gating and gentle gain normalization, and resamples to 16000Hz
 const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float32Array => {
   let totalLen = 0;
   for (let i = 0; i < chunks.length; i++) {
@@ -213,20 +231,26 @@ const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float
   const merged = new Float32Array(totalLen);
   let offset = 0;
   let maxPeak = 0;
+  let sumSquares = 0;
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     for (let j = 0; j < chunk.length; j++) {
-      const absVal = Math.abs(chunk[j]);
+      const sample = chunk[j];
+      const absVal = Math.abs(sample);
       if (absVal > maxPeak) maxPeak = absVal;
+      sumSquares += sample * sample;
     }
     merged.set(chunk, offset);
     offset += chunk.length;
   }
 
-  // Gentle automatic gain boost for quiet laptop microphones
-  // If peak is quiet (< 0.25), scale up to 0.65 peak so Whisper receives a crisp, audible waveform
-  if (maxPeak > 0.01 && maxPeak < 0.25) {
-    const scale = Math.min(3.5, 0.65 / maxPeak);
+  const rms = totalLen > 0 ? Math.sqrt(sumSquares / totalLen) : 0;
+
+  // Intelligent vocal gain scaling with noise gate:
+  // - Background air, fan noise, or quiet breathing has maxPeak < 0.06 or rms < 0.008. Never amplify noise!
+  // - Genuine speech that was spoken softly (maxPeak between 0.06 and 0.35, rms >= 0.008) is gently scaled to ~0.55 peak.
+  if (maxPeak >= 0.06 && maxPeak < 0.35 && rms >= 0.008) {
+    const scale = Math.min(2.5, 0.55 / maxPeak);
     for (let i = 0; i < totalLen; i++) {
       merged[i] = Math.max(-1, Math.min(1, merged[i] * scale));
     }
@@ -258,22 +282,63 @@ const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float
   return result;
 };
 
-// Filters out silence artifacts and common low-noise Whisper hallucinations without altering speech
+// Filters out silence artifacts and common low-noise Whisper hallucinations without altering genuine speech
 const filterWhisperSilence = (rawText: string): string => {
   if (!rawText) return '';
   const cleaned = rawText.trim();
   const lower = cleaned.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+
+  // Strip out known Whisper hallucinations on silence, breathing, or air sound
+  const hallucinations = new Set([
+    'blankaudio',
+    'blank audio',
+    'silence',
+    'thank you',
+    'thank you so much',
+    'thank you very much',
+    'thanks for watching',
+    'thanks for watching please subscribe',
+    'subtitles by',
+    'subtitles created by',
+    'subtitles',
+    'amara org',
+    'amara',
+    'please subscribe',
+    'like and subscribe',
+    'bye',
+    'bye bye',
+    'goodbye',
+    'you',
+    'okay',
+    'so',
+    'yeah',
+    'yes',
+    'foreign',
+    'mbc',
+    'watching',
+    'saasaa',
+  ]);
+
+  if (!lower || hallucinations.has(lower)) {
+    return '';
+  }
+
+  // Common prefix patterns for Whisper video boilerplate hallucinations on noise
   if (
-    !lower ||
-    lower === 'blankaudio' ||
-    lower === 'blank audio' ||
-    lower === 'silence' ||
-    lower === 'thank you' ||
-    lower === 'thanks for watching' ||
-    lower === 'subtitles by'
+    lower.startsWith('subtitles by') ||
+    lower.startsWith('subtitles created by') ||
+    lower.startsWith('thanks for watching') ||
+    lower.includes('amara org') ||
+    lower.includes('please subscribe')
   ) {
     return '';
   }
+
+  // Filter bracketed or sound symbol artifacts like [music], (applause), ♪, ♫, ...
+  if (/^\[.*?\]$/.test(cleaned) || /^\(.*?\)$/.test(cleaned) || /^[♪♫\.\-\*\s]+$/.test(cleaned)) {
+    return '';
+  }
+
   return cleaned;
 };
 
@@ -957,7 +1022,7 @@ export const InterviewPage: React.FC = () => {
                 const level = Math.min(100, Math.round((avg / 128) * 100));
                 setAudioLevel(level);
 
-                if (level > 24) {
+                if (level > 32) {
                   hasSpokenInCurrentTurnRef.current = true;
                 }
 
@@ -965,14 +1030,14 @@ export const InterviewPage: React.FC = () => {
                 if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
                   const now = Date.now();
 
-                  // Reduce sensitivity to noise: require volume > 24 for at least 3 consecutive frames (~50ms) to filter out background noise/clicks
-                  if (level > 24) {
+                  // Filter out background air, fan noise, and clicks: require volume > 32 for at least 5 consecutive frames (~100ms)
+                  if (level > 32) {
                     consecutiveSpeechFramesRef.current = Math.min(20, consecutiveSpeechFramesRef.current + 1);
                   } else {
                     consecutiveSpeechFramesRef.current = Math.max(0, consecutiveSpeechFramesRef.current - 1);
                   }
 
-                  const isGenuineSpeech = consecutiveSpeechFramesRef.current >= 3;
+                  const isGenuineSpeech = consecutiveSpeechFramesRef.current >= 5;
 
                   if (isGenuineSpeech) {
                     lastCandidateSpeechTimeRef.current = now;
@@ -984,42 +1049,44 @@ export const InterviewPage: React.FC = () => {
                       setIsCandidateSpeaking(true);
                     }
 
-                    // For browsers where Web Speech API is blocked or inactive (e.g. Brave):
-                    // Periodically transcribe audio slice via English Whisper faster:
-                    // Start first slice at 800ms, then every 1200ms while candidate is speaking
+                    // ONLY for browsers where Web Speech API is blocked or unsupported (e.g. Brave or Firefox):
+                    // Periodically transcribe audio slice via English Whisper:
                     if (
-                      !speechRecognitionWorkingRef.current &&
-                      now - speechStartedTimeRef.current > 800 &&
-                      now - lastLiveChunkTranscribeTimeRef.current > 1200 &&
+                      speechRecognitionUnsupportedRef.current &&
+                      now - speechStartedTimeRef.current > 2000 &&
+                      now - lastLiveChunkTranscribeTimeRef.current > 2500 &&
                       !isTranscribingLiveChunkRef.current &&
-                      turnPcmChunksRef.current.length > 3 &&
+                      turnPcmChunksRef.current.length > 15 &&
                       inviteTokenRef.current
                     ) {
-                      lastLiveChunkTranscribeTimeRef.current = now;
-                      isTranscribingLiveChunkRef.current = true;
+                      const energy = analyzeAudioEnergy(turnPcmChunksRef.current);
+                      if (energy.maxPeak >= 0.06 && energy.rms >= 0.008) {
+                        lastLiveChunkTranscribeTimeRef.current = now;
+                        isTranscribingLiveChunkRef.current = true;
 
-                      const inputRate = audioContextRef.current?.sampleRate || 44100;
-                      const pcm16k = downsampleTo16k(turnPcmChunksRef.current, inputRate);
-                      if (pcm16k.length > 4000) {
-                        const wavBlob = encodeWav(pcm16k, 16000);
-                        aiInterviewService
-                          .transcribeAudio(inviteTokenRef.current, wavBlob)
-                          .then((res) => {
-                            if (res?.text && !speechRecognitionWorkingRef.current) {
-                              const cleaned = filterWhisperSilence(res.text);
-                              if (cleaned.length > 0) {
-                                setLiveCandidateTranscript(cleaned);
+                        const inputRate = audioContextRef.current?.sampleRate || 44100;
+                        const pcm16k = downsampleTo16k(turnPcmChunksRef.current, inputRate);
+                        if (pcm16k.length > 4000) {
+                          const wavBlob = encodeWav(pcm16k, 16000);
+                          aiInterviewService
+                            .transcribeAudio(inviteTokenRef.current, wavBlob)
+                            .then((res) => {
+                              if (res?.text && speechRecognitionUnsupportedRef.current) {
+                                const cleaned = filterWhisperSilence(res.text);
+                                if (cleaned.length > 0) {
+                                  setLiveCandidateTranscript(cleaned);
+                                }
                               }
-                            }
-                          })
-                          .catch((e) => {
-                            console.warn('Live chunk transcription notice:', e);
-                          })
-                          .finally(() => {
-                            isTranscribingLiveChunkRef.current = false;
-                          });
-                      } else {
-                        isTranscribingLiveChunkRef.current = false;
+                            })
+                            .catch((e) => {
+                              console.warn('Live chunk transcription notice:', e);
+                            })
+                            .finally(() => {
+                              isTranscribingLiveChunkRef.current = false;
+                            });
+                        } else {
+                          isTranscribingLiveChunkRef.current = false;
+                        }
                       }
                     }
                   } else {
@@ -1038,8 +1105,8 @@ export const InterviewPage: React.FC = () => {
                       speechStartedTimeRef.current = 0;
                       consecutiveSpeechFramesRef.current = 0;
 
-                      // Auto-commit turn on silence if Web Speech API didn't handle it
-                      if (!speechRecognitionWorkingRef.current && totalSpokenDuration > 1200) {
+                      // Auto-commit turn on silence only if Web Speech API is unsupported
+                      if (speechRecognitionUnsupportedRef.current && totalSpokenDuration > 2000) {
                         commitCandidateTurnRef.current();
                       }
                     }
@@ -1504,66 +1571,61 @@ export const InterviewPage: React.FC = () => {
     }
 
     // 2. Audio is not yet in client cache (e.g. dynamic follow-up):
-    // Show AI response in the transcript immediately and trigger audio with race fallback
+    // Show AI response in the transcript immediately and fetch human voice via Cloudflare Workers AI TTS
+    // with 6-second timeout to guarantee the exact same human voice (Luna/Orion) is preserved across all questions
     setChatMessages((prev) => [...prev, messageItem]);
 
     const fetchPromise = fetchTtsAudio(cleanText, speaker);
-    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 650));
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
 
     try {
       const result = await Promise.race([fetchPromise, timeoutPromise]);
-      if (result) {
-        // High-speed TTS response received! Start playing human voice immediately!
+      if (result && !isVoiceMuted) {
+        // High-fidelity human voice received! Play immediately
         if (result.buffer) {
           playAudioBuffer(result.buffer);
         } else if (result.url) {
           playAudioUrl(result.url);
         }
-      } else {
-        // Exceeded 650ms: start browser speech synthesis immediately so voice starts without waiting
-        if ('speechSynthesis' in window && !isVoiceMuted) {
-          try {
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(cleanText);
-            utter.rate = 1.05;
-            utter.pitch = 1.0;
-            const voices = window.speechSynthesis.getVoices();
-            const naturalVoice = voices.find(
-              (v) =>
-                (v.name.includes('Natural') ||
-                  v.name.includes('Samantha') ||
-                  v.name.includes('Karen') ||
-                  v.name.includes('Daniel') ||
-                  v.name.includes('Google') ||
-                  v.lang.startsWith('en')) &&
-                !v.name.includes('Compact')
-            );
-            if (naturalVoice) utter.voice = naturalVoice;
+      } else if (!isVoiceMuted && 'speechSynthesis' in window) {
+        // Emergency fallback only if Cloudflare TTS failed or timed out after 6 seconds
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(cleanText);
+          utter.rate = 1.05;
+          utter.pitch = 1.0;
+          const voices = window.speechSynthesis.getVoices();
+          const naturalVoice = voices.find(
+            (v) =>
+              (v.name.includes('Natural') ||
+                v.name.includes('Samantha') ||
+                v.name.includes('Karen') ||
+                v.name.includes('Daniel') ||
+                v.name.includes('Google') ||
+                v.lang.startsWith('en')) &&
+              !v.name.includes('Compact')
+          );
+          if (naturalVoice) utter.voice = naturalVoice;
 
-            utter.onstart = () => {
-              setIsAiSpeaking(true);
-              isAiSpeakingRef.current = true;
-            };
-            utter.onend = () => {
-              setIsAiSpeaking(false);
-              isAiSpeakingRef.current = false;
-            };
-            utter.onerror = () => {
-              setIsAiSpeaking(false);
-              isAiSpeakingRef.current = false;
-            };
-            window.speechSynthesis.speak(utter);
-          } catch {
-            fetchPromise.then((res) => {
-              if (res?.buffer) playAudioBuffer(res.buffer);
-              else if (res?.url) playAudioUrl(res.url);
-            });
-          }
-        } else {
-          fetchPromise.then((res) => {
-            if (res?.buffer) playAudioBuffer(res.buffer);
-            else if (res?.url) playAudioUrl(res.url);
-          });
+          utter.onstart = () => {
+            setIsAiSpeaking(true);
+            isAiSpeakingRef.current = true;
+          };
+          utter.onend = () => {
+            setIsAiSpeaking(false);
+            isAiSpeakingRef.current = false;
+            setLiveCandidateTranscript('');
+            restartSpeechRecognition(150);
+          };
+          utter.onerror = () => {
+            setIsAiSpeaking(false);
+            isAiSpeakingRef.current = false;
+            setLiveCandidateTranscript('');
+            restartSpeechRecognition(150);
+          };
+          window.speechSynthesis.speak(utter);
+        } catch {
+          speakAI(cleanText);
         }
       }
     } catch {
@@ -1787,18 +1849,23 @@ export const InterviewPage: React.FC = () => {
     // Transcribes recorded audio directly using full model Whisper without altering or editing candidate words.
     const pcmChunks = [...turnPcmChunksRef.current];
     if (pcmChunks.length > 0 && inviteToken) {
-      setIsEvaluatingAnswer(true);
-      isEvaluatingAnswerRef.current = true;
+      const energy = analyzeAudioEnergy(pcmChunks);
+      // Gating against pure ambient air noise / quiet fan / room reverberation:
+      // Genuine human speech has peak >= 0.05 and rms >= 0.007.
+      // If peak is < 0.05 or rms < 0.007, the buffer contains only air movement or silence.
+      if (energy.maxPeak >= 0.05 && energy.rms >= 0.007) {
+        setIsEvaluatingAnswer(true);
+        isEvaluatingAnswerRef.current = true;
 
-      try {
-        const inputRate = audioContextRef.current?.sampleRate || 44100;
-        const pcm16k = downsampleTo16k(pcmChunks, inputRate);
-        if (pcm16k.length > 4000) {
-          const wavBlob = encodeWav(pcm16k, 16000);
-          const whisperPromise = aiInterviewService.transcribeAudio(inviteToken, wavBlob);
-          const timeoutPromise = new Promise<{ text: string }>((_, reject) =>
-            setTimeout(() => reject(new Error('Whisper transcription timeout')), 15000)
-          );
+        try {
+          const inputRate = audioContextRef.current?.sampleRate || 44100;
+          const pcm16k = downsampleTo16k(pcmChunks, inputRate);
+          if (pcm16k.length > 4000) {
+            const wavBlob = encodeWav(pcm16k, 16000);
+            const whisperPromise = aiInterviewService.transcribeAudio(inviteToken, wavBlob);
+            const timeoutPromise = new Promise<{ text: string }>((_, reject) =>
+              setTimeout(() => reject(new Error('Whisper transcription timeout')), 15000)
+            );
 
           try {
             const res = await Promise.race([whisperPromise, timeoutPromise]);
@@ -1817,6 +1884,7 @@ export const InterviewPage: React.FC = () => {
         console.warn('Audio processing for Whisper notice:', audioErr);
       }
     }
+  }
 
     if (!textToSubmit || textToSubmit.length < 2) {
       if (currentQIndexRef.current >= questions.length - 1) {
@@ -1981,7 +2049,10 @@ export const InterviewPage: React.FC = () => {
       if (uiStageRef.current !== 'interview') return;
 
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) return;
+      if (!SpeechRecognition) {
+        speechRecognitionUnsupportedRef.current = true;
+        return;
+      }
 
       // Clean up previous instance cleanly
       if (speechRecognitionRef.current) {
@@ -2013,7 +2084,21 @@ export const InterviewPage: React.FC = () => {
         }
         const text = transcript.trim();
 
-        if (text.length > 0) {
+        // Filter out transient air puff / breath noise phonetics ("ah", "uh", "um", "huh")
+        const lower = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+        const isBreathOrNoise =
+          !lower ||
+          lower === 'a' ||
+          lower === 'ah' ||
+          lower === 'uh' ||
+          lower === 'um' ||
+          lower === 'huh' ||
+          lower === 'oh' ||
+          lower === 'sh' ||
+          lower === 'p' ||
+          lower === 'h';
+
+        if (text.length >= 2 && !isBreathOrNoise) {
           speechRecognitionWorkingRef.current = true;
 
           // Stream live candidate transcript to active chat bubble

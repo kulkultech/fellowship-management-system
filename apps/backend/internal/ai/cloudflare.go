@@ -757,14 +757,74 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 	}
 
 	text := strings.TrimSpace(cfResp.Result.Text)
-	lower := strings.ToLower(text)
-	if lower == "[blank_audio]" || lower == "thank you." || lower == "thank you" || lower == "thanks for watching." || lower == "thanks for watching" || lower == "saasaa." || lower == "saasaa" {
+	if IsWhisperSilenceOrHallucination(text) {
 		return "", nil
 	}
 
 	// Apply technical ASR phonetic normalization for high accuracy
 	cleaned := e.CleanTechnicalASR(ctx, text)
 	return cleaned, nil
+}
+
+// IsWhisperSilenceOrHallucination detects common Whisper hallucinations on low-volume noise, air movement, or silence.
+func IsWhisperSilenceOrHallucination(rawText string) bool {
+	trimmed := strings.TrimSpace(rawText)
+	if trimmed == "" {
+		return true
+	}
+
+	// Remove punctuation and special symbols for clean matching
+	reg := regexp.MustCompile(`[^a-zA-Z0-9\s]`)
+	clean := strings.ToLower(reg.ReplaceAllString(trimmed, " "))
+	clean = strings.Join(strings.Fields(clean), " ")
+
+	switch clean {
+	case "",
+		"blank audio",
+		"silence",
+		"thank you",
+		"thank you very much",
+		"thank you so much",
+		"thanks for watching",
+		"thanks for watching please subscribe",
+		"subtitles by",
+		"subtitles created by",
+		"subtitles",
+		"amara org",
+		"amara",
+		"please subscribe",
+		"like and subscribe",
+		"bye",
+		"bye bye",
+		"goodbye",
+		"you",
+		"okay",
+		"so",
+		"yeah",
+		"yes",
+		"foreign",
+		"mbc",
+		"watching",
+		"saasaa":
+		return true
+	}
+
+	// Match common prefix patterns for Whisper silence/noise hallucinations
+	if strings.HasPrefix(clean, "subtitles by") ||
+		strings.HasPrefix(clean, "subtitles created by") ||
+		strings.HasPrefix(clean, "thanks for watching") ||
+		strings.Contains(clean, "amara org") ||
+		strings.Contains(clean, "please subscribe") {
+		return true
+	}
+
+	// Match bracketed/parenthetical audio tags like [music], (applause), [laughter], [silence]
+	if (strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) ||
+		(strings.HasPrefix(trimmed, "(") && strings.HasSuffix(trimmed, ")")) {
+		return true
+	}
+
+	return false
 }
 
 // CleanTechnicalASR normalizes common phonetic speech-to-text mishearings and technical term typos.

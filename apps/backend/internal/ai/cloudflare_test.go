@@ -190,3 +190,39 @@ func TestCloudflareEvaluator_CleanTechnicalASR(t *testing.T) {
 		t.Errorf("expected 'Kubernetes', got %s", cleaned)
 	}
 }
+
+func TestIsWhisperSilenceOrHallucination(t *testing.T) {
+	hallucinations := []string{
+		"",
+		"   ",
+		"Thank you.",
+		"thank you so much",
+		"Thanks for watching!",
+		"[BLANK_AUDIO]",
+		"subtitles by Amara.org",
+		"Please subscribe",
+		"bye bye",
+		"you",
+		"[music]",
+		"(cheering)",
+	}
+
+	for _, h := range hallucinations {
+		if !ai.IsWhisperSilenceOrHallucination(h) {
+			t.Errorf("expected '%s' to be detected as hallucination, but was not", h)
+		}
+	}
+
+	validSpeech := []string{
+		"I have three years of experience with Go and React.",
+		"My primary focus is distributed systems and microservices.",
+		"I optimized our PostgreSQL queries by adding composite indices.",
+	}
+
+	for _, v := range validSpeech {
+		if ai.IsWhisperSilenceOrHallucination(v) {
+			t.Errorf("expected '%s' to NOT be detected as hallucination, but it was", v)
+		}
+	}
+}
+
