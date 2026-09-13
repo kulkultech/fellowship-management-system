@@ -762,8 +762,9 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 		return "", nil
 	}
 
-	// Return Whisper's direct authentic transcription without altering candidate speech
-	return text, nil
+	// Apply technical ASR phonetic normalization for high accuracy
+	cleaned := e.CleanTechnicalASR(ctx, text)
+	return cleaned, nil
 }
 
 // CleanTechnicalASR normalizes common phonetic speech-to-text mishearings and technical term typos.
@@ -773,7 +774,7 @@ func (e *CloudflareEvaluator) CleanTechnicalASR(ctx context.Context, rawText str
 		return rawText
 	}
 
-	// 1. Fast regex dictionary normalization for common tech terms
+	// 1. Fast regex dictionary normalization for common tech terms and phonetic variations
 	replacements := []struct {
 		re  *regexp.Regexp
 		rep string
@@ -782,16 +783,16 @@ func (e *CloudflareEvaluator) CleanTechnicalASR(ctx context.Context, rawText str
 		{regexp.MustCompile(`(?i)\b(back end)\b`), "backend"},
 		{regexp.MustCompile(`(?i)\b(front end)\b`), "frontend"},
 		{regexp.MustCompile(`(?i)\b(darker|doc ker)\b`), "Docker"},
-		{regexp.MustCompile(`(?i)\b(post grease sql|post grease|postgre sql|postgre)\b`), "PostgreSQL"},
+		{regexp.MustCompile(`(?i)\b(post grease sql|post grease|postgre sql|postgre|postgres sql)\b`), "PostgreSQL"},
 		{regexp.MustCompile(`(?i)\b(coober netees|coobernetes|kuber netes)\b`), "Kubernetes"},
-		{regexp.MustCompile(`(?i)\b(fast epi)\b`), "FastAPI"},
+		{regexp.MustCompile(`(?i)\b(fast epi|fast api)\b`), "FastAPI"},
 		{regexp.MustCompile(`(?i)\b(type script)\b`), "TypeScript"},
 		{regexp.MustCompile(`(?i)\b(java script)\b`), "JavaScript"},
 		{regexp.MustCompile(`(?i)\b(see eye see dee)\b`), "CI/CD"},
 		{regexp.MustCompile(`(?i)\b(git hub)\b`), "GitHub"},
 		{regexp.MustCompile(`(?i)\b(git lab)\b`), "GitLab"},
-		{regexp.MustCompile(`(?i)\b(go lang)\b`), "Golang"},
-		{regexp.MustCompile(`(?i)\b(rest epi)\b`), "REST API"},
+		{regexp.MustCompile(`(?i)\b(go lang|go-lang)\b`), "Golang"},
+		{regexp.MustCompile(`(?i)\b(rest epi|rest api|rest full)\b`), "REST API"},
 		{regexp.MustCompile(`(?i)\b(graph ql|graf ql)\b`), "GraphQL"},
 		{regexp.MustCompile(`(?i)\b(mongo db)\b`), "MongoDB"},
 		{regexp.MustCompile(`(?i)\b(read is)\b`), "Redis"},
@@ -799,11 +800,14 @@ func (e *CloudflareEvaluator) CleanTechnicalASR(ctx context.Context, rawText str
 		{regexp.MustCompile(`(?i)\b(node js|nodejs)\b`), "Node.js"},
 		{regexp.MustCompile(`(?i)\b(view js|vue js|vuejs)\b`), "Vue.js"},
 		{regexp.MustCompile(`(?i)\b(my sequel|my sql)\b`), "MySQL"},
-		{regexp.MustCompile(`(?i)\b(sequel light|sql lite)\b`), "SQLite"},
+		{regexp.MustCompile(`(?i)\b(sequel light|sql lite|sq light)\b`), "SQLite"},
 		{regexp.MustCompile(`(?i)\b(micro services)\b`), "microservices"},
 		{regexp.MustCompile(`(?i)\b(g r p c)\b`), "gRPC"},
 		{regexp.MustCompile(`(?i)\b(engine x)\b`), "Nginx"},
 		{regexp.MustCompile(`(?i)\b(rabbit m q)\b`), "RabbitMQ"},
+		{regexp.MustCompile(`(?i)\b(tail wind|tailwind css)\b`), "Tailwind CSS"},
+		{regexp.MustCompile(`(?i)\b(kul kul|cool cool)\b`), "Kulkul"},
+		{regexp.MustCompile(`(?i)\b(fellow ship)\b`), "fellowship"},
 	}
 
 	normalized := trimmed

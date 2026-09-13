@@ -204,7 +204,7 @@ const encodeWav = (samples: Float32Array, sampleRate: number): Blob => {
   return new Blob([buffer], { type: 'audio/wav' });
 };
 
-// Merges Float32Array PCM chunks and resamples to target rate (16000Hz)
+// Merges Float32Array PCM chunks, applies gentle gain normalization, and resamples to target rate (16000Hz)
 const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float32Array => {
   let totalLen = 0;
   for (let i = 0; i < chunks.length; i++) {
@@ -212,9 +212,24 @@ const downsampleTo16k = (chunks: Float32Array[], inputSampleRate: number): Float
   }
   const merged = new Float32Array(totalLen);
   let offset = 0;
+  let maxPeak = 0;
   for (let i = 0; i < chunks.length; i++) {
-    merged.set(chunks[i], offset);
-    offset += chunks[i].length;
+    const chunk = chunks[i];
+    for (let j = 0; j < chunk.length; j++) {
+      const absVal = Math.abs(chunk[j]);
+      if (absVal > maxPeak) maxPeak = absVal;
+    }
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // Gentle automatic gain boost for quiet laptop microphones
+  // If peak is quiet (< 0.25), scale up to 0.65 peak so Whisper receives a crisp, audible waveform
+  if (maxPeak > 0.01 && maxPeak < 0.25) {
+    const scale = Math.min(3.5, 0.65 / maxPeak);
+    for (let i = 0; i < totalLen; i++) {
+      merged[i] = Math.max(-1, Math.min(1, merged[i] * scale));
+    }
   }
 
   if (inputSampleRate === 16000 || totalLen === 0) {
@@ -886,7 +901,8 @@ export const InterviewPage: React.FC = () => {
                 ) {
                   const input = e.inputBuffer.getChannelData(0);
                   turnPcmChunksRef.current.push(new Float32Array(input));
-                  const maxChunks = Math.ceil((30 * audioCtx.sampleRate) / 4096);
+                  // Retain up to 180 seconds (3 full minutes) of candidate speech so long answers are never truncated
+                  const maxChunks = Math.ceil((180 * audioCtx.sampleRate) / 4096);
                   if (turnPcmChunksRef.current.length > maxChunks) {
                     turnPcmChunksRef.current.splice(0, turnPcmChunksRef.current.length - maxChunks);
                   }
@@ -943,12 +959,6 @@ export const InterviewPage: React.FC = () => {
 
                 if (level > 24) {
                   hasSpokenInCurrentTurnRef.current = true;
-                }
-
-                // Vocal Volume Barge-in: If candidate speaks clearly while AI is talking, immediately silence AI!
-                // Using level > 42 to prevent ambient room noise / keyboard clicks from falsely cutting off the AI
-                if (level > 42 && isAiSpeakingRef.current) {
-                  stopSpeechRef.current();
                 }
 
                 // Voice Activity Detection & Adaptive Whisper Turn-taking in Interview Chamber
@@ -1014,12 +1024,12 @@ export const InterviewPage: React.FC = () => {
                     }
                   } else {
                     // Candidate is currently silent
-                    // Give candidate 4.2 seconds of natural silence breathing room before auto-committing,
+                    // Give candidate 5.0 seconds of natural silence breathing room before auto-committing,
                     // so pauses to think or formulate sentences do not prematurely submit the turn.
                     if (
                       isCandidateSpeakingRef.current &&
                       lastCandidateSpeechTimeRef.current > 0 &&
-                      now - lastCandidateSpeechTimeRef.current > 4200
+                      now - lastCandidateSpeechTimeRef.current > 5000
                     ) {
                       const totalSpokenDuration = now - speechStartedTimeRef.current;
                       isCandidateSpeakingRef.current = false;
@@ -1260,6 +1270,8 @@ export const InterviewPage: React.FC = () => {
     lastCandidateSpeechTimeRef.current = 0;
     isCandidateSpeakingRef.current = false;
     setIsCandidateSpeaking(false);
+    setLiveCandidateTranscript('');
+    restartSpeechRecognition(150);
   };
   stopSpeechRef.current = stopSpeech;
 
@@ -1291,6 +1303,7 @@ export const InterviewPage: React.FC = () => {
         isCandidateSpeakingRef.current = false;
         setIsCandidateSpeaking(false);
         setLiveCandidateTranscript('');
+        restartSpeechRecognition(150);
       };
 
       setIsAiSpeaking(true);
@@ -1329,6 +1342,7 @@ export const InterviewPage: React.FC = () => {
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
       setLiveCandidateTranscript('');
+      restartSpeechRecognition(150);
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
@@ -1783,7 +1797,7 @@ export const InterviewPage: React.FC = () => {
           const wavBlob = encodeWav(pcm16k, 16000);
           const whisperPromise = aiInterviewService.transcribeAudio(inviteToken, wavBlob);
           const timeoutPromise = new Promise<{ text: string }>((_, reject) =>
-            setTimeout(() => reject(new Error('Whisper transcription timeout')), 4000)
+            setTimeout(() => reject(new Error('Whisper transcription timeout')), 15000)
           );
 
           try {
@@ -1986,6 +2000,13 @@ export const InterviewPage: React.FC = () => {
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: any) => {
+        // Acoustic Echo Isolation:
+        // When AI is speaking via laptop speakers or evaluating an answer, ignore microphone pickup
+        // to prevent the AI's own audio from cutting off questions or polluting candidate transcripts.
+        if (isAiSpeakingRef.current || isEvaluatingAnswerRef.current) {
+          return;
+        }
+
         let transcript = '';
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript + ' ';
@@ -1995,27 +2016,21 @@ export const InterviewPage: React.FC = () => {
         if (text.length > 0) {
           speechRecognitionWorkingRef.current = true;
 
-          // 1. Instant Speech Barge-in (Interruption):
-          // If AI is currently speaking, silence AI immediately!
-          if (isAiSpeakingRef.current) {
-            stopSpeech();
-          }
-
-          // 2. Stream live candidate transcript to active chat bubble
+          // Stream live candidate transcript to active chat bubble
           setLiveCandidateTranscript(text);
 
-          // 3. Reset silence debounce timer
+          // Reset silence debounce timer
           if (silenceTimeoutRef.current) {
             clearTimeout(silenceTimeoutRef.current);
           }
 
-          // 4. Auto-commit turn after natural conversational silence pause
+          // Auto-commit turn after natural conversational silence pause
           if (text.length >= 6 && !isEvaluatingAnswerRef.current) {
             // Adaptive silence debounce:
-            // - For brief opening fragments (< 10 words), give 5.5 seconds so candidate has time to think without being cut off mid-thought!
-            // - For substantive responses (>= 10 words), use a comfortable 4.5 seconds silence pause.
+            // - For brief opening fragments (< 10 words), give 6.0 seconds so candidate has time to think without being cut off mid-thought!
+            // - For substantive responses (>= 10 words), use a comfortable 5.0 seconds silence pause.
             const wordCount = text.split(/\s+/).filter(Boolean).length;
-            const debounceMs = wordCount < 10 ? 5500 : 4500;
+            const debounceMs = wordCount < 10 ? 6000 : 5000;
 
             silenceTimeoutRef.current = setTimeout(() => {
               commitCandidateTurn(text);
@@ -2903,7 +2918,12 @@ export const InterviewPage: React.FC = () => {
               {/* Efficient Action Bar (Status + Done Speaking Button) */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-xs">
-                  {isAiSpeaking ? (
+                  {isEvaluatingAnswer ? (
+                    <div className="flex items-center gap-2 text-kulkul-purple font-semibold text-xs">
+                      <RefreshCw className="w-4 h-4 animate-spin text-kulkul-purple" />
+                      <span>Transcribing answer with Whisper AI...</span>
+                    </div>
+                  ) : isAiSpeaking ? (
                     <div className="flex items-center gap-2">
                       <span className="flex items-center gap-1 text-kulkul-purple font-semibold text-xs">
                         <Bot className="w-4 h-4" />
