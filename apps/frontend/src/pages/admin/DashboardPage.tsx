@@ -22,7 +22,6 @@ import type {
 } from '@/services/types';
 import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
 import { EditProfileModal } from '@/components/EditProfileModal';
-import { SuperadminCompanySwitcher } from '@/components/SuperadminCompanySwitcher';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -1506,39 +1505,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       }}
       headerActions={headerActions}
     >
-        {/* Superadmin Impersonation Banner */}
-        {impersonatedOrgId && (
-          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-3 w-3 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <div>
-                <p className="text-xs font-black text-amber-900 uppercase tracking-wider">
-                  Superadmin Impersonation Mode
-                </p>
-                <p className="text-xs text-amber-800">
-                  Managing workspace for <strong>{orgProfile?.name || 'Company Workspace'}</strong> ({orgSlug}). All actions are performed with administrator access for this organization.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <SuperadminCompanySwitcher
-                variant="banner"
-                activeOrgId={impersonatedOrgId}
-                activeOrgName={orgProfile?.name}
-                activeOrgSlug={orgSlug}
-              />
-              <button
-                onClick={() => navigate('/superadmin/dashboard')}
-                className="px-4 py-1.5 rounded-full bg-white text-slate-700 hover:text-slate-900 border border-amber-300 text-xs font-bold shadow-2xs hover:bg-amber-50 transition cursor-pointer"
-              >
-                Exit to Superadmin Console
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ================================================================================= */}
         {/* VIEW 0: ALL PROGRAMS TABULAR DIRECTORY */}
