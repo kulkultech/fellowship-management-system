@@ -249,3 +249,34 @@ func TestCloudflareEvaluator_AssessAnswerAndGenerateFollowUp_CandidateName(t *te
 	}
 }
 
+func TestCloudflareEvaluator_LiveFollowUp(t *testing.T) {
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	apiKey := os.Getenv("CLOUDFLARE_API_KEY")
+	if accountID == "" || apiKey == "" {
+		t.Skip("Skipping live Cloudflare test: accountID or apiKey not set")
+	}
+	cfg := config.CloudflareConfig{
+		AccountID: accountID,
+		APIKey:    apiKey,
+	}
+	evaluator := ai.NewCloudflareEvaluator(cfg, slog.Default())
+	q := model.DefaultAIInterviewRubric().Questions[1]
+	conv := []model.ChatMessage{
+		{
+			Role:    "candidate",
+			Message: "I had to learn Docker for a project. I read the official documentation and tried building containers on my laptop until it worked.",
+		},
+	}
+	isSufficient, followUp, feedback, err := evaluator.AssessAnswerAndGenerateFollowUp(context.Background(), q, conv, 0, "Ragil")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if isSufficient {
+		t.Errorf("expected isSufficient = false for brief initial turn, got true")
+	}
+	if followUp == "" {
+		t.Errorf("expected non-empty followUp question")
+	}
+	t.Logf("Result: isSufficient=%v, followUp=%q, feedback=%q", isSufficient, followUp, feedback)
+}
+

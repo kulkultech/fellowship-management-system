@@ -445,14 +445,14 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 	}
 
 	if !e.config.Enabled() {
-		if totalCandidateWords >= 20 || followUpCount >= 2 {
-			return true, "", "Sufficient word count or max follow-ups reached.", nil
+		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
+			return true, "", "Sufficient depth or max follow-ups reached.", nil
 		}
 		var followUpQ string
 		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-			followUpQ = fmt.Sprintf("Nice to meet you, %s! Could you tell me a little more about your background in software engineering and what you hope to achieve during the fellowship?", displayName)
+			followUpQ = fmt.Sprintf("Nice to meet you, %s! Could you tell me a little more about your background in software engineering, and what specific areas or skills you hope to achieve during the fellowship?", displayName)
 		} else {
-			followUpQ = fmt.Sprintf("Thank you, %s! Could you elaborate further on how you approached %s, and what specific steps or outcomes were involved?", displayName, strings.ToLower(question.Theme))
+			followUpQ = fmt.Sprintf("Thank you, %s! Could you elaborate further on how you approached %s, and what specific technical challenges or trade-offs were involved?", displayName, strings.ToLower(question.Theme))
 		}
 		return false, followUpQ, "Answer could use more concrete detail.", nil
 	}
@@ -464,7 +464,7 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 
 	systemPrompt := fmt.Sprintf(`You are an encouraging, natural, and human admissions interviewer for a software engineering talent fellowship.
 You are actively listening to the candidate.
-Your task: Determine if the candidate's answer is SUFFICIENT for the current interview question and its criteria, or if it needs a FOLLOW-UP QUESTION.
+Your task: Evaluate the candidate's answer and determine if it is SUFFICIENT or if you should ask an interactive FOLLOW-UP QUESTION.
 
 CANDIDATE INFORMATION:
 - The candidate's registered name is: %s
@@ -478,16 +478,8 @@ CRITICAL LANGUAGE REQUIREMENT:
 
 TECHNICAL DOMAIN & VOCABULARY KNOWLEDGE:
 - This is a technical interview for a Software Engineering Fellowship. Candidates will discuss software engineering, web development, cloud computing, systems architecture, and computer science concepts.
-- Broad Technical Vocabulary: Recognize standard software tools, frameworks, and technologies without confusion. Common terms include:
-  * Languages: Go/Golang, TypeScript, JavaScript, Python, Java, Rust, C++, C#, Kotlin, Swift, Dart.
-  * Web & Backend: React, Next.js, Node.js, Express, NestJS, Vue, Angular, Gin, Chi, Echo, Fiber, Django, FastAPI, Spring Boot.
-  * Databases & Caching: PostgreSQL, MySQL, Redis, MongoDB, Cassandra, DynamoDB, Elasticsearch, Kafka, RabbitMQ, SQLite, GORM, Prisma.
-  * Cloud & DevOps: Docker, Kubernetes, AWS (EC2, S3, RDS, Lambda), GCP, Azure, Nginx, CI/CD, GitHub Actions, GitLab CI, Terraform, Linux.
-  * Architecture & Concepts: Microservices, Monorepo, REST API, GraphQL, gRPC, WebSockets, WebRTC, Event-Driven Architecture, Pub/Sub, Concurrency, Goroutines, Channels, Mutex, ACID, CAP Theorem, JWT, OAuth, Caching, Indexing, Load Balancing.
-  * Testing & Methodologies: Unit Testing, Integration Testing, E2E Testing, TDD, Agile, Scrum, Code Review, Git.
-- DO NOT OVERGUESS: Do NOT assume or hallucinate that the candidate is missing details or answering vaguely simply because they used concise technical terminology (e.g. "I used Docker and PostgreSQL with GORM" or "We implemented Redis caching with JWT auth").
-- If the candidate's answer covers the question's core criteria with valid engineering terminology, treat it as SUFFICIENT ("is_sufficient": true).
-- Never ask a follow-up asking for definitions of basic terms the candidate already used properly.
+- Broad Technical Vocabulary: Recognize standard software tools, frameworks, and technologies without confusion (e.g. Go, TypeScript, Python, React, Next.js, Docker, Kubernetes, PostgreSQL, Redis, Kafka, REST, gRPC, CI/CD).
+- DO NOT OVERGUESS: Do not ask candidates for textbook definitions of tools they already mentioned. Instead, ask about their practical implementation, architecture choices, trade-offs, or problem-solving.
 
 CURRENT QUESTION FOCUS:
 Theme: %s
@@ -496,19 +488,26 @@ Primary Question: "%s"
 EVALUATION CRITERIA:
 %s
 
-Crucial Decision Guidelines:
-1. Candidate Sufficiency:
-   - If the candidate provided a coherent, meaningful answer addressing the primary question and core criteria, set "is_sufficient": true, "follow_up": "".
+CURRENT CONVERSATION STAGE:
+- Follow-ups already asked for this question: %d of 2 allowed.
+
+CRUCIAL DECISION GUIDELINES:
+1. Conversational Fellowship Interview:
+   - An interview is an interactive dialogue. Each main question should probe the candidate with at least 1 follow-up question so they can showcase depth, engineering thought process, and practical trade-offs.
+   - If follow-up count is 0:
+     * Unless the candidate provided an extraordinarily complete, comprehensive answer covering all criteria with concrete project examples and outcomes (> 75 words), set "is_sufficient": false.
+     * Ask a thoughtful follow-up in English exploring specific details, challenges faced, technical trade-offs, or outcomes related to what they just shared.
+   - If follow-up count is 1:
+     * If the candidate has elaborated and provided a solid, coherent answer, set "is_sufficient": true, "follow_up": "".
+     * If their explanation is still brief or missing key aspects, set "is_sufficient": false and ask one final follow-up.
+   - If follow-up count is 2:
+     * Maximum follow-ups reached. Set "is_sufficient": true, "follow_up": "".
+2. Candidate Fairness:
    - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
-2. Incomplete / Brief Answers:
-   - If the candidate only provided a brief introduction, greeting, or fewer than 18 words, this does NOT answer the question's criteria.
-   - You MUST set "is_sufficient": false.
-   - Generate a warm, personalized follow-up in English addressing %s:
-     Example: "Nice to meet you, %s! Could you tell me more about your background in software engineering, and what sparked your interest in this fellowship?"
 3. Natural Conversational Style:
-   - The follow-up question will be SPOKEN directly to the candidate using neural voice. Keep it warm, engaging, and brief (1-2 sentences maximum) in clear English.
+   - Address %s by name. Keep the follow-up warm, concise (1-2 sentences), and in clear English.
 4. Output format: Return ONLY valid JSON in English: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
-		displayName, displayName, question.Theme, question.Question, criteriaList.String(), displayName, displayName)
+		displayName, displayName, question.Theme, question.Question, criteriaList.String(), followUpCount, displayName)
 
 	// Clean, isolated background conversation strictly scoped to the current question
 	messages := []cloudflareMessage{
@@ -580,14 +579,14 @@ Crucial Decision Guidelines:
 	resp, err := e.client.Do(httpReq)
 	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		e.logger.Warn("Cloudflare follow-up check failed, using heuristic fallback", slog.Any("error", err))
-		if totalCandidateWords >= 20 {
-			return true, "", "Heuristic fallback: sufficient words.", nil
+		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
+			return true, "", "Heuristic fallback: sufficient depth or max follow-ups reached.", nil
 		}
 		var followUpQ string
 		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
 			followUpQ = fmt.Sprintf("Nice to meet you, %s! Could you tell me a little more about your background in software development and what you hope to achieve during the fellowship?", displayName)
 		} else {
-			followUpQ = fmt.Sprintf("Thank you, %s! Could you give me a concrete example or share more details about your approach to %s?", displayName, strings.ToLower(question.Theme))
+			followUpQ = fmt.Sprintf("Thank you, %s! Could you give me a concrete example or share more details about your technical approach to %s?", displayName, strings.ToLower(question.Theme))
 		}
 		return false, followUpQ, "Heuristic fallback follow-up", nil
 	}
@@ -595,10 +594,10 @@ Crucial Decision Guidelines:
 
 	var cfResp cloudflareChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
-		if totalCandidateWords < 20 {
-			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "Decode error fallback", nil
+		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
+			return true, "", "decode error fallback: sufficient depth", nil
 		}
-		return true, "", "decode error", nil
+		return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "Decode error fallback", nil
 	}
 
 	aiText := extractCloudflareResultText(cfResp.Result)
@@ -614,21 +613,27 @@ Crucial Decision Guidelines:
 
 	if err := json.Unmarshal([]byte(cleanText), &result); err != nil {
 		e.logger.Warn("Could not parse follow-up JSON, checking word count", slog.String("text", aiText))
-		if totalCandidateWords < 20 {
-			return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "JSON parse fallback", nil
+		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
+			return true, "", "JSON parse fallback: sufficient depth", nil
 		}
-		return true, "", "JSON parse fallback", nil
+		return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "JSON parse fallback", nil
 	}
 
-	// Safety check: If answer is fewer than 15 words, enforce is_sufficient = false
-	if totalCandidateWords < 15 {
+	// Safety check: On the first turn (followUpCount == 0), if response is under 60 words,
+	// guarantee a conversational follow-up question is asked to explore technical depth.
+	if followUpCount == 0 && totalCandidateWords < 60 {
 		result.IsSufficient = false
 		if strings.TrimSpace(result.FollowUp) == "" {
 			if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-				result.FollowUp = fmt.Sprintf("Nice to meet you, %s! Could you share a bit about your background in software development and what sparked your interest in joining this fellowship?", displayName)
+				result.FollowUp = fmt.Sprintf("Nice to meet you, %s! Could you share a bit more about your background in software engineering, and what sparked your interest in joining this fellowship?", displayName)
 			} else {
-				result.FollowUp = fmt.Sprintf("Thank you, %s! Could you tell me a little more about your approach to %s?", displayName, strings.ToLower(question.Theme))
+				result.FollowUp = fmt.Sprintf("Thank you, %s! Could you tell me a little more about your approach to %s, and what specific steps or outcomes were involved?", displayName, strings.ToLower(question.Theme))
 			}
+		}
+	} else if totalCandidateWords < 15 {
+		result.IsSufficient = false
+		if strings.TrimSpace(result.FollowUp) == "" {
+			result.FollowUp = fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName)
 		}
 	}
 
