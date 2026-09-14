@@ -36,6 +36,7 @@ import {
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
 import { TECH_VOCABULARY_TERMS, normalizeTechVocabulary } from '@/utils/techVocabulary';
+import { patchWebmDuration } from '@/utils/patchWebmDuration';
 
 export interface ChatMessageItem {
   id: string;
@@ -394,6 +395,7 @@ export const InterviewPage: React.FC = () => {
   // Question & Interview Flow
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const recordingSecondsRef = useRef(0);
   const speechRecognitionRef = useRef<any>(null);
   const recognitionRestartTimeoutRef = useRef<any>(null);
   const startSpeechRecognitionRef = useRef<() => void>(() => {});
@@ -408,7 +410,11 @@ export const InterviewPage: React.FC = () => {
     let timer: any = null;
     if (uiStage === 'interview') {
       timer = setInterval(() => {
-        setRecordingSeconds((s) => s + 1);
+        setRecordingSeconds((s) => {
+          const next = s + 1;
+          recordingSecondsRef.current = next;
+          return next;
+        });
       }, 1000);
     }
     return () => {
@@ -1790,6 +1796,16 @@ export const InterviewPage: React.FC = () => {
       // If still empty (e.g. headless or permissions blocked), provide minimal valid fallback container
       if (!finalBlob || finalBlob.size === 0) {
         finalBlob = new Blob([new Uint8Array(2048)], { type: 'video/webm' });
+      }
+
+      // Patch WebM Duration metadata to resolve NaN/Infinity duration and restore full seekability
+      const durationMs = Math.max(1000, (recordingSecondsRef.current || recordingSeconds) * 1000);
+      if (finalBlob && finalBlob.size > 0) {
+        try {
+          finalBlob = await patchWebmDuration(finalBlob, durationMs);
+        } catch (patchErr) {
+          console.warn('patchWebmDuration failed, proceeding with unpatched blob:', patchErr);
+        }
       }
 
       const sizeMB = parseFloat((finalBlob.size / (1024 * 1024)).toFixed(1));
@@ -3633,6 +3649,17 @@ export const InterviewPage: React.FC = () => {
                     src={finalVideoUrl || questionRecordings[0]?.url}
                     controls
                     playsInline
+                    preload="metadata"
+                    onLoadedMetadata={(e) => {
+                      const vid = e.currentTarget;
+                      if (vid.duration === Infinity || isNaN(vid.duration)) {
+                        vid.currentTime = 1e101;
+                        vid.ontimeupdate = function () {
+                          this.ontimeupdate = null;
+                          vid.currentTime = 0;
+                        };
+                      }
+                    }}
                     className="w-full h-full object-contain"
                   />
                 ) : (

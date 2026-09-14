@@ -96,3 +96,7 @@ func (s *LocalStorage) GetURL(key string) string {
 func (s *LocalStorage) PresignUpload(_ context.Context, _ string, _ string, _ time.Duration) (*PresignedUpload, error) {
 	return nil, ErrPresignNotSupported
 }
+
+func (s *LocalStorage) PresignDownload(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", ErrPresignNotSupported
+}

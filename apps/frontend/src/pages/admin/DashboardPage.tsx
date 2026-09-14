@@ -23,6 +23,7 @@ import type {
 } from '@/services/types';
 import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
 import { EditProfileModal } from '@/components/EditProfileModal';
+import { AssessmentVideoPlayer } from '@/components/AssessmentVideoPlayer';
 import {
   CandidateTableCustomizer,
   getAllAvailableColumns,
@@ -4323,44 +4324,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         </div>
 
                         {applicantDetail.ai_screen.recording_url ? (
-                          <div className="space-y-3">
-                            <div className="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 relative group">
-                              <video
-                                src={resolveMediaUrl(applicantDetail.ai_screen.recording_url)}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                className="w-full h-full object-contain"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between text-2xs text-slate-400 pt-1 flex-wrap gap-2">
-                              <span className="flex items-center gap-1.5 text-slate-400">
-                                <Video className="w-3.5 h-3.5 text-purple-400" />
-                                <span>HTML5 Range-Streamed Assessment Video</span>
-                              </span>
-                              <div className="flex items-center gap-3">
-                                <a
-                                  href={resolveMediaUrl(applicantDetail.ai_screen.recording_url)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white font-semibold transition"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                  <span>Open in New Tab</span>
-                                </a>
-                                <a
-                                  href={resolveMediaUrl(applicantDetail.ai_screen.recording_url)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  download
-                                  className="inline-flex items-center gap-1.5 text-purple-400 hover:text-purple-300 font-semibold transition"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  <span>Download Video</span>
-                                </a>
-                              </div>
-                            </div>
-                          </div>
+                          <AssessmentVideoPlayer url={applicantDetail.ai_screen.recording_url} />
                         ) : (
                           <div className="aspect-video bg-slate-950/80 rounded-xl border border-slate-800/80 flex flex-col items-center justify-center p-6 text-center text-slate-500">
                             <Video className="w-10 h-10 mb-2 text-slate-600" />

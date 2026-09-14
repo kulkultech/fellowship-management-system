@@ -29,6 +29,7 @@ type Storage interface {
 	Delete(ctx context.Context, key string) error
 	GetURL(key string) string
 	PresignUpload(ctx context.Context, key string, contentType string, expiresIn time.Duration) (*PresignedUpload, error)
+	PresignDownload(ctx context.Context, key string, expiresIn time.Duration) (string, error)
 }
 
 func New(cfg config.StorageConfig) (Storage, error) {

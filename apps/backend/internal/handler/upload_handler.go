@@ -187,6 +187,15 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Try presigned download URL with HTTP 307 Temporary Redirect.
+	// For Cloudflare R2 / S3 storage, this delegates range requests, seeking, and streaming
+	// directly to Cloudflare's edge CDN with native HTTP 206 Partial Content support.
+	// This completely eliminates server memory spikes, proxy stalls, and timeouts on long videos.
+	if presignedURL, err := h.storage.PresignDownload(r.Context(), key, 2*time.Hour); err == nil && presignedURL != "" {
+		http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
+		return
+	}
+
 	rc, contentType, _, err := h.storage.Get(r.Context(), key)
 	if err != nil {
 		h.logger.Warn("media not found", slog.String("key", key), slog.Any("error", err))

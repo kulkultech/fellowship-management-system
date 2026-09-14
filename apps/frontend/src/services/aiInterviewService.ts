@@ -109,6 +109,7 @@ export const aiInterviewService = {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', presign.upload_url);
           xhr.setRequestHeader('Content-Type', contentType);
+          xhr.timeout = 600000; // 10 minutes timeout for large video uploads
 
           if (xhr.upload && options?.onProgress) {
             xhr.upload.onprogress = (event) => {
@@ -157,6 +158,7 @@ export const aiInterviewService = {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', uploadUrl);
         xhr.withCredentials = true;
+        xhr.timeout = 600000; // 10 minutes timeout for large video uploads
 
         if (xhr.upload && options?.onProgress) {
           xhr.upload.onprogress = (event) => {

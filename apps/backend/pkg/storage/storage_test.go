@@ -118,3 +118,45 @@ func TestR2Storage_PresignUpload(t *testing.T) {
 	}
 }
 
+func TestLocalStorage_PresignDownload(t *testing.T) {
+	store, err := NewLocalStorage(t.TempDir())
+	if err != nil {
+		t.Fatalf("failed to create local storage: %v", err)
+	}
+
+	_, err = store.PresignDownload(context.Background(), "recordings/test.webm", 0)
+	if err != ErrPresignNotSupported {
+		t.Fatalf("expected ErrPresignNotSupported, got %v", err)
+	}
+}
+
+func TestR2Storage_PresignDownload(t *testing.T) {
+	// 1. Without S3 credentials -> ErrPresignNotConfigured
+	r2NoKeys, err := NewR2Storage("test-account", "test-api-key", "", "", "fellowhire", "", "")
+	if err != nil {
+		t.Fatalf("failed to create R2 storage: %v", err)
+	}
+	_, err = r2NoKeys.PresignDownload(context.Background(), "recordings/test.webm", 0)
+	if err != ErrPresignNotConfigured {
+		t.Fatalf("expected ErrPresignNotConfigured, got %v", err)
+	}
+
+	// 2. With S3 credentials -> returns valid presigned GET URL with SigV4
+	r2WithKeys, err := NewR2Storage("ce4e0c8396fedba22f952f83346bfb04", "", "dummy-access-key", "dummy-secret-key", "fellowhire", "https://media.fellowhire.kul.to", "")
+	if err != nil {
+		t.Fatalf("failed to create R2 storage with S3 credentials: %v", err)
+	}
+
+	downloadURL, err := r2WithKeys.PresignDownload(context.Background(), "recordings/interview_123.webm", 0)
+	if err != nil {
+		t.Fatalf("failed to presign download: %v", err)
+	}
+
+	if !strings.Contains(downloadURL, "fellowhire.ce4e0c8396fedba22f952f83346bfb04.r2.cloudflarestorage.com/recordings/interview_123.webm") {
+		t.Errorf("unexpected download URL: %s", downloadURL)
+	}
+	if !strings.Contains(downloadURL, "X-Amz-Signature=") {
+		t.Errorf("expected presigned URL to contain SigV4 signature, got %s", downloadURL)
+	}
+}
+

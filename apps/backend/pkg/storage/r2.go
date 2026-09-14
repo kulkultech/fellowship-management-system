@@ -244,3 +244,25 @@ func (s *R2Storage) PresignUpload(ctx context.Context, key string, contentType s
 	}, nil
 }
 
+func (s *R2Storage) PresignDownload(ctx context.Context, key string, expiresIn time.Duration) (string, error) {
+	if s.presignClient == nil {
+		return "", ErrPresignNotConfigured
+	}
+	if expiresIn <= 0 {
+		expiresIn = 2 * time.Hour
+	}
+	cleanKey := cleanStorageKey(key)
+
+	getInput := &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(cleanKey),
+	}
+
+	presignReq, err := s.presignClient.PresignGetObject(ctx, getInput, s3.WithPresignExpires(expiresIn))
+	if err != nil {
+		return "", fmt.Errorf("storage/r2: presign get object: %w", err)
+	}
+
+	return presignReq.URL, nil
+}
+
