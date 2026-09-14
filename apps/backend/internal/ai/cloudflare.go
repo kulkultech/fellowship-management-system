@@ -112,6 +112,9 @@ Scoring guidelines:
 - Below 60: Communication readiness may not yet meet the internship requirements
 Crucial fairness rule: Candidates should NOT lose marks simply for having an Indonesian accent or non-native phrasing. As long as communication is clear, comprehensible, and addresses the prompt, award full marks for fluency/clarity.
 
+TECHNICAL DOMAIN & VOCABULARY AWARENESS:
+The candidate is interviewing for a software engineering talent fellowship. Recognize standard software engineering frameworks, architectures, tools, and technical terms. Do not deduct points or assume lack of depth when candidates use concise, precise technical terminology (e.g. Go/Golang, TypeScript, React, Next.js, Node.js, Docker, Kubernetes, PostgreSQL, Redis, Kafka, REST API, GraphQL, gRPC, CI/CD, AWS). Award full credit for accurate technical communication.
+
 CRITICAL LANGUAGE REQUIREMENT:
 All executive summaries, key strengths, areas for growth, and question feedbacks MUST be written 100%% in professional English. Never generate Indonesian or non-English text under any circumstances.
 
@@ -473,6 +476,19 @@ CRITICAL LANGUAGE REQUIREMENT:
 - Even if the candidate speaks with an Indonesian accent, mentions Indonesian companies (e.g. Gojek, Tokopedia, Bukalapak, BCA, Mandiri), cities (e.g. Jakarta, Bandung), or universities (e.g. ITB, UI, UGM), you MUST STRICTLY CONDUCT THE INTERVIEW AND RESPOND IN ENGLISH.
 - Never translate candidate answers to Indonesian. Keep the conversation 100%% in English.
 
+TECHNICAL DOMAIN & VOCABULARY KNOWLEDGE:
+- This is a technical interview for a Software Engineering Fellowship. Candidates will discuss software engineering, web development, cloud computing, systems architecture, and computer science concepts.
+- Broad Technical Vocabulary: Recognize standard software tools, frameworks, and technologies without confusion. Common terms include:
+  * Languages: Go/Golang, TypeScript, JavaScript, Python, Java, Rust, C++, C#, Kotlin, Swift, Dart.
+  * Web & Backend: React, Next.js, Node.js, Express, NestJS, Vue, Angular, Gin, Chi, Echo, Fiber, Django, FastAPI, Spring Boot.
+  * Databases & Caching: PostgreSQL, MySQL, Redis, MongoDB, Cassandra, DynamoDB, Elasticsearch, Kafka, RabbitMQ, SQLite, GORM, Prisma.
+  * Cloud & DevOps: Docker, Kubernetes, AWS (EC2, S3, RDS, Lambda), GCP, Azure, Nginx, CI/CD, GitHub Actions, GitLab CI, Terraform, Linux.
+  * Architecture & Concepts: Microservices, Monorepo, REST API, GraphQL, gRPC, WebSockets, WebRTC, Event-Driven Architecture, Pub/Sub, Concurrency, Goroutines, Channels, Mutex, ACID, CAP Theorem, JWT, OAuth, Caching, Indexing, Load Balancing.
+  * Testing & Methodologies: Unit Testing, Integration Testing, E2E Testing, TDD, Agile, Scrum, Code Review, Git.
+- DO NOT OVERGUESS: Do NOT assume or hallucinate that the candidate is missing details or answering vaguely simply because they used concise technical terminology (e.g. "I used Docker and PostgreSQL with GORM" or "We implemented Redis caching with JWT auth").
+- If the candidate's answer covers the question's core criteria with valid engineering terminology, treat it as SUFFICIENT ("is_sufficient": true).
+- Never ask a follow-up asking for definitions of basic terms the candidate already used properly.
+
 CURRENT QUESTION FOCUS:
 Theme: %s
 Primary Question: "%s"
@@ -817,12 +833,11 @@ func (e *CloudflareEvaluator) TranscribeAudio(ctx context.Context, audioData []b
 	}
 
 	// Priority order:
-	// 1. @cf/openai/whisper-tiny-en: English-only model with zero Indonesian vocabulary tokens.
-	//    Guarantees English output without language switching or Indonesian translation, runs in < 1s.
-	// 2. @cf/openai/whisper: Multilingual fallback if tiny-en is unavailable.
+	// 1. @cf/openai/whisper: Full multilingual model with high accuracy on technical vocabulary.
+	// 2. @cf/openai/whisper-tiny-en: Fast fallback.
 	models := []string{
-		"@cf/openai/whisper-tiny-en",
 		"@cf/openai/whisper",
+		"@cf/openai/whisper-tiny-en",
 	}
 
 	var lastErr error
@@ -1009,6 +1024,7 @@ func (e *CloudflareEvaluator) CleanTechnicalASR(ctx context.Context, rawText str
 		normalized = r.re.ReplaceAllString(normalized, r.rep)
 	}
 
-	return normalized
+	// Apply comprehensive technical vocabulary normalizer
+	return NormalizeTechVocabulary(normalized)
 }
 

@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
+import { TECH_VOCABULARY_TERMS, normalizeTechVocabulary } from '@/utils/techVocabulary';
 
 export interface ChatMessageItem {
   id: string;
@@ -372,6 +373,7 @@ export const InterviewPage: React.FC = () => {
   const isStartingCameraRef = useRef(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
+  const isMicMutedRef = useRef(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isRequestingMedia, setIsRequestingMedia] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); // 0-100
@@ -908,7 +910,8 @@ export const InterviewPage: React.FC = () => {
                 if (
                   uiStageRef.current === 'interview' &&
                   !isAiSpeakingRef.current &&
-                  !isEvaluatingAnswerRef.current
+                  !isEvaluatingAnswerRef.current &&
+                  !isMicMutedRef.current
                 ) {
                   const input = e.inputBuffer.getChannelData(0);
                   turnPcmChunksRef.current.push(new Float32Array(input));
@@ -953,6 +956,14 @@ export const InterviewPage: React.FC = () => {
               cancelAnimationFrame(animationFrameRef.current);
             }
             const updateVolume = () => {
+              if (isMicMutedRef.current) {
+                setAudioLevel(0);
+                if (animationFrameRef.current) {
+                  animationFrameRef.current = requestAnimationFrame(updateVolume);
+                }
+                return;
+              }
+
               if (analyserRef.current) {
                 // Keep trying to resume audio context in Chromium if still suspended
                 if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
@@ -973,7 +984,12 @@ export const InterviewPage: React.FC = () => {
                 }
 
                 // Voice Activity Detection & Adaptive Whisper Turn-taking in Interview Chamber
-                if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
+                if (
+                  uiStageRef.current === 'interview' &&
+                  !isAiSpeakingRef.current &&
+                  !isEvaluatingAnswerRef.current &&
+                  !isMicMutedRef.current
+                ) {
                   const now = Date.now();
 
                   // Filter out background air, fan noise, and clicks: require volume > 32 for at least 5 consecutive frames (~100ms)
@@ -1140,12 +1156,39 @@ export const InterviewPage: React.FC = () => {
 
   // Toggle Mic
   const toggleMic = () => {
+    const nextMuted = !isMicMutedRef.current;
+    isMicMutedRef.current = nextMuted;
+    setIsMicMuted(nextMuted);
+
     const curStream = activeStreamRef.current || stream;
     if (curStream) {
       const audioTrack = curStream.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMicMuted(!audioTrack.enabled);
+        audioTrack.enabled = !nextMuted;
+      }
+    }
+
+    if (nextMuted) {
+      // Complete mute: Stop speech recognition, reset live candidate transcript & VAD buffers
+      stopSpeechRecognition();
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+      }
+      setLiveCandidateTranscript('');
+      setAudioLevel(0);
+      setIsCandidateSpeaking(false);
+      isCandidateSpeakingRef.current = false;
+      consecutiveSpeechFramesRef.current = 0;
+      speechStartedTimeRef.current = 0;
+      lastCandidateSpeechTimeRef.current = 0;
+      turnPcmChunksRef.current = [];
+      turnAudioChunksRef.current = [];
+      toast('Microphone muted. System is not listening.', { icon: '🔇', id: 'mic-status' });
+    } else {
+      toast('Microphone active.', { icon: '🎙️', id: 'mic-status' });
+      if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
+        restartSpeechRecognition(100);
       }
     }
   };
@@ -1168,12 +1211,12 @@ export const InterviewPage: React.FC = () => {
   };
 
   const restartSpeechRecognition = (delayMs: number = 250) => {
-    if (uiStageRef.current !== 'interview' || speechRecognitionUnsupportedRef.current) return;
+    if (uiStageRef.current !== 'interview' || speechRecognitionUnsupportedRef.current || isMicMutedRef.current) return;
     if (recognitionRestartTimeoutRef.current) {
       clearTimeout(recognitionRestartTimeoutRef.current);
     }
     recognitionRestartTimeoutRef.current = setTimeout(() => {
-      if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
+      if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current && !isMicMutedRef.current) {
         startSpeechRecognitionRef.current();
       }
     }, delayMs);
@@ -1792,6 +1835,11 @@ export const InterviewPage: React.FC = () => {
   const commitCandidateTurn = async (candidateText?: string) => {
     if (isEvaluatingAnswerRef.current) return;
 
+    if (isMicMutedRef.current && !candidateText) {
+      toast.error('Your microphone is muted. Please unmute your microphone to speak.');
+      return;
+    }
+
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
       silenceTimeoutRef.current = null;
@@ -1808,12 +1856,12 @@ export const InterviewPage: React.FC = () => {
       } catch (_) {}
     }
 
-    let textToSubmit = (candidateText || liveCandidateTranscript || '').trim();
+    // Preserve the exact live transcription the candidate spoke and verified on-screen
+    let textToSubmit = normalizeTechVocabulary((candidateText || liveCandidateTranscript || '').trim());
 
-    // Direct Whisper Speech-to-Text Transcription:
-    // Transcribes recorded audio directly using full model Whisper without altering or editing candidate words.
+    // Only run Whisper STT if the candidate spoke audio but Web Speech API was completely empty / blocked (e.g. Brave shields)
     const pcmChunks = [...turnPcmChunksRef.current];
-    if (inviteToken) {
+    if (inviteToken && (!textToSubmit || textToSubmit.length < 2)) {
       const energy = pcmChunks.length > 0 ? analyzeAudioEnergy(pcmChunks) : { maxPeak: 0, rms: 0, totalSamples: 0 };
       // Gating: Run Whisper for any audible utterance (peak >= 0.012 or rms >= 0.001)
       const hasVoicePcm = pcmChunks.length > 0 && (energy.maxPeak >= 0.012 || energy.rms >= 0.001);
@@ -1847,23 +1895,14 @@ export const InterviewPage: React.FC = () => {
             try {
               const res = await Promise.race([whisperPromise, timeoutPromise]);
               if (res?.text) {
-                const directWhisper = filterWhisperSilence(res.text);
+                const directWhisper = normalizeTechVocabulary(filterWhisperSilence(res.text));
                 if (directWhisper.length >= 2) {
-                  console.log('Whisper direct transcript:', directWhisper);
-                  // Strict English-only verification: If directWhisper contains Indonesian words but liveCandidateTranscript was English, keep liveCandidateTranscript
-                  const isIndonesian = (t: string) => {
-                    const lower = ' ' + t.toLowerCase() + ' ';
-                    return [' saya ', ' yang ', ' dengan ', ' untuk ', ' tidak ', ' bisa ', ' adalah ', ' pada ', ' dari ', ' terima kasih '].some((w) => lower.includes(w));
-                  };
-                  if (isIndonesian(directWhisper) && textToSubmit && !isIndonesian(textToSubmit)) {
-                    console.warn('Preserving English live transcription over Indonesian phrase:', directWhisper);
-                  } else {
-                    textToSubmit = directWhisper;
-                  }
+                  console.log('Whisper fallback transcript:', directWhisper);
+                  textToSubmit = directWhisper;
                 }
               }
             } catch (whisperErr) {
-              console.warn('Whisper transcription notice (using direct speech input):', whisperErr);
+              console.warn('Whisper fallback notice (using direct speech input):', whisperErr);
             }
           }
         } catch (audioErr) {
@@ -2021,7 +2060,7 @@ export const InterviewPage: React.FC = () => {
   // Continuous Speech Recognition with Instant Barge-In
   const startSpeechRecognition = () => {
     try {
-      if (uiStageRef.current !== 'interview') return;
+      if (uiStageRef.current !== 'interview' || isMicMutedRef.current) return;
 
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -2045,11 +2084,22 @@ export const InterviewPage: React.FC = () => {
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
+      // Grammar list for technical vocabulary hints if supported
+      const SpeechGrammarList = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList;
+      if (SpeechGrammarList) {
+        try {
+          const speechRecognitionList = new SpeechGrammarList();
+          const grammar = `#JSGF V1.0; grammar tech; public <tech> = ${TECH_VOCABULARY_TERMS.slice(0, 60).join(' | ')} ;`;
+          speechRecognitionList.addFromString(grammar, 1);
+          recognition.grammars = speechRecognitionList;
+        } catch (_) {}
+      }
+
       recognition.onresult = (event: any) => {
-        // Acoustic Echo Isolation:
-        // When AI is speaking via laptop speakers or evaluating an answer, ignore microphone pickup
-        // to prevent the AI's own audio from cutting off questions or polluting candidate transcripts.
-        if (isAiSpeakingRef.current || isEvaluatingAnswerRef.current) {
+        // Acoustic Echo Isolation & Mute Guard:
+        // When AI is speaking via laptop speakers, evaluating an answer, or mic is muted,
+        // ignore microphone pickup to prevent speaker echo or muted leakage.
+        if (isMicMutedRef.current || isAiSpeakingRef.current || isEvaluatingAnswerRef.current) {
           return;
         }
 
@@ -2057,7 +2107,8 @@ export const InterviewPage: React.FC = () => {
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript + ' ';
         }
-        const text = transcript.trim();
+        let text = transcript.trim();
+        text = normalizeTechVocabulary(text);
 
         // Filter out transient air puff / breath noise phonetics ("ah", "uh", "um", "huh")
         const lower = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();

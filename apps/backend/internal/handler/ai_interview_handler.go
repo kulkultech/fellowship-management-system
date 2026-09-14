@@ -365,6 +365,7 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	if idx := strings.Index(cleanMsg, "]: "); idx != -1 {
 		cleanMsg = strings.TrimSpace(cleanMsg[idx+3:])
 	}
+	cleanMsg = ai.NormalizeTechVocabulary(cleanMsg)
 
 	// Preserve candidate's exact transcription directly without editing
 
