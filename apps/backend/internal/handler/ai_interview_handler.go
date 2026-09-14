@@ -768,10 +768,6 @@ func (h *AIInterviewHandler) ResetSession(w http.ResponseWriter, r *http.Request
 	token := chi.URLParam(r, "inviteToken")
 
 	isDemo := token == "demo" || token == "demo-interview-token" || strings.HasPrefix(token, "demo-")
-	if !isDemo {
-		httpx.Error(w, http.StatusForbidden, "only demo sessions can be reset")
-		return
-	}
 
 	if isDemo {
 		h.demoMu.Lock()
@@ -780,14 +776,36 @@ func (h *AIInterviewHandler) ResetSession(w http.ResponseWriter, r *http.Request
 	}
 
 	aiSession, err := h.aiInterviewRepo.GetByToken(r.Context(), token)
-	if err == nil && aiSession != nil {
-		aiSession.Transcript = []model.ChatMessage{}
-		aiSession.Status = model.AIInterviewInvited
-		aiSession.SummaryEvaluation = nil
-		aiSession.ScorecardScore = 0
-		aiSession.RecordingURL = ""
-		aiSession.RecordingStatus = "pending"
-		_ = h.aiInterviewRepo.UpdateSession(r.Context(), aiSession.ID, nil, nil, aiSession.Transcript, nil, 0, model.AIInterviewInvited)
+	if err != nil || aiSession == nil {
+		if isDemo {
+			aiSession = h.getOrCreateDemoSession(r.Context(), token)
+		} else {
+			httpx.Error(w, http.StatusNotFound, "interview not found")
+			return
+		}
+	}
+
+	// Completed interview sessions cannot be reset by candidate
+	if !isDemo && aiSession.Status == model.AIInterviewCompleted {
+		httpx.Error(w, http.StatusForbidden, "completed interview sessions cannot be reset")
+		return
+	}
+
+	if aiSession != nil {
+		_ = h.aiInterviewRepo.ResetSession(r.Context(), aiSession.ID)
+		if isDemo {
+			aiSession.Transcript = []model.ChatMessage{}
+			aiSession.Status = model.AIInterviewInvited
+			aiSession.SummaryEvaluation = nil
+			aiSession.ScorecardScore = 0
+			aiSession.RecordingURL = ""
+			aiSession.RecordingStatus = "pending"
+			aiSession.StartedAt = nil
+			aiSession.CompletedAt = nil
+			h.demoMu.Lock()
+			h.demoSessions[token] = aiSession
+			h.demoMu.Unlock()
+		}
 	}
 
 	// Return refreshed session state

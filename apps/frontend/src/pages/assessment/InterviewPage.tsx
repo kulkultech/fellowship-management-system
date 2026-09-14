@@ -416,6 +416,22 @@ export const InterviewPage: React.FC = () => {
     };
   }, [uiStage]);
 
+  // Guard candidate against accidental tab close or page reload while interview is in progress
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (uiStage === 'interview' || uiStage === 'finalizing') {
+        e.preventDefault();
+        e.returnValue =
+          'Your video interview is currently in progress. If you leave or reload now, your video recording will be interrupted. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [uiStage]);
+
   // Conversational AI Voice & Follow-up State
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
@@ -1781,27 +1797,36 @@ export const InterviewPage: React.FC = () => {
       setFinalizingStep('uploading');
 
       let saveRes: SaveRecordingResult | null = null;
-      try {
-        saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob, {
-          onProgress: (pct) => {
-            setUploadPercent(pct);
-            if (pct >= 99) {
-              setFinalizingStep('evaluating');
-            }
-          },
-        });
-        if (saveRes?.recording_url) {
-          setFinalVideoUrl(saveRes.recording_url);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob, {
+            onProgress: (pct) => {
+              setUploadPercent(pct);
+              if (pct >= 99) {
+                setFinalizingStep('evaluating');
+              }
+            },
+          });
+          if (saveRes?.recording_url) {
+            setFinalVideoUrl(saveRes.recording_url);
+            break;
+          }
+        } catch (saveErr) {
+          console.warn(`saveRecording attempt ${attempt} notice:`, saveErr);
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, attempt * 500));
+          }
         }
-      } catch (saveErr) {
-        console.warn('First saveRecording attempt notice, retrying upload...', saveErr);
+      }
+
+      if (!saveRes?.recording_url) {
         try {
           saveRes = await aiInterviewService.saveRecording(inviteToken, finalBlob);
           if (saveRes?.recording_url) {
             setFinalVideoUrl(saveRes.recording_url);
           }
-        } catch (retryErr: any) {
-          console.error('saveRecording persistent upload notice:', retryErr);
+        } catch (finalErr) {
+          console.error('Final fallback saveRecording attempt notice:', finalErr);
         }
       }
 
@@ -1841,7 +1866,11 @@ export const InterviewPage: React.FC = () => {
       setUiStage('completed');
       uiStageRef.current = 'completed';
       queryClient.invalidateQueries({ queryKey: ['ai-interview-session', inviteToken] });
-      toast.success('Interview video saved and evaluated by admissions AI!');
+      if (data.saveRes?.recording_url) {
+        toast.success('Interview video saved and evaluated by admissions AI!');
+      } else {
+        toast.success('Interview evaluation complete! Video sync finalizing in background.');
+      }
     },
     onError: (err: any) => {
       setIsUploadingRecording(false);
@@ -2310,9 +2339,11 @@ export const InterviewPage: React.FC = () => {
       return;
     }
 
-    // Automatically clean previous test transcript if in demo mode
-    if (isDemo && inviteToken) {
-      aiInterviewService.resetSession(inviteToken).catch(() => {});
+    // Automatically clean previous test transcript if uncompleted so candidate starts fresh
+    if (inviteToken && session?.status !== 'completed') {
+      aiInterviewService.resetSession(inviteToken).catch((err) => {
+        console.warn('Session reset on chamber entry notice:', err);
+      });
     }
 
     // Unlock browser audio context synchronously on user interaction
@@ -2352,6 +2383,8 @@ export const InterviewPage: React.FC = () => {
     activeFollowUpRef.current = null;
     followUpCountPerQuestionRef.current = {};
     setLiveCandidateTranscript('');
+    setChatMessages([]);
+    setRecordingSeconds(0);
 
     // 3. Start continuous speech recognition & turn audio recorder
     startSpeechRecognition();

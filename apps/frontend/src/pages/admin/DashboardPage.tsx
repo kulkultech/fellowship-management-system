@@ -4310,6 +4310,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                               Stored in Database
                             </span>
+                          ) : applicantDetail.ai_screen.status === 'in_progress' ? (
+                            <span className="text-3xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                              Chamber In Progress
+                            </span>
                           ) : (
                             <span className="text-3xs font-bold uppercase tracking-wider text-amber-400">
                               Recording Pending
@@ -4360,10 +4365,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <div className="aspect-video bg-slate-950/80 rounded-xl border border-slate-800/80 flex flex-col items-center justify-center p-6 text-center text-slate-500">
                             <Video className="w-10 h-10 mb-2 text-slate-600" />
                             <p className="text-xs font-semibold text-slate-400">
-                              No video recording uploaded yet
+                              {applicantDetail.ai_screen.status === 'in_progress'
+                                ? 'Interview chamber is active / in progress'
+                                : 'No video recording uploaded yet'}
                             </p>
                             <p className="text-3xs text-slate-500 mt-1 max-w-xs">
-                              Video response captures will appear here once the candidate records and completes their AI interview session.
+                              {applicantDetail.ai_screen.status === 'in_progress'
+                                ? 'Candidate is currently in the interview room. If they reconnected, the full video will be saved upon completion.'
+                                : 'Video response captures will appear here once the candidate records and completes their AI interview session.'}
                             </p>
                           </div>
                         )}

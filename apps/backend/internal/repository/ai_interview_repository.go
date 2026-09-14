@@ -316,3 +316,47 @@ func (r *AIInterviewRepository) DeleteByApplicantID(ctx context.Context, applica
 	return nil
 }
 
+func (r *AIInterviewRepository) ResetSession(ctx context.Context, id uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, ai := range r.memInterviews {
+			if ai.ID == id {
+				ai.StartedAt = nil
+				ai.CompletedAt = nil
+				ai.Transcript = []model.ChatMessage{}
+				ai.SummaryEvaluation = nil
+				ai.ScorecardScore = 0
+				ai.RecordingURL = ""
+				ai.RecordingStatus = "pending"
+				ai.Status = model.AIInterviewInvited
+				ai.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrAIInterviewNotFound
+	}
+
+	query := `
+		UPDATE ai_interviews
+		SET started_at = NULL,
+			completed_at = NULL,
+			transcript = '[]'::jsonb,
+			summary_evaluation = NULL,
+			scorecard_score = 0,
+			recording_url = '',
+			recording_status = 'pending',
+			status = 'invited',
+			updated_at = now()
+		WHERE id = $1
+	`
+	tag, err := r.pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("ai_interview_repo: reset session: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrAIInterviewNotFound
+	}
+	return nil
+}
+
