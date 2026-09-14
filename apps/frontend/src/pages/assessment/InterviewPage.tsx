@@ -1515,61 +1515,71 @@ export const InterviewPage: React.FC = () => {
     }
 
     const promise = (async () => {
-      try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-        const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
+      const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
+      const endpoint = inviteToken ? `${apiBase}/interviews/${inviteToken}/tts` : `${apiBase}/interviews/tts`;
 
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: cleanText, speaker }),
-        });
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout per attempt
 
-        if (!res.ok) {
-          throw new Error(`Cloudflare Workers AI TTS server returned status ${res.status}`);
-        }
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: cleanText, speaker }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
 
-        const arrayBuffer = await res.arrayBuffer();
-        if (arrayBuffer.byteLength < 100) {
-          throw new Error('TTS returned empty audio');
-        }
+          if (!res.ok) {
+            throw new Error(`Cloudflare Workers AI TTS server returned status ${res.status}`);
+          }
 
-        // Initialize AudioContext if needed
-        if (!audioContextRef.current) {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioCtx) {
-            audioContextRef.current = new AudioCtx();
+          const arrayBuffer = await res.arrayBuffer();
+          if (arrayBuffer.byteLength < 100) {
+            throw new Error('TTS returned empty audio');
+          }
+
+          // Initialize AudioContext if needed
+          if (!audioContextRef.current) {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioCtx) {
+              audioContextRef.current = new AudioCtx();
+            }
+          }
+
+          if (audioContextRef.current) {
+            try {
+              const bufferCopy = arrayBuffer.slice(0);
+              const decoded = await audioContextRef.current.decodeAudioData(bufferCopy);
+              decodedBufferCacheRef.current.set(cacheKey, decoded);
+              return { buffer: decoded };
+            } catch (decodeErr) {
+              console.warn('Web Audio decode failed, falling back to Blob URL:', decodeErr);
+            }
+          }
+
+          const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(blob);
+          audioBlobUrlCacheRef.current.set(cacheKey, audioUrl);
+          return { url: audioUrl };
+        } catch (err) {
+          console.warn(`Cloudflare Workers AI TTS attempt ${attempt} notice:`, err);
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 400 * attempt));
           }
         }
-
-        if (audioContextRef.current) {
-          try {
-            const bufferCopy = arrayBuffer.slice(0);
-            const decoded = await audioContextRef.current.decodeAudioData(bufferCopy);
-            decodedBufferCacheRef.current.set(cacheKey, decoded);
-            return { buffer: decoded };
-          } catch (decodeErr) {
-            console.warn('Web Audio decode failed, falling back to Blob URL:', decodeErr);
-          }
-        }
-
-        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
-        const audioUrl = URL.createObjectURL(blob);
-        audioBlobUrlCacheRef.current.set(cacheKey, audioUrl);
-        return { url: audioUrl };
-      } catch (err) {
-        console.error('Cloudflare Workers AI TTS request failed:', err);
-        return null;
-      } finally {
-        inFlightTtsPromisesRef.current.delete(cacheKey);
       }
-    })();
+      return null;
+    })().finally(() => {
+      inFlightTtsPromisesRef.current.delete(cacheKey);
+    });
 
     inFlightTtsPromisesRef.current.set(cacheKey, promise);
     return promise;
   };
 
-  // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) - 100% human voice, zero robot fallback
+  // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) - strictly 100% human voice, zero robot fallback
   const speakAI = async (text: string) => {
     stopSpeech();
     if (isVoiceMuted) {
@@ -1593,6 +1603,7 @@ export const InterviewPage: React.FC = () => {
     if (!result) {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
+      restartSpeechRecognition(150);
       return;
     }
 
@@ -1606,7 +1617,7 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  // Synchronously coordinate AI text display and voice start so they begin at the exact same instant
+  // Synchronously coordinate AI text display and natural voice start
   const speakAndPresentAiMessage = async (
     text: string,
     messageItem: ChatMessageItem
@@ -1636,65 +1647,24 @@ export const InterviewPage: React.FC = () => {
     }
 
     // 2. Audio is not yet in client cache (e.g. dynamic follow-up):
-    // Show AI response in the transcript immediately and fetch human voice via Cloudflare Workers AI TTS
-    // with 6-second timeout to guarantee the exact same human voice (Luna/Orion) is preserved across all questions
+    // Show AI response in the transcript immediately and fetch natural human voice via Cloudflare Workers AI TTS.
+    // Strictly NO browser robotic SpeechSynthesis fallback to prevent robotic sounds or browser locale accents!
     setChatMessages((prev) => [...prev, messageItem]);
 
-    const fetchPromise = fetchTtsAudio(cleanText, speaker);
-    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
-
     try {
-      const result = await Promise.race([fetchPromise, timeoutPromise]);
+      const result = await fetchTtsAudio(cleanText, speaker);
       if (result && !isVoiceMuted) {
-        // High-fidelity human voice received! Play immediately
         if (result.buffer) {
           playAudioBuffer(result.buffer);
         } else if (result.url) {
           playAudioUrl(result.url);
         }
-      } else if (!isVoiceMuted && 'speechSynthesis' in window) {
-        // Emergency fallback only if Cloudflare TTS failed or timed out after 6 seconds
-        try {
-          window.speechSynthesis.cancel();
-          const utter = new SpeechSynthesisUtterance(cleanText);
-          utter.rate = 1.05;
-          utter.pitch = 1.0;
-          const voices = window.speechSynthesis.getVoices();
-          const naturalVoice = voices.find(
-            (v) =>
-              (v.name.includes('Natural') ||
-                v.name.includes('Samantha') ||
-                v.name.includes('Karen') ||
-                v.name.includes('Daniel') ||
-                v.name.includes('Google') ||
-                v.lang.startsWith('en')) &&
-              !v.name.includes('Compact')
-          );
-          if (naturalVoice) utter.voice = naturalVoice;
-
-          utter.onstart = () => {
-            setIsAiSpeaking(true);
-            isAiSpeakingRef.current = true;
-          };
-          utter.onend = () => {
-            setIsAiSpeaking(false);
-            isAiSpeakingRef.current = false;
-            setLiveCandidateTranscript('');
-            restartSpeechRecognition(150);
-          };
-          utter.onerror = () => {
-            setIsAiSpeaking(false);
-            isAiSpeakingRef.current = false;
-            setLiveCandidateTranscript('');
-            restartSpeechRecognition(150);
-          };
-          window.speechSynthesis.speak(utter);
-        } catch {
-          speakAI(cleanText);
-        }
+      } else {
+        // If TTS unavailable, candidate can read the transcript; restart speech recognition smoothly
+        restartSpeechRecognition(150);
       }
     } catch {
-      speakAI(cleanText);
+      restartSpeechRecognition(150);
     }
   };
 
