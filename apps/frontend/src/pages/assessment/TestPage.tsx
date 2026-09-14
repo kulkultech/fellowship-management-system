@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { testService } from '@/services/testService';
 import {
   Clock,
@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 export const TestPage: React.FC = () => {
   const { testToken } = useParams<{ testToken: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
   const [testStage, setTestStage] = useState<'bridge' | 'testing'>('bridge');
@@ -43,6 +44,7 @@ export const TestPage: React.FC = () => {
   });
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const targetEndTimestampRef = useRef<number | null>(null);
 
   const handleSelectOption = (questionId: string, optionId: string) => {
     setSelectedAnswers((prev) => {
@@ -66,7 +68,30 @@ export const TestPage: React.FC = () => {
   const startMutation = useMutation({
     mutationFn: () => testService.startTest(testToken!),
     onSuccess: (data) => {
-      setSecondsRemaining(data.remaining_seconds || data.duration_minutes * 60);
+      // Sync cache with active session and returned questions
+      queryClient.setQueryData(['test-session', testToken], data);
+
+      const rem =
+        data.remaining_seconds !== undefined && data.remaining_seconds !== null
+          ? data.remaining_seconds
+          : data.duration_minutes * 60;
+
+      let target: number = Date.now() + rem * 1000;
+      if (data.expires_at) {
+        const parsed = new Date(data.expires_at).getTime();
+        if (!isNaN(parsed)) {
+          target = parsed;
+        }
+      }
+
+      targetEndTimestampRef.current = target;
+      try {
+        localStorage.setItem(`fms_test_target_end_${testToken}`, target.toString());
+      } catch (e) {
+        // ignore
+      }
+
+      setSecondsRemaining(Math.max(0, Math.ceil((target - Date.now()) / 1000)));
       setTestStage('testing');
       toast.success('Assessment started! Good luck.');
     },
@@ -82,6 +107,7 @@ export const TestPage: React.FC = () => {
     onSuccess: () => {
       try {
         localStorage.removeItem(`fms_test_answers_${testToken}`);
+        localStorage.removeItem(`fms_test_target_end_${testToken}`);
       } catch (e) {
         // ignore
       }
@@ -94,6 +120,23 @@ export const TestPage: React.FC = () => {
       toast.error(msg);
     },
   });
+
+  // Restore target timestamp from localStorage on mount if present
+  useEffect(() => {
+    if (!testToken) return;
+    try {
+      const stored = localStorage.getItem(`fms_test_target_end_${testToken}`);
+      if (stored) {
+        const parsed = parseInt(stored, 10);
+        if (!isNaN(parsed) && parsed > Date.now()) {
+          targetEndTimestampRef.current = parsed;
+          setSecondsRemaining(Math.max(0, Math.ceil((parsed - Date.now()) / 1000)));
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [testToken]);
 
   // If already done or expired, route to result immediately; if already in progress, resume testing
   useEffect(() => {
@@ -113,6 +156,25 @@ export const TestPage: React.FC = () => {
     // If test is already in progress, candidate closed and reopened the page -> resume testing immediately!
     if (testSession.status === 'in_progress') {
       setTestStage('testing');
+      let target: number | null = null;
+      if (testSession.expires_at) {
+        const parsed = new Date(testSession.expires_at).getTime();
+        if (!isNaN(parsed)) {
+          target = parsed;
+        }
+      }
+      if (!target && testSession.remaining_seconds !== undefined && testSession.remaining_seconds !== null) {
+        target = Date.now() + testSession.remaining_seconds * 1000;
+      }
+      if (target) {
+        targetEndTimestampRef.current = target;
+        try {
+          localStorage.setItem(`fms_test_target_end_${testToken}`, target.toString());
+        } catch (e) {
+          // ignore
+        }
+        setSecondsRemaining(Math.max(0, Math.ceil((target - Date.now()) / 1000)));
+      }
     }
   }, [testSession, testToken, navigate]);
 
@@ -125,40 +187,44 @@ export const TestPage: React.FC = () => {
     submitMutation.mutate(formattedAnswers);
   }, [testSession, selectedAnswers, submitMutation]);
 
-  // True wall-clock timer synchronization based on testSession.expires_at
-  // This guarantees time still passes even when tab is closed, minimized, or during device sleep
-  const syncRemainingTime = useCallback(() => {
-    if (!testSession || testSession.status !== 'in_progress' || !testSession.expires_at) return;
-    const targetEndTime = new Date(testSession.expires_at).getTime();
-    const now = Date.now();
-    const diffSec = Math.max(0, Math.floor((targetEndTime - now) / 1000));
-    setSecondsRemaining(diffSec);
-
-    if (diffSec <= 0 && !isSubmitted && !submitMutation.isPending) {
-      toast.error('Time limit reached! Submitting your assessment...');
-      handleSubmit();
-    }
-  }, [testSession, isSubmitted, submitMutation.isPending, handleSubmit]);
-
-  // Initialize/sync on stage change or testSession load
+  // Real-time wall-clock countdown timer
+  // Runs continuously when testStage === 'testing'
   useEffect(() => {
-    if (testStage === 'testing' && testSession?.status === 'in_progress') {
-      syncRemainingTime();
-    }
-  }, [testStage, testSession, syncRemainingTime]);
+    if (testStage !== 'testing') return;
 
-  // Real-time wall-clock timer countdown and visibility change listener
-  useEffect(() => {
-    if (testStage !== 'testing' || !testSession || testSession.status !== 'in_progress') return;
+    const tick = () => {
+      if (targetEndTimestampRef.current !== null) {
+        const diffSec = Math.max(0, Math.ceil((targetEndTimestampRef.current - Date.now()) / 1000));
+        setSecondsRemaining(diffSec);
 
-    const interval = setInterval(() => {
-      syncRemainingTime();
-    }, 1000);
+        if (diffSec <= 0 && !isSubmitted && !submitMutation.isPending) {
+          toast.error('Time limit reached! Submitting your assessment...');
+          handleSubmit();
+        }
+      } else {
+        setSecondsRemaining((prev) => {
+          if (prev === null) return null;
+          if (prev <= 1) {
+            if (!isSubmitted && !submitMutation.isPending) {
+              toast.error('Time limit reached! Submitting your assessment...');
+              handleSubmit();
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
+    };
+
+    // Immediate tick upon entering stage
+    tick();
+
+    const interval = setInterval(tick, 1000);
 
     // When candidate switches back to tab or unminimizes browser, immediately resync clock
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        syncRemainingTime();
+        tick();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -167,7 +233,7 @@ export const TestPage: React.FC = () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [testStage, testSession, syncRemainingTime]);
+  }, [testStage, isSubmitted, submitMutation.isPending, handleSubmit]);
 
   const formatTimer = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);

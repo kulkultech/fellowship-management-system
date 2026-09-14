@@ -145,7 +145,11 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	remainingSeconds := durationMinutes * 60
-	if submission.Status == model.SubmissionInProgress {
+	if submission.Status == model.SubmissionPending {
+		startedAt = now
+		expiresAt = now.Add(time.Duration(durationMinutes) * time.Minute)
+		remainingSeconds = durationMinutes * 60
+	} else if submission.Status == model.SubmissionInProgress {
 		remainingSeconds = int(expiresAt.Sub(now).Seconds())
 		if remainingSeconds < 0 {
 			remainingSeconds = 0
@@ -163,6 +167,7 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 				submission.Answers,
 				model.SubmissionExpired,
 			)
+			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestFailed)
 		}
 	} else if submission.Status == model.SubmissionCompleted || submission.Status == model.SubmissionExpired {
 		remainingSeconds = 0
