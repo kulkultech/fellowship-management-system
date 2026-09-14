@@ -397,6 +397,8 @@ export const InterviewPage: React.FC = () => {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingSecondsRef = useRef(0);
   const speechRecognitionRef = useRef<any>(null);
+  const isSpeechRecognitionActiveRef = useRef(false);
+  const isExplicitlyStoppedRef = useRef(false);
   const recognitionRestartTimeoutRef = useRef<any>(null);
   const startSpeechRecognitionRef = useRef<() => void>(() => {});
   const turnAudioChunksRef = useRef<Blob[]>([]);
@@ -1234,43 +1236,60 @@ export const InterviewPage: React.FC = () => {
     } else {
       toast('Microphone active.', { icon: '🎙️', id: 'mic-status' });
       if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
-        restartSpeechRecognition(0);
+        restartSpeechRecognition(150);
       }
     }
   };
 
   // Cancel any active speech recognition
   const stopSpeechRecognition = () => {
+    isExplicitlyStoppedRef.current = true;
     if (recognitionRestartTimeoutRef.current) {
       clearTimeout(recognitionRestartTimeoutRef.current);
       recognitionRestartTimeoutRef.current = null;
     }
     if (speechRecognitionRef.current) {
-      try {
-        speechRecognitionRef.current.onresult = null;
-        speechRecognitionRef.current.onerror = null;
-        speechRecognitionRef.current.onend = null;
-        speechRecognitionRef.current.abort();
-      } catch (_) {}
+      const rec = speechRecognitionRef.current;
       speechRecognitionRef.current = null;
+      isSpeechRecognitionActiveRef.current = false;
+      try {
+        rec.onstart = null;
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+        rec.abort();
+      } catch (_) {}
     }
   };
 
-  const restartSpeechRecognition = (delayMs: number = 0) => {
-    if (uiStageRef.current !== 'interview' || speechRecognitionUnsupportedRef.current || isMicMutedRef.current) return;
+  const restartSpeechRecognition = (delayMs: number = 150) => {
+    if (
+      uiStageRef.current !== 'interview' ||
+      speechRecognitionUnsupportedRef.current ||
+      isMicMutedRef.current ||
+      isAiSpeakingRef.current ||
+      isEvaluatingAnswerRef.current
+    ) {
+      return;
+    }
     if (recognitionRestartTimeoutRef.current) {
       clearTimeout(recognitionRestartTimeoutRef.current);
       recognitionRestartTimeoutRef.current = null;
     }
-    if (delayMs <= 0) {
-      startSpeechRecognitionRef.current();
-      return;
-    }
+    isExplicitlyStoppedRef.current = false;
+    // Chromium audio service requires >= 100ms to clean up previous session before starting a new one
+    const safeDelay = Math.max(delayMs, 100);
     recognitionRestartTimeoutRef.current = setTimeout(() => {
-      if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current && !isMicMutedRef.current) {
+      if (
+        uiStageRef.current === 'interview' &&
+        !speechRecognitionUnsupportedRef.current &&
+        !isMicMutedRef.current &&
+        !isAiSpeakingRef.current &&
+        !isEvaluatingAnswerRef.current
+      ) {
         startSpeechRecognitionRef.current();
       }
-    }, delayMs);
+    }, safeDelay);
   };
 
   // Start per-turn audio snippet recorder for AI Whisper fallback (e.g. Brave/Firefox)
@@ -1384,7 +1403,7 @@ export const InterviewPage: React.FC = () => {
     isCandidateSpeakingRef.current = false;
     setIsCandidateSpeaking(false);
     setLiveCandidateTranscript('');
-    restartSpeechRecognition(0);
+    restartSpeechRecognition(150);
   };
 
   // Play decoded AudioBuffer with 0ms latency and immune to HTML5 Audio autoplay restrictions
@@ -1421,7 +1440,7 @@ export const InterviewPage: React.FC = () => {
         isCandidateSpeakingRef.current = false;
         setIsCandidateSpeaking(false);
         setLiveCandidateTranscript('');
-        restartSpeechRecognition(0); // Start fresh mic recognition instantly now that AI finished speaking!
+        restartSpeechRecognition(150); // Start fresh mic recognition now that AI finished speaking!
       };
 
       setIsAiSpeaking(true);
@@ -1477,14 +1496,14 @@ export const InterviewPage: React.FC = () => {
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
       setLiveCandidateTranscript('');
-      restartSpeechRecognition(0);
+      restartSpeechRecognition(150);
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
-      restartSpeechRecognition(0);
+      restartSpeechRecognition(150);
     };
 
     const playPromise = audio.play();
@@ -1494,7 +1513,7 @@ export const InterviewPage: React.FC = () => {
         setAutoplayBlocked(true);
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
-        restartSpeechRecognition(0);
+        restartSpeechRecognition(150);
       });
     }
   };
@@ -1608,7 +1627,7 @@ export const InterviewPage: React.FC = () => {
     if (!result) {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
-      restartSpeechRecognition(0);
+      restartSpeechRecognition(150);
       return;
     }
 
@@ -1651,6 +1670,8 @@ export const InterviewPage: React.FC = () => {
         } else if (cachedUrl) {
           playAudioUrl(cachedUrl);
         }
+      } else {
+        restartSpeechRecognition(150);
       }
       return;
     }
@@ -1674,14 +1695,14 @@ export const InterviewPage: React.FC = () => {
           playAudioUrl(result.url);
         }
       } else {
-        restartSpeechRecognition(0);
+        restartSpeechRecognition(150);
       }
     } catch {
       setIsEvaluatingAnswer(false);
       isEvaluatingAnswerRef.current = false;
       if (onBeforePresent) onBeforePresent();
       setChatMessages((prev) => [...prev, messageItem]);
-      restartSpeechRecognition(0);
+      restartSpeechRecognition(150);
     }
   };
 
@@ -2136,7 +2157,20 @@ export const InterviewPage: React.FC = () => {
   // Continuous Speech Recognition with Instant Barge-In & Zero Delay
   const startSpeechRecognition = () => {
     try {
-      if (uiStageRef.current !== 'interview' || isMicMutedRef.current) return;
+      if (
+        uiStageRef.current !== 'interview' ||
+        isMicMutedRef.current ||
+        isAiSpeakingRef.current ||
+        isEvaluatingAnswerRef.current ||
+        speechRecognitionUnsupportedRef.current
+      ) {
+        return;
+      }
+
+      // If an instance is already actively listening, don't recreate or start again
+      if (isSpeechRecognitionActiveRef.current && speechRecognitionRef.current) {
+        return;
+      }
 
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -2144,11 +2178,12 @@ export const InterviewPage: React.FC = () => {
         return;
       }
 
-      // Clean up previous instance cleanly
+      // Clean up previous inactive instance cleanly if needed
       if (speechRecognitionRef.current) {
         const old = speechRecognitionRef.current;
         speechRecognitionRef.current = null;
         try {
+          old.onstart = null;
           old.onresult = null;
           old.onerror = null;
           old.onend = null;
@@ -2156,11 +2191,17 @@ export const InterviewPage: React.FC = () => {
         } catch (_) {}
       }
 
+      isExplicitlyStoppedRef.current = false;
+
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
       recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isSpeechRecognitionActiveRef.current = true;
+      };
 
       recognition.onresult = (event: any) => {
         // Acoustic Echo Isolation & Mute Guard:
@@ -2211,6 +2252,7 @@ export const InterviewPage: React.FC = () => {
         if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
           speechRecognitionUnsupportedRef.current = true;
           speechRecognitionWorkingRef.current = false;
+          isSpeechRecognitionActiveRef.current = false;
           const isBrave = typeof window !== 'undefined' && Boolean((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function');
           if (isBrave) {
             toast(
@@ -2220,24 +2262,43 @@ export const InterviewPage: React.FC = () => {
           }
           return;
         }
-
-        // Transient events ('no-speech', 'network', etc.): re-establish immediately without disabling recognition
-        if (e?.error !== 'aborted' && uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
-          restartSpeechRecognition(e?.error === 'network' ? 100 : 0);
-        }
+        // In the W3C Web Speech API, `onend` is guaranteed to fire right after `onerror`.
+        // We let `onend` be the single source of truth for restarting to avoid colliding .start() calls.
       };
 
       recognition.onend = () => {
-        // Automatically restart a fresh instance with 0 delay so speech recognition stays active continuously
-        if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
-          restartSpeechRecognition(0);
+        isSpeechRecognitionActiveRef.current = false;
+        speechRecognitionRef.current = null;
+
+        // Automatically restart a fresh instance with a safe 150ms delay for Chromium's native audio pipeline
+        if (
+          !isExplicitlyStoppedRef.current &&
+          uiStageRef.current === 'interview' &&
+          !speechRecognitionUnsupportedRef.current &&
+          !isAiSpeakingRef.current &&
+          !isEvaluatingAnswerRef.current &&
+          !isMicMutedRef.current
+        ) {
+          restartSpeechRecognition(150);
         }
       };
 
       recognition.start();
       speechRecognitionRef.current = recognition;
     } catch (err) {
-      console.warn('Speech recognition start exception:', err);
+      console.warn('Speech recognition start failed, scheduling recovery in 150ms:', err);
+      isSpeechRecognitionActiveRef.current = false;
+      speechRecognitionRef.current = null;
+      if (
+        !isExplicitlyStoppedRef.current &&
+        uiStageRef.current === 'interview' &&
+        !speechRecognitionUnsupportedRef.current &&
+        !isAiSpeakingRef.current &&
+        !isEvaluatingAnswerRef.current &&
+        !isMicMutedRef.current
+      ) {
+        restartSpeechRecognition(150);
+      }
     }
   };
   startSpeechRecognitionRef.current = startSpeechRecognition;
@@ -2370,8 +2431,7 @@ export const InterviewPage: React.FC = () => {
     setChatMessages([]);
     setRecordingSeconds(0);
 
-    // 3. Start continuous speech recognition & turn audio recorder
-    startSpeechRecognition();
+    // 3. Start turn audio recorder for turn backup
     startTurnAudioRecorder();
 
     // 4. Welcome candidate and ask Question 1
@@ -2386,6 +2446,8 @@ export const InterviewPage: React.FC = () => {
         questionIndex: 0,
       };
       speakAndPresentAiMessage(welcomeText, initMsg);
+    } else {
+      restartSpeechRecognition(150);
     }
   };
 
