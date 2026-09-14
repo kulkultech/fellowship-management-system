@@ -15,6 +15,7 @@ type CandidateAnswer struct {
 type SubmissionStatus string
 
 const (
+	SubmissionPending    SubmissionStatus = "pending"
 	SubmissionInProgress SubmissionStatus = "in_progress"
 	SubmissionCompleted  SubmissionStatus = "completed"
 	SubmissionExpired    SubmissionStatus = "expired"

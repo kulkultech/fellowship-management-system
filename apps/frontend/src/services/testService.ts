@@ -7,6 +7,11 @@ export const testService = {
     return data;
   },
 
+  startTest: async (testToken: string): Promise<TestSession> => {
+    const { data } = await apiClient.post<TestSession>(`/tests/${testToken}/start`);
+    return data;
+  },
+
   submitTest: async (testToken: string, answers: AnswerInput[]): Promise<SubmitTestResponse> => {
     const { data } = await apiClient.post<SubmitTestResponse>(`/tests/${testToken}/submit`, { answers });
     return data;

@@ -49,7 +49,7 @@ func (r *SubmissionRepository) CreateWithTrack(ctx context.Context, applicantID,
 			TotalScore:       0,
 			Passed:           false,
 			Answers:          []model.CandidateAnswer{},
-			Status:           model.SubmissionInProgress,
+			Status:           model.SubmissionPending,
 			CreatedAt:        time.Now(),
 			UpdatedAt:        time.Now(),
 		}
@@ -60,7 +60,7 @@ func (r *SubmissionRepository) CreateWithTrack(ctx context.Context, applicantID,
 	query := `
 		INSERT INTO test_submissions (
 			applicant_id, program_id, track_id, test_token, started_at, answers, status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, now(), '[]'::jsonb, 'in_progress', now(), now())
+		) VALUES ($1, $2, $3, $4, now(), '[]'::jsonb, 'pending', now(), now())
 		RETURNING id, applicant_id, program_id, track_id, test_token, started_at, submitted_at,
 			time_spent_seconds, total_score, passed, answers, status, created_at, updated_at
 	`
@@ -200,6 +200,38 @@ func (r *SubmissionRepository) CompleteSubmission(
 	tag, err := r.pool.Exec(ctx, query, id, submittedAt, timeSpentSeconds, totalScore, passed, answersJSON, status)
 	if err != nil {
 		return fmt.Errorf("submission_repo: complete submission: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrSubmissionNotFound
+	}
+	return nil
+}
+
+func (r *SubmissionRepository) StartSubmission(ctx context.Context, id uuid.UUID, startedAt time.Time) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, s := range r.memSubmissions {
+			if s.ID == id {
+				s.StartedAt = startedAt
+				s.Status = model.SubmissionInProgress
+				s.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrSubmissionNotFound
+	}
+
+	query := `
+		UPDATE test_submissions
+		SET started_at = $2,
+			status = 'in_progress',
+			updated_at = now()
+		WHERE id = $1
+	`
+	tag, err := r.pool.Exec(ctx, query, id, startedAt)
+	if err != nil {
+		return fmt.Errorf("submission_repo: start submission: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrSubmissionNotFound

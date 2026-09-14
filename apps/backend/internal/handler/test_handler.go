@@ -63,6 +63,8 @@ type TestSessionResponse struct {
 	ProgramName      string                 `json:"program_name"`
 	TrackName        string                 `json:"track_name,omitempty"`
 	DurationMinutes  int                    `json:"duration_minutes"`
+	PassingScore     int                    `json:"passing_score"`
+	QuestionCount    int                    `json:"question_count"`
 	StartedAt        time.Time              `json:"started_at"`
 	ExpiresAt        time.Time              `json:"expires_at"`
 	RemainingSeconds int                    `json:"remaining_seconds"`
@@ -97,6 +99,7 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	durationMinutes := program.LogicTestDurationMinutes
+	passingScore := program.LogicTestPassingScore
 	displayName := program.Name
 	trackName := ""
 
@@ -108,6 +111,9 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 			displayName = fmt.Sprintf("%s - %s", program.Name, track.Name)
 			if track.LogicTestDurationMinutes > 0 {
 				durationMinutes = track.LogicTestDurationMinutes
+			}
+			if track.LogicTestPassingScore > 0 {
+				passingScore = track.LogicTestPassingScore
 			}
 			if track.QuestionSetID != nil && h.questionSetRepo != nil {
 				questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), *track.QuestionSetID)
@@ -134,29 +140,32 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate expiration based on started_at + duration
 	startedAt := submission.StartedAt
 	expiresAt := startedAt.Add(time.Duration(durationMinutes) * time.Minute)
 	now := time.Now()
 
-	remainingSeconds := int(expiresAt.Sub(now).Seconds())
-	if remainingSeconds < 0 {
+	remainingSeconds := durationMinutes * 60
+	if submission.Status == model.SubmissionInProgress {
+		remainingSeconds = int(expiresAt.Sub(now).Seconds())
+		if remainingSeconds < 0 {
+			remainingSeconds = 0
+		}
+		// Auto-expire if time ran out and submission is still in progress
+		if remainingSeconds == 0 {
+			submission.Status = model.SubmissionExpired
+			_ = h.submissionRepo.CompleteSubmission(
+				r.Context(),
+				submission.ID,
+				now,
+				durationMinutes*60,
+				submission.TotalScore,
+				submission.Passed,
+				submission.Answers,
+				model.SubmissionExpired,
+			)
+		}
+	} else if submission.Status == model.SubmissionCompleted || submission.Status == model.SubmissionExpired {
 		remainingSeconds = 0
-	}
-
-	// Auto-expire if time ran out and submission is still in progress
-	if remainingSeconds == 0 && submission.Status == model.SubmissionInProgress {
-		submission.Status = model.SubmissionExpired
-		_ = h.submissionRepo.CompleteSubmission(
-			r.Context(),
-			submission.ID,
-			now,
-			durationMinutes*60,
-			submission.TotalScore,
-			submission.Passed,
-			submission.Answers,
-			model.SubmissionExpired,
-		)
 	}
 
 	// Convert questions to client-safe format (no answer key)
@@ -172,6 +181,134 @@ func (h *TestHandler) GetTestSession(w http.ResponseWriter, r *http.Request) {
 		ProgramName:      displayName,
 		TrackName:        trackName,
 		DurationMinutes:  durationMinutes,
+		PassingScore:     passingScore,
+		QuestionCount:    len(clientQuestions),
+		StartedAt:        startedAt,
+		ExpiresAt:        expiresAt,
+		RemainingSeconds: remainingSeconds,
+		Status:           submission.Status,
+		Questions:        clientQuestions,
+	})
+}
+
+func (h *TestHandler) StartTest(w http.ResponseWriter, r *http.Request) {
+	testToken := chi.URLParam(r, "testToken")
+
+	submission, err := h.submissionRepo.GetByToken(r.Context(), testToken)
+	if err != nil {
+		if errors.Is(err, repository.ErrSubmissionNotFound) {
+			httpx.Error(w, http.StatusNotFound, "invalid or expired test link")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to fetch test session")
+		return
+	}
+
+	if submission.Status == model.SubmissionCompleted {
+		httpx.Error(w, http.StatusBadRequest, "test session already completed")
+		return
+	}
+
+	program, err := h.programRepo.GetByID(r.Context(), submission.ProgramID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to fetch program details")
+		return
+	}
+
+	durationMinutes := program.LogicTestDurationMinutes
+	passingScore := program.LogicTestPassingScore
+	displayName := program.Name
+	trackName := ""
+
+	if submission.TrackID != nil {
+		track, err := h.trackRepo.GetByID(r.Context(), *submission.TrackID)
+		if err == nil && track != nil {
+			trackName = track.Name
+			displayName = fmt.Sprintf("%s - %s", program.Name, track.Name)
+			if track.LogicTestDurationMinutes > 0 {
+				durationMinutes = track.LogicTestDurationMinutes
+			}
+			if track.LogicTestPassingScore > 0 {
+				passingScore = track.LogicTestPassingScore
+			}
+		}
+	}
+
+	now := time.Now()
+	// If starting for the first time (pending), anchor started_at to now
+	if submission.Status == model.SubmissionPending {
+		submission.StartedAt = now
+		submission.Status = model.SubmissionInProgress
+		_ = h.submissionRepo.StartSubmission(r.Context(), submission.ID, now)
+		_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestInProgress)
+	}
+
+	candidateEmail := ""
+	candidateName := ""
+	if applicant, err := h.applicantRepo.GetByID(r.Context(), submission.ApplicantID); err == nil && applicant != nil {
+		candidateEmail = applicant.Email
+		candidateName = applicant.FullName
+	}
+
+	var questions []model.MCQQuestion
+	if submission.TrackID != nil {
+		track, err := h.trackRepo.GetByID(r.Context(), *submission.TrackID)
+		if err == nil && track != nil {
+			if track.QuestionSetID != nil && h.questionSetRepo != nil {
+				questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), *track.QuestionSetID)
+			}
+			if len(questions) == 0 {
+				questions, _ = h.mcqRepo.ListByTrack(r.Context(), track.ID)
+			}
+		}
+	}
+	if len(questions) == 0 && program.QuestionSetID != nil && h.questionSetRepo != nil {
+		questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), *program.QuestionSetID)
+	}
+	if len(questions) == 0 {
+		questions, _ = h.mcqRepo.ListByProgram(r.Context(), program.ID)
+	}
+	if len(questions) == 0 && h.questionSetRepo != nil {
+		if sets, _ := h.questionSetRepo.List(r.Context(), &program.ID, &program.OrganizationID); len(sets) > 0 {
+			questions, _ = h.questionSetRepo.ListQuestionsBySetID(r.Context(), sets[0].ID)
+		}
+	}
+
+	startedAt := submission.StartedAt
+	expiresAt := startedAt.Add(time.Duration(durationMinutes) * time.Minute)
+	remainingSeconds := int(expiresAt.Sub(time.Now()).Seconds())
+	if remainingSeconds < 0 {
+		remainingSeconds = 0
+	}
+	if remainingSeconds == 0 && submission.Status == model.SubmissionInProgress {
+		submission.Status = model.SubmissionExpired
+		_ = h.submissionRepo.CompleteSubmission(
+			r.Context(),
+			submission.ID,
+			now,
+			durationMinutes*60,
+			submission.TotalScore,
+			submission.Passed,
+			submission.Answers,
+			model.SubmissionExpired,
+		)
+		_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestFailed)
+	}
+
+	clientQuestions := make([]model.ClientQuestion, 0, len(questions))
+	for _, q := range questions {
+		clientQuestions = append(clientQuestions, q.ToClient())
+	}
+
+	httpx.JSON(w, http.StatusOK, TestSessionResponse{
+		SubmissionID:     submission.ID.String(),
+		CandidateEmail:   candidateEmail,
+		CandidateName:    candidateName,
+		ProgramName:      displayName,
+		TrackName:        trackName,
+		DurationMinutes:  durationMinutes,
+		PassingScore:     passingScore,
+		QuestionCount:    len(clientQuestions),
 		StartedAt:        startedAt,
 		ExpiresAt:        expiresAt,
 		RemainingSeconds: remainingSeconds,

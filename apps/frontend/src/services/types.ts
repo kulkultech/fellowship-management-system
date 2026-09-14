@@ -210,10 +210,12 @@ export interface TestSession {
   program_name: string;
   track_name?: string;
   duration_minutes: number;
+  passing_score?: number;
+  question_count?: number;
   started_at: string;
   expires_at: string;
   remaining_seconds: number;
-  status: 'in_progress' | 'completed' | 'expired';
+  status: 'pending' | 'in_progress' | 'completed' | 'expired';
   questions: ClientQuestion[];
   already_done?: boolean;
 }

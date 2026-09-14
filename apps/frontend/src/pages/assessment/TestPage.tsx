@@ -11,6 +11,12 @@ import {
   CheckCircle2,
   Mail,
   ArrowRight,
+  Play,
+  Award,
+  FileText,
+  ShieldCheck,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 import { AssessmentAccessGuard } from '@/components/AssessmentAccessGuard';
@@ -22,10 +28,33 @@ export const TestPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
+  const [testStage, setTestStage] = useState<'bridge' | 'testing'>('bridge');
+  const [isReadyConfirmed, setIsReadyConfirmed] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>(() => {
+    if (!testToken) return {};
+    try {
+      const saved = localStorage.getItem(`fms_test_answers_${testToken}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load saved answers', e);
+    }
+    return {};
+  });
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const handleSelectOption = (questionId: string, optionId: string) => {
+    setSelectedAnswers((prev) => {
+      const next = { ...prev, [questionId]: optionId };
+      try {
+        localStorage.setItem(`fms_test_answers_${testToken}`, JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save answers to localStorage', e);
+      }
+      return next;
+    });
+  };
 
   const { data: testSession, isLoading, isError } = useQuery({
     queryKey: ['test-session', testToken],
@@ -34,10 +63,28 @@ export const TestPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
+  const startMutation = useMutation({
+    mutationFn: () => testService.startTest(testToken!),
+    onSuccess: (data) => {
+      setSecondsRemaining(data.remaining_seconds || data.duration_minutes * 60);
+      setTestStage('testing');
+      toast.success('Assessment started! Good luck.');
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error || err.message || 'Failed to start assessment';
+      toast.error(msg);
+    },
+  });
+
   const submitMutation = useMutation({
     mutationFn: (answers: { question_id: string; selected_option_id: string }[]) =>
       testService.submitTest(testToken!, answers),
     onSuccess: () => {
+      try {
+        localStorage.removeItem(`fms_test_answers_${testToken}`);
+      } catch (e) {
+        // ignore
+      }
       toast.success('Assessment submitted successfully!');
       setIsSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -48,27 +95,26 @@ export const TestPage: React.FC = () => {
     },
   });
 
-  // If already done, route to result immediately
+  // If already done or expired, route to result immediately; if already in progress, resume testing
   useEffect(() => {
-    if (testSession && (testSession.already_done || testSession.status === 'completed')) {
-      toast('You have already completed this test. Redirecting to your official scorecard.', {
-        icon: 'ℹ️',
-      });
+    if (!testSession) return;
+    if (testSession.already_done || testSession.status === 'completed' || testSession.status === 'expired') {
+      if (testSession.status === 'expired') {
+        toast.error('Assessment time limit has expired.');
+      } else {
+        toast('You have already completed this test. Redirecting to your official scorecard.', {
+          icon: 'ℹ️',
+        });
+      }
       navigate(`/result/${testToken}`);
+      return;
+    }
+
+    // If test is already in progress, candidate closed and reopened the page -> resume testing immediately!
+    if (testSession.status === 'in_progress') {
+      setTestStage('testing');
     }
   }, [testSession, testToken, navigate]);
-
-  // Calculate and initialize timer countdown
-  useEffect(() => {
-    if (testSession && secondsRemaining === null && testSession.status === 'in_progress') {
-      const durationSeconds = testSession.duration_minutes * 60;
-      const startTime = new Date(testSession.started_at).getTime();
-      const now = new Date().getTime();
-      const elapsedSeconds = Math.floor((now - startTime) / 1000);
-      const remaining = Math.max(0, durationSeconds - elapsedSeconds);
-      setSecondsRemaining(remaining);
-    }
-  }, [testSession, secondsRemaining]);
 
   const handleSubmit = useCallback(() => {
     if (!testSession) return;
@@ -79,22 +125,49 @@ export const TestPage: React.FC = () => {
     submitMutation.mutate(formattedAnswers);
   }, [testSession, selectedAnswers, submitMutation]);
 
-  // Real-time timer countdown
+  // True wall-clock timer synchronization based on testSession.expires_at
+  // This guarantees time still passes even when tab is closed, minimized, or during device sleep
+  const syncRemainingTime = useCallback(() => {
+    if (!testSession || testSession.status !== 'in_progress' || !testSession.expires_at) return;
+    const targetEndTime = new Date(testSession.expires_at).getTime();
+    const now = Date.now();
+    const diffSec = Math.max(0, Math.floor((targetEndTime - now) / 1000));
+    setSecondsRemaining(diffSec);
+
+    if (diffSec <= 0 && !isSubmitted && !submitMutation.isPending) {
+      toast.error('Time limit reached! Submitting your assessment...');
+      handleSubmit();
+    }
+  }, [testSession, isSubmitted, submitMutation.isPending, handleSubmit]);
+
+  // Initialize/sync on stage change or testSession load
   useEffect(() => {
-    if (secondsRemaining === null || secondsRemaining <= 0) return;
+    if (testStage === 'testing' && testSession?.status === 'in_progress') {
+      syncRemainingTime();
+    }
+  }, [testStage, testSession, syncRemainingTime]);
+
+  // Real-time wall-clock timer countdown and visibility change listener
+  useEffect(() => {
+    if (testStage !== 'testing' || !testSession || testSession.status !== 'in_progress') return;
+
     const interval = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(interval);
-          toast.error('Time limit reached! Submitting your assessment...');
-          handleSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
+      syncRemainingTime();
     }, 1000);
-    return () => clearInterval(interval);
-  }, [secondsRemaining, handleSubmit]);
+
+    // When candidate switches back to tab or unminimizes browser, immediately resync clock
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncRemainingTime();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [testStage, testSession, syncRemainingTime]);
 
   const formatTimer = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -211,182 +284,399 @@ export const TestPage: React.FC = () => {
       programName={testSession.program_name}
       trackName={testSession.track_name}
     >
-      <div className="min-h-screen bg-slate-50/60 flex flex-col">
-      {/* Sticky Top Assessment Header */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="w-full px-4 sm:px-8 lg:px-12">
-          <div className="flex items-center justify-between h-20 sm:h-24">
-            <div className="flex items-center gap-4">
-              <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain" />
-              <div className="hidden sm:flex flex-col">
-                <span className="font-extrabold text-kulkul-purple text-base">{testSession.program_name}</span>
-                <div className="text-xs text-slate-500 font-medium">Timed Logic Assessment &middot; 1 Attempt Only</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 sm:gap-6">
-              {/* Candidate Info (if authenticated) */}
-              {user?.email && (
-                <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
-                  <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-black">
-                    {(user.name || user.email || 'C').charAt(0).toUpperCase()}
-                  </div>
-                  <span className="max-w-[130px] truncate">{user.name || user.email}</span>
+      {testStage === 'bridge' ? (
+        /* BRIDGE PAGE: Candidate Briefing & Information Before Starting */
+        <div className="min-h-screen bg-slate-50/60 flex flex-col justify-between">
+          <header className="bg-white border-b border-slate-200/80 sticky top-0 z-20 shadow-2xs">
+            <div className="w-full px-4 sm:px-8 lg:px-12 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 w-auto object-contain" />
+                <div className="hidden sm:flex flex-col">
+                  <span className="font-extrabold text-kulkul-purple text-sm leading-tight">{testSession.program_name}</span>
+                  <span className="text-2xs text-slate-500 font-medium">Candidate Assessment Briefing</span>
                 </div>
-              )}
-
-              {/* Countdown Clock */}
-              <div
-                className={`flex items-center gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border font-mono font-bold text-sm sm:text-base shadow-xs ${
-                  isUrgent
-                    ? 'bg-red-50 text-red-700 border-red-300 animate-pulse'
-                    : 'bg-kulkul-orange-light text-kulkul-orange border-kulkul-orange/30'
-                }`}
-              >
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>{secondsRemaining !== null ? formatTimer(secondsRemaining) : '--:--'}</span>
               </div>
 
-              {/* Submit Button */}
-              <button
-                onClick={handleSubmit}
-                disabled={submitMutation.isPending}
-                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2.5"
-              >
-                <Send className="w-4 h-4 text-kulkul-orange" />
-                <span className="hidden sm:inline">Finish & Submit</span>
-                <span className="sm:hidden">Submit</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col gap-6">
-        {/* Progress & Stepper */}
-        <div className="stitch-card p-5 bg-white">
-          <div className="flex items-center justify-between text-sm font-bold text-kulkul-purple mb-3">
-            <span>
-              Question {currentIndex + 1} of {questions.length}
-            </span>
-            <span className="text-slate-500 text-xs font-normal">
-              {answeredCount} of {questions.length} answered
-            </span>
-          </div>
-
-          {/* Stepper Pills */}
-          <div className="flex flex-wrap gap-2">
-            {questions.map((q, idx) => {
-              const isSelected = !!selectedAnswers[q.id];
-              const isCurrent = idx === currentIndex;
-              return (
+              <div className="flex items-center gap-3">
+                {user?.email && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
+                    <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-black">
+                      {(user.name || user.email || 'C').charAt(0).toUpperCase()}
+                    </div>
+                    <span className="max-w-[130px] truncate">{user.name || user.email}</span>
+                  </div>
+                )}
                 <button
-                  key={q.id}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`w-9 h-9 rounded-xl font-bold text-sm transition flex items-center justify-center ${
-                    isCurrent
-                      ? 'bg-kulkul-purple text-white shadow-md ring-2 ring-kulkul-orange ring-offset-2'
-                      : isSelected
-                      ? 'bg-kulkul-orange-light text-kulkul-orange border border-kulkul-orange/40 font-bold'
-                      : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
-                  }`}
+                  type="button"
+                  onClick={() => navigate('/candidate/dashboard')}
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-full hover:bg-slate-100 transition"
                 >
-                  {idx + 1}
+                  Dashboard
                 </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Current Question Card */}
-        {currentQ && (
-          <div className="stitch-card p-6 sm:p-8 bg-white flex flex-col">
-            {/* Category & Points */}
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple text-xs font-bold uppercase tracking-wider">
-                {currentQ.category}
-              </span>
-              <span className="text-xs font-bold text-slate-400">{currentQ.points} Points</span>
+              </div>
             </div>
+          </header>
 
-            {/* Question Text */}
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-relaxed mb-6">
-              {currentQ.question_text}
-            </h2>
+          <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center">
+            <div className="stitch-card bg-white p-6 sm:p-10 border border-slate-200/80 shadow-xl rounded-3xl space-y-8 animate-in fade-in duration-300">
+              {/* Header Badge & Title */}
+              <div>
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold tracking-wide mb-3">
+                  <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+                  <span>Timed Assessment Briefing</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
+                  {testSession.track_name ? `${testSession.track_name} Aptitude Assessment` : 'Technical & Logic Assessment'}
+                </h1>
+                <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-2xl leading-relaxed">
+                  Welcome! Before you begin your timed screening assessment for <span className="font-bold text-slate-900">{testSession.program_name}</span>, please review the session structure, duration, and rules below.
+                </p>
+              </div>
 
-            {/* Options List */}
-            <div className="space-y-3 mb-8">
-              {currentQ.options.map((option) => {
-                const isSelected = selectedAnswers[currentQ.id] === option.id;
-                return (
-                  <label
-                    key={option.id}
-                    onClick={() =>
-                      setSelectedAnswers({
-                        ...selectedAnswers,
-                        [currentQ.id]: option.id,
-                      })
-                    }
-                    className={`flex items-center gap-4 p-4 sm:p-4.5 rounded-2xl border-2 cursor-pointer transition ${
-                      isSelected
-                        ? 'border-kulkul-orange bg-kulkul-orange-light text-slate-950 font-bold shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-800'
+              {/* 4 Metric Highlight Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                {/* 1. Duration */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xs font-extrabold text-amber-800 uppercase tracking-wider">Duration</span>
+                    <div className="w-8 h-8 rounded-xl bg-amber-100/90 flex items-center justify-center text-amber-700">
+                      <Clock className="w-4 h-4 text-kulkul-orange" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                      {testSession.duration_minutes} <span className="text-xs sm:text-sm font-bold text-slate-600">min</span>
+                    </div>
+                    <p className="text-2xs sm:text-xs text-amber-900/70 mt-1 font-medium">Non-stop timer</p>
+                  </div>
+                </div>
+
+                {/* 2. Questions */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-purple-50/70 border border-purple-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xs font-extrabold text-kulkul-purple uppercase tracking-wider">Questions</span>
+                    <div className="w-8 h-8 rounded-xl bg-purple-100/90 flex items-center justify-center text-kulkul-purple">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                      {testSession.question_count || questions.length} <span className="text-xs sm:text-sm font-bold text-slate-600">items</span>
+                    </div>
+                    <p className="text-2xs sm:text-xs text-kulkul-purple/70 mt-1 font-medium">Multiple choice</p>
+                  </div>
+                </div>
+
+                {/* 3. Passing Score */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xs font-extrabold text-emerald-800 uppercase tracking-wider">Passing Score</span>
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100/90 flex items-center justify-center text-emerald-700">
+                      <Award className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                      {testSession.passing_score ?? 70}%
+                    </div>
+                    <p className="text-2xs sm:text-xs text-emerald-800/70 mt-1 font-medium">Required to qualify</p>
+                  </div>
+                </div>
+
+                {/* 4. Attempts */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xs font-extrabold text-indigo-800 uppercase tracking-wider">Attempts</span>
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100/90 flex items-center justify-center text-indigo-700">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                      1 <span className="text-xs sm:text-sm font-bold text-slate-600">sitting</span>
+                    </div>
+                    <p className="text-2xs sm:text-xs text-indigo-800/70 mt-1 font-medium">Single attempt only</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Candidate Details Strip */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-kulkul-purple text-white font-black flex items-center justify-center text-sm shrink-0">
+                    {(testSession.candidate_name || user?.name || 'C').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">{testSession.candidate_name || user?.name || 'Candidate'}</div>
+                    <div className="text-slate-500 text-xs">{testSession.candidate_email}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 font-semibold self-start sm:self-center text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Verified Candidate Session</span>
+                </div>
+              </div>
+
+              {/* Instructions & Guidelines */}
+              <div className="space-y-4 pt-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-kulkul-purple" />
+                  <span>Important Instructions &amp; Rules</span>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs sm:text-sm text-slate-700">
+                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
+                    <div>
+                      <strong className="text-slate-900 block font-bold mb-0.5">Continuous Countdown</strong>
+                      Once you click &quot;Begin Timed Assessment&quot;, your {testSession.duration_minutes}-minute timer starts immediately and cannot be paused.
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
+                    <div>
+                      <strong className="text-slate-900 block font-bold mb-0.5">Free Question Navigation</strong>
+                      You can navigate freely between questions using the question selector or Previous / Next buttons at any point.
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</div>
+                    <div>
+                      <strong className="text-slate-900 block font-bold mb-0.5">Automatic Submission</strong>
+                      When the countdown timer reaches 00:00, all answered questions will be automatically submitted for scoring.
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">4</div>
+                    <div>
+                      <strong className="text-slate-900 block font-bold mb-0.5">No Negative Marking</strong>
+                      Incorrect answers do not deduct points. Answer every single question to maximize your final score.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirmation & Start Actions */}
+              <div className="pt-4 border-t border-slate-100 space-y-5">
+                <label className="flex items-start gap-3 cursor-pointer p-4 rounded-2xl bg-amber-50/60 border border-amber-200/70 hover:bg-amber-50 transition select-none">
+                  <input
+                    type="checkbox"
+                    checked={isReadyConfirmed}
+                    onChange={(e) => setIsReadyConfirmed(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-kulkul-purple rounded border-slate-300 focus:ring-kulkul-purple shrink-0 cursor-pointer"
+                  />
+                  <span className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                    I have read the guidelines and confirm I am in a quiet environment with a stable connection, ready to complete the <strong>{testSession.duration_minutes}-minute</strong> assessment in one sitting.
+                  </span>
+                </label>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/candidate/dashboard')}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-bold text-sm transition text-center"
+                  >
+                    Take Assessment Later
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!isReadyConfirmed || startMutation.isPending}
+                    onClick={() => startMutation.mutate()}
+                    className="w-full sm:w-auto px-8 py-4 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-extrabold text-sm sm:text-base shadow-md hover:shadow-lg transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-3"
+                  >
+                    {startMutation.isPending ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Starting Assessment...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 fill-kulkul-orange text-kulkul-orange" />
+                        <span>Begin Timed Assessment</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <Footer />
+        </div>
+      ) : (
+        /* TIMED TESTING STAGE: Active Questions & Countdown Timer */
+        <div className="min-h-screen bg-slate-50/60 flex flex-col">
+          {/* Sticky Top Assessment Header */}
+          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
+            <div className="w-full px-4 sm:px-8 lg:px-12">
+              <div className="flex items-center justify-between h-20 sm:h-24">
+                <div className="flex items-center gap-4">
+                  <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain" />
+                  <div className="hidden sm:flex flex-col">
+                    <span className="font-extrabold text-kulkul-purple text-base">{testSession.program_name}</span>
+                    <div className="text-xs text-slate-500 font-medium">Timed Logic Assessment &middot; 1 Attempt Only</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 sm:gap-6">
+                  {/* Candidate Info (if authenticated) */}
+                  {user?.email && (
+                    <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
+                      <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-black">
+                        {(user.name || user.email || 'C').charAt(0).toUpperCase()}
+                      </div>
+                      <span className="max-w-[130px] truncate">{user.name || user.email}</span>
+                    </div>
+                  )}
+
+                  {/* Countdown Clock */}
+                  <div
+                    className={`flex items-center gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border font-mono font-bold text-sm sm:text-base shadow-xs ${
+                      isUrgent
+                        ? 'bg-red-50 text-red-700 border-red-300 animate-pulse'
+                        : 'bg-kulkul-orange-light text-kulkul-orange border-kulkul-orange/30'
                     }`}
                   >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 transition ${
-                        isSelected
-                          ? 'bg-kulkul-orange text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-600 border border-slate-300'
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>{secondsRemaining !== null ? formatTimer(secondsRemaining) : '--:--'}</span>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitMutation.isPending}
+                    className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2.5"
+                  >
+                    <Send className="w-4 h-4 text-kulkul-orange" />
+                    <span className="hidden sm:inline">Finish & Submit</span>
+                    <span className="sm:hidden">Submit</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Content Area */}
+          <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col gap-6">
+            {/* Progress & Stepper */}
+            <div className="stitch-card p-5 bg-white">
+              <div className="flex items-center justify-between text-sm font-bold text-kulkul-purple mb-3">
+                <span>
+                  Question {currentIndex + 1} of {questions.length}
+                </span>
+                <span className="text-slate-500 text-xs font-normal">
+                  {answeredCount} of {questions.length} answered
+                </span>
+              </div>
+
+              {/* Stepper Pills */}
+              <div className="flex flex-wrap gap-2">
+                {questions.map((q, idx) => {
+                  const isSelected = !!selectedAnswers[q.id];
+                  const isCurrent = idx === currentIndex;
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => setCurrentIndex(idx)}
+                      className={`w-9 h-9 rounded-xl font-bold text-sm transition flex items-center justify-center ${
+                        isCurrent
+                          ? 'bg-kulkul-purple text-white shadow-md ring-2 ring-kulkul-orange ring-offset-2'
+                          : isSelected
+                          ? 'bg-kulkul-orange-light text-kulkul-orange border border-kulkul-orange/40 font-bold'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
                       }`}
                     >
-                      {option.id}
-                    </div>
-                    <span className="text-sm sm:text-base leading-snug flex-1">{option.text}</span>
-                  </label>
-                );
-              })}
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Stepper Buttons */}
-            <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-auto">
-              <button
-                type="button"
-                disabled={currentIndex === 0}
-                onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-slate-700 bg-slate-100 rounded-full hover:bg-slate-200 disabled:opacity-40 transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Previous</span>
-              </button>
+            {/* Current Question Card */}
+            {currentQ && (
+              <div className="stitch-card p-6 sm:p-8 bg-white flex flex-col">
+                {/* Category & Points */}
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple text-xs font-bold uppercase tracking-wider">
+                    {currentQ.category}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400">{currentQ.points} Points</span>
+                </div>
 
-              {currentIndex < questions.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                  className="stitch-pill stitch-pill-purple"
-                >
-                  <span>Next Question</span>
-                  <ChevronRight className="w-4 h-4 text-kulkul-orange" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitMutation.isPending}
-                  className="stitch-pill stitch-pill-orange"
-                >
-                  <span>Submit Assessment</span>
-                  <CheckCircle2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </main>
-      <Footer />
-    </div>
+                {/* Question Text */}
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-relaxed mb-6">
+                  {currentQ.question_text}
+                </h2>
+
+                {/* Options List */}
+                <div className="space-y-3 mb-8">
+                  {currentQ.options.map((option) => {
+                    const isSelected = selectedAnswers[currentQ.id] === option.id;
+                    return (
+                      <label
+                        key={option.id}
+                        onClick={() => handleSelectOption(currentQ.id, option.id)}
+                        className={`flex items-center gap-4 p-4 sm:p-4.5 rounded-2xl border-2 cursor-pointer transition ${
+                          isSelected
+                            ? 'border-kulkul-orange bg-kulkul-orange-light text-slate-950 font-bold shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-800'
+                        }`}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 transition ${
+                            isSelected
+                              ? 'bg-kulkul-orange text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-600 border border-slate-300'
+                          }`}
+                        >
+                          {option.id}
+                        </div>
+                        <span className="text-sm sm:text-base leading-snug flex-1">{option.text}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Stepper Buttons */}
+                <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-auto">
+                  <button
+                    type="button"
+                    disabled={currentIndex === 0}
+                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-slate-700 bg-slate-100 rounded-full hover:bg-slate-200 disabled:opacity-40 transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+
+                  {currentIndex < questions.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                      className="stitch-pill stitch-pill-purple"
+                    >
+                      <span>Next Question</span>
+                      <ChevronRight className="w-4 h-4 text-kulkul-orange" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={submitMutation.isPending}
+                      className="stitch-pill stitch-pill-orange"
+                    >
+                      <span>Submit Assessment</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
+          <Footer />
+        </div>
+      )}
     </AssessmentAccessGuard>
   );
 };

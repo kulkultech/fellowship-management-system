@@ -155,6 +155,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		// Candidate Funnel: Timed Logic & MCQ Test
 		api.Route("/tests", func(t chi.Router) {
 			t.Get("/{testToken}", testHandler.GetTestSession)
+			t.Post("/{testToken}/start", testHandler.StartTest)
 			t.Post("/{testToken}/submit", testHandler.SubmitTest)
 			t.Get("/{testToken}/result", testHandler.GetResult)
 		})
