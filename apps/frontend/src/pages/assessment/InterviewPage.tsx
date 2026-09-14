@@ -543,6 +543,14 @@ export const InterviewPage: React.FC = () => {
   const sessionChunksRef = useRef<Blob[]>([]);
   const sessionMimeTypeRef = useRef<string>('');
 
+  // Web Audio Mixer for Master Recording (combines candidate mic + AI voice into composite stream)
+  const mixedAudioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const aiAudioGainNodeRef = useRef<GainNode | null>(null);
+  const micGainNodeRef = useRef<GainNode | null>(null);
+  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const micConnectedToGainRef = useRef<boolean>(false);
+  const audioMediaElementSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+
   // Per-Question Take Recorder & Preview State
   const [questionRecordings, setQuestionRecordings] = useState<Record<number, RecordedItem>>({});
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
@@ -891,12 +899,19 @@ export const InterviewPage: React.FC = () => {
                 audioContextRef.current.close().catch(() => {});
               } catch (_) {}
             }
+            mixedAudioDestinationRef.current = null;
+            aiAudioGainNodeRef.current = null;
+            micGainNodeRef.current = null;
+            mediaStreamSourceRef.current = null;
+            micConnectedToGainRef.current = false;
+            audioMediaElementSourceRef.current = null;
 
             const audioCtx = new AudioCtx();
             const analyser = audioCtx.createAnalyser();
             analyser.fftSize = 64;
             const source = audioCtx.createMediaStreamSource(userMediaStream);
             source.connect(analyser);
+            mediaStreamSourceRef.current = source;
 
             // Connect PCM audio processor for high-accuracy Whisper transcription
             try {
@@ -1127,6 +1142,12 @@ export const InterviewPage: React.FC = () => {
           sessionRecorderRef.current.stop();
         } catch (_) {}
       }
+      mixedAudioDestinationRef.current = null;
+      aiAudioGainNodeRef.current = null;
+      micGainNodeRef.current = null;
+      mediaStreamSourceRef.current = null;
+      micConnectedToGainRef.current = false;
+      audioMediaElementSourceRef.current = null;
     };
   }, []);
 
@@ -1166,6 +1187,9 @@ export const InterviewPage: React.FC = () => {
       if (audioTrack) {
         audioTrack.enabled = !nextMuted;
       }
+    }
+    if (micGainNodeRef.current) {
+      micGainNodeRef.current.gain.value = nextMuted ? 0.0 : 1.0;
     }
 
     if (nextMuted) {
@@ -1349,6 +1373,11 @@ export const InterviewPage: React.FC = () => {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(ctx.destination);
+      if (aiAudioGainNodeRef.current) {
+        try {
+          source.connect(aiAudioGainNodeRef.current);
+        } catch (_) {}
+      }
       currentSourceNodeRef.current = source;
 
       source.onended = () => {
@@ -1388,6 +1417,22 @@ export const InterviewPage: React.FC = () => {
     }
     const audio = sharedAudioRef.current;
     audio.src = url;
+
+    // Connect shared audio element to recording mixer
+    if (audioContextRef.current && !audioMediaElementSourceRef.current) {
+      try {
+        const elSource = audioContextRef.current.createMediaElementSource(audio);
+        elSource.connect(audioContextRef.current.destination);
+        if (aiAudioGainNodeRef.current) {
+          try {
+            elSource.connect(aiAudioGainNodeRef.current);
+          } catch (_) {}
+        }
+        audioMediaElementSourceRef.current = elSource;
+      } catch (e) {
+        console.warn('Could not attach media element to audio mixer:', e);
+      }
+    }
 
     audio.onplay = () => {
       setIsAiSpeaking(true);
@@ -2184,6 +2229,80 @@ export const InterviewPage: React.FC = () => {
   };
   startSpeechRecognitionRef.current = startSpeechRecognition;
 
+  // Builds a composite MediaStream containing candidate's camera video + mixed audio (candidate mic + AI interviewer speech)
+  const buildCompositeRecordingStream = (camStream: MediaStream): MediaStream => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) {
+        return camStream;
+      }
+
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new AudioCtx();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      // Initialize mixer destination if not already created
+      if (!mixedAudioDestinationRef.current) {
+        const mixedDest = ctx.createMediaStreamDestination();
+        mixedAudioDestinationRef.current = mixedDest;
+
+        // AI audio gain node (routes AI questions and responses into recording)
+        const aiGain = ctx.createGain();
+        aiGain.gain.value = 1.0;
+        aiGain.connect(mixedDest);
+        aiAudioGainNodeRef.current = aiGain;
+
+        // Candidate mic gain node (routes mic into recording, respects mute state)
+        const micGain = ctx.createGain();
+        micGain.gain.value = isMicMutedRef.current ? 0.0 : 1.0;
+        micGain.connect(mixedDest);
+        micGainNodeRef.current = micGain;
+      }
+
+      // Connect candidate microphone to micGain -> mixedDest
+      const micTracks = camStream.getAudioTracks();
+      if (micTracks.length > 0) {
+        if (!mediaStreamSourceRef.current) {
+          try {
+            mediaStreamSourceRef.current = ctx.createMediaStreamSource(camStream);
+          } catch (err) {
+            console.warn('Could not create media stream source for mic:', err);
+          }
+        }
+        if (mediaStreamSourceRef.current && micGainNodeRef.current && !micConnectedToGainRef.current) {
+          try {
+            mediaStreamSourceRef.current.connect(micGainNodeRef.current);
+            micConnectedToGainRef.current = true;
+          } catch (err) {
+            console.warn('Could not connect mic source to audio mixer:', err);
+          }
+        }
+      }
+
+      const mixedAudioTracks = mixedAudioDestinationRef.current?.stream.getAudioTracks();
+      const videoTracks = camStream.getVideoTracks();
+
+      const combinedTracks: MediaStreamTrack[] = [];
+      if (videoTracks.length > 0) {
+        combinedTracks.push(videoTracks[0]);
+      }
+      if (mixedAudioTracks && mixedAudioTracks.length > 0) {
+        combinedTracks.push(mixedAudioTracks[0]);
+      } else if (micTracks.length > 0) {
+        combinedTracks.push(micTracks[0]);
+      }
+
+      return new MediaStream(combinedTracks);
+    } catch (err) {
+      console.warn('Failed to build composite recording stream, falling back to camera stream:', err);
+      return camStream;
+    }
+  };
+
   // Enter Chamber from Lobby
   const handleEnterChamber = () => {
     if (!stream && !isDemo) {
@@ -2199,14 +2318,15 @@ export const InterviewPage: React.FC = () => {
     // Unlock browser audio context synchronously on user interaction
     unlockAudio();
 
-    // 1. Start continuous master session recording
+    // 1. Start continuous master session recording (with mixed Candidate Mic + AI Voice)
     try {
       const activeStream = stream || createSyntheticVideoStream();
       if (activeStream && typeof MediaRecorder !== 'undefined') {
+        const compositeStream = buildCompositeRecordingStream(activeStream);
         const { mimeType } = getSupportedVideoMimeType();
         sessionMimeTypeRef.current = mimeType;
         sessionChunksRef.current = [];
-        const sessionRecorder = new MediaRecorder(activeStream, {
+        const sessionRecorder = new MediaRecorder(compositeStream, {
           ...(mimeType ? { mimeType } : {}),
           videoBitsPerSecond: 600_000,
           audioBitsPerSecond: 64_000,
