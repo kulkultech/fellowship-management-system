@@ -2301,10 +2301,6 @@ export const InterviewPage: React.FC = () => {
         <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center animate-in fade-in duration-300">
           {/* Header Title */}
           <div className="text-center max-w-2xl mx-auto mb-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold tracking-wide mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-              <span>Pre-Flight AI Interview Calibration</span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               Candidate Readiness Check
             </h1>
@@ -2447,10 +2443,6 @@ export const InterviewPage: React.FC = () => {
             {preflightStep === 1 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold mb-2">
-                    <Laptop className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Step 1 of 3 &middot; System Prerequisites</span>
-                  </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                     Minimum Device &amp; Hardware Requirements
                   </h2>
@@ -2562,10 +2554,6 @@ export const InterviewPage: React.FC = () => {
             {preflightStep === 2 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold mb-2">
-                    <FileText className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Step 2 of 3 &middot; Assessment Protocol</span>
-                  </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                     Interview Rules &amp; Code of Conduct
                   </h2>
@@ -2604,6 +2592,16 @@ export const InterviewPage: React.FC = () => {
                     <div>
                       <strong className="text-slate-900 text-sm block mb-0.5">Sequential Questions</strong>
                       <span className="leading-relaxed">Questions appear one at a time with optional follow-ups. Once you complete a response, you cannot revisit previous questions.</span>
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 flex items-start gap-3 p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 shadow-2xs">
+                    <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">5</span>
+                    <div>
+                      <strong className="text-amber-950 text-sm block mb-0.5">Clear English &amp; Video Review Safeguard</strong>
+                      <span className="text-amber-900/90 leading-relaxed">
+                        If the AI transcription is not good or misses words, please continue to answer with good English and with a good, thorough answer because your complete video recording will be used for human review alongside the AI evaluation.
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2656,10 +2654,6 @@ export const InterviewPage: React.FC = () => {
             {preflightStep === 3 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold mb-2">
-                    <Video className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Step 3 of 3 &middot; Camera &amp; Audio Calibration</span>
-                  </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                     Test Your Camera &amp; Microphone
                   </h2>
