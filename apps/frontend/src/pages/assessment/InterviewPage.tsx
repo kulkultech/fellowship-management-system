@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
-import { TECH_VOCABULARY_TERMS, normalizeTechVocabulary } from '@/utils/techVocabulary';
+import { normalizeTechVocabulary } from '@/utils/techVocabulary';
 import { patchWebmDuration } from '@/utils/patchWebmDuration';
 
 export interface ChatMessageItem {
@@ -1234,7 +1234,7 @@ export const InterviewPage: React.FC = () => {
     } else {
       toast('Microphone active.', { icon: '🎙️', id: 'mic-status' });
       if (uiStageRef.current === 'interview' && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
-        restartSpeechRecognition(100);
+        restartSpeechRecognition(0);
       }
     }
   };
@@ -1256,10 +1256,15 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  const restartSpeechRecognition = (delayMs: number = 250) => {
+  const restartSpeechRecognition = (delayMs: number = 0) => {
     if (uiStageRef.current !== 'interview' || speechRecognitionUnsupportedRef.current || isMicMutedRef.current) return;
     if (recognitionRestartTimeoutRef.current) {
       clearTimeout(recognitionRestartTimeoutRef.current);
+      recognitionRestartTimeoutRef.current = null;
+    }
+    if (delayMs <= 0) {
+      startSpeechRecognitionRef.current();
+      return;
     }
     recognitionRestartTimeoutRef.current = setTimeout(() => {
       if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current && !isMicMutedRef.current) {
@@ -1379,7 +1384,7 @@ export const InterviewPage: React.FC = () => {
     isCandidateSpeakingRef.current = false;
     setIsCandidateSpeaking(false);
     setLiveCandidateTranscript('');
-    restartSpeechRecognition(100);
+    restartSpeechRecognition(0);
   };
 
   // Play decoded AudioBuffer with 0ms latency and immune to HTML5 Audio autoplay restrictions
@@ -1416,7 +1421,7 @@ export const InterviewPage: React.FC = () => {
         isCandidateSpeakingRef.current = false;
         setIsCandidateSpeaking(false);
         setLiveCandidateTranscript('');
-        restartSpeechRecognition(100); // Start fresh mic recognition now that AI finished speaking!
+        restartSpeechRecognition(0); // Start fresh mic recognition instantly now that AI finished speaking!
       };
 
       setIsAiSpeaking(true);
@@ -1472,14 +1477,14 @@ export const InterviewPage: React.FC = () => {
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
       setLiveCandidateTranscript('');
-      restartSpeechRecognition(100);
+      restartSpeechRecognition(0);
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
       isCandidateSpeakingRef.current = false;
       setIsCandidateSpeaking(false);
-      restartSpeechRecognition(100);
+      restartSpeechRecognition(0);
     };
 
     const playPromise = audio.play();
@@ -1489,7 +1494,7 @@ export const InterviewPage: React.FC = () => {
         setAutoplayBlocked(true);
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
-        restartSpeechRecognition(100);
+        restartSpeechRecognition(0);
       });
     }
   };
@@ -1603,7 +1608,7 @@ export const InterviewPage: React.FC = () => {
     if (!result) {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
-      restartSpeechRecognition(150);
+      restartSpeechRecognition(0);
       return;
     }
 
@@ -1669,14 +1674,14 @@ export const InterviewPage: React.FC = () => {
           playAudioUrl(result.url);
         }
       } else {
-        restartSpeechRecognition(150);
+        restartSpeechRecognition(0);
       }
     } catch {
       setIsEvaluatingAnswer(false);
       isEvaluatingAnswerRef.current = false;
       if (onBeforePresent) onBeforePresent();
       setChatMessages((prev) => [...prev, messageItem]);
-      restartSpeechRecognition(150);
+      restartSpeechRecognition(0);
     }
   };
 
@@ -2128,7 +2133,7 @@ export const InterviewPage: React.FC = () => {
   };
   commitCandidateTurnRef.current = commitCandidateTurn;
 
-  // Continuous Speech Recognition with Instant Barge-In
+  // Continuous Speech Recognition with Instant Barge-In & Zero Delay
   const startSpeechRecognition = () => {
     try {
       if (uiStageRef.current !== 'interview' || isMicMutedRef.current) return;
@@ -2141,30 +2146,21 @@ export const InterviewPage: React.FC = () => {
 
       // Clean up previous instance cleanly
       if (speechRecognitionRef.current) {
-        try {
-          speechRecognitionRef.current.onresult = null;
-          speechRecognitionRef.current.onerror = null;
-          speechRecognitionRef.current.onend = null;
-          speechRecognitionRef.current.abort();
-        } catch (_) {}
+        const old = speechRecognitionRef.current;
         speechRecognitionRef.current = null;
+        try {
+          old.onresult = null;
+          old.onerror = null;
+          old.onend = null;
+          old.abort();
+        } catch (_) {}
       }
 
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-
-      // Grammar list for technical vocabulary hints if supported
-      const SpeechGrammarList = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList;
-      if (SpeechGrammarList) {
-        try {
-          const speechRecognitionList = new SpeechGrammarList();
-          const grammar = `#JSGF V1.0; grammar tech; public <tech> = ${TECH_VOCABULARY_TERMS.slice(0, 60).join(' | ')} ;`;
-          speechRecognitionList.addFromString(grammar, 1);
-          recognition.grammars = speechRecognitionList;
-        } catch (_) {}
-      }
+      recognition.maxAlternatives = 1;
 
       recognition.onresult = (event: any) => {
         // Acoustic Echo Isolation & Mute Guard:
@@ -2179,51 +2175,40 @@ export const InterviewPage: React.FC = () => {
           transcript += event.results[i][0].transcript + ' ';
         }
         let text = transcript.trim();
+        if (!text) return;
+
+        // Instant vocabulary normalization (< 0.05ms execution)
         text = normalizeTechVocabulary(text);
+        if (!text) return;
 
-        // Filter out transient air puff / breath noise phonetics ("ah", "uh", "um", "huh")
-        const lower = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-        const isBreathOrNoise =
-          !lower ||
-          lower === 'a' ||
-          lower === 'ah' ||
-          lower === 'uh' ||
-          lower === 'um' ||
-          lower === 'huh' ||
-          lower === 'oh' ||
-          lower === 'sh' ||
-          lower === 'p' ||
-          lower === 'h';
+        speechRecognitionWorkingRef.current = true;
 
-        if (text.length >= 2 && !isBreathOrNoise) {
-          speechRecognitionWorkingRef.current = true;
+        // Zero-Delay UI Reveal: Instant display of live speech the millisecond audio is spoken
+        if (!isCandidateSpeakingRef.current) {
+          isCandidateSpeakingRef.current = true;
+          setIsCandidateSpeaking(true);
+        }
+        setLiveCandidateTranscript(text);
 
-          // Stream live candidate transcript to active chat bubble
-          setLiveCandidateTranscript(text);
+        // Reset silence debounce timer
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+        }
 
-          // Reset silence debounce timer
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-          }
+        // Auto-commit turn after natural conversational silence pause
+        if (text.length >= 6 && !isEvaluatingAnswerRef.current) {
+          const wordCount = text.split(/\s+/).filter(Boolean).length;
+          const debounceMs = wordCount < 10 ? 6000 : 5000;
 
-          // Auto-commit turn after natural conversational silence pause
-          if (text.length >= 6 && !isEvaluatingAnswerRef.current) {
-            // Adaptive silence debounce:
-            // - For brief opening fragments (< 10 words), give 6.0 seconds so candidate has time to think without being cut off mid-thought!
-            // - For substantive responses (>= 10 words), use a comfortable 5.0 seconds silence pause.
-            const wordCount = text.split(/\s+/).filter(Boolean).length;
-            const debounceMs = wordCount < 10 ? 6000 : 5000;
-
-            silenceTimeoutRef.current = setTimeout(() => {
-              commitCandidateTurn(text);
-            }, debounceMs);
-          }
+          silenceTimeoutRef.current = setTimeout(() => {
+            commitCandidateTurn(text);
+          }, debounceMs);
         }
       };
 
       recognition.onerror = (e: any) => {
         console.warn('Speech recognition notice:', e?.error || e);
-        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed' || e?.error === 'network') {
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
           speechRecognitionUnsupportedRef.current = true;
           speechRecognitionWorkingRef.current = false;
           const isBrave = typeof window !== 'undefined' && Boolean((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function');
@@ -2235,15 +2220,17 @@ export const InterviewPage: React.FC = () => {
           }
           return;
         }
+
+        // Transient events ('no-speech', 'network', etc.): re-establish immediately without disabling recognition
         if (e?.error !== 'aborted' && uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
-          restartSpeechRecognition(600);
+          restartSpeechRecognition(e?.error === 'network' ? 100 : 0);
         }
       };
 
       recognition.onend = () => {
-        // Automatically restart a fresh instance so speech recognition stays active continuously
-        if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current) {
-          restartSpeechRecognition(200);
+        // Automatically restart a fresh instance with 0 delay so speech recognition stays active continuously
+        if (uiStageRef.current === 'interview' && !speechRecognitionUnsupportedRef.current && !isAiSpeakingRef.current && !isEvaluatingAnswerRef.current) {
+          restartSpeechRecognition(0);
         }
       };
 
