@@ -82,16 +82,17 @@ type ApplicantListItem struct {
 	University       string               `json:"university,omitempty"`
 	Major            string               `json:"major,omitempty"`
 	Semester         string               `json:"semester,omitempty"`
-	ReferralSource   string               `json:"referral_source,omitempty"`
-	TrackID          string               `json:"track_id,omitempty"`
-	TrackName        string               `json:"track_name,omitempty"`
-	CurrentStage     model.ApplicantStage `json:"current_stage"`
-	MCQScore         *int                 `json:"mcq_score,omitempty"`
-	MCQPassed        *bool                `json:"mcq_passed,omitempty"`
-	TimeSpentSeconds *int                 `json:"time_spent_seconds,omitempty"`
-	AIScore          *int                 `json:"ai_score,omitempty"`
-	AIRecommendation *string              `json:"ai_recommendation,omitempty"`
-	CreatedAt        string               `json:"created_at"`
+	ReferralSource   string                 `json:"referral_source,omitempty"`
+	CustomResponses  map[string]interface{} `json:"custom_responses,omitempty"`
+	TrackID          string                 `json:"track_id,omitempty"`
+	TrackName        string                 `json:"track_name,omitempty"`
+	CurrentStage     model.ApplicantStage   `json:"current_stage"`
+	MCQScore         *int                   `json:"mcq_score,omitempty"`
+	MCQPassed        *bool                  `json:"mcq_passed,omitempty"`
+	TimeSpentSeconds *int                   `json:"time_spent_seconds,omitempty"`
+	AIScore          *int                   `json:"ai_score,omitempty"`
+	AIRecommendation *string                `json:"ai_recommendation,omitempty"`
+	CreatedAt        string                 `json:"created_at"`
 }
 
 func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +145,7 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			Major:          a.Major,
 			Semester:       a.Semester,
 			ReferralSource: a.ReferralSource,
+			CustomResponses: a.CustomResponses,
 			TrackID:        trackID,
 			TrackName:      trackName,
 			CurrentStage:   a.CurrentStage,

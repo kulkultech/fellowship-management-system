@@ -390,6 +390,7 @@ export interface ApplicantListItem {
   major?: string;
   semester?: string;
   referral_source?: string;
+  custom_responses?: Record<string, any>;
   track_id?: string;
   track_name?: string;
   current_stage: string;

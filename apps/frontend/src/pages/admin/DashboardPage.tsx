@@ -19,9 +19,16 @@ import type {
   AIInterviewQuestionItem,
   RubricCriterion,
   CriterionScore,
+  ApplicantListItem,
 } from '@/services/types';
 import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
 import { EditProfileModal } from '@/components/EditProfileModal';
+import {
+  CandidateTableCustomizer,
+  getAllAvailableColumns,
+  DEFAULT_VISIBLE_COLUMNS,
+  type CandidateTableColumnDef,
+} from '@/components/admin/CandidateTableCustomizer';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -213,6 +220,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile'>('answers');
   const [applicantToDelete, setApplicantToDelete] = useState<{ id: string; name: string; email: string } | null>(null);
+
+  // Candidate Table Column Customization State
+  const [isColumnCustomizerOpen, setIsColumnCustomizerOpen] = useState(false);
+  const [activeColumns, setActiveColumns] = useState<string[]>(() => {
+    try {
+      const targetSlug = params.programSlug || searchParams.get('program') || '';
+      const saved = localStorage.getItem(`fms_candidate_table_cols_${targetSlug || 'default'}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return [...DEFAULT_VISIBLE_COLUMNS];
+  });
 
   // Modals & Sub-views
   const [isCreateQuestionSetModalOpen, setIsCreateQuestionSetModalOpen] = useState(false);
@@ -501,6 +524,371 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       }
     }
   }, [applicantDetail]);
+
+  // Synchronize candidate table columns when active program changes
+  useEffect(() => {
+    if (!activeProgramSlug) return;
+    try {
+      const saved = localStorage.getItem(`fms_candidate_table_cols_${activeProgramSlug}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setActiveColumns(parsed);
+          return;
+        }
+      }
+      setActiveColumns([...DEFAULT_VISIBLE_COLUMNS]);
+    } catch (e) {
+      setActiveColumns([...DEFAULT_VISIBLE_COLUMNS]);
+    }
+  }, [activeProgramSlug]);
+
+  const handleUpdateActiveColumns = (cols: string[]) => {
+    setActiveColumns(cols);
+    try {
+      localStorage.setItem(`fms_candidate_table_cols_${activeProgramSlug || 'default'}`, JSON.stringify(cols));
+    } catch (e) {}
+  };
+
+  const allAvailableColumns = React.useMemo(
+    () => getAllAvailableColumns(program, applicants),
+    [program, applicants]
+  );
+
+  const allAvailableColumnsMap = React.useMemo(() => {
+    const map = new Map<string, CandidateTableColumnDef>();
+    allAvailableColumns.forEach((c) => map.set(c.id, c));
+    return map;
+  }, [allAvailableColumns]);
+
+  const handleRemoveColumn = (colId: string) => {
+    if (colId === 'candidate' || colId === 'actions') return;
+    const colDef = allAvailableColumnsMap.get(colId);
+    const updated = activeColumns.filter((id) => id !== colId);
+    handleUpdateActiveColumns(updated);
+    toast.success(`Removed "${colDef?.label || colId}" column. Click "Customize Columns" to restore.`, {
+      id: 'column-removed-toast',
+    });
+  };
+
+  const renderCandidateTableCell = (colId: string, app: ApplicantListItem) => {
+    switch (colId) {
+      case 'candidate':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+            <div className="font-extrabold text-slate-900 truncate">{app.full_name}</div>
+            <div className="text-xs text-slate-500 truncate">{app.email}</div>
+          </td>
+        );
+
+      case 'track':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.track_name ? (
+              <span className="text-xs font-bold text-kulkul-purple whitespace-nowrap">
+                {app.track_name}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400">General</span>
+            )}
+          </td>
+        );
+
+      case 'stage':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {renderStageBadge(app.current_stage)}
+          </td>
+        );
+
+      case 'mcq_score':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.mcq_score !== undefined && app.mcq_score !== null ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-sm font-extrabold ${
+                    app.mcq_passed ? 'text-emerald-600' : 'text-red-600'
+                  }`}
+                >
+                  {app.mcq_score}%
+                </span>
+                <span className="text-2xs text-slate-400 font-medium">
+                  ({app.time_spent_seconds ? Math.round(app.time_spent_seconds / 60) : 0}m)
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'ai_score':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? (
+              <span className="text-xs font-extrabold text-purple-700 whitespace-nowrap">
+                {app.ai_score}/100
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'ai_recommendation':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.ai_recommendation ? (
+              <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">
+                {app.ai_recommendation}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'applied_date':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
+            {app.created_at || '—'}
+          </td>
+        );
+
+      case 'phone':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs font-medium text-slate-700">
+            {app.phone ? (
+              <a
+                href={`https://wa.me/${app.phone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 hover:text-emerald-600 hover:underline"
+                title="Open WhatsApp chat"
+              >
+                <span>{app.phone}</span>
+              </a>
+            ) : (
+              <span className="text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'university':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle max-w-[220px]">
+            <div className="text-xs font-medium text-slate-800 truncate" title={app.university}>
+              {app.university || <span className="text-slate-400">&mdash;</span>}
+            </div>
+          </td>
+        );
+
+      case 'major':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle max-w-[220px]">
+            <div className="text-xs font-medium text-slate-800 truncate" title={app.major}>
+              {app.major || <span className="text-slate-400">&mdash;</span>}
+            </div>
+          </td>
+        );
+
+      case 'semester':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.semester ? (
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                {app.semester}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'referral_source':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs font-medium text-slate-700">
+            {app.referral_source || <span className="text-slate-400">&mdash;</span>}
+          </td>
+        );
+
+      case 'date_of_birth':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
+            {app.date_of_birth || <span className="text-slate-400">&mdash;</span>}
+          </td>
+        );
+
+      case 'linkedin_url':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.linkedin_url ? (
+              <a
+                href={app.linkedin_url.startsWith('http') ? app.linkedin_url : `https://${app.linkedin_url}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                <span>LinkedIn</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'github_url':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.github_url ? (
+              <a
+                href={app.github_url.startsWith('http') ? app.github_url : `https://${app.github_url}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-800 hover:text-slate-900 hover:underline"
+              >
+                <span>GitHub</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'resume_url':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            {app.resume_url ? (
+              <a
+                href={resolveMediaUrl(app.resume_url)}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold border border-red-200/60 transition"
+                title="Open uploaded CV / Resume"
+              >
+                <FileText className="w-3 h-3" />
+                <span>Resume PDF</span>
+                <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+              </a>
+            ) : (
+              <span className="text-xs text-slate-400">&mdash;</span>
+            )}
+          </td>
+        );
+
+      case 'actions':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle text-right whitespace-nowrap">
+            <div className="flex items-center justify-end gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setApplicantToDelete({ id: app.id, name: app.full_name, email: app.email });
+                }}
+                className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
+                title="Delete application data (Reset for re-testing)"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedApplicantId(app.id);
+                }}
+                className="p-2 rounded-xl hover:bg-slate-200 text-slate-500 hover:text-kulkul-purple transition"
+                title="View details"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </td>
+        );
+
+      default: {
+        // Custom form question answer (custom_*)
+        const customKey = colId.replace(/^custom_/, '');
+        const val = app.custom_responses?.[customKey];
+
+        if (val === undefined || val === null || val === '') {
+          return (
+            <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+              <span className="text-xs text-slate-400">&mdash;</span>
+            </td>
+          );
+        }
+
+        if (typeof val === 'boolean') {
+          return (
+            <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+              <span
+                className={`inline-block px-2 py-0.5 rounded-full text-2xs font-extrabold ${
+                  val
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                }`}
+              >
+                {val ? 'Yes' : 'No'}
+              </span>
+            </td>
+          );
+        }
+
+        if (Array.isArray(val)) {
+          return (
+            <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+              <div className="flex flex-wrap gap-1">
+                {val.map((item, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-block px-1.5 py-0.5 rounded text-2xs font-medium bg-purple-50 text-purple-700 border border-purple-200 truncate"
+                  >
+                    {String(item)}
+                  </span>
+                ))}
+              </div>
+            </td>
+          );
+        }
+
+        const strVal = String(val);
+        const isUrl = strVal.startsWith('http://') || strVal.startsWith('https://');
+
+        if (isUrl) {
+          return (
+            <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+              <a
+                href={strVal}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-kulkul-purple hover:underline"
+              >
+                <span>Link</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </td>
+          );
+        }
+
+        return (
+          <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+            <div className="text-xs text-slate-800 truncate" title={strVal}>
+              {strVal}
+            </div>
+          </td>
+        );
+      }
+    }
+  };
 
   // Question Sets Mutations
   const createQuestionSetMutation = useMutation({
@@ -1917,6 +2305,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     {st.label}
                   </button>
                 ))}
+
+                {/* Customize Columns Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsColumnCustomizerOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs hover:border-kulkul-purple/50 transition whitespace-nowrap"
+                  title="Customize candidate table columns"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <span>Customize Columns</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-2xs font-extrabold bg-purple-100 text-kulkul-purple">
+                    {activeColumns.length}
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -1926,25 +2328,58 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <table className="w-full text-left text-sm text-slate-700 min-w-[960px]">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
-                      <th className="px-6 py-4">Candidate</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Specialization Track</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Stage Status</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Logic MCQ Score</th>
-                      <th className="px-6 py-4 whitespace-nowrap">AI Interview Score</th>
-                      <th className="px-6 py-4 whitespace-nowrap">AI Recommendation</th>
-                      <th className="px-6 py-4 text-right whitespace-nowrap">Inspect</th>
+                      {activeColumns.map((colId) => {
+                        const colDef = allAvailableColumnsMap.get(colId) || {
+                          id: colId,
+                          label: colId,
+                          category: 'core',
+                          removable: true,
+                        };
+                        const isRemovable = colDef.removable !== false && colId !== 'candidate' && colId !== 'actions';
+
+                        return (
+                          <th
+                            key={colId}
+                            className={`px-6 py-4 whitespace-nowrap group ${
+                              colId === 'actions' ? 'text-right' : ''
+                            }`}
+                          >
+                            <div
+                              className={`flex items-center gap-2 ${
+                                colId === 'actions' ? 'justify-end' : 'justify-between'
+                              }`}
+                            >
+                              <span>{colDef.label}</span>
+                              {isRemovable && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveColumn(colId);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-slate-200/80 text-slate-400 hover:text-red-600 transition focus:opacity-100"
+                                  title={`Remove "${colDef.label}" column`}
+                                  aria-label={`Remove ${colDef.label} column`}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {isListLoading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                        <td colSpan={activeColumns.length} className="px-6 py-12 text-center text-slate-400">
                           Loading candidates...
                         </td>
                       </tr>
                     ) : filteredApplicants.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
+                        <td colSpan={activeColumns.length} className="px-6 py-16 text-center text-slate-400">
                           <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                           <div className="text-base font-bold text-slate-700">No applicants yet</div>
                           <div className="text-xs text-slate-400 mt-1">
@@ -1959,82 +2394,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           onClick={() => setSelectedApplicantId(app.id)}
                           className="hover:bg-slate-50/80 cursor-pointer transition"
                         >
-                          <td className="px-6 py-4 align-middle max-w-[240px]">
-                            <div className="font-extrabold text-slate-900 truncate">{app.full_name}</div>
-                            <div className="text-xs text-slate-500 truncate">{app.email}</div>
-                          </td>
-                          <td className="px-6 py-4 align-middle whitespace-nowrap">
-                            {app.track_name ? (
-                              <span className="text-xs font-bold text-kulkul-purple whitespace-nowrap">
-                                {app.track_name}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">General</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 align-middle whitespace-nowrap">{renderStageBadge(app.current_stage)}</td>
-                          <td className="px-6 py-4 align-middle whitespace-nowrap">
-                            {app.mcq_score !== undefined && app.mcq_score !== null ? (
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`text-sm font-extrabold ${
-                                    app.mcq_passed ? 'text-emerald-600' : 'text-red-600'
-                                  }`}
-                                >
-                                  {app.mcq_score}%
-                                </span>
-                                <span className="text-2xs text-slate-400 font-medium">
-                                  ({app.time_spent_seconds ? Math.round(app.time_spent_seconds / 60) : 0}m)
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-slate-400">&mdash;</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 align-middle whitespace-nowrap">
-                            {app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? (
-                              <span className="text-xs font-extrabold text-purple-700 whitespace-nowrap">
-                                {app.ai_score}/100
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">&mdash;</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 align-middle whitespace-nowrap">
-                            {app.ai_recommendation ? (
-                              <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">
-                                {app.ai_recommendation}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">&mdash;</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 align-middle text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setApplicantToDelete({ id: app.id, name: app.full_name, email: app.email });
-                                }}
-                                className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
-                                title="Delete application data (Reset for re-testing)"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedApplicantId(app.id);
-                                }}
-                                className="p-2 rounded-xl hover:bg-slate-200 text-slate-500 hover:text-kulkul-purple transition"
-                                title="View details"
-                              >
-                                <ChevronRight className="w-5 h-5" />
-                              </button>
-                            </div>
-                          </td>
+                          {activeColumns.map((colId) => renderCandidateTableCell(colId, app))}
                         </tr>
                       ))
                     )}
@@ -5073,6 +5433,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           portalType="company_admin"
           initialTab="company"
           initialOrg={orgProfile || user?.organization}
+        />
+
+        {/* Candidate Table Column Customizer Modal */}
+        <CandidateTableCustomizer
+          isOpen={isColumnCustomizerOpen}
+          onClose={() => setIsColumnCustomizerOpen(false)}
+          program={program}
+          applicants={applicants}
+          activeColumns={activeColumns}
+          onChangeColumns={handleUpdateActiveColumns}
         />
       </DashboardLayout>
   );
