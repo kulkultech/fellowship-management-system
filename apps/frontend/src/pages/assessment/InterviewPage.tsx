@@ -30,6 +30,8 @@ import {
   Wifi,
   Cpu,
   Globe,
+  ChevronLeft,
+  Check,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -356,6 +358,10 @@ export const InterviewPage: React.FC = () => {
 
   // UI Stages: 'lobby' | 'interview' | 'finalizing' | 'completed'
   const [uiStage, setUiStage] = useState<'lobby' | 'interview' | 'finalizing' | 'completed'>('lobby');
+  // Pre-flight Wizard Steps: 1 = Device Requirements, 2 = Interview Rules, 3 = Camera & Mic Check
+  const [preflightStep, setPreflightStep] = useState<1 | 2 | 3>(1);
+  const [deviceConfirmed, setDeviceConfirmed] = useState(false);
+  const [rulesConfirmed, setRulesConfirmed] = useState(false);
   const [uploadPercent, setUploadPercent] = useState<number>(0);
   const [finalizingStep, setFinalizingStep] = useState<'packaging' | 'uploading' | 'evaluating' | 'ready'>('packaging');
   const [recordedFileSizeMB, setRecordedFileSizeMB] = useState<number | null>(null);
@@ -2239,273 +2245,543 @@ export const InterviewPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
       <Navbar />
 
-      {/* STAGE 1: LOBBY & PRE-FLIGHT DIAGNOSTICS */}
+      {/* STAGE 1: LOBBY & PRE-FLIGHT WIZARD */}
       {uiStage === 'lobby' && (
-        <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center">
-          <div className="text-center max-w-2xl mx-auto mb-8">
+        <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center animate-in fade-in duration-300">
+          {/* Header Title */}
+          <div className="text-center max-w-2xl mx-auto mb-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold tracking-wide mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+              <span>Pre-Flight AI Interview Calibration</span>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Pre-Flight Device & Camera Setup
+              Candidate Readiness Check
             </h1>
             <p className="text-sm text-slate-500 mt-2">
-              Welcome, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Test your
-              camera, microphone, and preview your video feed before entering the AI interview room.
+              Welcome, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Complete the steps below to verify your device, review the rules, and test your camera &amp; microphone.
             </p>
           </div>
 
-          <div className="max-w-3xl mx-auto w-full">
-            {isDemo && (
-              <div className="mb-4 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-between gap-3 text-xs shadow-2xs">
-                <div className="flex items-center gap-2.5 text-kulkul-purple font-bold">
-                  <Sparkles className="w-4 h-4 text-kulkul-purple shrink-0" />
-                  <span>KulKul Team AI Interview Demo Room</span>
-                </div>
-                <button
-                  onClick={handleResetDemo}
-                  disabled={isResetting}
-                  className="px-3.5 py-1.5 rounded-full bg-white border border-purple-200 text-2xs font-bold text-slate-700 hover:text-kulkul-purple flex items-center gap-1.5 transition shadow-2xs"
+          {/* Demo Mode Notice */}
+          {isDemo && (
+            <div className="mb-6 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-between gap-3 text-xs shadow-2xs">
+              <div className="flex items-center gap-2.5 text-kulkul-purple font-bold">
+                <Sparkles className="w-4 h-4 text-kulkul-purple shrink-0" />
+                <span>KulKul Team AI Interview Demo Room</span>
+              </div>
+              <button
+                onClick={handleResetDemo}
+                disabled={isResetting}
+                className="px-3.5 py-1.5 rounded-full bg-white border border-purple-200 text-2xs font-bold text-slate-700 hover:text-kulkul-purple flex items-center gap-1.5 transition shadow-2xs"
+              >
+                <RefreshCw className={`w-3 h-3 ${isResetting ? 'animate-spin' : ''}`} />
+                <span>Reset Demo Progress</span>
+              </button>
+            </div>
+          )}
+
+          {/* Wizard Step Progress Bar */}
+          <div className="mb-8 w-full max-w-2xl mx-auto px-2">
+            <div className="flex items-center justify-between relative">
+              {/* Background track line */}
+              <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-slate-200 z-0" />
+              {/* Active progress fill line */}
+              <div
+                className="absolute left-8 top-1/2 -translate-y-1/2 h-1 bg-kulkul-purple transition-all duration-300 z-0"
+                style={{
+                  width: preflightStep === 1 ? '0%' : preflightStep === 2 ? '50%' : 'calc(100% - 4rem)',
+                }}
+              />
+
+              {/* Step 1 Pill */}
+              <button
+                type="button"
+                onClick={() => setPreflightStep(1)}
+                className="relative z-10 flex flex-col items-center gap-1.5 focus:outline-none cursor-pointer"
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition shadow-sm ${
+                    preflightStep > 1
+                      ? 'bg-emerald-600 text-white'
+                      : preflightStep === 1
+                      ? 'bg-kulkul-purple text-white ring-4 ring-purple-100'
+                      : 'bg-white border-2 border-slate-300 text-slate-500'
+                  }`}
                 >
-                  <RefreshCw className={`w-3 h-3 ${isResetting ? 'animate-spin' : ''}`} />
-                  <span>Reset Demo Progress</span>
-                </button>
-              </div>
-            )}
-
-            {/* Live Camera Preview Card */}
-            <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs relative overflow-hidden space-y-6">
-              <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
-                {stream ? (
-                  <video
-                    ref={attachLobbyVideo}
-                    autoPlay
-                    playsInline
-                    muted
-                    onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
-                    onCanPlay={(e) => e.currentTarget.play().catch(() => {})}
-                    className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
-                  />
-                ) : null}
-
-                {(!stream || isCameraOff) && (
-                  <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
-                      <VideoOff className="w-6 h-6 text-slate-500" />
-                    </div>
-                    <p className="text-sm font-bold text-slate-800">
-                      {isCameraOff ? 'Camera Video Paused' : 'Camera Feed Not Connected'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                      {deviceError || 'Grant camera and microphone permissions to preview your video.'}
-                    </p>
-                    {!stream && (
-                      <button
-                        onClick={startCamera}
-                        disabled={isRequestingMedia}
-                        className="mt-4 px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-xs font-bold text-white shadow-xs transition"
-                      >
-                        {isRequestingMedia ? 'Requesting Access...' : 'Allow Camera & Mic'}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Overlaid Device Status Badges */}
-                <div className="absolute top-3 left-3 flex items-center gap-2">
-                  <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    Live Preview
-                  </span>
-                  <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-medium text-white border border-white/20">
-                    720p HD Stream
-                  </span>
+                  {preflightStep > 1 ? <Check className="w-4 h-4" /> : <Laptop className="w-4 h-4" />}
                 </div>
+                <span
+                  className={`text-2xs font-extrabold uppercase tracking-wider transition ${
+                    preflightStep === 1
+                      ? 'text-kulkul-purple font-black'
+                      : preflightStep > 1
+                      ? 'text-emerald-700'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  1. Device Setup
+                </span>
+              </button>
 
-                {/* Microphone Level Visualizer Bar in bottom */}
-                {stream && !isMicMuted && (
-                  <div className="absolute bottom-3 left-3 right-3 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 flex items-center gap-3 border border-white/15">
-                    <Mic className="w-4 h-4 text-kulkul-orange shrink-0" />
-                    <div className="flex-1 flex items-center gap-1 h-3">
-                      {[...Array(24)].map((_, i) => {
-                        const threshold = (i / 24) * 100;
-                        const isActive = audioLevel > threshold;
-                        return (
-                          <div
-                            key={i}
-                            className={`flex-1 rounded-full transition-all duration-75 ${
-                              isActive
-                                ? i > 18
-                                  ? 'bg-rose-500 h-full'
-                                  : i > 12
-                                  ? 'bg-amber-400 h-4/5'
-                                  : 'bg-emerald-400 h-3/4'
-                                : 'bg-white/20 h-1/3'
-                            }`}
-                          />
-                        );
-                      })}
-                    </div>
-                    <span className="text-2xs text-white font-mono w-8 text-right font-bold">
-                      {audioLevel}%
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Controls bar */}
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <div className="flex items-center gap-2.5">
-                  <button
-                    onClick={toggleCamera}
-                    className={`px-4 py-2 rounded-full border transition flex items-center gap-2 text-xs font-bold ${
-                      isCameraOff
-                        ? 'bg-rose-50 border-rose-200 text-rose-700'
-                        : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {isCameraOff ? <VideoOff className="w-4 h-4 text-rose-600" /> : <Video className="w-4 h-4 text-slate-600" />}
-                    <span>{isCameraOff ? 'Camera Off' : 'Camera On'}</span>
-                  </button>
-
-                  <button
-                    onClick={toggleMic}
-                    className={`px-4 py-2 rounded-full border transition flex items-center gap-2 text-xs font-bold ${
-                      isMicMuted
-                        ? 'bg-rose-50 border-rose-200 text-rose-700'
-                        : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {isMicMuted ? <MicOff className="w-4 h-4 text-rose-600" /> : <Mic className="w-4 h-4 text-slate-600" />}
-                    <span>{isMicMuted ? 'Muted' : 'Mic Active'}</span>
-                  </button>
+              {/* Step 2 Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (deviceConfirmed || isDemo) setPreflightStep(2);
+                }}
+                className={`relative z-10 flex flex-col items-center gap-1.5 focus:outline-none ${
+                  !deviceConfirmed && !isDemo && preflightStep === 1 ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition shadow-sm ${
+                    preflightStep > 2
+                      ? 'bg-emerald-600 text-white'
+                      : preflightStep === 2
+                      ? 'bg-kulkul-purple text-white ring-4 ring-purple-100'
+                      : 'bg-white border-2 border-slate-300 text-slate-500'
+                  }`}
+                >
+                  {preflightStep > 2 ? <Check className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                 </div>
+                <span
+                  className={`text-2xs font-extrabold uppercase tracking-wider transition ${
+                    preflightStep === 2
+                      ? 'text-kulkul-purple font-black'
+                      : preflightStep > 2
+                      ? 'text-emerald-700'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  2. Interview Rules
+                </span>
+              </button>
 
-                <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Encrypted Peer Feed</span>
+              {/* Step 3 Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  if ((deviceConfirmed && rulesConfirmed) || isDemo) {
+                    setPreflightStep(3);
+                    if (!stream) startCamera();
+                  }
+                }}
+                className={`relative z-10 flex flex-col items-center gap-1.5 focus:outline-none ${
+                  (!rulesConfirmed || !deviceConfirmed) && !isDemo && preflightStep < 3 ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition shadow-sm ${
+                    preflightStep === 3
+                      ? 'bg-kulkul-purple text-white ring-4 ring-purple-100'
+                      : 'bg-white border-2 border-slate-300 text-slate-500'
+                  }`}
+                >
+                  <Video className="w-4 h-4" />
                 </div>
-              </div>
+                <span
+                  className={`text-2xs font-extrabold uppercase tracking-wider transition ${
+                    preflightStep === 3 ? 'text-kulkul-purple font-black' : 'text-slate-400'
+                  }`}
+                >
+                  3. Camera &amp; Mic Check
+                </span>
+              </button>
+            </div>
+          </div>
 
-              {/* Minimum Device Requirements Section */}
-              <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-left space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
-                    <Laptop className="w-3.5 h-3.5 text-kulkul-purple" />
+          {/* WIZARD STEP CARD */}
+          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-xl space-y-6">
+            {/* ================= STEP 1: DEVICE REQUIREMENTS ================= */}
+            {preflightStep === 1 && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold mb-2">
+                    <Laptop className="w-3.5 h-3.5 text-kulkul-orange" />
+                    <span>Step 1 of 3 &middot; System Prerequisites</span>
                   </div>
-                  <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                    Minimum Device & System Requirements
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    Minimum Device &amp; Hardware Requirements
                   </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                    The AI technical interview relies on real-time browser audio speech recognition, neural voice synthesis, and video recording. Please ensure your setup meets all requirements below:
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-600">
                   {/* Req 1: Computer / Device */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
-                    <Laptop className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <span>Laptop or Desktop PC</span>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center shrink-0 mt-0.5">
+                      <Laptop className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Laptop or Desktop Computer</strong>
+                      <span className="leading-relaxed">Must be taken on a physical PC or Mac with a keyboard. Smartphones and tablets are not supported.</span>
+                    </div>
                   </div>
 
                   {/* Req 2: Web Browser */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
-                    <Globe className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <span>Supported Web Browser</span>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Globe className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Supported Modern Browser</strong>
+                      <span className="leading-relaxed">Latest version of Google Chrome, Brave, Microsoft Edge, or Apple Safari with WebRTC audio/video enabled.</span>
+                    </div>
                   </div>
 
                   {/* Req 3: Webcam & Lighting */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
-                    <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <span>720p HD Webcam & Lighting</span>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Video className="w-4 h-4 text-kulkul-orange" />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">720p HD Webcam &amp; Lighting</strong>
+                      <span className="leading-relaxed">Front-facing camera placed at eye level. Sit in a well-lit space where your face is clearly illuminated.</span>
+                    </div>
                   </div>
 
                   {/* Req 4: Microphone & Headphones */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
-                    <Headphones className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <span>Microphone & Headphones</span>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Headphones className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Microphone &amp; Headphones</strong>
+                      <span className="leading-relaxed">Headphones or earphones are strongly recommended to prevent microphone audio feedback during AI speech.</span>
+                    </div>
                   </div>
 
                   {/* Req 5: Internet Connection */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
-                    <Wifi className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <span>Stable Internet Connection</span>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Wifi className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Stable High-Speed Internet</strong>
+                      <span className="leading-relaxed">Minimum 5 Mbps connection speed. Avoid hotspot connections or sharing bandwidth during the interview.</span>
+                    </div>
                   </div>
 
-                  {/* Req 6: Hardware Resources & Background Apps */}
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2.5 text-slate-900 font-bold">
-                    <Cpu className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    <span>4 GB RAM & Dual-Core CPU</span>
+                  {/* Req 6: Hardware Resources */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Cpu className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">4 GB RAM &amp; System Health</strong>
+                      <span className="leading-relaxed">Close heavy background applications, games, and extra browser tabs before entering the interview room.</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-left space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-purple-100 text-kulkul-purple flex items-center justify-center">
-                      <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
-                    </div>
-                    <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                      Interview Rules & Guidelines
-                    </h2>
-                  </div>
-                  <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-                    Read Before Entering
+
+                {/* Confirmation Checkbox */}
+                <label className="flex items-start gap-3 cursor-pointer p-4 rounded-2xl bg-purple-50/60 border border-purple-200/70 hover:bg-purple-50 transition select-none">
+                  <input
+                    type="checkbox"
+                    checked={deviceConfirmed}
+                    onChange={(e) => setDeviceConfirmed(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-kulkul-purple rounded border-slate-300 focus:ring-kulkul-purple shrink-0 cursor-pointer"
+                  />
+                  <span className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                    I confirm that I am using a compatible laptop or desktop PC with a working camera, microphone, and stable internet connection.
                   </span>
-                </div>
+                </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
-                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">1</span>
-                    <div>
-                      <strong className="text-slate-800 block mb-0.5">Camera Always On</strong>
-                      <span>Keep your camera active with your face clearly visible and centered in frame throughout.</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
-                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">2</span>
-                    <div>
-                      <strong className="text-slate-800 block mb-0.5">Quiet Environment</strong>
-                      <span>Conduct the interview in a quiet, well-lit space without background noise or distractions.</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
-                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">3</span>
-                    <div>
-                      <strong className="text-slate-800 block mb-0.5">Authentic Responses</strong>
-                      <span>Speak naturally in your own words. External assistance, scripts, or coaching are not permitted.</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-slate-100 shadow-2xs">
-                    <span className="w-5 h-5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-2xs flex items-center justify-center shrink-0 mt-0.5">4</span>
-                    <div>
-                      <strong className="text-slate-800 block mb-0.5">Sequential Questions</strong>
-                      <span>Questions appear one at a time. Once you submit a response, you cannot revisit previous questions.</span>
-                    </div>
-                  </div>
+                {/* Step 1 Footer Action */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+                  <button
+                    type="button"
+                    disabled={!deviceConfirmed && !isDemo}
+                    onClick={() => {
+                      setPreflightStep(2);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    <span>Continue to Interview Rules</span>
+                    <ArrowRight className="w-4 h-4 text-kulkul-orange" />
+                  </button>
                 </div>
               </div>
+            )}
 
+            {/* ================= STEP 2: INTERVIEW RULES & GUIDELINES ================= */}
+            {preflightStep === 2 && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold mb-2">
+                    <FileText className="w-3.5 h-3.5 text-kulkul-orange" />
+                    <span>Step 2 of 3 &middot; Assessment Protocol</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    Interview Rules &amp; Code of Conduct
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                    Please review the evaluation standards below. The conversational AI assesses clarity, problem-solving, and technical depth.
+                  </p>
+                </div>
 
-              {/* Enter Interview Button */}
-              <div className="pt-2 border-t border-slate-100">
-                <button
-                  onClick={handleEnterChamber}
-                  disabled={!stream && !isDemo}
-                  className="w-full py-3.5 px-6 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-                >
-                  <span>Enter AI Video Interview Room</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-600">
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                    <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Camera Always On</strong>
+                      <span className="leading-relaxed">Keep your camera active with your face clearly visible and centered in frame throughout the entire session.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                    <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Quiet &amp; Private Environment</strong>
+                      <span className="leading-relaxed">Conduct the interview in a private, well-lit space without background voices, music, or interruptions.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                    <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Authentic &amp; Independent Responses</strong>
+                      <span className="leading-relaxed">Speak naturally in your own words. External assistance, second screens, AI bots, or scripts are strictly prohibited.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                    <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">4</span>
+                    <div>
+                      <strong className="text-slate-900 text-sm block mb-0.5">Sequential Questions</strong>
+                      <span className="leading-relaxed">Questions appear one at a time with optional follow-ups. Once you complete a response, you cannot revisit previous questions.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rules Confirmation Checkbox */}
+                <label className="flex items-start gap-3 cursor-pointer p-4 rounded-2xl bg-purple-50/60 border border-purple-200/70 hover:bg-purple-50 transition select-none">
+                  <input
+                    type="checkbox"
+                    checked={rulesConfirmed}
+                    onChange={(e) => setRulesConfirmed(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-kulkul-purple rounded border-slate-300 focus:ring-kulkul-purple shrink-0 cursor-pointer"
+                  />
+                  <span className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                    I have read and agree to strictly abide by the interview rules, code of conduct, and evaluation integrity guidelines.
+                  </span>
+                </label>
+
+                {/* Step 2 Footer Navigation */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreflightStep(1);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="px-6 py-3 rounded-full text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm transition flex items-center gap-1.5"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Back to Device Setup</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!rulesConfirmed && !isDemo}
+                    onClick={() => {
+                      setPreflightStep(3);
+                      if (!stream) startCamera();
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    <span>Continue to Camera &amp; Mic Check</span>
+                    <ArrowRight className="w-4 h-4 text-kulkul-orange" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ================= STEP 3: CAMERA & MIC CHECK + ENTER BUTTON ================= */}
+            {preflightStep === 3 && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold mb-2">
+                    <Video className="w-3.5 h-3.5 text-kulkul-orange" />
+                    <span>Step 3 of 3 &middot; Camera &amp; Audio Calibration</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    Test Your Camera &amp; Microphone
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                    Preview your video feed and speak into your microphone to verify audio detection before entering the interview chamber.
+                  </p>
+                </div>
+
+                {/* Live Camera Preview Box */}
+                <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
+                  {stream ? (
+                    <video
+                      ref={attachLobbyVideo}
+                      autoPlay
+                      playsInline
+                      muted
+                      onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
+                      onCanPlay={(e) => e.currentTarget.play().catch(() => {})}
+                      className={`w-full h-full object-cover -scale-x-100 ${isCameraOff ? 'hidden' : 'block'}`}
+                    />
+                  ) : null}
+
+                  {(!stream || isCameraOff) && (
+                    <div className="text-center p-6 bg-slate-50 border border-dashed border-slate-300 w-full h-full flex flex-col items-center justify-center rounded-2xl">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                        <VideoOff className="w-6 h-6 text-slate-500" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {isCameraOff ? 'Camera Video Paused' : 'Camera Feed Not Connected'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                        {deviceError || 'Grant camera and microphone permissions to preview your video.'}
+                      </p>
+                      {!stream && (
+                        <button
+                          onClick={startCamera}
+                          disabled={isRequestingMedia}
+                          className="mt-4 px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-xs font-bold text-white shadow-xs transition"
+                        >
+                          {isRequestingMedia ? 'Requesting Access...' : 'Allow Camera & Mic'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Overlaid Device Status Badges */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      Live Preview
+                    </span>
+                    <span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-2xs font-medium text-white border border-white/20">
+                      720p HD Stream
+                    </span>
+                  </div>
+
+                  {/* Microphone Level Visualizer Bar in bottom */}
+                  {stream && !isMicMuted && (
+                    <div className="absolute bottom-3 left-3 right-3 bg-black/60 backdrop-blur-md rounded-xl p-2 px-3 flex items-center gap-3 border border-white/15">
+                      <Mic className="w-4 h-4 text-kulkul-orange shrink-0" />
+                      <div className="flex-1 flex items-center gap-1 h-3">
+                        {[...Array(24)].map((_, i) => {
+                          const threshold = (i / 24) * 100;
+                          const isActive = audioLevel > threshold;
+                          return (
+                            <div
+                              key={i}
+                              className={`flex-1 rounded-full transition-all duration-75 ${
+                                isActive
+                                  ? i > 18
+                                    ? 'bg-rose-500 h-full'
+                                    : i > 12
+                                    ? 'bg-amber-400 h-4/5'
+                                    : 'bg-emerald-400 h-3/4'
+                                  : 'bg-white/20 h-1/3'
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className="text-2xs text-white font-mono w-8 text-right font-bold">
+                        {audioLevel}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Controls Bar & Encryption Status */}
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      onClick={toggleCamera}
+                      className={`px-4 py-2 rounded-full border transition flex items-center gap-2 text-xs font-bold ${
+                        isCameraOff
+                          ? 'bg-rose-50 border-rose-200 text-rose-700'
+                          : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {isCameraOff ? <VideoOff className="w-4 h-4 text-rose-600" /> : <Video className="w-4 h-4 text-slate-600" />}
+                      <span>{isCameraOff ? 'Camera Off' : 'Camera On'}</span>
+                    </button>
+
+                    <button
+                      onClick={toggleMic}
+                      className={`px-4 py-2 rounded-full border transition flex items-center gap-2 text-xs font-bold ${
+                        isMicMuted
+                          ? 'bg-rose-50 border-rose-200 text-rose-700'
+                          : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {isMicMuted ? <MicOff className="w-4 h-4 text-rose-600" /> : <Mic className="w-4 h-4 text-slate-600" />}
+                      <span>{isMicMuted ? 'Muted' : 'Mic Active'}</span>
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Encrypted Peer Feed</span>
+                  </div>
+                </div>
+
+                {/* Diagnostic Status Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                    <div className={`w-2.5 h-2.5 rounded-full ${stream && !isCameraOff ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                    <span>Camera: {stream && !isCameraOff ? 'Active & Ready' : 'Inactive'}</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                    <div className={`w-2.5 h-2.5 rounded-full ${stream && !isMicMuted ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                    <span>Microphone: {stream && !isMicMuted ? (audioLevel > 5 ? 'Audio Detected' : 'Listening') : 'Muted'}</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span>System: Calibration OK</span>
+                  </div>
+                </div>
+
+                {/* Final Enter Interview Chamber Action */}
+                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreflightStep(2);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="w-full sm:w-auto px-6 py-3 rounded-full text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Back to Rules</span>
+                  </button>
+
+                  <button
+                    onClick={handleEnterChamber}
+                    disabled={!stream && !isDemo}
+                    className="w-full sm:w-auto py-4 px-8 rounded-full font-black text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md hover:shadow-lg transition active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                  >
+                    <span>Enter AI Video Interview Room</span>
+                    <ArrowRight className="w-4 h-4 text-kulkul-orange" />
+                  </button>
+                </div>
+
                 {!stream && !isDemo && (
-                  <p className="text-2xs text-rose-500 text-center mt-2 font-medium">
-                    Camera permission required to enter
+                  <p className="text-2xs text-rose-500 text-center font-medium">
+                    Camera and microphone permission required to enter
                   </p>
                 )}
                 {!stream && isDemo && (
-                  <p className="text-2xs text-purple-600 text-center mt-2 font-medium">
+                  <p className="text-2xs text-purple-600 text-center font-medium">
                     Demo Mode active: Camera check can be skipped to test the interview flow.
                   </p>
                 )}
               </div>
-            </div>
+            )}
           </div>
         </main>
       )}
