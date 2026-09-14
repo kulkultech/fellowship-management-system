@@ -472,8 +472,9 @@ CANDIDATE INFORMATION:
 
 CRITICAL LANGUAGE REQUIREMENT:
 - You MUST ALWAYS speak, evaluate, and respond 100%% in English.
-- NEVER generate a follow-up question, feedback, or any text in Indonesian, Spanish, or any language other than English under ANY circumstances.
-- Even if the candidate speaks with an Indonesian accent, mentions Indonesian companies (e.g. Gojek, Tokopedia, Bukalapak, BCA, Mandiri), cities (e.g. Jakarta, Bandung), or universities (e.g. ITB, UI, UGM), you MUST STRICTLY CONDUCT THE INTERVIEW AND RESPOND IN ENGLISH.
+- STRICT RULE: NEVER generate a follow-up question, feedback, or any text in Indonesian or any language other than English under ANY circumstances.
+- Even if the candidate speaks Indonesian words, slang, or entire sentences in Indonesian, you must NEVER answer in Indonesian. You must always reply and ask your follow-up strictly in English.
+- All questions, acknowledgments, transitions, and criteria evaluations MUST be exclusively in fluent, natural English.
 - Never translate candidate answers to Indonesian. Keep the conversation 100%% in English.
 
 TECHNICAL DOMAIN & VOCABULARY KNOWLEDGE:
@@ -505,7 +506,7 @@ CRUCIAL DECISION GUIDELINES:
 2. Candidate Fairness:
    - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
 3. Natural Conversational Style:
-   - Address %s by name. Keep the follow-up warm, concise (1-2 sentences), and in clear English.
+   - Address %s by name. Keep the follow-up warm, concise (1-2 sentences), and strictly in clear English.
 4. Output format: Return ONLY valid JSON in English: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
 		displayName, displayName, question.Theme, question.Question, criteriaList.String(), followUpCount, displayName)
 
@@ -547,10 +548,10 @@ CRUCIAL DECISION GUIDELINES:
 		}
 	}
 
-	// Trigger turn evaluation
+	// Trigger turn evaluation with reinforced English directive
 	messages = append(messages, cloudflareMessage{
 		Role:    "user",
-		Content: fmt.Sprintf("Evaluate %s's response above against the criteria for %s. Is it sufficient or is a follow-up needed? Return ONLY valid JSON: {\"is_sufficient\": boolean, \"follow_up\": string, \"feedback\": string}", displayName, question.Theme),
+		Content: fmt.Sprintf("Evaluate %s's response above against the criteria for %s. Is it sufficient or is a follow-up needed? Return ONLY valid JSON: {\"is_sufficient\": boolean, \"follow_up\": string, \"feedback\": string}. STRICT REQUIREMENT: 'follow_up' and 'feedback' MUST be written 100%% in natural, professional English, even if the candidate used Indonesian words.", displayName, question.Theme),
 	})
 
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -577,61 +578,44 @@ CRUCIAL DECISION GUIDELINES:
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := e.client.Do(httpReq)
-	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		e.logger.Warn("Cloudflare follow-up check failed, using heuristic fallback", slog.Any("error", err))
-		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
-			return true, "", "Heuristic fallback: sufficient depth or max follow-ups reached.", nil
-		}
-		var followUpQ string
-		if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-			followUpQ = fmt.Sprintf("Nice to meet you, %s! Could you tell me a little more about your background in software development and what you hope to achieve during the fellowship?", displayName)
-		} else {
-			followUpQ = fmt.Sprintf("Thank you, %s! Could you give me a concrete example or share more details about your technical approach to %s?", displayName, strings.ToLower(question.Theme))
-		}
-		return false, followUpQ, "Heuristic fallback follow-up", nil
+	if err != nil {
+		return true, "", fmt.Sprintf("API error: %v", err), nil
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return true, "", fmt.Sprintf("API status %d: %s", resp.StatusCode, string(raw)), nil
+	}
+
 	var cfResp cloudflareChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&cfResp); err != nil {
-		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
-			return true, "", "decode error fallback: sufficient depth", nil
-		}
-		return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "Decode error fallback", nil
+		return true, "", fmt.Sprintf("decode error: %v", err), nil
 	}
 
-	aiText := extractCloudflareResultText(cfResp.Result)
-
-	// Parse JSON from response
-	var result FollowUpResult
-	cleanText := strings.TrimSpace(aiText)
-	if idx := strings.Index(cleanText, "{"); idx != -1 {
-		if endIdx := strings.LastIndex(cleanText, "}"); endIdx != -1 && endIdx > idx {
-			cleanText = cleanText[idx : endIdx+1]
-		}
+	jsonText := extractCloudflareResultText(cfResp.Result)
+	if jsonText == "" {
+		return true, "", "empty response from model", nil
 	}
 
-	if err := json.Unmarshal([]byte(cleanText), &result); err != nil {
-		e.logger.Warn("Could not parse follow-up JSON, checking word count", slog.String("text", aiText))
-		if (followUpCount >= 1 && totalCandidateWords >= 20) || followUpCount >= 2 {
-			return true, "", "JSON parse fallback: sufficient depth", nil
+	// Parse JSON safely
+	cleanJSON := strings.TrimSpace(jsonText)
+	if idx := strings.Index(cleanJSON, "{"); idx != -1 {
+		if endIdx := strings.LastIndex(cleanJSON, "}"); endIdx != -1 && endIdx > idx {
+			cleanJSON = cleanJSON[idx : endIdx+1]
 		}
-		return false, fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName), "JSON parse fallback", nil
+	}
+	var result struct {
+		IsSufficient bool   `json:"is_sufficient"`
+		FollowUp     string `json:"follow_up"`
+		Feedback     string `json:"feedback"`
+	}
+	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
+		e.logger.Warn("Failed to parse follow-up evaluation JSON", slog.String("raw", cleanJSON), slog.Any("error", err))
+		return true, "", "Failed to parse evaluation response.", nil
 	}
 
-	// Safety check: On the first turn (followUpCount == 0), if response is under 60 words,
-	// guarantee a conversational follow-up question is asked to explore technical depth.
-	if followUpCount == 0 && totalCandidateWords < 60 {
-		result.IsSufficient = false
-		if strings.TrimSpace(result.FollowUp) == "" {
-			if strings.Contains(strings.ToLower(question.Theme), "intro") || strings.Contains(strings.ToLower(question.Theme), "background") {
-				result.FollowUp = fmt.Sprintf("Nice to meet you, %s! Could you share a bit more about your background in software engineering, and what sparked your interest in joining this fellowship?", displayName)
-			} else {
-				result.FollowUp = fmt.Sprintf("Thank you, %s! Could you tell me a little more about your approach to %s, and what specific steps or outcomes were involved?", displayName, strings.ToLower(question.Theme))
-			}
-		}
-	} else if totalCandidateWords < 15 {
-		result.IsSufficient = false
+	if !result.IsSufficient && followUpCount == 0 {
 		if strings.TrimSpace(result.FollowUp) == "" {
 			result.FollowUp = fmt.Sprintf("Could you tell me a bit more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName)
 		}
@@ -642,10 +626,13 @@ CRUCIAL DECISION GUIDELINES:
 		followUpText = fmt.Sprintf("Could you tell me a little more about your experience with %s, %s?", strings.ToLower(question.Theme), displayName)
 	}
 
-	// Language Guard: If the model generated non-English words, substitute a clear professional English follow-up
+	// Language Guard: If the model generated non-English words, translate/normalize to English
 	if isLikelyNonEnglish(followUpText) {
-		e.logger.Warn("AI generated non-English follow-up, replacing with English question", slog.String("raw", followUpText))
-		followUpText = fmt.Sprintf("Thank you for sharing, %s! Could you elaborate further on your experience with %s, in English?", displayName, strings.ToLower(question.Theme))
+		e.logger.Warn("AI generated non-English follow-up, translating to English", slog.String("raw", followUpText))
+		followUpText = e.EnsureEnglishTranscript(ctx, followUpText)
+		if isLikelyNonEnglish(followUpText) {
+			followUpText = fmt.Sprintf("Thank you for sharing, %s! Could you elaborate further on your experience with %s?", displayName, strings.ToLower(question.Theme))
+		}
 	}
 
 	return result.IsSufficient, followUpText, result.Feedback, nil
@@ -659,13 +646,19 @@ func isLikelyNonEnglish(text string) bool {
 	lower := " " + strings.ToLower(text) + " "
 	indicators := []string{
 		" bisa ", " apakah ", " terima kasih ", " terimakasih ", " ceritakan ", " pengalaman ",
-		" bagaimana ", " senang ", " bertemu ", " anda ", " kamu ", " saya ", " kami ", " kita ",
+		" bagaimana ", " bagaimanakah ", " senang ", " bertemu ", " anda ", " kamu ", " saya ", " kami ", " kita ",
 		" dengan ", " untuk ", " yang ", " tidak ", " tolong ", " jelaskan ", " sebutkan ",
 		" apa ", " mengapa ", " kenapa ", " tentang ", " pada ", " dari ", " halo ", " baik ",
 		" selamat ", " pagi ", " siang ", " sore ", " malam ", " perkenalkan ", " nama saya ",
 		" di mana ", " seperti apa ", " silakan ", " silahkan ", " mohon ", " adalah ", " sangat ",
 		" pekerjaan ", " jurusan ", " lulusan ", " kuliah ", " kampus ", " bahasa ", " sudah ",
 		" belum ", " ingin ", " mau ", " ikut ", " program ", " ini ", " itu ",
+		" bagus ", " menurut ", " terkait ", " tersebut ", " proyek ", " kendala ", " tantangan ", " solusi ",
+		" menggunakan ", " membuat ", " belajar ", " juga ", " atau ", " jadi ", " kalau ", " jika ",
+		" bila ", " maka ", " tapi ", " tetapi ", " namun ", " dapat ", " harus ", " boleh ", " coba ",
+		" salam ", " apa kabar ", " selamat datang ", " tahun ", " bulan ", " hari ", " waktu ", " saat ",
+		" ketika ", " lalu ", " kemudian ", " setelah ", " sebelum ", " hanya ", " semua ", " setiap ",
+		" ada ", " tidak ada ", " bukan ", " jangan ",
 	}
 	for _, ind := range indicators {
 		if strings.Contains(lower, ind) {

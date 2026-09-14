@@ -1617,10 +1617,11 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  // Synchronously coordinate AI text display and natural voice start
+  // Synchronously coordinate AI text display and natural voice start so they begin at the exact same instant
   const speakAndPresentAiMessage = async (
     text: string,
-    messageItem: ChatMessageItem
+    messageItem: ChatMessageItem,
+    onBeforePresent?: () => void,
   ) => {
     const cleanText = text
       .replace(/\[.*?\]/g, '')
@@ -1634,7 +1635,10 @@ export const InterviewPage: React.FC = () => {
     const cachedUrl = audioBlobUrlCacheRef.current.get(cacheKey);
 
     if (cachedBuffer || cachedUrl || isVoiceMuted) {
-      // 1. Audio is already in memory or voice is muted -> show text and play voice simultaneously in 0ms!
+      // 1. Audio is already in memory or voice is muted -> immediately dismiss evaluation animation, reveal text, and play audio simultaneously!
+      setIsEvaluatingAnswer(false);
+      isEvaluatingAnswerRef.current = false;
+      if (onBeforePresent) onBeforePresent();
       setChatMessages((prev) => [...prev, messageItem]);
       if (!isVoiceMuted) {
         if (cachedBuffer) {
@@ -1647,12 +1651,17 @@ export const InterviewPage: React.FC = () => {
     }
 
     // 2. Audio is not yet in client cache (e.g. dynamic follow-up):
-    // Show AI response in the transcript immediately and fetch natural human voice via Cloudflare Workers AI TTS.
-    // Strictly NO browser robotic SpeechSynthesis fallback to prevent robotic sounds or browser locale accents!
-    setChatMessages((prev) => [...prev, messageItem]);
-
+    // Keep the "AI is evaluating your response..." animation active while the voice audio synthesizes.
+    // Do NOT display the text message bubble prematurely to avoid desync between text and voice!
     try {
       const result = await fetchTtsAudio(cleanText, speaker);
+
+      // Dismiss evaluating animation and present text bubble SIMULTANEOUSLY with voice playback!
+      setIsEvaluatingAnswer(false);
+      isEvaluatingAnswerRef.current = false;
+      if (onBeforePresent) onBeforePresent();
+      setChatMessages((prev) => [...prev, messageItem]);
+
       if (result && !isVoiceMuted) {
         if (result.buffer) {
           playAudioBuffer(result.buffer);
@@ -1660,10 +1669,13 @@ export const InterviewPage: React.FC = () => {
           playAudioUrl(result.url);
         }
       } else {
-        // If TTS unavailable, candidate can read the transcript; restart speech recognition smoothly
         restartSpeechRecognition(150);
       }
     } catch {
+      setIsEvaluatingAnswer(false);
+      isEvaluatingAnswerRef.current = false;
+      if (onBeforePresent) onBeforePresent();
+      setChatMessages((prev) => [...prev, messageItem]);
       restartSpeechRecognition(150);
     }
   };
@@ -2036,23 +2048,17 @@ export const InterviewPage: React.FC = () => {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           questionIndex: currentQIndexRef.current,
         };
-        setActiveFollowUp({
-          questionText: followUpText,
-          followUpCount: nextFollowUpNum,
-          parentQuestionIndex: currentQIndexRef.current,
-        });
-        activeFollowUpRef.current = {
+        const followUpData = {
           questionText: followUpText,
           followUpCount: nextFollowUpNum,
           parentQuestionIndex: currentQIndexRef.current,
         };
 
-        await speakAndPresentAiMessage(followUpText, followUpMsg);
+        await speakAndPresentAiMessage(followUpText, followUpMsg, () => {
+          setActiveFollowUp(followUpData);
+          activeFollowUpRef.current = followUpData;
+        });
       } else {
-        // Candidate response was accepted OR max 2 follow-ups reached -> advance to next question
-        setActiveFollowUp(null);
-        activeFollowUpRef.current = null;
-
         if (res.is_completed || currentQIndexRef.current >= questions.length - 1) {
           const closingText =
             'Thank you for completing all interview questions! Finalizing and saving your interview recording now.';
@@ -2062,7 +2068,10 @@ export const InterviewPage: React.FC = () => {
             text: closingText,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
-          await speakAndPresentAiMessage(closingText, completeMsg);
+          await speakAndPresentAiMessage(closingText, completeMsg, () => {
+            setActiveFollowUp(null);
+            activeFollowUpRef.current = null;
+          });
 
           // Stop mic recognition immediately
           stopSpeechRecognition();
@@ -2080,10 +2089,6 @@ export const InterviewPage: React.FC = () => {
               ? res.current_question_index
               : currentQIndexRef.current + 1;
 
-          setCurrentQIndex(nextIndex);
-          currentQIndexRef.current = nextIndex;
-          followUpCountPerQuestionRef.current[nextIndex] = 0;
-
           const nextQ = questions[nextIndex];
           const transitionText = `Thank you! Moving on to Question ${nextIndex + 1}: ${nextQ.prompt}`;
           const nextMsg: ChatMessageItem = {
@@ -2093,7 +2098,13 @@ export const InterviewPage: React.FC = () => {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             questionIndex: nextIndex,
           };
-          await speakAndPresentAiMessage(transitionText, nextMsg);
+          await speakAndPresentAiMessage(transitionText, nextMsg, () => {
+            setActiveFollowUp(null);
+            activeFollowUpRef.current = null;
+            setCurrentQIndex(nextIndex);
+            currentQIndexRef.current = nextIndex;
+            followUpCountPerQuestionRef.current[nextIndex] = 0;
+          });
         }
       }
     } catch (err) {
