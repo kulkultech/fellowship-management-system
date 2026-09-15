@@ -745,9 +745,6 @@ export const ApplyPage: React.FC = () => {
               </div>
 
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-2xs font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 mb-2">
-                  <span>Application Profile Recorded</span>
-                </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Thank You for Submitting the Form, {submittedData.candidateName}!
                 </h1>
@@ -815,16 +812,6 @@ export const ApplyPage: React.FC = () => {
                       <span className="font-bold text-slate-900">{submittedData.email}</span>. You can also start it directly from your{' '}
                       <span className="font-bold text-slate-900">Candidate Dashboard</span> whenever you are ready.
                     </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
-                    <p className="font-bold text-slate-700">Important details:</p>
-                    <ul className="list-disc list-inside space-y-1 text-slate-600">
-                      <li>The assessment is timed ({submittedData.durationMinutes} minutes) with strict auto-countdown.</li>
-                      <li>Find a quiet, distraction-free environment with a reliable internet connection.</li>
-                      <li>Check your Spam or Promotions tab if the email doesn't appear in your inbox within a few minutes.</li>
-                      <li>You can track your application status anytime on your Candidate Dashboard.</li>
-                    </ul>
                   </div>
 
                   {/* Action Buttons */}
