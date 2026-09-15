@@ -202,6 +202,7 @@ export interface CandidateStatusResponse {
   ai_interview_invite_token?: string;
   interview_status?: string;
   redirect_url?: string;
+  preview_token?: string;
 }
 
 export interface StartProgramResponse {
@@ -288,6 +289,7 @@ export interface TestResultResponse {
   ai_interview_expires_at?: string;
   next_step?: string;
   redirect_url?: string;
+  preview_token?: string;
 }
 
 export interface ChatMessage {

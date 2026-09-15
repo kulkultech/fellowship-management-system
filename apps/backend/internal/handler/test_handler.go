@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
@@ -509,7 +510,11 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 					orgSlug = org.Slug
 				}
 			}
-			redirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
+				if !program.IsOpen() && program.PreviewToken != uuid.Nil {
+					redirectURL = fmt.Sprintf("/programs/%s/%s/apply?preview=%s", orgSlug, program.Slug, program.PreviewToken.String())
+				} else {
+					redirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
+				}
 		default:
 			nextStep = "completed"
 			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestCompleted)
@@ -564,6 +569,8 @@ type TestResultResponse struct {
 	ApplicantName          string     `json:"applicant_name"`
 	CandidateEmail         string     `json:"candidate_email,omitempty"`
 	ProgramName            string     `json:"program_name"`
+	OrgSlug                string     `json:"org_slug,omitempty"`
+	ProgramSlug            string     `json:"program_slug,omitempty"`
 	TrackName              string     `json:"track_name,omitempty"`
 	TotalScore             int        `json:"total_score"`
 	PassingScore           int        `json:"passing_score"`
@@ -574,6 +581,7 @@ type TestResultResponse struct {
 	AIInterviewExpiresAt   *time.Time `json:"ai_interview_expires_at,omitempty"`
 	NextStep               string     `json:"next_step,omitempty"`
 	RedirectURL            string     `json:"redirect_url,omitempty"`
+	PreviewToken           string     `json:"preview_token,omitempty"`
 }
 
 func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
@@ -599,6 +607,18 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to fetch program")
 		return
+	}
+
+	orgSlug := "rsa"
+	if h.orgRepo != nil {
+		if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
+			orgSlug = org.Slug
+		}
+	}
+
+	previewTokenStr := ""
+	if !program.IsOpen() && program.PreviewToken != uuid.Nil {
+		previewTokenStr = program.PreviewToken.String()
 	}
 
 	passingScore := program.LogicTestPassingScore
@@ -640,13 +660,11 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		case model.FlowStepForm:
 			if !applicant.FormSubmitted {
 				nextStep = "fill_form"
-				orgSlug := "rsa"
-				if h.orgRepo != nil {
-					if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
-						orgSlug = org.Slug
-					}
+				if previewTokenStr != "" {
+					redirectURL = fmt.Sprintf("/programs/%s/%s/apply?preview=%s", orgSlug, program.Slug, previewTokenStr)
+				} else {
+					redirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
 				}
-				redirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
 			} else {
 				afterForm := program.NextStepAfter(model.FlowStepForm)
 				if afterForm == model.FlowStepAIInterview && program.EnableAIInterview {
@@ -668,6 +686,8 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		ApplicantName:          applicant.FullName,
 		CandidateEmail:         applicant.Email,
 		ProgramName:            program.Name,
+		OrgSlug:                orgSlug,
+		ProgramSlug:            program.Slug,
 		TrackName:              trackName,
 		TotalScore:             submission.TotalScore,
 		PassingScore:           passingScore,
@@ -678,5 +698,6 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		AIInterviewExpiresAt:   inviteExpires,
 		NextStep:               nextStep,
 		RedirectURL:            redirectURL,
+		PreviewToken:           previewTokenStr,
 	})
 }

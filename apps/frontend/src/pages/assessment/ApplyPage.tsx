@@ -244,11 +244,25 @@ export const ApplyPage: React.FC = () => {
     }
   }, [user, location.search]);
 
-  const previewToken = queryParams.get('preview') || '';
+  const previewStorageKey = `kulkul_preview_${orgSlug}_${programSlug}`;
+  const paramPreview = queryParams.get('preview') || '';
+  if (paramPreview) {
+    try {
+      sessionStorage.setItem(previewStorageKey, paramPreview);
+    } catch (_) {}
+  }
+  const storedPreview = (() => {
+    try {
+      return sessionStorage.getItem(previewStorageKey) || '';
+    } catch (_) {
+      return '';
+    }
+  })();
+  const initialPreviewToken = paramPreview || storedPreview || '';
 
   const { data: programData } = useQuery({
-    queryKey: ['program', orgSlug, programSlug, previewToken],
-    queryFn: () => programService.getProgram(orgSlug, programSlug, previewToken),
+    queryKey: ['program', orgSlug, programSlug, initialPreviewToken],
+    queryFn: () => programService.getProgram(orgSlug, programSlug, initialPreviewToken),
   });
 
   const {
@@ -259,6 +273,8 @@ export const ApplyPage: React.FC = () => {
     queryFn: () => programService.getCandidateStatus(orgSlug, programSlug),
     enabled: !!user?.email && !!orgSlug && !!programSlug,
   });
+
+  const previewToken = initialPreviewToken || candidateStatusData?.preview_token || programData?.program?.preview_token || '';
 
   const startProgramMutation = useMutation({
     mutationFn: () => {
@@ -286,11 +302,21 @@ export const ApplyPage: React.FC = () => {
   }, []);
 
   const isBeforeOpen = openDate ? now < openDate.getTime() : false;
+
+  const isCandidateInEvaluation = !!(
+    candidateStatusData?.authenticated && (
+      candidateStatusData.test_passed ||
+      candidateStatusData.has_applied ||
+      (candidateStatusData.completed_steps && candidateStatusData.completed_steps.length > 0)
+    )
+  );
+
   const isPreviewMode = !!(
     (previewToken && program?.preview_token && previewToken === program.preview_token) ||
     (previewToken && previewToken.length >= 16) ||
     user?.role === 'org_admin' ||
-    user?.role === 'superadmin'
+    user?.role === 'superadmin' ||
+    isCandidateInEvaluation
   );
 
   // Dynamic injection of <meta name="robots" content="noindex, nofollow" /> for test link

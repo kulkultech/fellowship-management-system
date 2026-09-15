@@ -175,7 +175,15 @@ func (h *ProgramHandler) GetProgram(w http.ResponseWriter, r *http.Request) {
 	previewParam := r.URL.Query().Get("preview")
 	claims, _ := middleware.GetUser(r.Context())
 	isAdmin := claims != nil && (claims.Role == model.RoleOrgAdmin || claims.Role == model.RoleSuperadmin)
-	if isAdmin || (previewParam != "" && previewParam == program.PreviewToken.String()) {
+	isApplicantInFlow := false
+	if claims != nil && claims.Email != "" && !program.IsOpen() {
+		if app, _ := h.applicantRepo.GetByProgramAndEmail(r.Context(), program.ID, claims.Email); app != nil {
+			if sub, _ := h.submissionRepo.GetByApplicantID(r.Context(), app.ID); sub != nil && (sub.Passed || sub.Status == model.SubmissionCompleted || sub.Status == model.SubmissionInProgress) {
+				isApplicantInFlow = true
+			}
+		}
+	}
+	if isAdmin || isApplicantInFlow || (previewParam != "" && previewParam == program.PreviewToken.String()) {
 		resp.Program.PreviewToken = program.PreviewToken.String()
 	}
 
@@ -312,6 +320,17 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetUser(r.Context())
 	isAdmin := claims != nil && (claims.Role == model.RoleOrgAdmin || claims.Role == model.RoleSuperadmin)
 	isPreviewAuthorized := (previewParam != "" && previewParam == program.PreviewToken.String()) || isAdmin
+
+	if !program.IsOpen() && !isPreviewAuthorized {
+		// Check if candidate already has an active or completed evaluation session (e.g. MCQ test passed or started via preview)
+		if claims != nil && claims.Email != "" {
+			if existingApplicant, _ := h.applicantRepo.GetByProgramAndEmail(r.Context(), program.ID, claims.Email); existingApplicant != nil {
+				if sub, _ := h.submissionRepo.GetByApplicantID(r.Context(), existingApplicant.ID); sub != nil && (sub.Passed || sub.Status == model.SubmissionCompleted || sub.Status == model.SubmissionInProgress) {
+					isPreviewAuthorized = true
+				}
+			}
+		}
+	}
 
 	if !program.IsOpen() && !isPreviewAuthorized {
 		httpx.Error(w, http.StatusBadRequest, "applications for this program are currently closed")
@@ -610,6 +629,7 @@ type CandidateStatusResponse struct {
 	InterviewToken  string   `json:"interview_token,omitempty"`
 	InterviewStatus string   `json:"interview_status,omitempty"`
 	RedirectURL     string   `json:"redirect_url,omitempty"`
+	PreviewToken    string   `json:"preview_token,omitempty"`
 }
 
 func (h *ProgramHandler) GetCandidateStatus(w http.ResponseWriter, r *http.Request) {
@@ -693,6 +713,10 @@ func (h *ProgramHandler) GetCandidateStatus(w http.ResponseWriter, r *http.Reque
 	completedSteps := make([]string, 0, len(effectiveFlow))
 	currentStep := "completed"
 	redirectURL := ""
+	previewTokenStr := ""
+	if !program.IsOpen() && program.PreviewToken != uuid.Nil {
+		previewTokenStr = program.PreviewToken.String()
+	}
 
 	for _, step := range effectiveFlow {
 		switch step {
@@ -710,7 +734,11 @@ func (h *ProgramHandler) GetCandidateStatus(w http.ResponseWriter, r *http.Reque
 				completedSteps = append(completedSteps, step)
 			} else if currentStep == "completed" {
 				currentStep = step
-				redirectURL = fmt.Sprintf("/programs/%s/%s/apply", org.Slug, program.Slug)
+				if previewTokenStr != "" {
+					redirectURL = fmt.Sprintf("/programs/%s/%s/apply?preview=%s", org.Slug, program.Slug, previewTokenStr)
+				} else {
+					redirectURL = fmt.Sprintf("/programs/%s/%s/apply", org.Slug, program.Slug)
+				}
 			}
 		case model.FlowStepAIInterview:
 			if aiCompleted {
@@ -742,6 +770,7 @@ func (h *ProgramHandler) GetCandidateStatus(w http.ResponseWriter, r *http.Reque
 		InterviewToken:  interviewToken,
 		InterviewStatus: interviewStatus,
 		RedirectURL:     redirectURL,
+		PreviewToken:    previewTokenStr,
 	})
 }
 

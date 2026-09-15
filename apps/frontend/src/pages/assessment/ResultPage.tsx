@@ -141,10 +141,23 @@ export const ResultPage: React.FC = () => {
                 <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
                   <button
                     onClick={() => {
+                      const storedPreview = (() => {
+                        try {
+                          return sessionStorage.getItem(`kulkul_preview_${result.org_slug || ''}_${result.program_slug || ''}`) || '';
+                        } catch (_) {
+                          return '';
+                        }
+                      })();
+                      const activePreview = result.preview_token || storedPreview;
+                      const previewQuery = activePreview ? `?preview=${encodeURIComponent(activePreview)}` : '';
                       if (result.redirect_url) {
-                        navigate(result.redirect_url);
+                        const hasQuery = result.redirect_url.includes('?');
+                        const finalUrl = activePreview && !result.redirect_url.includes('preview=')
+                          ? `${result.redirect_url}${hasQuery ? '&' : '?'}preview=${encodeURIComponent(activePreview)}`
+                          : result.redirect_url;
+                        navigate(finalUrl);
                       } else {
-                        navigate(`/programs/${result.org_slug || ''}/${result.program_slug || ''}/apply`);
+                        navigate(`/programs/${result.org_slug || ''}/${result.program_slug || ''}/apply${previewQuery}`);
                       }
                     }}
                     className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98"

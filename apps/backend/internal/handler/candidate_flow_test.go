@@ -294,3 +294,120 @@ func TestAdminHandler_UpdateCandidateFlow_PayloadKeys(t *testing.T) {
 	}
 }
 
+func TestCandidateFlow_MCQFirst_BeforeOpenDate_PreviewLink(t *testing.T) {
+	ctx := context.Background()
+	orgRepo := repository.NewOrgRepository(nil)
+	progRepo := repository.NewProgramRepository(nil)
+	trackRepo := repository.NewTrackRepository(nil)
+	mcqRepo := repository.NewMCQRepository(nil)
+	qSetRepo := repository.NewQuestionSetRepository(nil)
+	appRepo := repository.NewApplicantRepository(nil)
+	subRepo := repository.NewSubmissionRepository(nil)
+	aiRepo := repository.NewAIInterviewRepository(nil)
+	userRepo := repository.NewUserRepository(nil)
+
+	org, err := orgRepo.Create(ctx, "delta", "Delta Corp", "")
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+
+	// Program is NOT yet open (opens 7 days from now)
+	prog, err := progRepo.Create(ctx, &model.Program{
+		OrganizationID:           org.ID,
+		Slug:                     "delta-fellowship-2027",
+		Name:                     "Delta Fellowship 2027",
+		OpenDate:                 time.Now().Add(7 * 24 * time.Hour),
+		EndDate:                  time.Now().Add(30 * 24 * time.Hour),
+		EnableMCQ:                true,
+		LogicTestDurationMinutes: 30,
+		LogicTestPassingScore:    70,
+	})
+	if err != nil {
+		t.Fatalf("create prog: %v", err)
+	}
+
+	// Set candidate flow to MCQ first, then form
+	_, err = progRepo.UpdateCandidateFlow(ctx, prog.ID, []string{model.FlowStepMCQ, model.FlowStepForm})
+	if err != nil {
+		t.Fatalf("update flow: %v", err)
+	}
+
+	progH := handler.NewProgramHandler(orgRepo, progRepo, trackRepo, mcqRepo, appRepo, subRepo, aiRepo, userRepo, nil, "https://fellowhire.kul.to")
+	testH := handler.NewTestHandler(subRepo, mcqRepo, qSetRepo, progRepo, trackRepo, appRepo, aiRepo, orgRepo, nil, "https://fellowhire.kul.to")
+
+	candidateClaims := &auth.Claims{
+		UserID: uuid.New(),
+		Email:  "preview.tester@example.com",
+	}
+
+	// 1. Candidate initiates program via StartProgram
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			ctxWithUser := middleware.WithUser(req.Context(), candidateClaims)
+			next.ServeHTTP(w, req.WithContext(ctxWithUser))
+		})
+	})
+	r.Post("/programs/{orgSlug}/{programSlug}/start", progH.StartProgram)
+	r.Get("/result/{testToken}", testH.GetResult)
+	r.Post("/programs/{orgSlug}/{programSlug}/apply", progH.Apply)
+
+	startReq := httptest.NewRequest(http.MethodPost, "/programs/delta/delta-fellowship-2027/start", bytes.NewReader([]byte("{}")))
+	startRec := httptest.NewRecorder()
+	r.ServeHTTP(startRec, startReq)
+
+	if startRec.Code != http.StatusOK && startRec.Code != http.StatusCreated {
+		t.Fatalf("expected 200/201 from start, got %d: %s", startRec.Code, startRec.Body.String())
+	}
+	var startResp handler.StartProgramResponse
+	_ = json.Unmarshal(startRec.Body.Bytes(), &startResp)
+	testToken := startResp.TestToken
+
+	// Mark test as passed
+	sub, _ := subRepo.GetByToken(ctx, testToken)
+	_ = subRepo.CompleteSubmission(ctx, sub.ID, time.Now(), 60, 95, true, nil, model.SubmissionCompleted)
+
+	// 2. Fetch test result scorecard
+	resReq := httptest.NewRequest(http.MethodGet, "/result/"+testToken, nil)
+	resRec := httptest.NewRecorder()
+	r.ServeHTTP(resRec, resReq)
+
+	if resRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from GetResult, got %d: %s", resRec.Code, resRec.Body.String())
+	}
+	var resultResp handler.TestResultResponse
+	_ = json.Unmarshal(resRec.Body.Bytes(), &resultResp)
+
+	if resultResp.NextStep != "fill_form" {
+		t.Fatalf("expected next_step = fill_form, got %s", resultResp.NextStep)
+	}
+	// Verify that redirect_url contains preview query since program is not open yet!
+	if !strings.Contains(resultResp.RedirectURL, "preview=") {
+		t.Fatalf("expected redirect_url to include ?preview= parameter when program not open, got %s", resultResp.RedirectURL)
+	}
+	if resultResp.PreviewToken == "" {
+		t.Fatalf("expected preview_token to be populated")
+	}
+
+	// 3. Candidate submits application form even though OpenDate is in the future
+	applyBody, _ := json.Marshal(map[string]any{
+		"first_name": "Preview",
+		"last_name":  "Tester",
+		"email":      "preview.tester@example.com",
+		"phone":      "+6281234567890",
+		"university": "Delta University",
+		"major":      "Computer Science",
+		"semester":   "Semester 8",
+		"resume_url": "https://r2.kul.to/resumes/tester.pdf",
+	})
+	// Even without ?preview in URL query, since candidate already passed the test, Apply should succeed!
+	applyReq := httptest.NewRequest(http.MethodPost, "/programs/delta/delta-fellowship-2027/apply", bytes.NewReader(applyBody))
+	applyRec := httptest.NewRecorder()
+	r.ServeHTTP(applyRec, applyReq)
+
+	if applyRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from Apply for qualified candidate, got %d: %s", applyRec.Code, applyRec.Body.String())
+	}
+}
+
+

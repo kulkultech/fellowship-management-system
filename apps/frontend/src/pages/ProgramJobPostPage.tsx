@@ -30,9 +30,26 @@ export const ProgramJobPostPage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const queryParams = new URLSearchParams(window.location.search);
+  const previewStorageKey = `kulkul_preview_${orgSlug}_${programSlug}`;
+  const paramPreview = queryParams.get('preview') || '';
+  if (paramPreview) {
+    try {
+      sessionStorage.setItem(previewStorageKey, paramPreview);
+    } catch (_) {}
+  }
+  const storedPreview = (() => {
+    try {
+      return sessionStorage.getItem(previewStorageKey) || '';
+    } catch (_) {
+      return '';
+    }
+  })();
+  const previewToken = paramPreview || storedPreview || '';
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['program-post', orgSlug, programSlug],
-    queryFn: () => programService.getProgram(orgSlug, programSlug),
+    queryKey: ['program-post', orgSlug, programSlug, previewToken],
+    queryFn: () => programService.getProgram(orgSlug, programSlug, previewToken),
   });
 
   const program = data?.program;
@@ -40,7 +57,11 @@ export const ProgramJobPostPage: React.FC = () => {
   const tracks = program?.tracks || [];
 
   const openDate = program?.open_date ? new Date(program.open_date) : null;
-  const isBeforeOpen = openDate ? now < openDate.getTime() : false;
+  const isPreviewMode = !!(
+    (previewToken && program?.preview_token && previewToken === program.preview_token) ||
+    (previewToken && previewToken.length >= 16)
+  );
+  const isBeforeOpen = openDate ? (now < openDate.getTime() && !isPreviewMode) : false;
 
   const handleCopyLink = () => {
     const url = window.location.href;
@@ -51,7 +72,8 @@ export const ProgramJobPostPage: React.FC = () => {
   };
 
   const handleApplyTrack = (trackSlug: string) => {
-    navigate(`/programs/${orgSlug}/${programSlug}/tracks/${trackSlug}/apply`);
+    const previewQuery = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
+    navigate(`/programs/${orgSlug}/${programSlug}/tracks/${trackSlug}/apply${previewQuery}`);
   };
 
   if (isLoading) {
@@ -242,7 +264,8 @@ export const ProgramJobPostPage: React.FC = () => {
                         const el = document.getElementById('available-tracks');
                         el?.scrollIntoView({ behavior: 'smooth' });
                       } else {
-                        navigate(`/programs/${orgSlug}/${programSlug}/apply`);
+                        const previewQuery = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
+                        navigate(`/programs/${orgSlug}/${programSlug}/apply${previewQuery}`);
                       }
                     }}
                     className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
