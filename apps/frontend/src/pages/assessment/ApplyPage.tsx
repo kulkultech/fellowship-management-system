@@ -661,21 +661,13 @@ export const ApplyPage: React.FC = () => {
                 };
 
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-left pt-2">
-                    <div className="p-3 rounded-2xl bg-purple-50/70 border border-purple-200 flex flex-col justify-between">
-                      <div className="w-6 h-6 rounded-full bg-kulkul-purple text-white text-xs font-extrabold flex items-center justify-center mb-2 shadow-xs">
-                        1
-                      </div>
-                      <div className="text-xs font-bold text-slate-900">Google Sign-In</div>
-                      <div className="text-2xs text-slate-500 mt-0.5">Instant identity &amp; email verification</div>
-                    </div>
-
+                  <div className={`grid grid-cols-1 ${effectiveFlow.length === 2 ? 'sm:grid-cols-2' : effectiveFlow.length >= 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-2.5 text-left pt-2`}>
                     {effectiveFlow.map((stepKey, idx) => {
                       const item = stepDescriptions[stepKey] || { title: stepKey, desc: 'Admission stage' };
                       return (
                         <div key={stepKey} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
                           <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-extrabold flex items-center justify-center mb-2">
-                            {idx + 2}
+                            {idx + 1}
                           </div>
                           <div className="text-xs font-bold text-slate-900">{item.title}</div>
                           <div className="text-2xs text-slate-500 mt-0.5">{item.desc}</div>
