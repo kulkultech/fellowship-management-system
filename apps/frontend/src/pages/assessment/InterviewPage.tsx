@@ -1405,20 +1405,6 @@ export const InterviewPage: React.FC = () => {
   };
   stopSpeechRef.current = stopSpeech;
 
-  // Interrupt AI playback and immediately start clean candidate microphone listening
-  const handleInterruptAi = () => {
-    stopSpeech();
-    turnAudioChunksRef.current = [];
-    turnPcmChunksRef.current = [];
-    hasSpokenInCurrentTurnRef.current = false;
-    speechStartedTimeRef.current = 0;
-    lastCandidateSpeechTimeRef.current = 0;
-    isCandidateSpeakingRef.current = false;
-    setIsCandidateSpeaking(false);
-    updateLiveCandidateTranscript('');
-    accumulatedTurnTranscriptRef.current = '';
-    restartSpeechRecognition(80);
-  };
 
   // Play decoded AudioBuffer with 0ms latency and immune to HTML5 Audio autoplay restrictions
   const playAudioBuffer = (buffer: AudioBuffer): boolean => {
@@ -3138,12 +3124,6 @@ export const InterviewPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                   <span>{session.applicant_name} &bull; Question {currentQIndex + 1} of {questions.length}</span>
-                  {activeFollowUp && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple font-bold text-3xs border border-purple-200">
-                      <Bot className="w-2.5 h-2.5" />
-                      Follow-up {activeFollowUp.followUpCount} of 2
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -3293,24 +3273,12 @@ export const InterviewPage: React.FC = () => {
               {/* Efficient Action Bar (Status + Language Selector + Done Speaking Button) */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-xs flex-wrap">
-                  {isEvaluatingAnswer ? (
-                    <div className="flex items-center gap-2 text-kulkul-purple font-semibold text-xs">
-                      <RefreshCw className="w-4 h-4 animate-spin text-kulkul-purple" />
-                      <span>Transcribing answer with Whisper AI...</span>
-                    </div>
-                  ) : isAiSpeaking ? (
+                  {isEvaluatingAnswer ? null : isAiSpeaking ? (
                     <div className="flex items-center gap-2">
                       <span className="flex items-center gap-1 text-kulkul-purple font-semibold text-xs">
                         <Bot className="w-4 h-4" />
                         <span>AI Speaking</span>
                       </span>
-                      <button
-                        onClick={handleInterruptAi}
-                        className="text-3xs font-extrabold uppercase px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 hover:bg-purple-200 transition cursor-pointer"
-                        title="Interrupt AI"
-                      >
-                        Skip / Interrupt
-                      </button>
                     </div>
                   ) : liveCandidateTranscript || isCandidateSpeaking ? (
                     <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-xs animate-pulse">
@@ -3322,13 +3290,6 @@ export const InterviewPage: React.FC = () => {
                       <Mic className="w-3.5 h-3.5 text-slate-400" />
                       <span>{audioLevel > 24 ? 'Listening (speaking)...' : 'Speak anytime'}</span>
                     </div>
-                  )}
-
-                  {activeFollowUp && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-kulkul-purple font-bold text-3xs border border-purple-200 shadow-2xs">
-                      <Bot className="w-3 h-3" />
-                      <span>Follow-up {activeFollowUp.followUpCount} of 2</span>
-                    </span>
                   )}
                 </div>
 
