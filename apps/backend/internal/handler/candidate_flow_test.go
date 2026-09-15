@@ -211,3 +211,86 @@ func TestCandidateFlow_MCQFirstEndToEnd(t *testing.T) {
 	}
 }
 
+func TestAdminHandler_UpdateCandidateFlow_PayloadKeys(t *testing.T) {
+	ctx := context.Background()
+	orgRepo := repository.NewOrgRepository(nil)
+	progRepo := repository.NewProgramRepository(nil)
+	appRepo := repository.NewApplicantRepository(nil)
+	subRepo := repository.NewSubmissionRepository(nil)
+	trackRepo := repository.NewTrackRepository(nil)
+	qSetRepo := repository.NewQuestionSetRepository(nil)
+	mcqRepo := repository.NewMCQRepository(nil)
+	aiRepo := repository.NewAIInterviewRepository(nil)
+	userRepo := repository.NewUserRepository(nil)
+
+	org, err := orgRepo.Create(ctx, "acme", "Acme Corp", "")
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+
+	prog, err := progRepo.Create(ctx, &model.Program{
+		OrganizationID: org.ID,
+		Slug:           "acme-grad-2026",
+		Name:           "Acme Graduate 2026",
+		EnableMCQ:      true,
+	})
+	if err != nil {
+		t.Fatalf("create prog: %v", err)
+	}
+
+	admH := handler.NewAdminHandler(appRepo, subRepo, mcqRepo, qSetRepo, trackRepo, aiRepo, progRepo, orgRepo, userRepo, nil, "https://fellowhire.kul.to")
+
+	r := chi.NewRouter()
+	r.Put("/admin/programs/{id}/candidate-flow", admH.UpdateCandidateFlow)
+
+	// Case 1: Payload using key "flow" (as previously sent by frontend)
+	bodyFlow, _ := json.Marshal(map[string]any{
+		"flow": []string{"mcq_test", "fill_form", "ai_interview"},
+	})
+	req1 := httptest.NewRequest(http.MethodPut, "/admin/programs/"+prog.ID.String()+"/candidate-flow", bytes.NewReader(bodyFlow))
+	rec1 := httptest.NewRecorder()
+	r.ServeHTTP(rec1, req1)
+
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("expected 200 with 'flow' payload key, got %d: %s", rec1.Code, rec1.Body.String())
+	}
+	var resProg1 model.Program
+	_ = json.Unmarshal(rec1.Body.Bytes(), &resProg1)
+	if len(resProg1.CandidateFlow) != 3 || resProg1.CandidateFlow[0] != "mcq_test" {
+		t.Fatalf("expected flow to be updated to mcq_test first, got: %v", resProg1.CandidateFlow)
+	}
+
+	// Case 2: Payload using key "candidate_flow"
+	bodyCandidateFlow, _ := json.Marshal(map[string]any{
+		"candidate_flow": []string{"ai_interview", "fill_form", "mcq_test"},
+	})
+	req2 := httptest.NewRequest(http.MethodPut, "/admin/programs/"+prog.ID.String()+"/candidate-flow", bytes.NewReader(bodyCandidateFlow))
+	rec2 := httptest.NewRecorder()
+	r.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200 with 'candidate_flow' payload key, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+	var resProg2 model.Program
+	_ = json.Unmarshal(rec2.Body.Bytes(), &resProg2)
+	if len(resProg2.CandidateFlow) != 3 || resProg2.CandidateFlow[0] != "ai_interview" {
+		t.Fatalf("expected flow to be updated to ai_interview first, got: %v", resProg2.CandidateFlow)
+	}
+
+	// Case 3: Empty payload returns 400 Bad Request
+	emptyBody, _ := json.Marshal(map[string]any{
+		"candidate_flow": []string{},
+		"flow":           []string{},
+	})
+	req3 := httptest.NewRequest(http.MethodPut, "/admin/programs/"+prog.ID.String()+"/candidate-flow", bytes.NewReader(emptyBody))
+	rec3 := httptest.NewRecorder()
+	r.ServeHTTP(rec3, req3)
+
+	if rec3.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 when empty, got %d: %s", rec3.Code, rec3.Body.String())
+	}
+	if !strings.Contains(rec3.Body.String(), "candidate_flow cannot be empty") {
+		t.Fatalf("expected error message 'candidate_flow cannot be empty', got: %s", rec3.Body.String())
+	}
+}
+

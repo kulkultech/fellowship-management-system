@@ -810,6 +810,7 @@ type UpdatePipelineConfigRequest struct {
 	AIInterviewQuestions     []string                 `json:"ai_interview_questions"`
 	AIInterviewRubric        *model.AIInterviewRubric `json:"ai_interview_rubric,omitempty"`
 	CandidateFlow            []string                 `json:"candidate_flow,omitempty"`
+	Flow                     []string                 `json:"flow,omitempty"`
 }
 
 func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Request) {
@@ -824,6 +825,10 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 	if err := httpx.Decode(w, r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if len(req.CandidateFlow) == 0 && len(req.Flow) > 0 {
+		req.CandidateFlow = req.Flow
 	}
 
 	if req.LogicTestDurationMinutes <= 0 {
@@ -897,6 +902,7 @@ func (h *AdminHandler) UpdateProgramRubric(w http.ResponseWriter, r *http.Reques
 
 type UpdateCandidateFlowRequest struct {
 	CandidateFlow []string `json:"candidate_flow"`
+	Flow          []string `json:"flow"`
 }
 
 func (h *AdminHandler) UpdateCandidateFlow(w http.ResponseWriter, r *http.Request) {
@@ -911,6 +917,10 @@ func (h *AdminHandler) UpdateCandidateFlow(w http.ResponseWriter, r *http.Reques
 	if err := httpx.Decode(w, r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if len(req.CandidateFlow) == 0 && len(req.Flow) > 0 {
+		req.CandidateFlow = req.Flow
 	}
 
 	if len(req.CandidateFlow) == 0 {
@@ -930,6 +940,7 @@ func (h *AdminHandler) UpdateCandidateFlow(w http.ResponseWriter, r *http.Reques
 type UpdateProgramStagesRequest struct {
 	Stages        []model.ApplicationStageItem `json:"stages"`
 	CandidateFlow []string                     `json:"candidate_flow,omitempty"`
+	Flow          []string                     `json:"flow,omitempty"`
 }
 
 func (h *AdminHandler) UpdateProgramStages(w http.ResponseWriter, r *http.Request) {
@@ -944,6 +955,10 @@ func (h *AdminHandler) UpdateProgramStages(w http.ResponseWriter, r *http.Reques
 	if err := httpx.Decode(w, r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if len(req.CandidateFlow) == 0 && len(req.Flow) > 0 {
+		req.CandidateFlow = req.Flow
 	}
 
 	var updated *model.Program

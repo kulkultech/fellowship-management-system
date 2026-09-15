@@ -103,7 +103,10 @@ export const adminService = {
   },
 
   updateCandidateFlow: async (programId: string, flow: string[]): Promise<Program> => {
-    const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/candidate-flow`, { flow });
+    const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/candidate-flow`, {
+      candidate_flow: flow,
+      flow,
+    });
     return data;
   },
 

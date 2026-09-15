@@ -1229,7 +1229,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const updateCandidateFlowMutation = useMutation({
     mutationFn: (flow: string[]) => {
       if (!programId) throw new Error('No program selected');
-      return adminService.updateCandidateFlow(programId, flow);
+      const validFlow = flow && flow.length > 0 ? flow : DEFAULT_CANDIDATE_FLOW;
+      return adminService.updateCandidateFlow(programId, validFlow);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['program', orgSlug, activeProgramSlug] });
