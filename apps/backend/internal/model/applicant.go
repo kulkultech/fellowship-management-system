@@ -40,6 +40,7 @@ type Applicant struct {
 	ReferralSource string                 `json:"referral_source,omitempty"`
 	CustomResponses map[string]interface{} `json:"custom_responses,omitempty"`
 	CurrentStage   ApplicantStage         `json:"current_stage"`
+	FormSubmitted  bool                   `json:"form_submitted"`
 	Notes          string                 `json:"notes,omitempty"`
 	CreatedAt      time.Time              `json:"created_at"`
 	UpdatedAt      time.Time              `json:"updated_at"`

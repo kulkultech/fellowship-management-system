@@ -182,10 +182,53 @@ type Program struct {
 	AIInterviewRubric        *AIInterviewRubric     `json:"ai_interview_rubric,omitempty"`
 	ApplicationStages        []ApplicationStageItem `json:"application_stages,omitempty"`
 	ApplicationFormSchema    *ApplicationFormSchema `json:"application_form_schema,omitempty"`
+	CandidateFlow            []string               `json:"candidate_flow,omitempty"`
 	Status                   string                 `json:"status"` // 'draft', 'published', 'archived'
 	PreviewToken             uuid.UUID              `json:"preview_token"`
 	CreatedAt                time.Time              `json:"created_at"`
 	UpdatedAt                time.Time              `json:"updated_at"`
+}
+
+const (
+	FlowStepForm        = "fill_form"
+	FlowStepMCQ         = "mcq_test"
+	FlowStepAIInterview = "ai_interview"
+)
+
+func DefaultCandidateFlow() []string {
+	return []string{FlowStepForm, FlowStepMCQ, FlowStepAIInterview}
+}
+
+// GetEffectiveCandidateFlow returns the configured flow filtered by enabled screening modules.
+func (p *Program) GetEffectiveCandidateFlow() []string {
+	flow := p.CandidateFlow
+	if len(flow) == 0 {
+		flow = DefaultCandidateFlow()
+	}
+
+	effective := make([]string, 0, len(flow))
+	for _, step := range flow {
+		if step == FlowStepMCQ && !p.EnableMCQ {
+			continue
+		}
+		if step == FlowStepAIInterview && !p.EnableAIInterview {
+			continue
+		}
+		effective = append(effective, step)
+	}
+	return effective
+}
+
+// NextStepAfter returns the next stage in the effective candidate flow after the given step.
+// Returns an empty string if there are no further steps.
+func (p *Program) NextStepAfter(currentStep string) string {
+	flow := p.GetEffectiveCandidateFlow()
+	for i, step := range flow {
+		if step == currentStep && i+1 < len(flow) {
+			return flow[i+1]
+		}
+	}
+	return ""
 }
 
 func (p *Program) IsOpen() bool {

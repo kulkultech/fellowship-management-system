@@ -22,7 +22,7 @@ type Service interface {
 	SendCompanyApprovedEmail(recipientEmail, userName, companyName, loginURL string) error
 	SendApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int) error
 	SendLogicTestSubmittedEmail(recipientEmail, candidateName, programName, trackName, resultURL string) error
-	SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, aiInterviewURL string) error
+	SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string) error
 	SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error
 	SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error
 }
@@ -272,8 +272,8 @@ func (s *SESService) SendLogicTestSubmittedEmail(recipientEmail, candidateName, 
 }
 
 // 4. SendLogicTestResultEmail
-func (s *SESService) SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, aiInterviewURL string) error {
-	subject, html, text := buildLogicTestResultEmail(candidateName, programName, trackName, score, passingScore, passed, resultURL, aiInterviewURL, s.frontendURL, s.supportEmail)
+func (s *SESService) SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string) error {
+	subject, html, text := buildLogicTestResultEmail(candidateName, programName, trackName, score, passingScore, passed, resultURL, actionURL, nextStep, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

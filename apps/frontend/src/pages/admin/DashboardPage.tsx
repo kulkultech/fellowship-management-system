@@ -145,6 +145,8 @@ import {
   Sliders,
   BrainCircuit,
   Building2,
+  Lock,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -1204,6 +1206,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   // Application Stages local state
   const [editableStages, setEditableStages] = useState<ApplicationStageItem[]>(DEFAULT_STAGES);
 
+  // Candidate Admission Flow Sequence state (Step 1 is Google Sign-In, followed by configurable sequence)
+  const DEFAULT_CANDIDATE_FLOW = ['fill_form', 'mcq_test', 'ai_interview'];
+  const [editableCandidateFlow, setEditableCandidateFlow] = useState<string[]>(DEFAULT_CANDIDATE_FLOW);
+
   useEffect(() => {
     if (program?.application_stages && program.application_stages.length > 0) {
       setEditableStages(program.application_stages);
@@ -1211,6 +1217,56 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setEditableStages(DEFAULT_STAGES);
     }
   }, [program]);
+
+  useEffect(() => {
+    if (program?.candidate_flow && program.candidate_flow.length > 0) {
+      setEditableCandidateFlow(program.candidate_flow);
+    } else {
+      setEditableCandidateFlow(DEFAULT_CANDIDATE_FLOW);
+    }
+  }, [program?.candidate_flow]);
+
+  const updateCandidateFlowMutation = useMutation({
+    mutationFn: (flow: string[]) => {
+      if (!programId) throw new Error('No program selected');
+      return adminService.updateCandidateFlow(programId, flow);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['program', orgSlug, activeProgramSlug] });
+      queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+      toast.success('Candidate admission flow sequence updated successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to save candidate admission flow');
+    },
+  });
+
+  const handleMoveFlowStepUp = (index: number) => {
+    if (index <= 0) return;
+    setEditableCandidateFlow((prev) => {
+      const next = [...prev];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  };
+
+  const handleMoveFlowStepDown = (index: number) => {
+    if (index >= editableCandidateFlow.length - 1) return;
+    setEditableCandidateFlow((prev) => {
+      const next = [...prev];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  };
+
+  const handleResetCandidateFlow = () => {
+    setEditableCandidateFlow(DEFAULT_CANDIDATE_FLOW);
+    toast.success('Reset candidate flow sequence to default.');
+  };
 
   const updateStagesMutation = useMutation({
     mutationFn: (stages: ApplicationStageItem[]) => {
@@ -2109,16 +2165,233 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* VIEW: PROGRAM APPLICATION & ASSESSMENT STAGES */}
         {/* ================================================================================= */}
         {currentView === 'stages' && (
-          <div className="space-y-6">
+          <div className="space-y-8">
+            {/* 1. CANDIDATE ADMISSION FLOW SEQUENCER (RUNTIME LOGIC & PIPELINE ORDER) */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-kulkul-purple text-2xs font-extrabold uppercase tracking-wider mb-2">
+                    <Sliders className="w-3.5 h-3.5 text-kulkul-orange" />
+                    <span>Intake Pipeline Sequence</span>
+                  </div>
+                  <h2 className="text-xl font-extrabold text-kulkul-purple flex items-center gap-2">
+                    <Workflow className="w-5 h-5 text-kulkul-orange" />
+                    Candidate Admission Flow Sequencer
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                    Set which evaluation step candidates encounter first. <strong className="text-slate-800">Google Sign-In is always the locked first step</strong> for verified authentication. You can order whether candidates take the MCQ test first, fill out the application profile, or complete the AI screening.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <button
+                    onClick={handleResetCandidateFlow}
+                    className="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
+                    title="Reset to default order (Form -> MCQ -> AI Interview)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset Order</span>
+                  </button>
+
+                  <button
+                    onClick={() => updateCandidateFlowMutation.mutate(editableCandidateFlow)}
+                    disabled={updateCandidateFlowMutation.isPending}
+                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{updateCandidateFlowMutation.isPending ? 'Saving Order...' : 'Save Flow Order'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Flow Pipeline Visualization */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-slate-50 to-orange-50/50 border border-slate-200/80">
+                <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+                  <span>Live Candidate Admission Journey</span>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                  {/* Pinned Step 1 */}
+                  <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border-2 border-kulkul-purple/40 shadow-xs font-bold text-slate-800">
+                    <span className="w-5 h-5 rounded-full bg-kulkul-purple text-white text-3xs font-black flex items-center justify-center">1</span>
+                    <span className="flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-kulkul-purple" />
+                      Google Sign-In
+                    </span>
+                  </div>
+
+                  <span className="text-slate-300 font-bold shrink-0">&rarr;</span>
+
+                  {editableCandidateFlow.map((stepKey, idx) => {
+                    const stepNum = idx + 2;
+                    const isMCQ = stepKey === 'mcq_test';
+                    const isForm = stepKey === 'fill_form';
+                    const isAI = stepKey === 'ai_interview';
+                    const isEnabled = isMCQ
+                      ? (program?.enable_mcq ?? true)
+                      : isAI
+                      ? (program?.enable_ai_interview ?? true)
+                      : true;
+
+                    const title = isForm
+                      ? 'Candidate Form'
+                      : isMCQ
+                      ? 'Timed Logic MCQ'
+                      : 'AI Interview';
+
+                    return (
+                      <React.Fragment key={stepKey}>
+                        <div
+                          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-xs font-bold ${
+                            isEnabled
+                              ? 'bg-white border-slate-200 text-slate-800'
+                              : 'bg-slate-100/80 border-dashed border-slate-300 text-slate-400 line-through'
+                          }`}
+                        >
+                          <span
+                            className={`w-5 h-5 rounded-full text-3xs font-black flex items-center justify-center ${
+                              isEnabled ? 'bg-slate-800 text-white' : 'bg-slate-300 text-slate-600'
+                            }`}
+                          >
+                            {stepNum}
+                          </span>
+                          <span>{title}</span>
+                          {!isEnabled && (
+                            <span className="text-3xs no-underline px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                              Disabled
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-slate-300 font-bold shrink-0">&rarr;</span>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs font-bold text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Admissions Review</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sequential Steps List */}
+              <div className="space-y-3">
+                {/* Step 1: Google Authentication (Locked) */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/90 border-2 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start sm:items-center gap-3.5">
+                    <span className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 font-extrabold flex items-center justify-center text-xs shrink-0">
+                      1
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-black text-slate-800">Google Identity Verification</h4>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-3xs font-extrabold uppercase tracking-wider">
+                          <Lock className="w-2.5 h-2.5" />
+                          Locked Initial Step
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Mandatory verification gate. Ensures verified email identity, session tracking, and direct access to candidate dashboard.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 italic shrink-0 self-end sm:self-auto">
+                    <span>Non-reorderable</span>
+                  </div>
+                </div>
+
+                {/* Reorderable Steps */}
+                {editableCandidateFlow.map((stepKey, idx) => {
+                  const stepNum = idx + 2;
+                  const isMCQ = stepKey === 'mcq_test';
+                  const isForm = stepKey === 'fill_form';
+                  const isAI = stepKey === 'ai_interview';
+                  const isEnabled = isMCQ
+                    ? (program?.enable_mcq ?? true)
+                    : isAI
+                    ? (program?.enable_ai_interview ?? true)
+                    : true;
+
+                  const title = isForm
+                    ? 'Candidate Application Form'
+                    : isMCQ
+                    ? 'Timed Logic & Technical MCQ Assessment'
+                    : 'Autonomous AI Technical Screening';
+
+                  const description = isForm
+                    ? 'Candidate provides full personal profile, education, CV, and track-specific custom form questions.'
+                    : isMCQ
+                    ? 'Candidates take the timed multiple-choice test to establish cognitive and technical qualification.'
+                    : 'Asynchronous video interview evaluated autonomously against structured assessment rubrics.';
+
+                  return (
+                    <div
+                      key={stepKey}
+                      className={`p-4 sm:p-5 rounded-2xl border transition space-y-3 ${
+                        isEnabled
+                          ? 'bg-white border-slate-200 hover:border-kulkul-purple/40 shadow-xs'
+                          : 'bg-slate-50 border-slate-200/70 opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start sm:items-center gap-3.5">
+                          <span className="w-8 h-8 rounded-full bg-kulkul-purple text-white font-extrabold flex items-center justify-center text-xs shrink-0 shadow-sm">
+                            {stepNum}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-black text-slate-900">{title}</h4>
+                              <span className="text-3xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-100">
+                                {isForm ? 'Profile Form' : isMCQ ? 'Logic MCQ' : 'AI Interview'}
+                              </span>
+                              {!isEnabled && (
+                                <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                  Disabled in Settings (Bypassed)
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+                          </div>
+                        </div>
+
+                        {/* Move Up / Down Buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveFlowStepUp(idx)}
+                            disabled={idx === 0}
+                            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 disabled:hover:bg-transparent transition"
+                            title="Move Up in candidate admission order"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveFlowStepDown(idx)}
+                            disabled={idx === editableCandidateFlow.length - 1}
+                            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 disabled:hover:bg-transparent transition"
+                            title="Move Down in candidate admission order"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. PUBLIC APPLICATION & ASSESSMENT STAGES (MARKETING & CURRICULUM SHOWCASE) */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
                 <div>
                   <h2 className="text-xl font-extrabold text-kulkul-purple flex items-center gap-2">
                     <Workflow className="w-5 h-5 text-kulkul-orange" />
-                    Application & Assessment Stages
+                    Public Program Stages Showcase
                   </h2>
                   <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-                    Configure the sequential candidate journey for <span className="font-bold text-slate-700">{program?.name || activeProgramSlug}</span>. These stages are publicly showcased to candidates on the program overview page.
+                    Configure the descriptive stages displayed publicly to candidates on the program overview page.
                   </p>
                 </div>
 

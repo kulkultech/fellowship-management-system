@@ -102,6 +102,11 @@ export const adminService = {
     return data;
   },
 
+  updateCandidateFlow: async (programId: string, flow: string[]): Promise<Program> => {
+    const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/candidate-flow`, { flow });
+    return data;
+  },
+
   updateProgramFormSchema: async (programId: string, schema: import('./types').ApplicationFormSchema): Promise<Program> => {
     const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/form`, schema);
     return data;

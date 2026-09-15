@@ -809,6 +809,7 @@ type UpdatePipelineConfigRequest struct {
 	AIInterviewInstructions  string                   `json:"ai_interview_instructions"`
 	AIInterviewQuestions     []string                 `json:"ai_interview_questions"`
 	AIInterviewRubric        *model.AIInterviewRubric `json:"ai_interview_rubric,omitempty"`
+	CandidateFlow            []string                 `json:"candidate_flow,omitempty"`
 }
 
 func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Request) {
@@ -862,6 +863,12 @@ func (h *AdminHandler) UpdatePipelineConfig(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if len(req.CandidateFlow) > 0 {
+		if flowUpdated, err := h.programRepo.UpdateCandidateFlow(r.Context(), id, req.CandidateFlow); err == nil && flowUpdated != nil {
+			updated = flowUpdated
+		}
+	}
+
 	httpx.JSON(w, http.StatusOK, updated)
 }
 
@@ -888,8 +895,41 @@ func (h *AdminHandler) UpdateProgramRubric(w http.ResponseWriter, r *http.Reques
 	httpx.JSON(w, http.StatusOK, updated)
 }
 
+type UpdateCandidateFlowRequest struct {
+	CandidateFlow []string `json:"candidate_flow"`
+}
+
+func (h *AdminHandler) UpdateCandidateFlow(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req UpdateCandidateFlowRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if len(req.CandidateFlow) == 0 {
+		httpx.Error(w, http.StatusBadRequest, "candidate_flow cannot be empty")
+		return
+	}
+
+	updated, err := h.programRepo.UpdateCandidateFlow(r.Context(), id, req.CandidateFlow)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update candidate flow")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
 type UpdateProgramStagesRequest struct {
-	Stages []model.ApplicationStageItem `json:"stages"`
+	Stages        []model.ApplicationStageItem `json:"stages"`
+	CandidateFlow []string                     `json:"candidate_flow,omitempty"`
 }
 
 func (h *AdminHandler) UpdateProgramStages(w http.ResponseWriter, r *http.Request) {
@@ -906,10 +946,25 @@ func (h *AdminHandler) UpdateProgramStages(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	updated, err := h.programRepo.UpdateStages(r.Context(), id, req.Stages)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to update application stages")
-		return
+	var updated *model.Program
+	if len(req.CandidateFlow) > 0 {
+		updated, _ = h.programRepo.UpdateCandidateFlow(r.Context(), id, req.CandidateFlow)
+	}
+
+	if len(req.Stages) > 0 {
+		var err error
+		updated, err = h.programRepo.UpdateStages(r.Context(), id, req.Stages)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to update application stages")
+			return
+		}
+	} else if updated == nil {
+		var err error
+		updated, err = h.programRepo.GetByID(r.Context(), id)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to load updated program")
+			return
+		}
 	}
 
 	httpx.JSON(w, http.StatusOK, updated)

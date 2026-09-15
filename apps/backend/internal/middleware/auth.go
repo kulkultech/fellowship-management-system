@@ -43,6 +43,38 @@ func Authenticator(authSvc *auth.Service) func(http.Handler) http.Handler {
 	}
 }
 
+// OptionalAuthenticator extracts user claims from cookie or Authorization header if present,
+// attaching claims to request context without rejecting unauthenticated requests.
+func OptionalAuthenticator(authSvc *auth.Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := ""
+
+			// 1. Check HttpOnly cookie
+			if cookie, err := r.Cookie(auth.AuthCookieName); err == nil && cookie.Value != "" {
+				token = cookie.Value
+			}
+
+			// 2. Check Authorization header fallback
+			if token == "" {
+				authHeader := r.Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					token = strings.TrimPrefix(authHeader, "Bearer ")
+				}
+			}
+
+			if token != "" {
+				if claims, err := authSvc.ValidateToken(token); err == nil && claims != nil {
+					ctx := WithUser(r.Context(), claims)
+					r = r.WithContext(ctx)
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // RequireRole verifies that the authenticated user possesses one of the allowed roles.
 // Users with role "superadmin" automatically bypass role restrictions.
 func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {

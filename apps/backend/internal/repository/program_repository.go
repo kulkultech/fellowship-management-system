@@ -24,45 +24,54 @@ type ProgramRepository struct {
 	memPrograms map[string]*model.Program
 }
 
-func BuildApplicationStages(enableMCQ, enableAI bool, hasTracks bool) []model.ApplicationStageItem {
+func BuildApplicationStagesWithFlow(flow []string, enableMCQ, enableAI bool, hasTracks bool) []model.ApplicationStageItem {
+	if len(flow) == 0 {
+		flow = model.DefaultCandidateFlow()
+	}
+
 	var stages []model.ApplicationStageItem
 	step := 1
 
-	trackTitle := "Candidate Intake Application"
-	trackDesc := "Submit your academic background, IT major, and contact details."
-	if hasTracks {
-		trackTitle = "Specialization Track & Intake Application"
-		trackDesc = "Choose your target specialization track and submit your academic background, IT major, and contact details."
-	}
-	stages = append(stages, model.ApplicationStageItem{
-		StepNumber:  step,
-		Title:       trackTitle,
-		Description: trackDesc,
-	})
-	step++
-
-	if enableMCQ {
-		mcqTitle := "Timed Logic & Technical Assessment"
-		mcqDesc := "Solve timed logic and technical domain MCQs calibrated for candidate benchmarking."
-		if hasTracks {
-			mcqTitle = "Track-Specific Timed Logic Assessment"
-			mcqDesc = "Solve timed logic and technical domain MCQs calibrated for your chosen specialization track."
+	for _, flowStep := range flow {
+		switch flowStep {
+		case model.FlowStepForm:
+			trackTitle := "Candidate Intake Application"
+			trackDesc := "Submit your academic background, IT major, and contact details."
+			if hasTracks {
+				trackTitle = "Specialization Track & Intake Application"
+				trackDesc = "Choose your target specialization track and submit your academic background, IT major, and contact details."
+			}
+			stages = append(stages, model.ApplicationStageItem{
+				StepNumber:  step,
+				Title:       trackTitle,
+				Description: trackDesc,
+			})
+			step++
+		case model.FlowStepMCQ:
+			if enableMCQ {
+				mcqTitle := "Timed Logic & Technical Assessment"
+				mcqDesc := "Solve timed logic and technical domain MCQs calibrated for candidate benchmarking."
+				if hasTracks {
+					mcqTitle = "Track-Specific Timed Logic Assessment"
+					mcqDesc = "Solve timed logic and technical domain MCQs calibrated for your chosen specialization track."
+				}
+				stages = append(stages, model.ApplicationStageItem{
+					StepNumber:  step,
+					Title:       mcqTitle,
+					Description: mcqDesc,
+				})
+				step++
+			}
+		case model.FlowStepAIInterview:
+			if enableAI {
+				stages = append(stages, model.ApplicationStageItem{
+					StepNumber:  step,
+					Title:       "Conversational AI Technical Screen",
+					Description: "Engage in an interactive conversational AI screening session evaluating technical depth and problem-solving.",
+				})
+				step++
+			}
 		}
-		stages = append(stages, model.ApplicationStageItem{
-			StepNumber:  step,
-			Title:       mcqTitle,
-			Description: mcqDesc,
-		})
-		step++
-	}
-
-	if enableAI {
-		stages = append(stages, model.ApplicationStageItem{
-			StepNumber:  step,
-			Title:       "Conversational AI Technical Screen",
-			Description: "Engage in an interactive conversational AI screening session evaluating technical depth and problem-solving.",
-		})
-		step++
 	}
 
 	stages = append(stages, model.ApplicationStageItem{
@@ -88,6 +97,10 @@ func BuildApplicationStages(enableMCQ, enableAI bool, hasTracks bool) []model.Ap
 	return stages
 }
 
+func BuildApplicationStages(enableMCQ, enableAI bool, hasTracks bool) []model.ApplicationStageItem {
+	return BuildApplicationStagesWithFlow(nil, enableMCQ, enableAI, hasTracks)
+}
+
 func DefaultApplicationStages() []model.ApplicationStageItem {
 	return BuildApplicationStages(true, true, true)
 }
@@ -101,7 +114,7 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 	return repo
 }
 
-func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRubric, rawSchema []byte) {
+func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte) {
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
 	if len(rawRubric) > 0 && string(rawRubric) != "null" {
@@ -113,14 +126,20 @@ func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRu
 	if p.PreviewToken == uuid.Nil {
 		p.PreviewToken = uuid.New()
 	}
-	if len(p.ApplicationStages) == 0 {
-		p.ApplicationStages = DefaultApplicationStages()
-	}
 	if len(rawSchema) > 0 && string(rawSchema) != "null" {
 		_ = json.Unmarshal(rawSchema, &p.ApplicationFormSchema)
 	}
 	if p.ApplicationFormSchema == nil {
 		p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
+	}
+	if len(rawCandidateFlow) > 0 && string(rawCandidateFlow) != "null" {
+		_ = json.Unmarshal(rawCandidateFlow, &p.CandidateFlow)
+	}
+	if len(p.CandidateFlow) == 0 {
+		p.CandidateFlow = model.DefaultCandidateFlow()
+	}
+	if len(p.ApplicationStages) == 0 {
+		p.ApplicationStages = BuildApplicationStagesWithFlow(p.CandidateFlow, p.EnableMCQ, p.EnableAIInterview, false)
 	}
 }
 
@@ -137,6 +156,9 @@ func (r *ProgramRepository) populateQuestionSetInfo(ctx context.Context, p *mode
 func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*model.Program, error) {
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = BuildApplicationStages(p.EnableMCQ, p.EnableAIInterview, false)
+	}
+	if len(p.CandidateFlow) == 0 {
+		p.CandidateFlow = model.DefaultCandidateFlow()
 	}
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
@@ -187,14 +209,18 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 	if p.ApplicationFormSchema == nil {
 		schemaJSON = []byte("null")
 	}
+	flowJSON, _ := json.Marshal(p.CandidateFlow)
+	if p.CandidateFlow == nil {
+		flowJSON = []byte(`["fill_form", "mcq_test", "ai_interview"]`)
+	}
 
 	query := `
 		INSERT INTO programs (
 			organization_id, question_set_id, slug, name, description, image_url, open_date, end_date,
 			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
 			enable_ai_interview, ai_interview_instructions, ai_interview_questions, application_stages,
-			ai_interview_rubric, application_form_schema, status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, now(), now())
+			ai_interview_rubric, application_form_schema, candidate_flow, status, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, now(), now())
 		ON CONFLICT (organization_id, slug) DO UPDATE SET
 			question_set_id = EXCLUDED.question_set_id,
 			name = EXCLUDED.name,
@@ -212,6 +238,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 			application_stages = EXCLUDED.application_stages,
 			ai_interview_rubric = EXCLUDED.ai_interview_rubric,
 			application_form_schema = COALESCE(EXCLUDED.application_form_schema, programs.application_form_schema),
+			candidate_flow = COALESCE(EXCLUDED.candidate_flow, programs.candidate_flow),
 			status = EXCLUDED.status,
 			updated_at = now()
 		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
@@ -219,27 +246,28 @@ func (r *ProgramRepository) Create(ctx context.Context, p *model.Program) (*mode
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var res model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query,
 		p.OrganizationID, p.QuestionSetID, p.Slug, p.Name, p.Description, p.ImageURL, p.OpenDate, p.EndDate,
 		p.EnableMCQ, p.LogicTestDurationMinutes, p.LogicTestPassingScore, p.AllowRetake,
 		p.EnableAIInterview, p.AIInterviewInstructions, questionsJSON, stagesJSON,
-		rubricJSON, schemaJSON, p.Status,
+		rubricJSON, schemaJSON, flowJSON, p.Status,
 	).Scan(
 		&res.ID, &res.OrganizationID, &res.QuestionSetID, &res.Slug, &res.Name, &res.Description, &res.ImageURL,
 		&res.OpenDate, &res.EndDate,
 		&res.EnableMCQ, &res.LogicTestDurationMinutes, &res.LogicTestPassingScore, &res.AllowRetake,
 		&res.EnableAIInterview, &res.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&res.Status, &res.PreviewToken, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: create: %w", err)
 	}
-	unmarshalAndDefaultProgram(&res, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&res, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &res)
 	return &res, nil
 }
@@ -271,6 +299,9 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		if p.ApplicationFormSchema == nil {
 			p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 		}
+		if len(p.CandidateFlow) == 0 {
+			p.CandidateFlow = model.DefaultCandidateFlow()
+		}
 		org := &model.Organization{
 			ID:        p.OrganizationID,
 			Slug:      orgSlug,
@@ -290,6 +321,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
 			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
 			COALESCE(p.application_form_schema, 'null'::jsonb),
+			COALESCE(p.candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count,
@@ -301,13 +333,13 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	`
 	var p model.Program
 	var o model.Organization
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, orgSlug, programSlug).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 		&p.QuestionSetName, &p.QuestionCount,
 		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
@@ -318,7 +350,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	if err != nil {
 		return nil, nil, fmt.Errorf("program_repo: get by slugs: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	return &p, &o, nil
 }
 
@@ -337,6 +369,9 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 				if p.ApplicationFormSchema == nil {
 					p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 				}
+				if len(p.CandidateFlow) == 0 {
+					p.CandidateFlow = model.DefaultCandidateFlow()
+				}
 				return p, nil
 			}
 		}
@@ -349,6 +384,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
 			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
 			COALESCE(p.application_form_schema, 'null'::jsonb),
+			COALESCE(p.candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count
@@ -357,13 +393,13 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 		WHERE p.id = $1
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 		&p.QuestionSetName, &p.QuestionCount,
 	)
@@ -373,7 +409,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: get by id: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	return &p, nil
 }
 
@@ -405,16 +441,17 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, id, duration, passingScore, allowRetake).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -423,7 +460,7 @@ func (r *ProgramRepository) UpdateConfig(ctx context.Context, id uuid.UUID, dura
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: update config: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
@@ -493,16 +530,17 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, slu
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, id, cleanSlug, name, description, imageURL, openDate, endDate, status).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -514,7 +552,7 @@ func (r *ProgramRepository) UpdateDetails(ctx context.Context, id uuid.UUID, slu
 		}
 		return nil, fmt.Errorf("program_repo: update details: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
@@ -537,7 +575,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				if rubric != nil {
 					p.AIInterviewRubric = rubric
 				}
-				p.ApplicationStages = BuildApplicationStages(enableMCQ, enableAI, false)
+				p.ApplicationStages = BuildApplicationStagesWithFlow(p.CandidateFlow, enableMCQ, enableAI, false)
 				p.UpdatedAt = time.Now()
 				return p, nil
 			}
@@ -551,8 +589,15 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 	}
 
 	var trackCount int
-	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM program_tracks WHERE program_id = $1`, id).Scan(&trackCount)
-	stages := BuildApplicationStages(enableMCQ, enableAI, trackCount > 0)
+	var existingFlowJSON []byte
+	_ = r.pool.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM program_tracks WHERE program_id = $1), COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb) FROM programs WHERE id = $1`, id).Scan(&trackCount, &existingFlowJSON)
+	var existingFlow []string
+	_ = json.Unmarshal(existingFlowJSON, &existingFlow)
+	if len(existingFlow) == 0 {
+		existingFlow = model.DefaultCandidateFlow()
+	}
+
+	stages := BuildApplicationStagesWithFlow(existingFlow, enableMCQ, enableAI, trackCount > 0)
 	stagesJSON, _ := json.Marshal(stages)
 
 	var query string
@@ -576,6 +621,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				COALESCE(application_form_schema, 'null'::jsonb),
+				COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 				status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		`
 		args = []any{id, questionSetID, enableMCQ, enableAI, instructions, questionsJSON, rubricJSON, stagesJSON}
@@ -595,19 +641,20 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 				enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 				COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 				COALESCE(application_form_schema, 'null'::jsonb),
+				COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 				status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 		`
 		args = []any{id, questionSetID, enableMCQ, enableAI, instructions, questionsJSON, stagesJSON}
 	}
 
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, args...).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -616,7 +663,7 @@ func (r *ProgramRepository) UpdatePipelineWithRubric(ctx context.Context, id uui
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: update pipeline: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
@@ -664,16 +711,17 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, id, rubricJSON, string(qJSON)).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -682,7 +730,7 @@ func (r *ProgramRepository) UpdateRubric(ctx context.Context, id uuid.UUID, rubr
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: update rubric: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
@@ -713,16 +761,17 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, id, stagesJSON).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -731,7 +780,7 @@ func (r *ProgramRepository) UpdateStages(ctx context.Context, id uuid.UUID, stag
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: update stages: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
@@ -765,16 +814,17 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
 			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
 			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 	err := r.pool.QueryRow(ctx, query, id, schemaJSON).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
 		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-		&rawSchema,
+		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -783,7 +833,69 @@ func (r *ProgramRepository) UpdateFormSchema(ctx context.Context, id uuid.UUID, 
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: update form schema: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
+	r.populateQuestionSetInfo(ctx, &p)
+	return &p, nil
+}
+
+func (r *ProgramRepository) UpdateCandidateFlow(ctx context.Context, id uuid.UUID, flow []string) (*model.Program, error) {
+	if len(flow) == 0 {
+		flow = model.DefaultCandidateFlow()
+	}
+	flowJSON, _ := json.Marshal(flow)
+
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, p := range r.memPrograms {
+			if p.ID == id {
+				p.CandidateFlow = flow
+				p.ApplicationStages = BuildApplicationStagesWithFlow(flow, p.EnableMCQ, p.EnableAIInterview, false)
+				p.UpdatedAt = time.Now()
+				return p, nil
+			}
+		}
+		return nil, ErrProgramNotFound
+	}
+
+	var enableMCQ, enableAI bool
+	var trackCount int
+	_ = r.pool.QueryRow(ctx, `SELECT enable_mcq, enable_ai_interview, (SELECT COUNT(*) FROM program_tracks WHERE program_id = $1) FROM programs WHERE id = $1`, id).Scan(&enableMCQ, &enableAI, &trackCount)
+
+	stages := BuildApplicationStagesWithFlow(flow, enableMCQ, enableAI, trackCount > 0)
+	stagesJSON, _ := json.Marshal(stages)
+
+	query := `
+		UPDATE programs
+		SET candidate_flow = $2,
+			application_stages = $3,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at
+	`
+	var p model.Program
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
+	err := r.pool.QueryRow(ctx, query, id, flowJSON, stagesJSON).Scan(
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&rawSchema, &rawCandidateFlow,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProgramNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: update candidate flow: %w", err)
+	}
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }
@@ -806,6 +918,9 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 				if p.ApplicationFormSchema == nil {
 					p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
 				}
+				if len(p.CandidateFlow) == 0 {
+					p.CandidateFlow = model.DefaultCandidateFlow()
+				}
 				list = append(list, *p)
 			}
 		}
@@ -818,6 +933,7 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
 			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
 			COALESCE(p.application_form_schema, 'null'::jsonb),
+			COALESCE(p.candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count
@@ -835,19 +951,19 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 	var list []model.Program
 	for rows.Next() {
 		var p model.Program
-		var rawQuestions, rawStages, rawRubric, rawSchema []byte
+		var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
 		if err := rows.Scan(
 			&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 			&p.OpenDate, &p.EndDate,
 			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
 			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
-			&rawSchema,
+			&rawSchema, &rawCandidateFlow,
 			&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 			&p.QuestionSetName, &p.QuestionCount,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
 		}
-		unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema)
+		unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 		list = append(list, p)
 	}
 	return list, rows.Err()

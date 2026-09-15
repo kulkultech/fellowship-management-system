@@ -126,6 +126,7 @@ export interface Program {
   preview_token?: string;
   is_open?: boolean;
   tracks?: Track[];
+  candidate_flow?: string[];
 }
 
 export interface ProgramPublicInfo {
@@ -175,6 +176,40 @@ export interface ApplyResponse {
   stage: string;
   test_token?: string;
   ai_interview_invite_token?: string;
+  next_step?: string;
+  redirect_url?: string;
+  message: string;
+}
+
+export interface CandidateStatusResponse {
+  authenticated: boolean;
+  email?: string;
+  has_applied: boolean;
+  applicant_id?: string;
+  track_id?: string;
+  track_slug?: string;
+  track_name?: string;
+  effective_flow: string[];
+  current_step: string;
+  completed_steps: string[];
+  form_completed?: boolean;
+  form_submitted?: boolean;
+  test_token?: string;
+  test_status?: string;
+  test_passed?: boolean;
+  test_completed?: boolean;
+  interview_token?: string;
+  ai_interview_invite_token?: string;
+  interview_status?: string;
+  redirect_url?: string;
+}
+
+export interface StartProgramResponse {
+  applicant_id: string;
+  current_step: string;
+  test_token?: string;
+  interview_token?: string;
+  redirect_url: string;
   message: string;
 }
 
@@ -232,6 +267,8 @@ export interface SubmitTestResponse {
   status: string;
   ai_interview_invite_token?: string;
   ai_interview_expires_at?: string;
+  next_step?: string;
+  redirect_url?: string;
 }
 
 export interface TestResultResponse {
@@ -239,6 +276,8 @@ export interface TestResultResponse {
   applicant_name: string;
   candidate_email?: string;
   program_name: string;
+  org_slug?: string;
+  program_slug?: string;
   track_name?: string;
   total_score: number;
   passing_score: number;
@@ -247,6 +286,8 @@ export interface TestResultResponse {
   status: string;
   ai_interview_invite_token?: string;
   ai_interview_expires_at?: string;
+  next_step?: string;
+  redirect_url?: string;
 }
 
 export interface ChatMessage {
@@ -375,6 +416,7 @@ export interface PipelineConfigPayload {
   enable_ai_interview: boolean;
   ai_interview_instructions?: string;
   ai_interview_questions?: string[];
+  candidate_flow?: string[];
 }
 
 export interface ApplicantListItem {
@@ -481,5 +523,9 @@ export interface CandidateApplicationItem {
   interview_token?: string;
   interview_status?: string;
   interview_score: number;
+  candidate_flow?: string[];
+  next_step?: string;
+  redirect_url?: string;
+  form_submitted?: boolean;
   created_at: string;
 }

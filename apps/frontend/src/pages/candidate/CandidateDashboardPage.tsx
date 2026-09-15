@@ -43,6 +43,10 @@ interface CandidateApplicationItem {
   interview_status?: string;
   interview_score: number;
   created_at: string;
+  candidate_flow?: string[];
+  form_submitted?: boolean;
+  next_step?: string;
+  redirect_url?: string;
 }
 
 export const CandidateDashboardPage: React.FC = () => {
@@ -307,9 +311,30 @@ export const CandidateDashboardPage: React.FC = () => {
 
                         {/* Primary Action Button */}
                         <div className="flex items-center gap-3 w-full lg:w-auto">
-                          {app.test_token && (app.current_stage === 'applied' || app.current_stage === 'test_in_progress') && (
+                          {/* Case 1: Needs to complete Profile Form (e.g. MCQ was taken first) */}
+                          {app.next_step === 'fill_form' && (
                             <button
-                              onClick={() => navigate(`/test/${app.test_token}`)}
+                              onClick={() => navigate(app.redirect_url || `/programs/${app.org_slug}/${app.program_slug}/apply`)}
+                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition flex items-center justify-center gap-2"
+                            >
+                              <FileText className="w-4 h-4 text-kulkul-orange" />
+                              <span>Complete Profile Form</span>
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Case 2: Needs to take MCQ test */}
+                          {(app.next_step === 'mcq_test' || (!app.next_step && app.test_token && (app.current_stage === 'applied' || app.current_stage === 'test_in_progress'))) && (
+                            <button
+                              onClick={() => {
+                                if (app.test_token) {
+                                  navigate(`/test/${app.test_token}`);
+                                } else if (app.redirect_url) {
+                                  navigate(app.redirect_url);
+                                } else {
+                                  navigate(`/programs/${app.org_slug}/${app.program_slug}/apply`);
+                                }
+                              }}
                               className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm transition flex items-center justify-center gap-2"
                             >
                               <span>Take Timed Test</span>
@@ -317,17 +342,8 @@ export const CandidateDashboardPage: React.FC = () => {
                             </button>
                           )}
 
-                          {app.test_token && (app.current_stage === 'test_completed' || app.current_stage === 'test_failed') && (
-                            <button
-                              onClick={() => navigate(`/result/${app.test_token}`)}
-                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition flex items-center justify-center gap-2"
-                            >
-                              <span>View Scorecard</span>
-                              <ExternalLink className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {app.interview_token && app.current_stage === 'ai_interview_invited' && (
+                          {/* Case 3: Needs to take AI interview */}
+                          {app.interview_token && (app.next_step === 'ai_interview' || app.current_stage === 'ai_interview_invited') && (
                             <div className="flex flex-col sm:items-end gap-1.5 w-full lg:w-auto">
                               <button
                                 onClick={() => navigate(`/interview/${app.interview_token}`)}
@@ -341,6 +357,17 @@ export const CandidateDashboardPage: React.FC = () => {
                                 <span>Laptop/Desktop &amp; Chrome/Edge required</span>
                               </span>
                             </div>
+                          )}
+
+                          {/* Case 4: View Scorecard (when test is completed and not pending form completion) */}
+                          {app.test_token && (app.current_stage === 'test_completed' || app.current_stage === 'test_failed') && app.next_step !== 'fill_form' && (
+                            <button
+                              onClick={() => navigate(`/result/${app.test_token}`)}
+                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition flex items-center justify-center gap-2"
+                            >
+                              <span>View Scorecard</span>
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
                           )}
 
                           <button

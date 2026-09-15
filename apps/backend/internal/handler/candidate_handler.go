@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -37,6 +38,10 @@ type CandidateApplicationItem struct {
 	InterviewToken   string               `json:"interview_token,omitempty"`
 	InterviewStatus  string               `json:"interview_status,omitempty"`
 	InterviewScore   int                  `json:"interview_score"`
+	CandidateFlow    []string             `json:"candidate_flow,omitempty"`
+	NextStep         string               `json:"next_step,omitempty"`
+	RedirectURL      string               `json:"redirect_url,omitempty"`
+	FormSubmitted    bool                 `json:"form_submitted"`
 	CreatedAt        string               `json:"created_at"`
 }
 
@@ -155,6 +160,44 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 			item.InterviewToken = ai.InvitationToken
 			item.InterviewStatus = string(ai.Status)
 			item.InterviewScore = ai.ScorecardScore
+		}
+
+		effectiveFlow := program.GetEffectiveCandidateFlow()
+		item.CandidateFlow = effectiveFlow
+		item.FormSubmitted = app.FormSubmitted
+
+		// Calculate next step
+		if app.CurrentStage == model.StageRejected || app.CurrentStage == model.StageApprovedForLive {
+			item.NextStep = ""
+		} else {
+			for _, step := range effectiveFlow {
+				if step == model.FlowStepMCQ {
+					if sub == nil || sub.Status != model.SubmissionCompleted || !sub.Passed {
+						item.NextStep = "mcq_test"
+						if sub != nil && sub.TestToken != "" {
+							item.RedirectURL = fmt.Sprintf("/test/%s", sub.TestToken)
+						}
+						break
+					}
+				} else if step == model.FlowStepForm {
+					if !app.FormSubmitted {
+						item.NextStep = "fill_form"
+						item.RedirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
+						break
+					}
+				} else if step == model.FlowStepAIInterview {
+					if ai == nil || ai.Status != model.AIInterviewCompleted {
+						item.NextStep = "ai_interview"
+						if ai != nil && ai.InvitationToken != "" {
+							item.RedirectURL = fmt.Sprintf("/interview/%s", ai.InvitationToken)
+						}
+						break
+					}
+				}
+			}
+			if item.NextStep == "" {
+				item.NextStep = "completed"
+			}
 		}
 
 		items = append(items, item)

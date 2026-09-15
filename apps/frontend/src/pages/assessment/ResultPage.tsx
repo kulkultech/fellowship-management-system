@@ -11,6 +11,7 @@ import {
   ArrowRight,
   AlertCircle,
   FileCheck,
+  FileText,
   Sparkles,
   Laptop,
 } from 'lucide-react';
@@ -120,7 +121,48 @@ export const ResultPage: React.FC = () => {
         </div>
 
         {/* Next Stage Action Card */}
-        {isPassed && result.ai_interview_invite_token ? (
+        {isPassed && result.next_step === 'fill_form' ? (
+          <div className="stitch-card bg-white p-6 sm:p-8 border-2 border-emerald-500 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-3.5 bg-emerald-600 text-white rounded-2xl shrink-0 shadow-md">
+                <FileText className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider mb-2">
+                  Qualifying Stage Cleared &middot; Next: Candidate Profile
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Proceed to Candidate Application Profile Form
+                </h2>
+                <p className="text-slate-600 text-sm sm:text-base mt-2 leading-relaxed">
+                  Congratulations on clearing the logic benchmark! To complete your fellowship admission, please fill out your candidate profile, education details, and portfolio.
+                </p>
+
+                <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (result.redirect_url) {
+                        navigate(result.redirect_url);
+                      } else {
+                        navigate(`/programs/${result.org_slug || ''}/${result.program_slug || ''}/apply`);
+                      }
+                    }}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+                  >
+                    <span>Proceed to Application Profile Form</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => navigate('/candidate/dashboard')}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-full font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition text-xs"
+                  >
+                    Candidate Dashboard
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isPassed && result.ai_interview_invite_token ? (
           <div className="stitch-card bg-white p-6 sm:p-8 border-2 border-kulkul-purple">
             <div className="flex items-start gap-4">
               <div className="p-3.5 bg-kulkul-purple text-white rounded-2xl shrink-0 shadow-md">

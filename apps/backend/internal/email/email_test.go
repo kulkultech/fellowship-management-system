@@ -60,18 +60,31 @@ func TestEmailTemplates(t *testing.T) {
 		}
 	})
 
-	t.Run("LogicTestResultEmail_Passed", func(t *testing.T) {
-		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", 92, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/interview", frontendURL, supportEmail)
+	t.Run("LogicTestResultEmail_Passed_AIInterviewNext", func(t *testing.T) {
+		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", 92, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/interview", "ai_interview", frontendURL, supportEmail)
 		if !strings.Contains(subj, "Congratulations") {
 			t.Errorf("expected passed subject to contain Congratulations")
 		}
 		if !strings.Contains(html, "92%") {
 			t.Errorf("expected html to contain score 92%%")
 		}
+		if !strings.Contains(html, "Enter AI Video Interview Room") {
+			t.Errorf("expected html to contain AI interview button")
+		}
+	})
+
+	t.Run("LogicTestResultEmail_Passed_FillFormNext", func(t *testing.T) {
+		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", 88, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/programs/rsa/tech/apply", "fill_form", frontendURL, supportEmail)
+		if !strings.Contains(subj, "Congratulations") {
+			t.Errorf("expected passed subject to contain Congratulations")
+		}
+		if !strings.Contains(html, "Complete Application Profile Form") {
+			t.Errorf("expected html to contain profile form button")
+		}
 	})
 
 	t.Run("LogicTestResultEmail_Failed", func(t *testing.T) {
-		subj, html, _ := buildLogicTestResultEmail("John Smith", "Tech Fellowship 2026", "Fullstack Track", 55, 70, false, "https://fellowhire.kul.to/result", "", frontendURL, supportEmail)
+		subj, html, _ := buildLogicTestResultEmail("John Smith", "Tech Fellowship 2026", "Fullstack Track", 55, 70, false, "https://fellowhire.kul.to/result", "", "", frontendURL, supportEmail)
 		if !strings.Contains(subj, "Assessment Results") {
 			t.Errorf("expected failed subject to contain Assessment Results")
 		}

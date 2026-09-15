@@ -25,6 +25,7 @@ type TestHandler struct {
 	trackRepo       *repository.TrackRepository
 	applicantRepo   *repository.ApplicantRepository
 	aiInterviewRepo *repository.AIInterviewRepository
+	orgRepo         *repository.OrgRepository
 	emailSvc        email.Service
 	frontendURL     string
 }
@@ -37,6 +38,7 @@ func NewTestHandler(
 	trackRepo *repository.TrackRepository,
 	applicantRepo *repository.ApplicantRepository,
 	aiInterviewRepo *repository.AIInterviewRepository,
+	orgRepo *repository.OrgRepository,
 	emailSvc email.Service,
 	frontendURL string,
 ) *TestHandler {
@@ -51,6 +53,7 @@ func NewTestHandler(
 		trackRepo:       trackRepo,
 		applicantRepo:   applicantRepo,
 		aiInterviewRepo: aiInterviewRepo,
+		orgRepo:         orgRepo,
 		emailSvc:        emailSvc,
 		frontendURL:     strings.TrimRight(frontendURL, "/"),
 	}
@@ -338,6 +341,8 @@ type SubmitTestResponse struct {
 	Status                 string     `json:"status"`
 	AIInterviewInviteToken *string    `json:"ai_interview_invite_token,omitempty"`
 	AIInterviewExpiresAt   *time.Time `json:"ai_interview_expires_at,omitempty"`
+	NextStep               string     `json:"next_step,omitempty"`
+	RedirectURL            string     `json:"redirect_url,omitempty"`
 }
 
 func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
@@ -463,9 +468,18 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 
 	var inviteToken *string
 	var inviteExpires *time.Time
+	nextStep := ""
+	redirectURL := ""
 
 	if passed {
-		if enableAIInterview {
+		flowNext := program.NextStepAfter(model.FlowStepMCQ)
+		if flowNext == model.FlowStepAIInterview && !enableAIInterview {
+			flowNext = program.NextStepAfter(model.FlowStepAIInterview)
+		}
+
+		switch flowNext {
+		case model.FlowStepAIInterview:
+			nextStep = "ai_interview"
 			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageAIInterviewInvited)
 
 			tokenBytes := make([]byte, 16)
@@ -484,8 +498,20 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 			if err == nil && interviewSession != nil {
 				inviteToken = &interviewSession.InvitationToken
 				inviteExpires = &interviewSession.InvitationExpiresAt
+				redirectURL = fmt.Sprintf("/interview/%s", *inviteToken)
 			}
-		} else {
+		case model.FlowStepForm:
+			nextStep = "fill_form"
+			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestCompleted)
+			orgSlug := "rsa"
+			if h.orgRepo != nil {
+				if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
+					orgSlug = org.Slug
+				}
+			}
+			redirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
+		default:
+			nextStep = "completed"
 			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestCompleted)
 		}
 	} else {
@@ -502,19 +528,20 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			resultURL := fmt.Sprintf("%s/result/%s", h.frontendURL, submission.TestToken)
-			aiInterviewURL := ""
-			if inviteToken != nil {
-				aiInterviewURL = fmt.Sprintf("%s/interview/%s", h.frontendURL, *inviteToken)
+			actionURL := resultURL
+			if redirectURL != "" {
+				actionURL = fmt.Sprintf("%s%s", h.frontendURL, redirectURL)
 			}
 
 			// Trigger 3: Email after logic test submission
 			_ = h.emailSvc.SendLogicTestSubmittedEmail(applicant.Email, applicant.FullName, program.Name, trackName, resultURL)
 
 			// Trigger 4: Email of the result of the logic test (passed or not)
-			_ = h.emailSvc.SendLogicTestResultEmail(applicant.Email, applicant.FullName, program.Name, trackName, scorePercentage, passingScore, passed, resultURL, aiInterviewURL)
+			_ = h.emailSvc.SendLogicTestResultEmail(applicant.Email, applicant.FullName, program.Name, trackName, scorePercentage, passingScore, passed, resultURL, actionURL, nextStep)
 
-			// Trigger 5: AI interview invitation if passed & invited
-			if passed && inviteToken != nil && inviteExpires != nil {
+			// Trigger 5: AI interview invitation if passed & invited directly
+			if passed && nextStep == "ai_interview" && inviteToken != nil && inviteExpires != nil {
+				aiInterviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, *inviteToken)
 				_ = h.emailSvc.SendAIInterviewInvitationEmail(applicant.Email, applicant.FullName, program.Name, trackName, aiInterviewURL, *inviteExpires)
 			}
 		}
@@ -527,6 +554,8 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 		Status:                 "completed",
 		AIInterviewInviteToken: inviteToken,
 		AIInterviewExpiresAt:   inviteExpires,
+		NextStep:               nextStep,
+		RedirectURL:            redirectURL,
 	})
 }
 
@@ -543,6 +572,8 @@ type TestResultResponse struct {
 	Status                 string     `json:"status"`
 	AIInterviewInviteToken *string    `json:"ai_interview_invite_token,omitempty"`
 	AIInterviewExpiresAt   *time.Time `json:"ai_interview_expires_at,omitempty"`
+	NextStep               string     `json:"next_step,omitempty"`
+	RedirectURL            string     `json:"redirect_url,omitempty"`
 }
 
 func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
@@ -584,6 +615,8 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 
 	var inviteToken *string
 	var inviteExpires *time.Time
+	nextStep := ""
+	redirectURL := ""
 
 	if submission.Passed {
 		interview, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), submission.ApplicantID)
@@ -591,6 +624,42 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 			tokenStr := interview.InvitationToken
 			inviteToken = &tokenStr
 			inviteExpires = &interview.InvitationExpiresAt
+		}
+
+		flowNext := program.NextStepAfter(model.FlowStepMCQ)
+		if flowNext == model.FlowStepAIInterview && !program.EnableAIInterview {
+			flowNext = program.NextStepAfter(model.FlowStepAIInterview)
+		}
+
+		switch flowNext {
+		case model.FlowStepAIInterview:
+			nextStep = "ai_interview"
+			if inviteToken != nil {
+				redirectURL = fmt.Sprintf("/interview/%s", *inviteToken)
+			}
+		case model.FlowStepForm:
+			if !applicant.FormSubmitted {
+				nextStep = "fill_form"
+				orgSlug := "rsa"
+				if h.orgRepo != nil {
+					if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
+						orgSlug = org.Slug
+					}
+				}
+				redirectURL = fmt.Sprintf("/programs/%s/%s/apply", orgSlug, program.Slug)
+			} else {
+				afterForm := program.NextStepAfter(model.FlowStepForm)
+				if afterForm == model.FlowStepAIInterview && program.EnableAIInterview {
+					nextStep = "ai_interview"
+					if inviteToken != nil {
+						redirectURL = fmt.Sprintf("/interview/%s", *inviteToken)
+					}
+				} else {
+					nextStep = "completed"
+				}
+			}
+		default:
+			nextStep = "completed"
 		}
 	}
 
@@ -607,5 +676,7 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		Status:                 string(submission.Status),
 		AIInterviewInviteToken: inviteToken,
 		AIInterviewExpiresAt:   inviteExpires,
+		NextStep:               nextStep,
+		RedirectURL:            redirectURL,
 	})
 }

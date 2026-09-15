@@ -29,6 +29,7 @@ import {
   Hash,
   Globe,
   Clock,
+  Terminal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CountdownTimer } from '@/components/CountdownTimer';
@@ -250,6 +251,30 @@ export const ApplyPage: React.FC = () => {
     queryFn: () => programService.getProgram(orgSlug, programSlug, previewToken),
   });
 
+  const {
+    data: candidateStatusData,
+    isLoading: isCandidateStatusLoading,
+  } = useQuery({
+    queryKey: ['candidate-status', orgSlug, programSlug, user?.email],
+    queryFn: () => programService.getCandidateStatus(orgSlug, programSlug),
+    enabled: !!user?.email && !!orgSlug && !!programSlug,
+  });
+
+  const startProgramMutation = useMutation({
+    mutationFn: () => {
+      return programService.startProgram(orgSlug, programSlug, {
+        track_slug: selectedTrackSlug,
+      });
+    },
+    onSuccess: (res) => {
+      toast.success('Assessment session ready! Starting test...');
+      navigate(res.redirect_url || `/test/${res.test_token}`);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to start assessment');
+    },
+  });
+
   const program = programData?.program;
   const tracks = program?.tracks || [];
 
@@ -385,7 +410,7 @@ export const ApplyPage: React.FC = () => {
         }
       }
 
-      if (res.stage === 'ai_interview_invited' && res.ai_interview_invite_token) {
+      if ((res.stage === 'ai_interview_invited' || res.next_step === 'ai_interview') && res.ai_interview_invite_token) {
         toast.success(res.message || 'Proceeding to AI Technical Screening!');
         navigate(`/interview/${res.ai_interview_invite_token}`);
         return;
@@ -404,7 +429,7 @@ export const ApplyPage: React.FC = () => {
         durationMinutes,
       });
       setIsSubmitted(true);
-      toast.success('Application submitted! Assessment details dispatched.');
+      toast.success('Application submitted successfully!');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onError: (err: any) => {
@@ -591,32 +616,52 @@ export const ApplyPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Three Simple Steps */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
-                <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 flex flex-col justify-between">
-                  <div className="w-6 h-6 rounded-full bg-kulkul-purple text-white text-xs font-extrabold flex items-center justify-center mb-2">
-                    1
-                  </div>
-                  <div className="text-xs font-bold text-slate-900">Google Sign-In</div>
-                  <div className="text-2xs text-slate-500 mt-0.5">Instant identity & email verification</div>
-                </div>
+              {/* Admission Flow Steps Preview */}
+              {(() => {
+                const effectiveFlow = (program?.candidate_flow && program.candidate_flow.length > 0)
+                  ? program.candidate_flow
+                  : ['fill_form', 'mcq_test', 'ai_interview'];
 
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-extrabold flex items-center justify-center mb-2">
-                    2
-                  </div>
-                  <div className="text-xs font-bold text-slate-900">Fill Application</div>
-                  <div className="text-2xs text-slate-500 mt-0.5">Contact info & profile questions</div>
-                </div>
+                const stepDescriptions: Record<string, { title: string; desc: string }> = {
+                  fill_form: {
+                    title: 'Fill Application',
+                    desc: 'Profile & specialization track',
+                  },
+                  mcq_test: {
+                    title: 'Logic MCQ Test',
+                    desc: 'Timed qualifying assessment',
+                  },
+                  ai_interview: {
+                    title: 'AI Screening',
+                    desc: 'Conversational technical interview',
+                  },
+                };
 
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-extrabold flex items-center justify-center mb-2">
-                    3
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-left pt-2">
+                    <div className="p-3 rounded-2xl bg-purple-50/70 border border-purple-200 flex flex-col justify-between">
+                      <div className="w-6 h-6 rounded-full bg-kulkul-purple text-white text-xs font-extrabold flex items-center justify-center mb-2 shadow-xs">
+                        1
+                      </div>
+                      <div className="text-xs font-bold text-slate-900">Google Sign-In</div>
+                      <div className="text-2xs text-slate-500 mt-0.5">Instant identity &amp; email verification</div>
+                    </div>
+
+                    {effectiveFlow.map((stepKey, idx) => {
+                      const item = stepDescriptions[stepKey] || { title: stepKey, desc: 'Admission stage' };
+                      return (
+                        <div key={stepKey} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                          <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-extrabold flex items-center justify-center mb-2">
+                            {idx + 2}
+                          </div>
+                          <div className="text-xs font-bold text-slate-900">{item.title}</div>
+                          <div className="text-2xs text-slate-500 mt-0.5">{item.desc}</div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="text-xs font-bold text-slate-900">Screening & Tests</div>
-                  <div className="text-2xs text-slate-500 mt-0.5">Timed logic test & AI conversation</div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Google OAuth Action Button */}
               <div className="pt-3">
@@ -723,12 +768,276 @@ export const ApplyPage: React.FC = () => {
     );
   }
 
+  if (isCandidateStatusLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-kulkul-purple/30 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm font-bold text-kulkul-purple">Checking application status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const effectiveCandidateFlow = (program?.candidate_flow && program.candidate_flow.length > 0)
+    ? program.candidate_flow
+    : ['fill_form', 'mcq_test', 'ai_interview'];
+
+  const effectiveCurrentStep = candidateStatusData?.current_step || effectiveCandidateFlow[0] || 'fill_form';
+
+  // STEP: MCQ TEST (When candidate flow puts MCQ test before the application form)
+  if (effectiveCurrentStep === 'mcq_test') {
+    const existingTestToken = candidateStatusData?.test_token;
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
+        <Navbar hideAdminButton={true} />
+
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-2xl w-full">
+            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
+              {/* Context Header */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 text-kulkul-purple text-xs font-extrabold uppercase tracking-wide">
+                  <Clock className="w-4 h-4 text-kulkul-orange" />
+                  <span>Stage 1: Qualifying Logic Assessment</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  Timed Logic &amp; Technical MCQ
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+                  Welcome, <strong className="text-slate-800">{user?.name || user?.email}</strong>! This fellowship begins with an initial timed qualifying assessment.
+                </p>
+              </div>
+
+              {/* Verified Identity Pill */}
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-left text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">{user?.name || 'Verified Candidate'}</div>
+                    <div className="text-slate-500 text-2xs">{user?.email}</div>
+                  </div>
+                </div>
+                <span className="text-3xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Google Verified
+                </span>
+              </div>
+
+              {/* Specialization Track Selector (if tracks exist) */}
+              {tracks.length > 0 && (
+                <div className="text-left space-y-2 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-kulkul-purple">
+                    Select Your Intended Track <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {tracks.map((t) => {
+                      const isSelected = selectedTrackSlug === t.slug;
+                      return (
+                        <button
+                          key={t.slug}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTrackSlug(t.slug);
+                            setFormData((prev) => ({ ...prev, chosenCourse: t.name }));
+                          }}
+                          className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+                            isSelected
+                              ? 'bg-white border-2 border-kulkul-purple shadow-sm'
+                              : 'bg-white/80 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{t.name}</div>
+                            {t.description && (
+                              <div className="text-3xs text-slate-500 line-clamp-1 mt-0.5">{t.description}</div>
+                            )}
+                          </div>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-kulkul-purple shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Assessment Rules & Specifications */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-bold uppercase text-slate-400">Duration</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-0.5">{durationMinutes} Minutes</div>
+                  <div className="text-3xs text-slate-500 mt-0.5">Strict auto-countdown</div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-bold uppercase text-slate-400">Passing Benchmark</div>
+                  <div className="text-base font-extrabold text-kulkul-purple mt-0.5">
+                    {program?.logic_test_passing_score || 70}%
+                  </div>
+                  <div className="text-3xs text-slate-500 mt-0.5">Required to advance</div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-2xs font-bold uppercase text-slate-400">Next Stage</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-0.5">Application Form</div>
+                  <div className="text-3xs text-slate-500 mt-0.5">Unlocked upon passing</div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                {existingTestToken ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/test/${existingTestToken}`)}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+                  >
+                    <span>Resume Test Session</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={startProgramMutation.isPending}
+                    onClick={() => startProgramMutation.mutate()}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                  >
+                    <span>{startProgramMutation.isPending ? 'Starting Session...' : 'Begin Logic Assessment'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+
+                <Link
+                  to="/candidate/dashboard"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-full font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition text-center text-xs"
+                >
+                  Candidate Dashboard
+                </Link>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 text-2xs text-slate-400">
+                Ensure you are on a laptop/desktop with a stable internet connection before beginning.
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // STEP: AI INTERVIEW
+  if (effectiveCurrentStep === 'ai_interview') {
+    const inviteToken = candidateStatusData?.ai_interview_invite_token;
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
+        <Navbar hideAdminButton={true} />
+
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-2xl w-full">
+            <div className="stitch-card bg-white p-8 sm:p-10 border-2 border-kulkul-purple shadow-xl rounded-3xl space-y-6 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 text-kulkul-purple text-xs font-extrabold uppercase tracking-wide">
+                  <Terminal className="w-4 h-4 text-kulkul-orange" />
+                  <span>Interactive Technical Screening</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  Autonomous AI Screening Interview
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                  Congratulations, <strong className="text-slate-900">{user?.name || user?.email}</strong>! You have cleared preliminary stages for {program?.name}. Please proceed to your asynchronous video screening.
+                </p>
+              </div>
+
+              {inviteToken ? (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/interview/${inviteToken}`)}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 mx-auto active:scale-98 animate-pulse"
+                  >
+                    <span>Enter Technical Screen Room</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">Your AI interview invitation is being generated...</p>
+              )}
+
+              <div className="pt-2 border-t border-slate-100">
+                <Link to="/candidate/dashboard" className="text-xs font-bold text-kulkul-purple hover:underline">
+                  &larr; Return to Candidate Dashboard
+                </Link>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // STEP: COMPLETED
+  if (effectiveCurrentStep === 'completed') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
+        <Navbar hideAdminButton={true} />
+
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-2xl w-full">
+            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Application &amp; Assessments Complete!
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                You have completed all admission steps for <strong className="text-slate-900">{program?.name}</strong>. Your submissions are now being reviewed by the fellowship admissions committee.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/candidate/dashboard')}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 mx-auto active:scale-98"
+                >
+                  <span>Go to Candidate Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar hideAdminButton={true} />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-2xl w-full">
+          {/* Logic Test Passed Banner (if candidate completed MCQ test first) */}
+          {candidateStatusData?.test_completed && (
+            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3.5 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-emerald-950">
+                  Logic Assessment Benchmark Cleared!
+                </h3>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  You successfully passed the initial qualifying assessment. Please complete your candidate profile &amp; specialization application below to finalize your submission.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Header Card */}
           <div className="stitch-card p-6 sm:p-8 mb-6 bg-white shadow-sm border border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">

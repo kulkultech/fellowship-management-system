@@ -93,6 +93,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS ai_interview_rubric JSONB;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS application_stages JSONB NOT NULL DEFAULT '[]'::jsonb;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS application_form_schema JSONB;
+	ALTER TABLE programs ADD COLUMN IF NOT EXISTS candidate_flow JSONB NOT NULL DEFAULT '["fill_form", "mcq_test", "ai_interview"]'::jsonb;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS preview_token UUID NOT NULL DEFAULT gen_random_uuid();
 
 	CREATE TABLE IF NOT EXISTS question_sets (
@@ -163,6 +164,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS referral_source TEXT;
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS custom_responses JSONB NOT NULL DEFAULT '{}'::jsonb;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS form_submitted BOOLEAN NOT NULL DEFAULT true;
 	CREATE INDEX IF NOT EXISTS idx_applicants_program ON applicants(program_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_track ON applicants(track_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_stage ON applicants(current_stage);

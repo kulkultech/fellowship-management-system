@@ -54,8 +54,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
-	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
-	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, emailSvc, cfg.SES.FrontendURL)
+	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
+	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator, store)
 	uploadHandler := handler.NewUploadHandler(store, logger)
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
@@ -146,7 +146,10 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		})
 		// Candidate Funnel: Program & Registration Intake
 		api.Route("/programs", func(p chi.Router) {
+			p.Use(middleware.OptionalAuthenticator(authSvc))
 			p.Get("/{orgSlug}/{programSlug}", programHandler.GetProgram)
+			p.Get("/{orgSlug}/{programSlug}/candidate-status", programHandler.GetCandidateStatus)
+			p.Post("/{orgSlug}/{programSlug}/start", programHandler.StartProgram)
 			p.Post("/{orgSlug}/{programSlug}/apply", programHandler.Apply)
 			p.Get("/{orgSlug}/{programSlug}/tracks/{trackSlug}", programHandler.GetTrackDetail)
 			p.Post("/{orgSlug}/{programSlug}/tracks/{trackSlug}/apply", programHandler.Apply)
@@ -194,6 +197,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Put("/programs/{id}", adminHandler.UpdateProgramDetails)
 				adm.Delete("/programs/{id}", adminHandler.DeleteProgram)
 				adm.Put("/programs/{id}/pipeline-config", adminHandler.UpdatePipelineConfig)
+				adm.Put("/programs/{id}/candidate-flow", adminHandler.UpdateCandidateFlow)
 				adm.Put("/programs/{id}/rubric", adminHandler.UpdateProgramRubric)
 				adm.Put("/programs/{id}/stages", adminHandler.UpdateProgramStages)
 				adm.Put("/programs/{id}/form", adminHandler.UpdateProgramFormSchema)

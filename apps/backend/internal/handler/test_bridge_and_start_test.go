@@ -23,6 +23,7 @@ func newTestBridgeTestHandler() (*handler.TestHandler, *repository.SubmissionRep
 	trackRepo := repository.NewTrackRepository(nil)
 	appRepo := repository.NewApplicantRepository(nil)
 	aiRepo := repository.NewAIInterviewRepository(nil)
+	orgRepo := repository.NewOrgRepository(nil)
 
 	h := handler.NewTestHandler(
 		subRepo,
@@ -32,6 +33,7 @@ func newTestBridgeTestHandler() (*handler.TestHandler, *repository.SubmissionRep
 		trackRepo,
 		appRepo,
 		aiRepo,
+		orgRepo,
 		nil,
 		"https://example.test",
 	)

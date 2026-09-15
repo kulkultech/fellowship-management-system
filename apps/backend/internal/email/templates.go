@@ -454,7 +454,7 @@ func buildLogicTestSubmittedEmail(candidateName, programName, trackName, resultU
 }
 
 // 4. Logic Test Result Email Template (Passed or Not Passed)
-func buildLogicTestResultEmail(candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, aiInterviewURL, frontendURL, supportEmail string) (subject string, html string, text string) {
+func buildLogicTestResultEmail(candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep, frontendURL, supportEmail string) (subject string, html string, text string) {
 	trackDisplay := trackName
 	if trackDisplay == "" {
 		trackDisplay = "Technical Track"
@@ -462,9 +462,23 @@ func buildLogicTestResultEmail(candidateName, programName, trackName string, sco
 
 	if passed {
 		subject = fmt.Sprintf("Congratulations! You Passed the %s Assessment (%d%%)", programName, score)
-		actionURL := resultURL
-		if aiInterviewURL != "" {
-			actionURL = aiInterviewURL
+		if actionURL == "" {
+			actionURL = resultURL
+		}
+
+		nextStageTitle := "Admissions Review"
+		nextStageDesc := "Your assessment responses have been officially recorded and forwarded to the admissions committee for review."
+		buttonText := "Inspect Assessment Scorecard"
+
+		switch nextStep {
+		case "fill_form":
+			nextStageTitle = "Candidate Application Profile (Unlocked)"
+			nextStageDesc = "Because you cleared the qualifying technical benchmark, please complete your candidate profile, education details, and portfolio to finalize your fellowship admission."
+			buttonText = "Complete Application Profile Form"
+		case "ai_interview":
+			nextStageTitle = "AI Video Interview Room (Unlocked)"
+			nextStageDesc = "Because you met the technical benchmark, the admissions committee has officially unlocked your <strong>AI Technical Video Screening Room</strong>."
+			buttonText = "Enter AI Video Interview Room"
 		}
 
 		body := fmt.Sprintf(`
@@ -490,25 +504,26 @@ func buildLogicTestResultEmail(candidateName, programName, trackName string, sco
           </tr>
           <tr>
             <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Next Stage</td>
-            <td style="padding: 12px 18px; color: #16a34a; font-size: 13px; font-weight: 700; text-align: right;">AI Video Interview Room (Unlocked)</td>
+            <td style="padding: 12px 18px; color: #16a34a; font-size: 13px; font-weight: 700; text-align: right;">%s</td>
           </tr>
         </tbody>
       </table>
 
-      <p>Because you met the technical benchmark, the admissions committee has officially unlocked your <strong>AI Technical Video Screening Room</strong>.</p>
+      <p>%s</p>
 
       <div class="btn-container">
-        <a href="%s" class="btn">Enter AI Video Interview Room</a>
+        <a href="%s" class="btn">%s</a>
       </div>
 
       <p style="font-size: 13px; color: #64748b; text-align: center;">You can also inspect your detailed scorecard at: <a href="%s" style="color: #33125d;">%s</a></p>
     `, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
 			score, passingScore, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
-			actionURL, resultURL, resultURL)
+			template.HTMLEscapeString(nextStageTitle), nextStageDesc,
+			actionURL, buttonText, resultURL, resultURL)
 
 		html, _ = renderHTML(subject, frontendURL, supportEmail, body)
-		text = fmt.Sprintf("Congratulations %s!\n\nYou passed the %s assessment with a score of %d%% (benchmark: %d%%).\n\nYour AI Technical Video Screening Room is now unlocked:\n%s\n\nView your detailed scorecard:\n%s\n\nFellowHire Admissions Team",
-			candidateName, programName, score, passingScore, actionURL, resultURL)
+		text = fmt.Sprintf("Congratulations %s!\n\nYou passed the %s assessment with a score of %d%% (benchmark: %d%%).\n\nNext Stage: %s\n%s\n\nLink:\n%s\n\nView your detailed scorecard:\n%s\n\nFellowHire Admissions Team",
+			candidateName, programName, score, passingScore, nextStageTitle, nextStageDesc, actionURL, resultURL)
 	} else {
 		subject = fmt.Sprintf("Assessment Results: %s (%d%%)", programName, score)
 
