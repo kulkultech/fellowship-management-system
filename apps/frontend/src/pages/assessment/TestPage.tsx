@@ -529,10 +529,6 @@ export const TestPage: React.FC = () => {
             <div className="stitch-card bg-white p-6 sm:p-10 border border-slate-200/80 shadow-xl rounded-3xl space-y-8 animate-in fade-in duration-300">
               {/* Header Badge & Title */}
               <div>
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200/80 text-kulkul-purple text-xs font-bold tracking-wide mb-3">
-                  <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-                  <span>Timed Assessment Briefing</span>
-                </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
                   {testSession.track_name ? `${testSession.track_name} Aptitude Assessment` : 'Technical & Logic Assessment'}
                 </h1>
