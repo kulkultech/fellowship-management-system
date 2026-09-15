@@ -3484,12 +3484,9 @@ export const InterviewPage: React.FC = () => {
                               : 'bg-gradient-to-br from-kulkul-purple to-purple-800 text-white rounded-tr-xs shadow-xs'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{msg.text}</p>
-                          {!isAi && (
-                            <div className="mt-2 pt-1.5 border-t border-white/20 text-3xs text-purple-200/90 italic flex items-center justify-end gap-1">
-                              <span>(This is from speech to text, so expect some mistakes)</span>
-                            </div>
-                          )}
+                          <p className="whitespace-pre-wrap">
+                            {msg.text.replace('(This is from speech to text, so expect some mistakes)', '').trim()}
+                          </p>
                           {isAi && (
                             <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-end">
                               <button
