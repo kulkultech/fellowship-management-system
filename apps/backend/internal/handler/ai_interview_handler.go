@@ -367,6 +367,12 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 	}
 	cleanMsg = ai.NormalizeTechVocabulary(cleanMsg)
 
+	// Ensure speech-to-text context notice is attached for AI evaluation if not completion sentinel
+	const sttSuffix = "(This is from speech to text, so expect some mistakes)"
+	if !isCompletionSentinel && !strings.Contains(cleanMsg, sttSuffix) {
+		cleanMsg = fmt.Sprintf("%s %s", cleanMsg, sttSuffix)
+	}
+
 	// Preserve candidate's exact transcription directly without editing
 
 	// Append candidate response with precise question index tracking

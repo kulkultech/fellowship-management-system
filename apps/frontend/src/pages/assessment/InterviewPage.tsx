@@ -2059,6 +2059,11 @@ export const InterviewPage: React.FC = () => {
     lastCandidateSpeechTimeRef.current = 0;
     consecutiveSpeechFramesRef.current = 0;
 
+    const sttDisclaimer = '(This is from speech to text, so expect some mistakes)';
+    const textToSendToAi = textToSubmit.includes(sttDisclaimer)
+      ? textToSubmit
+      : `${textToSubmit} ${sttDisclaimer}`;
+
     // Append candidate message to chat thread with high-precision transcription
     const candMsg: ChatMessageItem = {
       id: `cand-${Date.now()}`,
@@ -2082,7 +2087,7 @@ export const InterviewPage: React.FC = () => {
       const currentFollowUps = followUpCountPerQuestionRef.current[currentQIndexRef.current] || 0;
       const res = await aiInterviewService.sendMessage(
         inviteToken,
-        textToSubmit,
+        textToSendToAi,
         currentQIndexRef.current,
         currentFollowUps,
         session?.applicant_name,
@@ -3480,6 +3485,11 @@ export const InterviewPage: React.FC = () => {
                           }`}
                         >
                           <p className="whitespace-pre-wrap">{msg.text}</p>
+                          {!isAi && (
+                            <div className="mt-2 pt-1.5 border-t border-white/20 text-3xs text-purple-200/90 italic flex items-center justify-end gap-1">
+                              <span>(This is from speech to text, so expect some mistakes)</span>
+                            </div>
+                          )}
                           {isAi && (
                             <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-end">
                               <button

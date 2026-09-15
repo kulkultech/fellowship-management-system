@@ -190,6 +190,7 @@ func (e *CloudflareEvaluator) buildPrompt(rubric *model.AIInterviewRubric, trans
 	}
 
 	sb.WriteString("\n### CANDIDATE INTERVIEW TRANSCRIPT:\n")
+	sb.WriteString("Note: Spoken answers are transcribed using automated speech-to-text (STT) and include the notice '(This is from speech to text, so expect some mistakes)'. Evaluate technical substance and problem-solving concepts fairly regardless of transcription mistakes.\n\n")
 	for _, m := range transcript {
 		sb.WriteString(fmt.Sprintf("%s: %s\n", strings.ToUpper(m.Role), m.Message))
 	}
@@ -430,7 +431,8 @@ func (e *CloudflareEvaluator) AssessAnswerAndGenerateFollowUp(
 				clean = strings.TrimSpace(clean[idx+3:])
 			}
 			candidateTexts = append(candidateTexts, clean)
-			words := strings.Fields(clean)
+			cleanForWordCount := strings.ReplaceAll(clean, "(This is from speech to text, so expect some mistakes)", "")
+			words := strings.Fields(cleanForWordCount)
 			totalCandidateWords += len(words)
 		}
 	}
@@ -505,6 +507,7 @@ CRUCIAL DECISION GUIDELINES:
      * Maximum follow-ups reached. Set "is_sufficient": true, "follow_up": "".
 2. Candidate Fairness:
    - Do NOT penalize non-native English, Indonesian accent, modest vocabulary, or conversational pauses.
+   - Note: The candidate's response is transcribed using automated Speech-to-Text (STT) and includes the notice "(This is from speech to text, so expect some mistakes)". Expect and forgive minor speech-to-text transcription errors, phonetic confusions, homophones, or missing punctuation. Focus strictly on the underlying technical substance, concepts, and thought process.
 3. Natural Conversational Style:
    - Address %s by name. Keep the follow-up warm, concise (1-2 sentences), and strictly in clear English.
 4. Output format: Return ONLY valid JSON in English: {"is_sufficient": boolean, "follow_up": string, "feedback": string}`,
