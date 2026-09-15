@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { testService } from '@/services/testService';
+import type { SubmitTestResponse } from '@/services/types';
 import {
   Clock,
   AlertTriangle,
@@ -36,7 +37,9 @@ export const TestPage: React.FC = () => {
     if (!testToken) return {};
     try {
       const saved = localStorage.getItem(`fms_test_answers_${testToken}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        return JSON.parse(saved);
+      }
     } catch (e) {
       console.error('Failed to load saved answers', e);
     }
@@ -44,6 +47,7 @@ export const TestPage: React.FC = () => {
   });
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitResult, setSubmitResult] = useState<SubmitTestResponse | null>(null);
   const targetEndTimestampRef = useRef<number | null>(null);
 
   const handleSelectOption = (questionId: string, optionId: string) => {
@@ -104,13 +108,14 @@ export const TestPage: React.FC = () => {
   const submitMutation = useMutation({
     mutationFn: (answers: { question_id: string; selected_option_id: string }[]) =>
       testService.submitTest(testToken!, answers),
-    onSuccess: () => {
+    onSuccess: (data: SubmitTestResponse) => {
       try {
         localStorage.removeItem(`fms_test_answers_${testToken}`);
         localStorage.removeItem(`fms_test_target_end_${testToken}`);
       } catch (e) {
         // ignore
       }
+      setSubmitResult(data);
       toast.success('Assessment submitted successfully!');
       setIsSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -281,6 +286,11 @@ export const TestPage: React.FC = () => {
   const isUrgent = secondsRemaining !== null && secondsRemaining < 300;
 
   if (isSubmitted && testSession) {
+    const isFormNext = submitResult?.next_step === 'fill_form' || !!submitResult?.redirect_url;
+    const isAIInterviewNext = submitResult?.next_step === 'ai_interview' || !!submitResult?.ai_interview_invite_token;
+    const isPassed = submitResult ? submitResult.passed : true;
+    const candidateEmail = testSession.candidate_email || user?.email || 'your registered email';
+
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-kulkul-orange/20 selection:text-kulkul-purple">
         <header className="bg-white border-b border-slate-200">
@@ -295,7 +305,18 @@ export const TestPage: React.FC = () => {
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
             <div className="stitch-card bg-white p-8 sm:p-12 text-center border border-slate-200 shadow-xl rounded-3xl space-y-6 animate-in fade-in zoom-in duration-300">
+              <div
+                className={`w-14 h-14 rounded-2xl ${
+                  isPassed ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
+                } flex items-center justify-center mx-auto shadow-xs`}
+              >
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+
               <div>
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-2xs font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 mb-2">
+                  <span>Assessment Recorded</span>
+                </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Thank You for Submitting Your Assessment!
                 </h1>
@@ -304,35 +325,156 @@ export const TestPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Email dispatch info banner */}
-              <div className="p-6 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-left space-y-3">
-                <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
-                  <Mail className="w-5 h-5 text-kulkul-purple shrink-0" />
-                  <span>Submission Confirmation &amp; Results Emailed</span>
-                </div>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  We have dispatched a submission confirmation and your official assessment score to your registered email address.
-                </p>
-              </div>
+              {!isPassed ? (
+                <>
+                  <div className="p-6 rounded-2xl bg-amber-50/80 border border-amber-200/90 text-left space-y-3">
+                    <div className="flex items-center gap-2.5 text-amber-800 font-bold text-sm sm:text-base">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                      <span>Assessment Score Evaluated</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      We have dispatched your evaluation and official assessment score to{' '}
+                      <span className="font-bold text-slate-900">{candidateEmail}</span>. You can review your detailed scorecard anytime on your{' '}
+                      <span className="font-bold text-slate-900">Candidate Dashboard</span>.
+                    </p>
+                  </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1">
-                <p className="font-medium text-slate-700">What happens next:</p>
-                <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                  <li>If you achieve the qualifying score, you will receive an invitation email to proceed with the conversational AI Technical Interview.</li>
-                  <li>Your application status is kept up to date in real time on your Candidate Dashboard.</li>
-                </ul>
-              </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      onClick={() => navigate('/candidate/dashboard')}
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <span>Go to Candidate Dashboard</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => navigate(`/result/${testToken}`)}
+                      className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <span>View Official Scorecard</span>
+                      <ArrowRight className="w-4 h-4 text-slate-500" />
+                    </button>
+                  </div>
+                </>
+              ) : isFormNext ? (
+                <>
+                  <div className="p-6 rounded-2xl bg-purple-50/80 border border-purple-200/90 text-left space-y-3">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                      <FileText className="w-5 h-5 text-kulkul-purple shrink-0" />
+                      <span>Next Step: Complete Application Profile</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      Great job passing the logic assessment! The next step is to submit your application details. We have dispatched the form link to{' '}
+                      <span className="font-bold text-slate-900">{candidateEmail}</span>. You can also start it directly from your{' '}
+                      <span className="font-bold text-slate-900">Candidate Dashboard</span> whenever you are ready.
+                    </p>
+                  </div>
 
-              {/* Action Buttons */}
-              <div className="pt-4 flex items-center justify-center">
-                <button
-                  onClick={() => navigate('/candidate/dashboard')}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <span>Go to Candidate Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
+                    <p className="font-bold text-slate-700">Next step instructions:</p>
+                    <ul className="list-disc list-inside space-y-1 text-slate-600">
+                      <li>You will provide your personal details, academic background, and upload your resume.</li>
+                      <li>You can fill out the form now or return anytime via your Candidate Dashboard.</li>
+                      <li>Check your Spam or Promotions folder if the confirmation email doesn't appear in your inbox.</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      onClick={() => navigate('/candidate/dashboard')}
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <span>Go to Candidate Dashboard</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    {submitResult?.redirect_url && (
+                      <button
+                        onClick={() => navigate(submitResult.redirect_url!)}
+                        className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <span>Fill Application Form Now</span>
+                        <ArrowRight className="w-4 h-4 text-slate-500" />
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : isAIInterviewNext ? (
+                <>
+                  <div className="p-6 rounded-2xl bg-purple-50/80 border border-purple-200/90 text-left space-y-3">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                      <Sparkles className="w-5 h-5 text-kulkul-orange shrink-0" />
+                      <span>Next Step: Interactive AI Technical Screening</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      Congratulations on achieving the qualifying score! We have dispatched your unique AI interview link to{' '}
+                      <span className="font-bold text-slate-900">{candidateEmail}</span>. You can also access and launch it directly from your{' '}
+                      <span className="font-bold text-slate-900">Candidate Dashboard</span> whenever you are ready.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
+                    <p className="font-bold text-slate-700">Before entering the AI screening chamber:</p>
+                    <ul className="list-disc list-inside space-y-1 text-slate-600">
+                      <li>Use a laptop or desktop computer with a supported browser (Chrome or Edge).</li>
+                      <li>Verify your webcam and microphone permissions before starting.</li>
+                      <li>Find a quiet, well-lit room free from background noise and distractions.</li>
+                      <li>Take the interview at your convenience &mdash; your session is saved in your Candidate Dashboard.</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      onClick={() => navigate('/candidate/dashboard')}
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs sm:text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <span>Go to Candidate Dashboard</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    {submitResult?.ai_interview_invite_token && (
+                      <button
+                        onClick={() => navigate(`/interview/${submitResult.ai_interview_invite_token}`)}
+                        className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <span>Start AI Interview Now</span>
+                        <ArrowRight className="w-4 h-4 text-slate-500" />
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-6 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-left space-y-3">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                      <Mail className="w-5 h-5 text-kulkul-purple shrink-0" />
+                      <span>Submission Confirmation &amp; Results Emailed</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      We have dispatched a submission confirmation and your official assessment score to{' '}
+                      <span className="font-bold text-slate-900">{candidateEmail}</span>.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
+                    <p className="font-medium text-slate-700">What happens next:</p>
+                    <ul className="list-disc list-inside space-y-1 text-slate-600">
+                      <li>Our admissions committee will review your submission and assessment performance.</li>
+                      <li>Your application status is kept up to date in real time on your Candidate Dashboard.</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-center">
+                    <button
+                      onClick={() => navigate('/candidate/dashboard')}
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <span>Go to Candidate Dashboard</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </main>
