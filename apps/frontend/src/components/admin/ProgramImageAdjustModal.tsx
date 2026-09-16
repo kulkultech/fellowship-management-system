@@ -15,6 +15,7 @@ import {
   Crop,
   Maximize2,
   Loader2,
+  Upload,
 } from 'lucide-react';
 import { resolveMediaUrl } from '@/services/apiClient';
 
@@ -84,7 +85,13 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
 
   // Initialize and update display source when modal opens or image changes
   useEffect(() => {
-    if (!isOpen || !imageSrc) return;
+    if (!isOpen) {
+      setLoadError(null);
+      setImageLoaded(false);
+      setHasTriedProxy(false);
+      return;
+    }
+    if (!imageSrc) return;
 
     setSelectedRatioId('3:1');
     setCustomRatio(defaultRatio);
@@ -99,6 +106,37 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
     const resolved = resolveMediaUrl(imageSrc) || imageSrc;
     setDisplaySrc(resolved);
   }, [isOpen, imageSrc, defaultRatio]);
+
+  // Handle direct file replacement from within the adjuster modal
+  const handleInternalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setLoadError('Please select a valid image file (PNG, JPG, WebP, SVG)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setLoadError('Banner image must be under 10MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setDisplaySrc(reader.result);
+        setImageLoaded(false);
+        setLoadError(null);
+        setHasTriedProxy(false);
+      }
+    };
+    reader.onerror = () => {
+      setLoadError('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Handle Drag / Pan with Mouse or Touch
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -168,92 +206,22 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
 
   // Generate cropped/framed canvas and export high-res image
   const handleApplyFraming = async () => {
-    const srcToUse = displaySrc || resolveMediaUrl(imageSrc) || imageSrc;
-    if (!srcToUse) return;
+    if (!imgRef.current || !imageLoaded) {
+      setLoadError('Please wait for the image preview to finish loading before saving.');
+      return;
+    }
+
     setIsProcessing(true);
     setLoadError(null);
-    let tempBlobUrl: string | null = null;
 
     try {
-      const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
-      let cleanSrc = srcToUse;
+      const activeImg = imgRef.current;
+      const naturalWidth = activeImg.naturalWidth;
+      const naturalHeight = activeImg.naturalHeight;
 
-      // Ensure we have a same-origin Blob URL so the canvas is never tainted
-      if (!cleanSrc.startsWith('blob:') && !cleanSrc.startsWith('data:')) {
-        let blobAcquired = false;
-
-        // 1. If internal uploads, try direct streaming parameter ?direct=1
-        if (cleanSrc.includes('/uploads/')) {
-          const directUrl = cleanSrc + (cleanSrc.includes('?') ? '&' : '?') + 'direct=1';
-          try {
-            const resp = await fetch(directUrl);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              tempBlobUrl = URL.createObjectURL(blob);
-              cleanSrc = tempBlobUrl;
-              blobAcquired = true;
-            }
-          } catch (e) {
-            console.warn('Direct upload fetch failed, will try proxy:', e);
-          }
-        }
-
-        // 2. If not acquired yet, fetch via backend proxy (which sets Access-Control-Allow-Origin: *)
-        if (!blobAcquired) {
-          try {
-            const proxyUrl = `${apiBase}/uploads/proxy?url=${encodeURIComponent(srcToUse)}`;
-            const resp = await fetch(proxyUrl);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              tempBlobUrl = URL.createObjectURL(blob);
-              cleanSrc = tempBlobUrl;
-              blobAcquired = true;
-            }
-          } catch (e) {
-            console.warn('Backend proxy fetch failed:', e);
-          }
-        }
-
-        // 3. Fallback: try direct fetch
-        if (!blobAcquired) {
-          try {
-            const resp = await fetch(srcToUse);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              tempBlobUrl = URL.createObjectURL(blob);
-              cleanSrc = tempBlobUrl;
-              blobAcquired = true;
-            }
-          } catch (e) {
-            console.warn('Direct fetch failed:', e);
-          }
-        }
+      if (!naturalWidth || !naturalHeight) {
+        throw new Error('Image dimensions could not be determined.');
       }
-
-      const img = new Image();
-      if (!cleanSrc.startsWith('blob:') && !cleanSrc.startsWith('data:')) {
-        img.crossOrigin = 'anonymous';
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => {
-          // If crossOrigin failed, try without crossOrigin
-          if (img.crossOrigin) {
-            const retryImg = new Image();
-            retryImg.onload = () => {
-              img.width = retryImg.naturalWidth;
-              img.height = retryImg.naturalHeight;
-              resolve();
-            };
-            retryImg.onerror = () => reject(new Error('Failed to load image for framing.'));
-            retryImg.src = cleanSrc;
-          } else {
-            reject(new Error('Failed to load image for framing.'));
-          }
-        };
-        img.src = cleanSrc;
-      });
 
       const canvas = document.createElement('canvas');
       canvas.width = targetW;
@@ -269,7 +237,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
 
       // Dimensions math based on dynamic active ratio
       const canvasAspect = targetW / targetH;
-      const imgAspect = img.naturalWidth / img.naturalHeight;
+      const imgAspect = naturalWidth / naturalHeight;
 
       let renderWidth = targetW;
       let renderHeight = targetH;
@@ -291,16 +259,51 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
       const offsetX = -(maxOffsetX * (posX / 100));
       const offsetY = -(maxOffsetY * (posY / 100));
 
-      // Draw onto canvas
-      ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
+      // Draw onto canvas using the already loaded image element
+      ctx.drawImage(activeImg, offsetX, offsetY, renderWidth, renderHeight);
 
-      // Convert to blob
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/webp', 0.92);
-      });
+      // Export canvas to blob
+      let blob: Blob | null = null;
+      try {
+        blob = await new Promise<Blob | null>((resolve, reject) => {
+          try {
+            canvas.toBlob((b) => resolve(b), 'image/webp', 0.92);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      } catch (taintErr) {
+        console.warn('Canvas tainted during direct export, falling back to backend proxy:', taintErr);
+        const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
+        const proxyUrl = `${apiBase}/uploads/proxy?url=${encodeURIComponent(displaySrc)}`;
+        const resp = await fetch(proxyUrl);
+        if (!resp.ok) {
+          throw new Error('Failed to fetch image via backend proxy.');
+        }
+        const proxyBlob = await resp.blob();
+        const tempBlobUrl = URL.createObjectURL(proxyBlob);
+        try {
+          const proxyImg = new Image();
+          proxyImg.crossOrigin = 'anonymous';
+          await new Promise<void>((resolve, reject) => {
+            proxyImg.onload = () => resolve();
+            proxyImg.onerror = () => reject(new Error('Failed to load proxied image for framing.'));
+            proxyImg.src = tempBlobUrl;
+          });
+
+          ctx.clearRect(0, 0, targetW, targetH);
+          ctx.drawImage(proxyImg, offsetX, offsetY, renderWidth, renderHeight);
+
+          blob = await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob((b) => resolve(b), 'image/webp', 0.92);
+          });
+        } finally {
+          URL.revokeObjectURL(tempBlobUrl);
+        }
+      }
 
       if (!blob) {
-        throw new Error('Failed to export canvas blob');
+        throw new Error('Failed to export framed banner.');
       }
 
       const file = new File([blob], `banner_adjusted_${Date.now()}.webp`, {
@@ -314,9 +317,6 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
       console.error('Error adjusting image:', err);
       setLoadError(err?.message || 'Failed to adjust image.');
     } finally {
-      if (tempBlobUrl) {
-        URL.revokeObjectURL(tempBlobUrl);
-      }
       setIsProcessing(false);
     }
   };
@@ -339,14 +339,26 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isProcessing}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <label className="cursor-pointer px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition shadow-xs">
+              <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
+              <span>Change Image</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleInternalFileChange}
+                className="hidden"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isProcessing}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
@@ -478,6 +490,11 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                     ref={imgRef}
                     src={displaySrc}
                     alt="Framing preview"
+                    crossOrigin={
+                      displaySrc.startsWith('data:') || displaySrc.startsWith('blob:')
+                        ? undefined
+                        : 'anonymous'
+                    }
                     onLoad={() => {
                       setImageLoaded(true);
                       setLoadError(null);
@@ -487,8 +504,8 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                       if (
                         !hasTriedProxy &&
                         displaySrc &&
-                        !displaySrc.startsWith('blob:') &&
-                        !displaySrc.startsWith('data:')
+                        !displaySrc.startsWith('data:') &&
+                        !displaySrc.startsWith('blob:')
                       ) {
                         setHasTriedProxy(true);
                         const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');

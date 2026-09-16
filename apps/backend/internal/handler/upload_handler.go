@@ -287,6 +287,12 @@ func (h *UploadHandler) ProxyRemoteMedia(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if strings.HasPrefix(rawURL, "/") {
+		rawURL = "http://127.0.0.1:8080" + rawURL
+	} else if strings.Contains(rawURL, "localhost:5173/") {
+		rawURL = strings.Replace(rawURL, "localhost:5173", "127.0.0.1:8080", 1)
+	}
+
 	parsed, err := url.Parse(rawURL)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		httpx.Error(w, http.StatusBadRequest, "invalid url parameter")

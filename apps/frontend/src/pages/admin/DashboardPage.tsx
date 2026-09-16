@@ -421,10 +421,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       return;
     }
 
-    const localUrl = URL.createObjectURL(file);
-    setAdjustBannerSrc(localUrl);
-    setAdjustBannerTarget('create');
-    setAdjustBannerModalOpen(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAdjustBannerSrc(reader.result);
+        setAdjustBannerTarget('create');
+        setAdjustBannerModalOpen(true);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
@@ -1442,10 +1450,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       return;
     }
 
-    const localUrl = URL.createObjectURL(file);
-    setAdjustBannerSrc(localUrl);
-    setAdjustBannerTarget('edit');
-    setAdjustBannerModalOpen(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAdjustBannerSrc(reader.result);
+        setAdjustBannerTarget('edit');
+        setAdjustBannerModalOpen(true);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
