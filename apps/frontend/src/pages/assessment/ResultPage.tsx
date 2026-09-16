@@ -48,7 +48,7 @@ export const ResultPage: React.FC = () => {
           </p>
           <button
             onClick={() => navigate('/')}
-            className="w-full py-3 px-4 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full shadow transition"
+            className="w-full btn btn-md btn-primary"
           >
             Return to Home
           </button>
@@ -243,7 +243,7 @@ export const ResultPage: React.FC = () => {
                 <div className="mt-6">
                   <button
                     onClick={() => navigate(`/interview/${result.ai_interview_invite_token}`)}
-                    className="w-full sm:w-auto stitch-pill stitch-pill-orange text-base px-8 py-3.5"
+                    className="w-full sm:w-auto btn btn-lg btn-secondary"
                   >
                     <span>Enter Technical Screen Room</span>
                     <ArrowRight className="w-5 h-5" />

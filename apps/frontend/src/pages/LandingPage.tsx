@@ -25,7 +25,7 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 text-center flex flex-col items-center">
 
           {/* Main Headline - Exactly 2 rows */}
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight max-w-5xl">
+          <h1 className="heading-display max-w-5xl">
             <span className="block">Automated Logic Tests & AI Screening</span>
             <span className="block mt-2">
               for{' '}
@@ -36,7 +36,7 @@ export const LandingPage: React.FC = () => {
           </h1>
 
           {/* Subtitle - Exactly 2 rows */}
-          <div className="mt-6 text-base sm:text-lg lg:text-xl text-slate-600 max-w-4xl leading-relaxed">
+          <div className="mt-6 text-base sm:text-lg text-slate-600 max-w-4xl leading-relaxed">
             <p className="block">Fast-track candidate selection with timed logic tests and conversational AI screening.</p>
             <p className="block mt-1">Deliver instant reviewer scorecards in one unified platform.</p>
           </div>
@@ -45,14 +45,14 @@ export const LandingPage: React.FC = () => {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => navigate('/register-company')}
-              className="w-full sm:w-auto px-8 py-4 rounded-full text-base sm:text-lg font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center justify-center gap-2.5"
+              className="w-full sm:w-auto btn btn-lg btn-primary shadow-lg hover:shadow-xl"
             >
               <span>Create Fellowship Program</span>
               <ArrowRight className="w-5 h-5" />
             </button>
             <a
               href="#features"
-              className="w-full sm:w-auto px-8 py-4 rounded-full text-base sm:text-lg font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-[0.98] flex items-center justify-center"
+              className="w-full sm:w-auto btn btn-lg btn-outline"
             >
               <span>Explore Features</span>
             </a>
@@ -64,10 +64,10 @@ export const LandingPage: React.FC = () => {
       <section id="features" className="py-20 bg-slate-50/70 border-y border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Designed for High-Volume Selection & Rigorous Evaluation
             </h2>
-            <p className="mt-3 text-base sm:text-lg text-slate-600">
+            <p className="mt-3 text-base text-slate-600">
               Everything hiring teams and fellowship programs need to conduct seamless talent assessments without manual grading overhead.
             </p>
           </div>
@@ -79,8 +79,8 @@ export const LandingPage: React.FC = () => {
                 <div className="w-12 h-12 rounded-2xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center font-bold mb-6">
                   <Sliders className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Configurable Benchmarks</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
+                <h3 className="heading-card mb-2">Configurable Benchmarks</h3>
+                <p className="text-body leading-relaxed">
                   Program admins can adjust passing grades (e.g. 70%, 80%) and time limits (15–60 mins) per cohort in real time to match candidate batch standards.
                 </p>
               </div>
@@ -96,8 +96,8 @@ export const LandingPage: React.FC = () => {
                 <div className="w-12 h-12 rounded-2xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center font-bold mb-6">
                   <Terminal className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">AI Technical Interview</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
+                <h3 className="heading-card mb-2">AI Technical Interview</h3>
+                <p className="text-body leading-relaxed">
                   Candidates who clear the MCQ benchmark enter a conversational AI screening room that evaluates technical depth, problem-solving, and architecture trade-offs.
                 </p>
               </div>

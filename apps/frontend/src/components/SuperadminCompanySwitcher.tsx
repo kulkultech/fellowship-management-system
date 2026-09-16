@@ -139,7 +139,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white text-slate-800 hover:text-kulkul-purple border border-amber-300 hover:border-kulkul-purple shadow-2xs hover:bg-purple-50/50 text-xs font-bold transition active:scale-[0.98] cursor-pointer"
+          className="btn btn-sm bg-white text-slate-800 hover:text-kulkul-purple border border-amber-300 hover:border-kulkul-purple shadow-2xs hover:bg-purple-50/50 cursor-pointer"
           title="Click to switch to another company workspace"
         >
           <Menu className="w-3.5 h-3.5 text-amber-600" />
@@ -153,7 +153,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:text-kulkul-purple shadow-2xs transition cursor-pointer"
+          className="btn-icon-sm bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:text-kulkul-purple shadow-2xs cursor-pointer"
           title={`Active company: ${displayCompanyName}. Click to switch company.`}
         >
           <Menu className="w-4 h-4 text-kulkul-purple" />
@@ -163,7 +163,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`inline-flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold border transition active:scale-[0.98] shadow-2xs whitespace-nowrap cursor-pointer ${
+          className={`h-10 inline-flex items-center gap-2.5 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-bold border transition active:scale-[0.98] shadow-2xs whitespace-nowrap cursor-pointer ${
             isOpen
               ? 'bg-purple-50 text-kulkul-purple border-kulkul-purple ring-2 ring-kulkul-purple/20'
               : currentOrgId
@@ -257,7 +257,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 placeholder="Search company or slug..."
-                className="w-full pl-8 pr-8 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none transition font-medium text-slate-900"
+                className="w-full pl-8 pr-8 input-sm focus:bg-white font-medium"
               />
               {searchFilter && (
                 <button

@@ -59,13 +59,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Center: Nav Links (Platform Features & Register Company) - Shown on Main Landing Page only */}
           {showNavLinks && !showAdminNav && (
-            <nav className="hidden md:flex items-center gap-10 text-base font-semibold text-slate-600">
+            <nav className="hidden md:flex items-center gap-8 text-sm sm:text-base font-semibold text-slate-600">
               <a href="/#features" className="hover:text-kulkul-purple transition">
                 Platform Features
               </a>
               <button
                 onClick={() => navigate('/register-company')}
-                className="hover:text-kulkul-purple transition font-semibold text-slate-600"
+                className="hover:text-kulkul-purple transition font-semibold text-sm sm:text-base text-slate-600"
               >
                 Register Company
               </button>
@@ -74,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Actions / Auth / Sign In Dropdown */}
           {showAdminNav && isAuthenticated && user ? (
-            <div className="flex items-center gap-3.5 sm:gap-4 shrink-0">
+            <div className="flex items-center gap-3 sm:gap-4 shrink-0">
               {/* Client Company Logo or Name on Right */}
               {companyLogo ? (
                 <img
@@ -83,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="h-8 sm:h-9 w-auto max-w-[160px] object-contain"
                 />
               ) : (
-                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+                <div className="flex items-center gap-2 h-9 px-3.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
                   <Building2 className="w-4 h-4 text-kulkul-purple" />
                   <span>{companyName || 'Organization'}</span>
                 </div>
@@ -91,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 onClick={handleLogout}
-                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm hover:shadow-md transition active:scale-[0.98] inline-flex items-center gap-2"
+                className="btn btn-md btn-secondary"
                 title="Sign out of portal"
               >
                 <LogOut className="w-4 h-4 text-white" />
@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : isAuthenticated && user ? (
             /* Candidate or Authenticated User on Public / Interview / Test / Candidate Pages */
-            <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
               {/* Role-Aware Dashboard Link */}
               {(!hideAdminButton || user.role === 'candidate') && (
                 <Link
@@ -111,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       ? '/admin/dashboard'
                       : '/candidate/dashboard'
                   }
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs transition active:scale-[0.98]"
+                  className="btn btn-md bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs"
                 >
                   {user.role === 'candidate' ? (
                     <User className="w-4 h-4 text-kulkul-orange" />
@@ -129,8 +129,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
 
               {/* User Identity Pill */}
-              <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
-                <div className="w-6 h-6 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-xs font-black">
+              <div className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+                <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-xs font-black">
                   {(user.name || user.email || 'C').charAt(0).toUpperCase()}
                 </div>
                 <span className="max-w-[130px] lg:max-w-[180px] truncate">
@@ -141,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Sign Out Action */}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-base font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm hover:shadow-md transition active:scale-[0.98] inline-flex items-center gap-2"
+                className="btn btn-md btn-secondary"
                 title="Sign out"
               >
                 <LogOut className="w-4 h-4 text-white" />
@@ -156,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="relative shrink-0" ref={dropdownRef}>
               <button
                 onClick={() => setSignInDropdownOpen((prev) => !prev)}
-                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2"
+                className="btn btn-md btn-primary"
                 aria-expanded={signInDropdownOpen}
               >
                 <span>Sign In</span>
@@ -171,9 +171,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                       setSignInDropdownOpen(false);
                       navigate('/candidate/dashboard');
                     }}
-                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
+                    className="w-full h-11 px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0">
                       <User className="w-4 h-4" />
                     </div>
                     <span className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">
@@ -188,9 +188,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                       setSignInDropdownOpen(false);
                       navigate('/admin/login');
                     }}
-                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
+                    className="w-full h-11 px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-3 transition group rounded-xl"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
                       <Building2 className="w-4 h-4" />
                     </div>
                     <span className="text-sm font-bold text-slate-900 group-hover:text-kulkul-purple transition">

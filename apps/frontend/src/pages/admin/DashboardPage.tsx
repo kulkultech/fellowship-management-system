@@ -1799,7 +1799,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         <select
           value={activeProgramSlug}
           onChange={(e) => setActiveProgramSlug(e.target.value)}
-          className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
+          className="h-8 px-3 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
         >
           {allPrograms.map((p) => (
             <option key={p.slug} value={p.slug}>
@@ -1813,7 +1813,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       <button
         type="button"
         onClick={() => setIsCompanySettingsOpen(true)}
-        className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+        className="btn btn-sm btn-outline shadow-2xs"
         title="Manage company profile, name, and URL slug"
       >
         <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
@@ -1823,7 +1823,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       {/* Create New Program Button */}
       <button
         onClick={() => setCurrentView('create_program')}
-        className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+        className="btn btn-sm btn-primary shadow-sm"
       >
         <Plus className="w-4 h-4 text-kulkul-orange" />
         <span>New Program</span>

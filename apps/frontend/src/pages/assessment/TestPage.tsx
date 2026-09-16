@@ -677,7 +677,7 @@ export const TestPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/candidate/dashboard')}
-                    className="w-full sm:w-auto px-6 py-3.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-bold text-sm transition text-center"
+                    className="w-full sm:w-auto btn btn-lg btn-ghost"
                   >
                     Take Assessment Later
                   </button>
@@ -686,7 +686,7 @@ export const TestPage: React.FC = () => {
                     type="button"
                     disabled={!isReadyConfirmed || startMutation.isPending}
                     onClick={() => startMutation.mutate()}
-                    className="w-full sm:w-auto px-8 py-4 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-extrabold text-sm sm:text-base shadow-md hover:shadow-lg transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-3"
+                    className="w-full sm:w-auto btn btn-lg btn-primary shadow-md hover:shadow-lg"
                   >
                     {startMutation.isPending ? (
                       <>
@@ -749,7 +749,7 @@ export const TestPage: React.FC = () => {
                   <button
                     onClick={handleSubmit}
                     disabled={submitMutation.isPending}
-                    className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow-md transition active:scale-[0.98] flex items-center gap-2.5"
+                    className="btn btn-md btn-primary"
                   >
                     <Send className="w-4 h-4 text-kulkul-orange" />
                     <span className="hidden sm:inline">Finish & Submit</span>
@@ -848,7 +848,7 @@ export const TestPage: React.FC = () => {
                     type="button"
                     disabled={currentIndex === 0}
                     onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-slate-700 bg-slate-100 rounded-full hover:bg-slate-200 disabled:opacity-40 transition"
+                    className="btn btn-md btn-outline"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>Previous</span>
@@ -858,7 +858,7 @@ export const TestPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                      className="stitch-pill stitch-pill-purple"
+                      className="btn btn-md btn-primary"
                     >
                       <span>Next Question</span>
                       <ChevronRight className="w-4 h-4 text-kulkul-orange" />
@@ -868,7 +868,7 @@ export const TestPage: React.FC = () => {
                       type="button"
                       onClick={handleSubmit}
                       disabled={submitMutation.isPending}
-                      className="stitch-pill stitch-pill-orange"
+                      className="btn btn-md btn-secondary"
                     >
                       <span>Submit Assessment</span>
                       <CheckCircle2 className="w-4 h-4" />

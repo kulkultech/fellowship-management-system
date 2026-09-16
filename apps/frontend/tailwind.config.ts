@@ -48,6 +48,10 @@ export default {
         '3xl': '1.5rem',
         '4xl': '2rem',
       },
+      boxShadow: {
+        '2xs': '0 1px 2px 0 rgb(0 0 0 / 0.03)',
+        'xs': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+      },
     },
   },
   plugins: [],

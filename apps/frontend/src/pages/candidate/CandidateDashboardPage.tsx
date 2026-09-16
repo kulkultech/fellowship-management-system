@@ -81,25 +81,25 @@ export const CandidateDashboardPage: React.FC = () => {
   const getStageBadge = (stage: string, passed: boolean) => {
     switch (stage) {
       case 'accepted':
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">Accepted 🎉</span>;
+        return <span className="badge badge-md bg-emerald-100 text-emerald-800 border border-emerald-200">Accepted 🎉</span>;
       case 'rejected':
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800">Not Selected</span>;
+        return <span className="badge badge-md bg-rose-100 text-rose-800 border border-rose-200">Not Selected</span>;
       case 'ai_interview_completed':
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">AI Screening Completed</span>;
+        return <span className="badge badge-md bg-purple-100 text-kulkul-purple border border-purple-200">AI Screening Completed</span>;
       case 'ai_interview_invited':
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-800 animate-pulse">AI Interview Invited</span>;
+        return <span className="badge badge-md bg-purple-100 text-purple-800 border border-purple-200 animate-pulse">AI Interview Invited</span>;
       case 'test_completed':
         return passed ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">Assessment Passed</span>
+          <span className="badge badge-md bg-emerald-100 text-emerald-800 border border-emerald-200">Assessment Passed</span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">Assessment Completed</span>
+          <span className="badge badge-md bg-amber-100 text-amber-800 border border-amber-200">Assessment Completed</span>
         );
       case 'test_failed':
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700">Assessment Below Benchmark</span>;
+        return <span className="badge badge-md bg-rose-100 text-rose-800 border border-rose-200">Assessment Below Benchmark</span>;
       case 'test_in_progress':
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700">Test In Progress</span>;
+        return <span className="badge badge-md bg-blue-100 text-blue-800 border border-blue-200">Test In Progress</span>;
       default:
-        return <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">Application Submitted</span>;
+        return <span className="badge badge-md bg-slate-100 text-slate-700 border border-slate-200">Application Submitted</span>;
     }
   };
 
@@ -114,10 +114,10 @@ export const CandidateDashboardPage: React.FC = () => {
             {/* Main Card */}
             <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Candidate Portal
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-2">
+                <p className="text-body-sm mt-2">
                   Sign in with your verified Google account to track your fellowship applications, view MCQ test scorecards, and inspect AI interview evaluations.
                 </p>
               </div>
@@ -127,7 +127,7 @@ export const CandidateDashboardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-800 shadow-sm hover:shadow-md transition duration-150"
+                  className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
                 >
                   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path
@@ -221,14 +221,14 @@ export const CandidateDashboardPage: React.FC = () => {
             <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end">
               <Link
                 to={authUser.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard'}
-                className="px-4 py-2.5 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white rounded-full font-bold text-xs shadow-sm transition flex items-center gap-1.5 active:scale-[0.98]"
+                className="btn btn-sm btn-primary whitespace-nowrap"
               >
                 <span>Go to Admin Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <button
                 onClick={handleSignOut}
-                className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 rounded-full font-bold text-xs border border-slate-300 transition active:scale-[0.98]"
+                className="btn btn-sm btn-outline"
               >
                 Sign Out
               </button>
@@ -293,11 +293,17 @@ export const CandidateDashboardPage: React.FC = () => {
 
                         {/* Primary Action Button */}
                         <div className="flex items-center gap-3 w-full lg:w-auto">
-                          {/* Case 1: Needs to complete Profile Form (e.g. MCQ was taken first) */}
+                          {/* Case 1: Needs to complete profile form */}
                           {app.next_step === 'fill_form' && (
                             <button
-                              onClick={() => navigate(app.redirect_url || `/programs/${app.org_slug}/${app.program_slug}/apply`)}
-                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition flex items-center justify-center gap-2"
+                              onClick={() => {
+                                if (app.redirect_url) {
+                                  navigate(app.redirect_url);
+                                } else {
+                                  navigate(`/programs/${app.org_slug}/${app.program_slug}/apply`);
+                                }
+                              }}
+                              className="w-full lg:w-auto btn btn-md btn-primary"
                             >
                               <FileText className="w-4 h-4 text-kulkul-orange" />
                               <span>Complete Profile Form</span>
@@ -317,7 +323,7 @@ export const CandidateDashboardPage: React.FC = () => {
                                   navigate(`/programs/${app.org_slug}/${app.program_slug}/apply`);
                                 }
                               }}
-                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm transition flex items-center justify-center gap-2"
+                              className="w-full lg:w-auto btn btn-md btn-secondary"
                             >
                               <span>Take Timed Test</span>
                               <ArrowRight className="w-4 h-4" />
@@ -329,7 +335,7 @@ export const CandidateDashboardPage: React.FC = () => {
                             <div className="flex flex-col sm:items-end gap-1.5 w-full lg:w-auto">
                               <button
                                 onClick={() => navigate(`/interview/${app.interview_token}`)}
-                                className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition flex items-center justify-center gap-2 animate-pulse"
+                                className="w-full lg:w-auto btn btn-md btn-primary animate-pulse"
                               >
                                 <Terminal className="w-4 h-4 text-kulkul-orange" />
                                 <span>Join AI Interview Room</span>
@@ -345,7 +351,7 @@ export const CandidateDashboardPage: React.FC = () => {
                           {app.test_token && (app.current_stage === 'test_completed' || app.current_stage === 'test_failed') && app.next_step !== 'fill_form' && (
                             <button
                               onClick={() => navigate(`/result/${app.test_token}`)}
-                              className="w-full lg:w-auto px-6 py-3 rounded-full font-bold text-kulkul-purple bg-kulkul-purple-light hover:bg-kulkul-purple-subtle border border-kulkul-purple/20 transition flex items-center justify-center gap-2"
+                              className="w-full lg:w-auto btn btn-md btn-outline text-kulkul-purple border-kulkul-purple/20"
                             >
                               <span>View Scorecard</span>
                               <ExternalLink className="w-4 h-4" />
@@ -421,7 +427,7 @@ export const CandidateDashboardPage: React.FC = () => {
                     {app.test_token && (
                       <button
                         onClick={() => navigate(app.test_status === 'completed' ? `/result/${app.test_token}` : `/test/${app.test_token}`)}
-                        className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
+                        className="w-full btn btn-md btn-primary"
                       >
                         <span>{app.test_status === 'completed' ? 'View Itemized Scorecard' : 'Start Logic Assessment'}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -476,7 +482,7 @@ export const CandidateDashboardPage: React.FC = () => {
                       <div className="space-y-1.5">
                         <button
                           onClick={() => navigate(`/interview/${app.interview_token}`)}
-                          className="w-full py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition flex items-center justify-center gap-2"
+                          className="w-full btn btn-md btn-primary"
                         >
                           <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
                           <span>{app.interview_status === 'completed' ? 'Review AI Transcript' : 'Enter AI Interview Room'}</span>

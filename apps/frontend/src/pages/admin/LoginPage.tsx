@@ -57,10 +57,10 @@ export const LoginPage: React.FC = () => {
           {/* Main Card */}
           <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 Company Portal
               </h1>
-              <p className="text-xs text-slate-500 mt-1.5">
+              <p className="text-body-sm mt-1.5">
                 Sign in to manage your fellowship programs, question banks, and candidate scorecards.
               </p>
             </div>
@@ -97,7 +97,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-800 shadow-sm hover:shadow-md transition duration-150"
+                  className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
                 >
                   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path
@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
                   </svg>
                   <span>Continue with Google</span>
                 </button>
-                <p className="text-2xs text-slate-400">
+                <p className="text-caption">
                   Instant corporate authentication for company administrators
                 </p>
               </div>
@@ -127,7 +127,7 @@ export const LoginPage: React.FC = () => {
               /* Email & Password Form */
               <form onSubmit={handlePasswordLogin} className="space-y-4 text-left pt-1">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="form-label">
                     Admin Work Email
                   </label>
                   <div className="relative">
@@ -137,14 +137,14 @@ export const LoginPage: React.FC = () => {
                       placeholder="e.g. admin@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      className="w-full pl-10 pr-4 input-md"
                     />
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="form-label">
                     Password
                   </label>
                   <div className="relative">
@@ -154,7 +154,7 @@ export const LoginPage: React.FC = () => {
                       placeholder="Your admin password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      className="w-full pl-10 pr-4 input-md"
                     />
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   </div>
@@ -163,7 +163,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoggingIn}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-kulkul-purple hover:bg-kulkul-purple-hover active:scale-[0.98] rounded-full text-sm font-bold text-white shadow-md hover:shadow-lg transition duration-150 disabled:opacity-70"
+                  className="w-full btn btn-lg btn-primary"
                 >
                   {isLoggingIn ? (
                     <span>Signing in...</span>

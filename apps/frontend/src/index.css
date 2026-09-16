@@ -30,16 +30,173 @@
   box-shadow: 0 4px 12px -2px rgba(51, 18, 93, 0.08), 0 12px 32px -4px rgba(51, 18, 93, 0.12);
 }
 
-.stitch-pill {
-  @apply inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all duration-200;
-}
+@layer components {
+  /* ========================================================================= */
+  /* TYPOGRAPHY HIERARCHY */
+  /* ========================================================================= */
+  .heading-display {
+    @apply text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight;
+  }
 
-.stitch-pill-purple {
-  @apply bg-kulkul-purple text-white hover:bg-kulkul-purple-hover shadow-sm hover:shadow active:scale-[0.98];
-}
+  .heading-page {
+    @apply text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight;
+  }
 
-.stitch-pill-orange {
-  @apply bg-kulkul-orange text-white hover:bg-kulkul-orange-hover shadow-sm hover:shadow active:scale-[0.98];
+  .heading-section {
+    @apply text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight;
+  }
+
+  .heading-card {
+    @apply text-base sm:text-lg font-bold text-slate-900 leading-snug;
+  }
+
+  .heading-sub {
+    @apply text-sm sm:text-base font-bold text-slate-900;
+  }
+
+  .text-body {
+    @apply text-sm font-normal text-slate-600 leading-relaxed;
+  }
+
+  .text-body-sm {
+    @apply text-xs text-slate-500 leading-normal;
+  }
+
+  .text-caption {
+    @apply text-2xs text-slate-400 font-medium;
+  }
+
+  .form-label {
+    @apply block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5;
+  }
+
+  /* ========================================================================= */
+  /* BUTTON COMPONENT SYSTEM */
+  /* ========================================================================= */
+  .btn {
+    @apply inline-flex items-center justify-center font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-kulkul-purple focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98] select-none;
+  }
+
+  /* Button Sizes */
+  .btn-lg {
+    @apply h-12 px-7 text-base rounded-full gap-2.5;
+  }
+
+  .btn-md {
+    @apply h-10 px-5 text-sm rounded-full gap-2;
+  }
+
+  .btn-sm {
+    @apply h-8 px-3.5 text-xs rounded-full gap-1.5;
+  }
+
+  .btn-xs {
+    @apply h-6 px-2 text-2xs rounded-md gap-1;
+  }
+
+  /* Icon-Only Buttons */
+  .btn-icon-lg {
+    @apply h-12 w-12 p-0 text-base rounded-full;
+  }
+
+  .btn-icon-md {
+    @apply h-10 w-10 p-0 text-sm rounded-xl;
+  }
+
+  .btn-icon-sm {
+    @apply h-8 w-8 p-0 text-xs rounded-lg;
+  }
+
+  .btn-icon-xs {
+    @apply h-6 w-6 p-0 text-2xs rounded-md;
+  }
+
+  /* Button Color Variants */
+  .btn-primary {
+    @apply bg-kulkul-purple text-white hover:bg-kulkul-purple-hover shadow-sm hover:shadow;
+  }
+
+  .btn-secondary {
+    @apply bg-kulkul-orange text-white hover:bg-kulkul-orange-hover shadow-sm hover:shadow;
+  }
+
+  .btn-outline {
+    @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-2xs;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .btn-danger {
+    @apply bg-rose-600 text-white hover:bg-rose-700 shadow-sm;
+  }
+
+  .btn-danger-ghost {
+    @apply bg-rose-50 text-rose-700 hover:bg-rose-100;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm;
+  }
+
+  /* Backward-compatible .stitch-pill classes */
+  .stitch-pill {
+    @apply btn btn-md;
+  }
+
+  .stitch-pill-purple {
+    @apply btn-primary;
+  }
+
+  .stitch-pill-orange {
+    @apply btn-secondary;
+  }
+
+  /* ========================================================================= */
+  /* NAVIGATION ITEM SYSTEM */
+  /* ========================================================================= */
+  .nav-link {
+    @apply text-sm sm:text-base font-semibold text-slate-600 hover:text-kulkul-purple transition;
+  }
+
+  .nav-item-root {
+    @apply w-full h-11 flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition;
+  }
+
+  .nav-item-child {
+    @apply w-full h-9 flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition;
+  }
+
+  .nav-item-subchild {
+    @apply w-full h-8 flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition;
+  }
+
+  /* ========================================================================= */
+  /* INPUTS & FORM CONTROLS */
+  /* ========================================================================= */
+  .input-md {
+    @apply h-11 px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple placeholder:text-slate-400 transition-all;
+  }
+
+  .input-sm {
+    @apply h-8 px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-slate-900 transition-all;
+  }
+
+  /* ========================================================================= */
+  /* BADGES & STATUS PILLS */
+  /* ========================================================================= */
+  .badge {
+    @apply inline-flex items-center font-bold rounded-full select-none;
+  }
+
+  .badge-md {
+    @apply h-6 px-2.5 py-0.5 text-xs gap-1.5;
+  }
+
+  .badge-sm {
+    @apply h-5 px-2 py-0.5 text-2xs font-extrabold uppercase tracking-wider gap-1;
+  }
 }
 
 /* Custom Scrollbars */

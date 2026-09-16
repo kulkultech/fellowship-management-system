@@ -281,9 +281,9 @@ export const SuperadminDashboardPage: React.FC = () => {
                   <button
                     key={st.value}
                     onClick={() => setCompanyStatusFilter(st.value)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${
+                    className={`btn btn-sm whitespace-nowrap ${
                       companyStatusFilter === st.value
-                        ? 'bg-kulkul-purple text-white shadow-sm'
+                        ? 'btn-primary'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -390,7 +390,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   <button
                                     onClick={() => rejectMutation.mutate(company.id)}
                                     disabled={rejectMutation.isPending}
-                                    className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center gap-1 disabled:opacity-50"
+                                    className="btn btn-sm btn-danger-ghost disabled:opacity-50"
                                   >
                                     <XCircle className="w-3.5 h-3.5" />
                                     <span>Reject</span>
@@ -398,7 +398,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   <button
                                     onClick={() => approveMutation.mutate(company.id)}
                                     disabled={approveMutation.isPending}
-                                    className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1 disabled:opacity-50"
+                                    className="btn btn-sm btn-success disabled:opacity-50"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     <span>Approve</span>
@@ -409,7 +409,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                               {company.status === 'approved' && (
                                 <button
                                   onClick={() => navigate(`/admin/dashboard?org_id=${company.id}`)}
-                                  className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-kulkul-purple text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                                  className="btn btn-sm bg-slate-900 hover:bg-kulkul-purple text-white shadow-xs"
                                   title="Access and manage this company's workspace as an admin"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
@@ -421,7 +421,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditCompany(company)}
-                                className="px-3 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                                className="btn btn-sm btn-outline"
                                 title="Edit company name, URL slug, email, and logo"
                               >
                                 <Pencil className="w-3.5 h-3.5 text-kulkul-purple" />
@@ -431,7 +431,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                               {company.status === 'rejected' && (
                                 <button
                                   onClick={() => approveMutation.mutate(company.id)}
-                                  className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                                  className="btn btn-sm btn-outline"
                                 >
                                   Re-Approve
                                 </button>
@@ -446,7 +446,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                     }
                                   }}
                                   disabled={deleteCompanyMutation.isPending}
-                                  className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition"
+                                  className="btn-icon-sm hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200"
                                   title="Delete company"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -556,10 +556,10 @@ export const SuperadminDashboardPage: React.FC = () => {
                                 <span>Review Workspace</span>
                               </Link>
                               <a
-                                href={`/programs/rsa/${prog.slug}`}
+                                href={`/programs/${prog.org_slug || 'kulkul'}/${prog.slug}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition text-xs font-bold shrink-0"
+                                className="btn btn-sm btn-outline shrink-0"
                               >
                                 <span>Public Link</span>
                                 <ExternalLink className="w-3 h-3" />
@@ -575,7 +575,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   }
                                 }}
                                 disabled={deleteProgramMutation.isPending}
-                                className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition shrink-0"
+                                className="btn-icon-sm hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 shrink-0"
                                 title="Delete program"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

@@ -173,7 +173,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 shadow-2xs transition active:scale-[0.98] whitespace-nowrap"
+                className="btn btn-md bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 shadow-2xs whitespace-nowrap"
               >
                 <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
                 <span>Superadmin Console</span>
@@ -183,7 +183,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'superadmin' && (
               <Link
                 to="/admin/dashboard"
-                className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 shadow-2xs transition active:scale-[0.98] whitespace-nowrap"
+                className="btn btn-md btn-outline whitespace-nowrap"
               >
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
                 <span>Company Workspace</span>
@@ -194,7 +194,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {((portalType === 'candidate' && Boolean(candidateEmail)) || (portalType !== 'candidate' && Boolean(user))) && (
               <button
                 onClick={handleSignOut}
-                className="px-6 py-3 rounded-full text-sm sm:text-base font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-sm hover:shadow-md transition active:scale-[0.98] inline-flex items-center gap-2"
+                className="btn btn-md btn-secondary"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4 text-white" />
@@ -238,9 +238,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 return (
                   <div key={item.id} className="space-y-1">
                     <div
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-2xl text-sm font-extrabold transition-all group ${
+                      className={`nav-item-root ${
                         isActive
-                          ? 'bg-kulkul-purple text-white shadow-sm'
+                          ? 'bg-kulkul-purple text-white shadow-xs'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
@@ -256,7 +256,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                             setIsMobileSidebarOpen(false);
                           }
                         }}
-                        className="flex items-center gap-3 truncate flex-1 text-left py-1.5"
+                        className="flex items-center gap-3 truncate flex-1 text-left py-1"
                       >
                         <IconComponent
                           className={`w-4 h-4 shrink-0 transition ${
@@ -271,10 +271,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <div className="flex items-center gap-1 shrink-0 ml-1">
                         {item.badge !== undefined && (
                           <span
-                            className={`text-2xs font-extrabold ${
+                            className={`badge-sm ${
                               isActive
-                                ? 'text-white'
-                                : 'text-slate-400 group-hover:text-slate-600'
+                                ? 'bg-white/20 text-white'
+                                : 'bg-slate-100 text-slate-500 group-hover:text-slate-700'
                             }`}
                           >
                             {item.badge}
@@ -317,9 +317,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                           return (
                             <div key={child.id} className="space-y-1">
                               <div
-                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-sm font-bold transition group ${
+                                className={`nav-item-child ${
                                   isChildActive
-                                    ? 'bg-purple-50 text-kulkul-purple font-extrabold'
+                                    ? 'bg-purple-50 text-kulkul-purple font-bold'
                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                                 }`}
                               >
@@ -392,7 +392,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                           }
                                           setIsMobileSidebarOpen(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition group ${
+                                        className={`nav-item-subchild ${
                                           isSubActive
                                             ? 'bg-purple-100 text-kulkul-purple font-bold'
                                             : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
@@ -475,11 +475,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               {/* Name & Subtitle / Context */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs sm:text-sm font-black text-slate-900 truncate group-hover:text-kulkul-purple transition">
+                  <span className="text-sm font-bold text-slate-900 truncate group-hover:text-kulkul-purple transition">
                     {displayName}
                   </span>
                 </div>
-                <div className="text-2xs text-slate-500 font-medium truncate flex items-center gap-1 mt-0.5">
+                <div className="text-xs text-slate-500 font-normal truncate flex items-center gap-1 mt-0.5">
                   {portalType === 'company_admin' && (
                     <span className="truncate">{companyName || user?.organization?.name || 'Company Admin'}</span>
                   )}
@@ -505,12 +505,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80 mb-6">
               <div>
                 {title && (
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  <h1 className="heading-page">
                     {title}
                   </h1>
                 )}
                 {subtitle && (
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-body-sm mt-1">
                     {subtitle}
                   </p>
                 )}

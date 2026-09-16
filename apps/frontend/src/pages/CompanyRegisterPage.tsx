@@ -181,14 +181,14 @@ export const CompanyRegisterPage: React.FC = () => {
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 to="/admin/dashboard"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto btn btn-lg btn-primary shadow-md hover:shadow-lg"
               >
                 <span>Open Admin Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 to="/"
-                className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition text-center"
+                className="w-full sm:w-auto btn btn-lg btn-outline text-center"
               >
                 Back to Homepage
               </Link>
@@ -198,13 +198,13 @@ export const CompanyRegisterPage: React.FC = () => {
           /* STEP 1: CONTINUE WITH GOOGLE FIRST GATE */
           <div className="max-w-md mx-auto space-y-6 animate-in fade-in duration-300">
             <div className="text-center space-y-2">
-              <span className="px-3 py-1 rounded-full bg-purple-100 text-kulkul-purple text-xs font-bold uppercase tracking-wider">
+              <span className="badge badge-md bg-purple-100 text-kulkul-purple border border-purple-200 uppercase tracking-wider">
                 Step 1 of 2: Identity Verification
               </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 Register Your Company
               </h1>
-              <p className="text-slate-600 text-xs sm:text-sm">
+              <p className="text-body-sm">
                 To guarantee company authenticity, please continue with your corporate Google account first. After sign in, you will complete your company profile.
               </p>
             </div>
@@ -215,8 +215,8 @@ export const CompanyRegisterPage: React.FC = () => {
               </div>
 
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Sign In with Google</h2>
-                <p className="text-xs text-slate-500 mt-1">
+                <h2 className="heading-card">Sign In with Google</h2>
+                <p className="text-body-sm mt-1">
                   We'll pre-fill your administrator contact and verify your work credentials instantly.
                 </p>
               </div>
@@ -225,7 +225,7 @@ export const CompanyRegisterPage: React.FC = () => {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={authLoading}
-                className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-800 shadow-sm hover:shadow-md transition duration-150"
+                className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
               >
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -265,10 +265,10 @@ export const CompanyRegisterPage: React.FC = () => {
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Google Verified: {authUser.email}</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 Complete Your Company Registration
               </h1>
-              <p className="text-slate-600 text-sm sm:text-base">
+              <p className="text-body">
                 Set up your company workspace to host custom MCQ assessments, conversational AI technical interviews, and automated reviewer scorecards.
               </p>
             </div>
@@ -464,7 +464,7 @@ export const CompanyRegisterPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-orange hover:bg-kulkul-orange-hover text-white text-sm font-bold shadow-lg hover:shadow-xl transition active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full sm:w-auto btn btn-lg btn-secondary shadow-lg hover:shadow-xl"
                 >
                   {loading ? (
                     <span>Submitting Registration...</span>

@@ -601,7 +601,7 @@ export const ApplyPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/programs/${orgSlug}/${programSlug}`)}
-                className="w-full sm:w-auto stitch-pill stitch-pill-purple text-xs px-6 py-2.5 justify-center shadow-sm hover:shadow-md transition active:scale-95"
+                className="w-full sm:w-auto btn btn-md btn-primary"
               >
                 <span>Back to Program Overview</span>
               </button>
@@ -1143,11 +1143,11 @@ export const ApplyPage: React.FC = () => {
           <div className="stitch-card p-6 sm:p-8 mb-6 bg-white shadow-sm border border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   {schema.title || 'Candidate Intake Form'}
                 </h1>
                 {schema.description && (
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-body-sm mt-1">
                     {schema.description}
                   </p>
                 )}
@@ -1167,7 +1167,7 @@ export const ApplyPage: React.FC = () => {
             <div className="space-y-5">
               {/* Section: Personal Info */}
               <div className="border-b border-slate-100 pb-2">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Personal Details</h2>
+                <h2 className="heading-section text-kulkul-purple">Personal Details</h2>
               </div>
 
               {/* First Name & Last Name */}
@@ -1236,7 +1236,7 @@ export const ApplyPage: React.FC = () => {
               {tracks.length > 0 && (
                 <>
                   <div className="border-b border-slate-100 pb-2 pt-3">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">Specialization Track</h2>
+                    <h2 className="heading-section text-kulkul-purple">Specialization Track</h2>
                   </div>
 
                   <div>
@@ -1265,7 +1265,7 @@ export const ApplyPage: React.FC = () => {
               {activeFieldOrder.length > 0 && (
                 <>
                   <div className="border-b border-slate-100 pb-2 pt-3">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">
+                    <h2 className="heading-section text-kulkul-purple">
                       Application Questions & Details
                     </h2>
                   </div>
@@ -1757,7 +1757,7 @@ export const ApplyPage: React.FC = () => {
             <button
               type="submit"
               disabled={applyMutation.isPending}
-              className="w-full stitch-pill stitch-pill-orange text-base py-3.5 justify-center shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="w-full btn btn-lg btn-secondary shadow-lg hover:shadow-xl"
             >
               {applyMutation.isPending ? (
                 <div className="flex items-center gap-2">
