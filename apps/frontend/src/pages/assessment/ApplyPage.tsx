@@ -898,10 +898,6 @@ export const ApplyPage: React.FC = () => {
             <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
               {/* Context Header */}
               <div className="flex flex-col items-center gap-2">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 text-kulkul-purple text-xs font-extrabold uppercase tracking-wide">
-                  <Clock className="w-4 h-4 text-kulkul-orange" />
-                  <span>Stage 1: Qualifying Logic Assessment</span>
-                </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Timed Logic &amp; Technical MCQ
                 </h1>
