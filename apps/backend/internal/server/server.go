@@ -112,6 +112,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	_ = os.MkdirAll(uploadsDir, 0755)
 
 	// Unified media streaming & serving routes (Cloudflare R2 with local fallback)
+	r.Get("/uploads/proxy", uploadHandler.ProxyRemoteMedia)
 	r.Get("/uploads/*", uploadHandler.ServeMedia)
 	r.Head("/uploads/*", uploadHandler.ServeMedia)
 	r.Post("/uploads", uploadHandler.Upload)
@@ -129,6 +130,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		// Public Media Upload & Streaming (Cloudflare R2)
 		api.Route("/uploads", func(u chi.Router) {
 			u.Post("/", uploadHandler.Upload)
+			u.Get("/proxy", uploadHandler.ProxyRemoteMedia)
 			u.Get("/*", uploadHandler.ServeMedia)
 			u.Head("/*", uploadHandler.ServeMedia)
 		})

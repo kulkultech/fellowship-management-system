@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -175,6 +176,15 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func isImageMediaKey(key string) bool {
+	ext := strings.ToLower(filepath.Ext(key))
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico", ".bmp", ".tiff":
+		return true
+	}
+	return strings.Contains(key, "banners/") || strings.Contains(key, "logos/") || strings.Contains(key, "profiles/")
+}
+
 func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "*")
 	key = strings.TrimPrefix(key, "/")
@@ -186,14 +196,22 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "media key not specified")
 		return
 	}
+	if key == "proxy" || key == "proxy/" {
+		h.ProxyRemoteMedia(w, r)
+		return
+	}
 
-	// 1. Try presigned download URL with HTTP 307 Temporary Redirect.
+	// 1. Try presigned download URL with HTTP 307 Temporary Redirect for non-image media (e.g. video files).
 	// For Cloudflare R2 / S3 storage, this delegates range requests, seeking, and streaming
 	// directly to Cloudflare's edge CDN with native HTTP 206 Partial Content support.
-	// This completely eliminates server memory spikes, proxy stalls, and timeouts on long videos.
-	if presignedURL, err := h.storage.PresignDownload(r.Context(), key, 2*time.Hour); err == nil && presignedURL != "" {
-		http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
-		return
+	// However, for image media (banners, logos) or when explicitly requested via ?direct=1 / ?proxy=1,
+	// stream directly through the server with CORS headers for canvas manipulation and cropping.
+	shouldPresign := r.URL.Query().Get("proxy") != "1" && r.URL.Query().Get("direct") != "1" && !isImageMediaKey(key)
+	if shouldPresign {
+		if presignedURL, err := h.storage.PresignDownload(r.Context(), key, 2*time.Hour); err == nil && presignedURL != "" {
+			http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
+			return
+		}
 	}
 
 	rc, contentType, _, err := h.storage.Get(r.Context(), key)
@@ -229,6 +247,9 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Range, Authorization")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Accept-Ranges", "bytes")
 
@@ -255,4 +276,56 @@ func (h *UploadHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, filepath.Base(key), time.Time{}, seeker)
+}
+
+// ProxyRemoteMedia safely proxies external images (e.g., Unsplash, Google profile photos) with CORS headers
+// so they can be framed and manipulated in HTML5 canvas.
+func (h *UploadHandler) ProxyRemoteMedia(w http.ResponseWriter, r *http.Request) {
+	rawURL := r.URL.Query().Get("url")
+	if rawURL == "" {
+		httpx.Error(w, http.StatusBadRequest, "url parameter is required")
+		return
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		httpx.Error(w, http.StatusBadRequest, "invalid url parameter")
+		return
+	}
+
+	client := &http.Client{
+		Timeout: 20 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to create request")
+		return
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; FellowshipManagementSystem/1.0)")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Warn("proxy remote media failed", slog.String("url", rawURL), slog.Any("error", err))
+		httpx.Error(w, http.StatusBadGateway, "failed to fetch remote media")
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		httpx.Error(w, http.StatusBadGateway, fmt.Sprintf("remote returned status %d", resp.StatusCode))
+		return
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Range, Authorization")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+
+	// Limit to max 15MB
+	_, _ = io.Copy(w, io.LimitReader(resp.Body, 15*1024*1024))
 }

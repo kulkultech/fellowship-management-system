@@ -14,6 +14,7 @@ import {
   Eye,
   Crop,
   Maximize2,
+  Loader2,
 } from 'lucide-react';
 
 export interface AspectRatioOption {
@@ -65,6 +66,8 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [safeImageSrc, setSafeImageSrc] = useState<string>('');
+  const [isResolvingSource, setIsResolvingSource] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -78,18 +81,79 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
   const targetW = activeRatio >= 1 ? 1200 : Math.round(1200 * activeRatio);
   const targetH = activeRatio >= 1 ? Math.round(1200 / activeRatio) : 1200;
 
-  // Reset adjustments when a new image source is loaded or modal opens
+  // Preload and convert image source to a safe same-origin blob URL
   useEffect(() => {
-    if (isOpen) {
-      setSelectedRatioId('3:1');
-      setCustomRatio(defaultRatio);
-      setIsCustom(false);
-      setZoom(1);
-      setPosX(50);
-      setPosY(50);
-      setImageLoaded(false);
-      setLoadError(null);
+    if (!isOpen || !imageSrc) return;
+
+    setSelectedRatioId('3:1');
+    setCustomRatio(defaultRatio);
+    setIsCustom(false);
+    setZoom(1);
+    setPosX(50);
+    setPosY(50);
+    setImageLoaded(false);
+    setLoadError(null);
+
+    // If it's already a blob or data URL, it can safely be drawn to canvas
+    if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+      setSafeImageSrc(imageSrc);
+      return;
     }
+
+    let isMounted = true;
+    setIsResolvingSource(true);
+
+    const loadSafeBlob = async () => {
+      // 1. If internal upload path, add ?direct=1 so backend streams directly without R2 redirect
+      let directUrl = imageSrc;
+      if (directUrl.includes('/uploads/')) {
+        directUrl += (directUrl.includes('?') ? '&' : '?') + 'direct=1';
+      }
+
+      try {
+        const resp = await fetch(directUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          if (isMounted) {
+            const blobUrl = URL.createObjectURL(blob);
+            setSafeImageSrc(blobUrl);
+            setIsResolvingSource(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Direct fetch failed, trying backend proxy:', err);
+      }
+
+      // 2. If direct fetch failed or was blocked by CORS, use backend proxy
+      try {
+        const proxyUrl = `/api/v1/uploads/proxy?url=${encodeURIComponent(imageSrc)}`;
+        const resp = await fetch(proxyUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          if (isMounted) {
+            const blobUrl = URL.createObjectURL(blob);
+            setSafeImageSrc(blobUrl);
+            setIsResolvingSource(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Backend proxy fetch failed:', err);
+      }
+
+      // 3. Fallback: use raw imageSrc directly
+      if (isMounted) {
+        setSafeImageSrc(imageSrc);
+        setIsResolvingSource(false);
+      }
+    };
+
+    loadSafeBlob();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, imageSrc, defaultRatio]);
 
   // Handle Drag / Pan with Mouse or Touch
@@ -160,22 +224,38 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
 
   // Generate cropped/framed canvas and export high-res image
   const handleApplyFraming = async () => {
-    if (!imageSrc) return;
+    const srcToUse = safeImageSrc || imageSrc;
+    if (!srcToUse) return;
     setIsProcessing(true);
+    setLoadError(null);
     let tempBlobUrl: string | null = null;
 
     try {
-      let resolvedSrc = imageSrc;
-      if (!imageSrc.startsWith('blob:') && !imageSrc.startsWith('data:')) {
+      let resolvedSrc = srcToUse;
+      if (!resolvedSrc.startsWith('blob:') && !resolvedSrc.startsWith('data:')) {
         try {
-          const resp = await fetch(imageSrc, { mode: 'cors' });
+          let directUrl = resolvedSrc;
+          if (directUrl.includes('/uploads/')) {
+            directUrl += (directUrl.includes('?') ? '&' : '?') + 'direct=1';
+          }
+          const resp = await fetch(directUrl);
           if (resp.ok) {
             const blob = await resp.blob();
             tempBlobUrl = URL.createObjectURL(blob);
             resolvedSrc = tempBlobUrl;
           }
         } catch {
-          // fallback to direct src
+          try {
+            const proxyUrl = `/api/v1/uploads/proxy?url=${encodeURIComponent(resolvedSrc)}`;
+            const resp = await fetch(proxyUrl);
+            if (resp.ok) {
+              const blob = await resp.blob();
+              tempBlobUrl = URL.createObjectURL(blob);
+              resolvedSrc = tempBlobUrl;
+            }
+          } catch {
+            // fallback to direct src
+          }
         }
       }
 
@@ -186,7 +266,21 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Failed to load image for framing.'));
+        img.onerror = () => {
+          // If crossOrigin failed, try without crossOrigin
+          if (img.crossOrigin) {
+            const retryImg = new Image();
+            retryImg.onload = () => {
+              img.width = retryImg.naturalWidth;
+              img.height = retryImg.naturalHeight;
+              resolve();
+            };
+            retryImg.onerror = () => reject(new Error('Failed to load image for framing.'));
+            retryImg.src = resolvedSrc;
+          } else {
+            reject(new Error('Failed to load image for framing.'));
+          }
+        };
         img.src = resolvedSrc;
       });
 
@@ -386,61 +480,68 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               </span>
             </div>
 
-            <div className="flex justify-center items-center w-full bg-slate-900/5 p-3 rounded-2xl border border-slate-200/80 min-h-[200px]">
-              <div
-                ref={containerRef}
-                onPointerDown={handlePointerDown}
-                style={{
-                  aspectRatio: `${activeRatio}`,
-                  maxHeight: '280px',
-                  width: '100%',
-                  maxWidth: activeRatio >= 2 ? '100%' : `${Math.round(280 * activeRatio)}px`,
-                }}
-                className={`relative rounded-2xl border-2 border-dashed border-slate-300 bg-slate-950 overflow-hidden select-none touch-none mx-auto transition-all duration-150 cursor-grab shadow-inner ${
-                  isDragging ? 'cursor-grabbing border-kulkul-purple ring-2 ring-kulkul-purple/20' : ''
-                }`}
-              >
-                <img
-                  ref={imgRef}
-                  src={imageSrc}
-                  alt="Framing preview"
-                  onLoad={() => setImageLoaded(true)}
-                  onError={() => {
-                    setImageLoaded(false);
-                    setLoadError('Failed to load image source.');
-                  }}
+            <div className="flex justify-center items-center w-full bg-slate-900/5 p-3 rounded-2xl border border-slate-200/80 min-h-[220px]">
+              {isResolvingSource ? (
+                <div className="flex flex-col items-center justify-center p-8 text-slate-400 gap-2">
+                  <Loader2 className="w-6 h-6 text-kulkul-purple animate-spin" />
+                  <span className="text-xs font-semibold text-slate-600">Preparing banner image...</span>
+                </div>
+              ) : (
+                <div
+                  ref={containerRef}
+                  onPointerDown={handlePointerDown}
                   style={{
-                    objectPosition: `${posX}% ${posY}%`,
-                    transform: `scale(${zoom})`,
-                    transformOrigin: `${posX}% ${posY}%`,
+                    aspectRatio: `${activeRatio}`,
+                    maxHeight: '280px',
+                    width: '100%',
+                    maxWidth: activeRatio >= 2 ? '100%' : `${Math.round(280 * activeRatio)}px`,
                   }}
-                  className="w-full h-full object-cover transition-transform duration-75 pointer-events-none"
-                />
+                  className={`relative rounded-2xl border-2 border-dashed border-slate-300 bg-slate-950 overflow-hidden select-none touch-none mx-auto transition-all duration-150 cursor-grab shadow-inner ${
+                    isDragging ? 'cursor-grabbing border-kulkul-purple ring-2 ring-kulkul-purple/20' : ''
+                  }`}
+                >
+                  <img
+                    ref={imgRef}
+                    src={safeImageSrc || imageSrc}
+                    alt="Framing preview"
+                    onLoad={() => setImageLoaded(true)}
+                    onError={() => {
+                      setImageLoaded(false);
+                      setLoadError('Failed to load image source.');
+                    }}
+                    style={{
+                      objectPosition: `${posX}% ${posY}%`,
+                      transform: `scale(${zoom})`,
+                      transformOrigin: `${posX}% ${posY}%`,
+                    }}
+                    className="w-full h-full object-cover transition-transform duration-75 pointer-events-none"
+                  />
 
-                {/* Grid Guide Overlay */}
-                <div className="absolute inset-0 pointer-events-none border border-white/20">
-                  <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-20">
-                    <div className="border-r border-b border-white" />
-                    <div className="border-r border-b border-white" />
-                    <div className="border-b border-white" />
-                    <div className="border-r border-b border-white" />
-                    <div className="border-r border-b border-white" />
-                    <div className="border-b border-white" />
-                    <div className="border-r border-b border-white" />
-                    <div className="border-r border-b border-white" />
-                    <div />
+                  {/* Grid Guide Overlay */}
+                  <div className="absolute inset-0 pointer-events-none border border-white/20">
+                    <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-20">
+                      <div className="border-r border-b border-white" />
+                      <div className="border-r border-b border-white" />
+                      <div className="border-b border-white" />
+                      <div className="border-r border-b border-white" />
+                      <div className="border-r border-b border-white" />
+                      <div className="border-b border-white" />
+                      <div className="border-r border-b border-white" />
+                      <div className="border-r border-b border-white" />
+                      <div />
+                    </div>
+                  </div>
+
+                  {/* Status Pill */}
+                  <div className="absolute bottom-2 left-2 pointer-events-none bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-3xs font-bold text-white flex items-center gap-2">
+                    <span>Ratio: {isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId}</span>
+                    <span>•</span>
+                    <span>Pos: {posX}% X, {posY}% Y</span>
+                    <span>•</span>
+                    <span>Zoom: {Math.round(zoom * 100)}%</span>
                   </div>
                 </div>
-
-                {/* Status Pill */}
-                <div className="absolute bottom-2 left-2 pointer-events-none bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-3xs font-bold text-white flex items-center gap-2">
-                  <span>Ratio: {isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId}</span>
-                  <span>•</span>
-                  <span>Pos: {posX}% X, {posY}% Y</span>
-                  <span>•</span>
-                  <span>Zoom: {Math.round(zoom * 100)}%</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
