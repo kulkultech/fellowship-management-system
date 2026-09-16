@@ -122,21 +122,22 @@ export const ProgramJobPostPage: React.FC = () => {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* Cover Banner */}
-        <div className="stitch-card bg-white overflow-hidden shadow-sm border border-slate-100">
-          {/* Banner Cover Image */}
-          <div className="relative h-64 sm:h-80 md:h-96 w-full bg-slate-900 overflow-hidden">
+        <div className="stitch-card bg-white overflow-hidden shadow-sm border border-slate-100 rounded-3xl">
+          {/* Banner Cover Image Showcase */}
+          <div className="relative w-full bg-slate-950 overflow-hidden flex items-center justify-center">
             <img
               src={programImage}
               alt={program.name}
-              className="w-full h-full object-cover opacity-85"
+              className="w-full h-auto max-h-[460px] sm:max-h-[500px] object-cover block"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
+            {/* Subtle top vignette only for share button legibility */}
+            <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
 
             {/* Share / Copy Link on Banner */}
-            <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
               <button
                 onClick={handleCopyLink}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold bg-white/90 hover:bg-white text-slate-800 backdrop-blur-md shadow-lg transition active:scale-95"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold bg-white/90 hover:bg-white text-slate-800 backdrop-blur-md shadow-lg transition active:scale-95 border border-white/50"
                 title="Share this program post"
               >
                 {isCopied ? (
@@ -152,31 +153,49 @@ export const ProgramJobPostPage: React.FC = () => {
                 )}
               </button>
             </div>
+          </div>
 
-            {/* Bottom Title on Image */}
-            <div className="absolute bottom-6 left-6 right-6 text-white space-y-2.5">
+          {/* Program Header (Cleanly positioned below banner, keeping banner artwork 100% visible) */}
+          <div className="p-6 sm:p-8 bg-white space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Organization Branding Badge with Logo */}
-              <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-md shadow-md border border-white/40">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-kulkul-purple shadow-2xs">
                 {orgLogo ? (
                   <img
                     src={orgLogo}
                     alt={org?.name || 'Organization'}
-                    className="w-5 h-5 rounded-full object-contain"
+                    className="w-4 h-4 rounded-full object-contain"
                   />
                 ) : (
-                  <Building className="w-4 h-4 text-kulkul-purple" />
+                  <Building className="w-3.5 h-3.5 text-kulkul-purple" />
                 )}
-                <span className="text-xs font-black uppercase tracking-wider text-kulkul-purple">
+                <span className="text-xs font-black uppercase tracking-wider">
                   {org?.name || 'Organization'}
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+              {isBeforeOpen ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold shadow-2xs">
+                  <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                  <span>Opening Soon</span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Applications Open</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
                 {program.name}
               </h1>
-              <p className="text-white/80 text-sm sm:text-base mt-1 max-w-3xl line-clamp-2">
-                {program.description}
-              </p>
+              {program.description && (
+                <p className="text-slate-600 text-sm sm:text-base mt-2.5 max-w-3xl leading-relaxed">
+                  {program.description}
+                </p>
+              )}
             </div>
           </div>
 

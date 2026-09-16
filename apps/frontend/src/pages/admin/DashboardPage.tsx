@@ -453,7 +453,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         setUploadingEditBanner(true);
         const res = await uploadService.uploadFile(adjustedFile, 'banners');
         setEditFormImage(res.url);
-        toast.success('Program banner adjusted and uploaded successfully');
+
+        // Auto-persist directly to program in DB if editing an existing program
+        if (editTargetProgram?.id) {
+          try {
+            await adminService.updateProgram(editTargetProgram.id, {
+              name: editTargetProgram.name,
+              image_url: res.url,
+            });
+            queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+            if (orgSlug && editTargetProgram.slug) {
+              queryClient.invalidateQueries({ queryKey: ['program', orgSlug, editTargetProgram.slug] });
+              queryClient.invalidateQueries({ queryKey: ['program-post', orgSlug, editTargetProgram.slug] });
+            }
+            toast.success('Program banner adjusted and published successfully');
+          } catch (updateErr: any) {
+            console.error('Failed to auto-update program with banner:', updateErr);
+            toast.success('Banner uploaded. Click "Save Changes" to apply.');
+          }
+        } else {
+          toast.success('Program banner adjusted and uploaded successfully');
+        }
       } catch (err: any) {
         toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
       } finally {
