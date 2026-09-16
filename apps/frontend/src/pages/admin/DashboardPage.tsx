@@ -30,6 +30,7 @@ import {
   DEFAULT_VISIBLE_COLUMNS,
   type CandidateTableColumnDef,
 } from '@/components/admin/CandidateTableCustomizer';
+import { ProgramImageAdjustModal } from '@/components/admin/ProgramImageAdjustModal';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -401,7 +402,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [newProgPassingScore, setNewProgPassingScore] = useState(70);
   const [uploadingBanner, setUploadingBanner] = useState(false);
 
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Program Banner Image Adjuster State
+  const [adjustBannerModalOpen, setAdjustBannerModalOpen] = useState(false);
+  const [adjustBannerSrc, setAdjustBannerSrc] = useState('');
+  const [adjustBannerTarget, setAdjustBannerTarget] = useState<'create' | 'edit'>('create');
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -410,20 +416,41 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Banner image must be under 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Banner image must be under 10MB');
       return;
     }
 
-    try {
-      setUploadingBanner(true);
-      const res = await uploadService.uploadFile(file, 'banners');
-      setNewProgImage(res.url);
-      toast.success('Cover banner uploaded successfully');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
-    } finally {
-      setUploadingBanner(false);
+    const localUrl = URL.createObjectURL(file);
+    setAdjustBannerSrc(localUrl);
+    setAdjustBannerTarget('create');
+    setAdjustBannerModalOpen(true);
+    e.target.value = '';
+  };
+
+  const handleApplyAdjustedBanner = async (adjustedFile: File) => {
+    if (adjustBannerTarget === 'create') {
+      try {
+        setUploadingBanner(true);
+        const res = await uploadService.uploadFile(adjustedFile, 'banners');
+        setNewProgImage(res.url);
+        toast.success('Program banner adjusted and uploaded successfully');
+      } catch (err: any) {
+        toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
+      } finally {
+        setUploadingBanner(false);
+      }
+    } else {
+      try {
+        setUploadingEditBanner(true);
+        const res = await uploadService.uploadFile(adjustedFile, 'banners');
+        setEditFormImage(res.url);
+        toast.success('Program banner adjusted and uploaded successfully');
+      } catch (err: any) {
+        toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
+      } finally {
+        setUploadingEditBanner(false);
+      }
     }
   };
 
@@ -1401,7 +1428,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     setIsEditProgramModalOpen(true);
   };
 
-  const handleEditBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -1410,21 +1437,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Banner image must be under 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Banner image must be under 10MB');
       return;
     }
 
-    try {
-      setUploadingEditBanner(true);
-      const res = await uploadService.uploadFile(file, 'banners');
-      setEditFormImage(res.url);
-      toast.success('Cover banner uploaded successfully');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
-    } finally {
-      setUploadingEditBanner(false);
-    }
+    const localUrl = URL.createObjectURL(file);
+    setAdjustBannerSrc(localUrl);
+    setAdjustBannerTarget('edit');
+    setAdjustBannerModalOpen(true);
+    e.target.value = '';
   };
 
   const handleCopyTestLink = (previewToken?: string, progSlug?: string) => {
@@ -1806,6 +1828,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </option>
           ))}
         </select>
+      )}
+
+      {/* Edit Active Program Details & Banner */}
+      {currentView !== 'programs' && program && (
+        <button
+          type="button"
+          onClick={() => handleOpenEditProgramModal(program)}
+          className="btn btn-sm btn-outline shadow-2xs"
+          title="Edit program details, banner image, and schedule"
+        >
+          <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
+          <span className="hidden sm:inline">Program Settings</span>
+        </button>
       )}
 
       {/* Company Settings & Slug Configuration */}
@@ -4007,33 +4042,62 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     {uploadingBanner ? (
                       <div className="flex flex-col items-center justify-center rounded-2xl border border-purple-200 bg-purple-50/40 p-8 aspect-[3/1] max-h-56 w-full animate-pulse">
                         <div className="w-8 h-8 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin mb-2" />
-                        <span className="text-xs font-bold text-kulkul-purple">Uploading banner...</span>
+                        <span className="text-xs font-bold text-kulkul-purple">Uploading and optimizing banner...</span>
                       </div>
                     ) : newProgImage ? (
-                      <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 aspect-[3/1] max-h-56 w-full flex items-center justify-center">
-                        <img
-                          src={resolveMediaUrl(newProgImage)}
-                          alt="Cover banner preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                          <label className="cursor-pointer px-4 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5">
-                            <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
-                            <span>Change Photo</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleBannerUpload}
-                              className="hidden"
-                            />
-                          </label>
+                      <div className="space-y-2">
+                        <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 aspect-[3/1] max-h-56 w-full flex items-center justify-center">
+                          <img
+                            src={resolveMediaUrl(newProgImage)}
+                            alt="Cover banner preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAdjustBannerSrc(resolveMediaUrl(newProgImage));
+                                setAdjustBannerTarget('create');
+                                setAdjustBannerModalOpen(true);
+                              }}
+                              className="px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5"
+                            >
+                              <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
+                              <span>Adjust Framing</span>
+                            </button>
+                            <label className="cursor-pointer px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5">
+                              <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
+                              <span>Change Photo</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleBannerUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setNewProgImage('')}
+                              className="px-3.5 py-2 rounded-full bg-red-600/90 hover:bg-red-600 text-white text-xs font-bold transition shadow-md flex items-center gap-1.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
+                          <span>Standard 3:1 program banner format</span>
                           <button
                             type="button"
-                            onClick={() => setNewProgImage('')}
-                            className="px-4 py-2 rounded-full bg-red-600/90 hover:bg-red-600 text-white text-xs font-bold transition shadow-md flex items-center gap-1.5"
+                            onClick={() => {
+                              setAdjustBannerSrc(resolveMediaUrl(newProgImage));
+                              setAdjustBannerTarget('create');
+                              setAdjustBannerModalOpen(true);
+                            }}
+                            className="font-bold text-kulkul-purple hover:underline flex items-center gap-1"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
+                            <Sliders className="w-3 h-3 text-kulkul-orange" />
+                            <span>Adjust Framing &amp; Focal Point</span>
                           </button>
                         </div>
                       </div>
@@ -4043,9 +4107,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <Upload className="w-5 h-5" />
                         </div>
                         <span className="text-xs font-bold text-slate-800 group-hover:text-kulkul-purple transition">
-                          Click to upload cover banner photo
+                          Click to upload &amp; adjust cover banner photo
                         </span>
-                        <span className="text-2xs text-slate-400 mt-1">PNG, JPG, WebP, or GIF up to 5MB</span>
+                        <span className="text-2xs text-slate-400 mt-1">PNG, JPG, WebP, or SVG up to 10MB • Interactive framing adjuster</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -5375,45 +5439,90 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                 {/* Cover Banner */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Cover Banner Image
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Cover Banner Image
+                    </label>
+                    {editFormImage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdjustBannerSrc(resolveMediaUrl(editFormImage));
+                          setAdjustBannerTarget('edit');
+                          setAdjustBannerModalOpen(true);
+                        }}
+                        className="text-2xs font-bold text-kulkul-purple hover:underline flex items-center gap-1"
+                      >
+                        <Sliders className="w-3 h-3 text-kulkul-orange" />
+                        <span>Adjust Framing</span>
+                      </button>
+                    )}
+                  </div>
                   {uploadingEditBanner ? (
                     <div className="flex items-center justify-center p-4 rounded-xl border border-purple-200 bg-purple-50 text-xs font-bold text-kulkul-purple animate-pulse">
-                      Uploading to storage...
+                      Uploading and optimizing banner...
                     </div>
                   ) : editFormImage ? (
-                    <div className="relative rounded-xl border border-slate-200 overflow-hidden aspect-[3/1] max-h-36 w-full flex items-center justify-center group bg-slate-900/5">
-                      <img
-                        src={resolveMediaUrl(editFormImage)}
-                        alt="Banner Preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <label className="cursor-pointer px-3 py-1.5 rounded-full bg-white text-slate-800 text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-slate-50">
-                          <Upload className="w-3 h-3 text-kulkul-purple" />
-                          <span>Change</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleEditBannerUpload}
-                            className="hidden"
-                          />
-                        </label>
+                    <div className="space-y-2">
+                      <div className="relative rounded-xl border border-slate-200 overflow-hidden aspect-[3/1] max-h-40 w-full flex items-center justify-center group bg-slate-900/5">
+                        <img
+                          src={resolveMediaUrl(editFormImage)}
+                          alt="Banner Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAdjustBannerSrc(resolveMediaUrl(editFormImage));
+                              setAdjustBannerTarget('edit');
+                              setAdjustBannerModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-full bg-white text-slate-800 text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-slate-50"
+                          >
+                            <Sliders className="w-3 h-3 text-kulkul-purple" />
+                            <span>Adjust</span>
+                          </button>
+                          <label className="cursor-pointer px-3 py-1.5 rounded-full bg-white text-slate-800 text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-slate-50">
+                            <Upload className="w-3 h-3 text-kulkul-purple" />
+                            <span>Change</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleEditBannerUpload}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormImage('')}
+                            className="px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-red-700"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
+                        <span>Focal ratio: 3:1 (1200 x 400)</span>
                         <button
                           type="button"
-                          onClick={() => setEditFormImage('')}
-                          className="px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-red-700"
+                          onClick={() => {
+                            setAdjustBannerSrc(resolveMediaUrl(editFormImage));
+                            setAdjustBannerTarget('edit');
+                            setAdjustBannerModalOpen(true);
+                          }}
+                          className="font-semibold text-kulkul-purple hover:underline flex items-center gap-1"
                         >
-                          <Trash2 className="w-3 h-3" />
-                          <span>Remove</span>
+                          <Sliders className="w-3 h-3 text-kulkul-orange" />
+                          <span>Reposition / Zoom</span>
                         </button>
                       </div>
                     </div>
                   ) : (
                     <label className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 hover:border-kulkul-purple rounded-xl p-4 cursor-pointer bg-slate-50/60 hover:bg-purple-50/20 transition">
                       <Upload className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs font-bold text-slate-700">Upload Cover Banner (PNG, JPG, WebP)</span>
+                      <span className="text-xs font-bold text-slate-700">Upload &amp; Adjust Cover Banner (PNG, JPG, WebP)</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -5698,6 +5807,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           applicants={applicants}
           activeColumns={activeColumns}
           onChangeColumns={handleUpdateActiveColumns}
+        />
+
+        {/* Program Banner Image Adjuster Modal */}
+        <ProgramImageAdjustModal
+          isOpen={adjustBannerModalOpen}
+          onClose={() => setAdjustBannerModalOpen(false)}
+          imageSrc={adjustBannerSrc}
+          onApply={handleApplyAdjustedBanner}
         />
       </DashboardLayout>
   );
