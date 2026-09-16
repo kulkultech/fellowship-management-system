@@ -44,6 +44,7 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 		PasswordHash:   string(hash),
 		Name:           "FellowHire Superadmin",
 		Role:           "superadmin",
+		EmailVerified:  true,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -57,6 +58,7 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 		PasswordHash:   string(hash),
 		Name:           "RSA Reviewer Admin",
 		Role:           "org_admin",
+		EmailVerified:  true,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -78,6 +80,7 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash, name, 
 			PasswordHash:   passwordHash,
 			Name:           name,
 			Role:           role,
+			EmailVerified:  true,
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
@@ -86,16 +89,57 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash, name, 
 	}
 
 	query := `
-		INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, now(), now())
-		RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
+		INSERT INTO users (organization_id, email, password_hash, name, role, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, true, now(), now())
+		RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
 	`
 	var u model.User
 	err := r.pool.QueryRow(ctx, query, orgID, email, passwordHash, name, role).Scan(
-		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.CreatedAt, &u.UpdatedAt,
+		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("user_repo: create: %w", err)
+	}
+	return &u, nil
+}
+
+func (r *UserRepository) CreateUnverified(ctx context.Context, email, passwordHash, name, role string, orgID *uuid.UUID, token string, expiresAt time.Time) (*model.User, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if _, exists := r.memUsers[email]; exists {
+			return nil, ErrUserAlreadyExists
+		}
+		tok := token
+		exp := expiresAt
+		u := &model.User{
+			ID:                  uuid.New(),
+			OrganizationID:      orgID,
+			Email:               email,
+			PasswordHash:        passwordHash,
+			Name:                name,
+			Role:                role,
+			EmailVerified:       false,
+			ActivationToken:     &tok,
+			ActivationExpiresAt: &exp,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
+		}
+		r.memUsers[email] = u
+		return u, nil
+	}
+
+	query := `
+		INSERT INTO users (organization_id, email, password_hash, name, role, email_verified, activation_token, activation_expires_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, false, $6, $7, now(), now())
+		RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, false), activation_token, activation_expires_at, created_at, updated_at
+	`
+	var u model.User
+	err := r.pool.QueryRow(ctx, query, orgID, email, passwordHash, name, role, token, expiresAt).Scan(
+		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("user_repo: create unverified: %w", err)
 	}
 	return &u, nil
 }
@@ -255,13 +299,13 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 	}
 
 	query := `
-		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
+		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
 	var u model.User
 	err := r.pool.QueryRow(ctx, query, email).Scan(
-		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.CreatedAt, &u.UpdatedAt,
+		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -285,13 +329,13 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 	}
 
 	query := `
-		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
+		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 	var u model.User
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.CreatedAt, &u.UpdatedAt,
+		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -447,18 +491,19 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	// IMPORTANT: ON CONFLICT must NEVER demote org_admin/reviewer/superadmin down to candidate,
 	// and must NEVER clear organization_id if the user already has one!
 	query := `
-		INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
-		VALUES ($1, $2, '', $3, $4, now(), now())
+		INSERT INTO users (organization_id, email, password_hash, name, role, email_verified, created_at, updated_at)
+		VALUES ($1, $2, '', $3, $4, true, now(), now())
 		ON CONFLICT (email) DO UPDATE SET
 			name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END,
 			role = CASE WHEN users.role IN ('org_admin', 'reviewer', 'superadmin') AND EXCLUDED.role = 'candidate' THEN users.role ELSE EXCLUDED.role END,
 			organization_id = CASE WHEN users.organization_id IS NOT NULL AND EXCLUDED.organization_id IS NULL THEN users.organization_id ELSE EXCLUDED.organization_id END,
+			email_verified = true,
 			updated_at = now()
-		RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
+		RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
 	`
 	var user model.User
 	err = r.pool.QueryRow(ctx, query, orgID, email, name, role).Scan(
-		&user.ID, &user.OrganizationID, &user.Email, &user.PasswordHash, &user.Name, &user.AvatarURL, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.OrganizationID, &user.Email, &user.PasswordHash, &user.Name, &user.AvatarURL, &user.Role, &user.EmailVerified, &user.ActivationToken, &user.ActivationExpiresAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("user_repo: oauth create/upsert: %w", err)
@@ -500,7 +545,7 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, userID uuid.UUID, na
 			    password_hash = $4,
 			    updated_at = now()
 			WHERE id = $1
-			RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
+			RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
 		`
 		args = []any{userID, name, avatarURL, *passwordHash}
 	} else {
@@ -510,14 +555,14 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, userID uuid.UUID, na
 			    avatar_url = $3,
 			    updated_at = now()
 			WHERE id = $1
-			RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, created_at, updated_at
+			RETURNING id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
 		`
 		args = []any{userID, name, avatarURL}
 	}
 
 	var u model.User
 	err := r.pool.QueryRow(ctx, query, args...).Scan(
-		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.CreatedAt, &u.UpdatedAt,
+		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -526,5 +571,127 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, userID uuid.UUID, na
 		return nil, fmt.Errorf("user_repo: update profile: %w", err)
 	}
 	return &u, nil
+}
+
+func (r *UserRepository) GetByActivationToken(ctx context.Context, token string) (*model.User, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil, ErrUserNotFound
+	}
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, u := range r.memUsers {
+			if u.ActivationToken != nil && *u.ActivationToken == token {
+				return u, nil
+			}
+		}
+		return nil, ErrUserNotFound
+	}
+
+	query := `
+		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
+		FROM users
+		WHERE activation_token = $1
+	`
+	var u model.User
+	err := r.pool.QueryRow(ctx, query, token).Scan(
+		&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("user_repo: get by activation token: %w", err)
+	}
+	return &u, nil
+}
+
+func (r *UserRepository) ActivateUser(ctx context.Context, userID uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, u := range r.memUsers {
+			if u.ID == userID {
+				u.EmailVerified = true
+				u.ActivationToken = nil
+				u.ActivationExpiresAt = nil
+				u.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrUserNotFound
+	}
+
+	query := `
+		UPDATE users
+		SET email_verified = true, activation_token = NULL, activation_expires_at = NULL, updated_at = now()
+		WHERE id = $1
+	`
+	tag, err := r.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("user_repo: activate user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) SetActivationToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, u := range r.memUsers {
+			if u.ID == userID {
+				tok := token
+				exp := expiresAt
+				u.ActivationToken = &tok
+				u.ActivationExpiresAt = &exp
+				u.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrUserNotFound
+	}
+
+	query := `
+		UPDATE users
+		SET activation_token = $2, activation_expires_at = $3, updated_at = now()
+		WHERE id = $1
+	`
+	tag, err := r.pool.Exec(ctx, query, userID, token, expiresAt)
+	if err != nil {
+		return fmt.Errorf("user_repo: set activation token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) SetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, u := range r.memUsers {
+			if u.ID == userID {
+				u.PasswordHash = passwordHash
+				u.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrUserNotFound
+	}
+
+	query := `UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`
+	tag, err := r.pool.Exec(ctx, query, userID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("user_repo: set password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }
 

@@ -383,6 +383,7 @@ export interface User {
   name: string;
   avatar_url?: string;
   role: 'superadmin' | 'org_admin' | 'reviewer' | 'candidate';
+  email_verified?: boolean;
 }
 
 export interface UpdateProfilePayload {
@@ -400,6 +401,22 @@ export interface AuthResponse {
   csrf_token: string;
 }
 
+export interface CandidateRegistrationPayload {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface RegistrationResponse {
+  message: string;
+  requires_activation?: boolean;
+  email?: string;
+  status?: string;
+  company?: Organization;
+  user?: User;
+  csrf_token?: string;
+}
+
 export interface CompanyRegistrationPayload {
   company_name: string;
   company_slug: string;
@@ -407,7 +424,7 @@ export interface CompanyRegistrationPayload {
   logo_url?: string;
   admin_name: string;
   admin_email: string;
-  admin_password: string;
+  admin_password?: string;
 }
 
 export interface PipelineConfigPayload {

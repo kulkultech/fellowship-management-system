@@ -10,6 +10,7 @@ import { TestPage } from '@/pages/assessment/TestPage';
 import { ResultPage } from '@/pages/assessment/ResultPage';
 import { InterviewPage } from '@/pages/assessment/InterviewPage';
 import { CompanyRegisterPage } from '@/pages/CompanyRegisterPage';
+import { AccountActivationPage } from '@/pages/AccountActivationPage';
 import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
@@ -61,8 +62,9 @@ export function App() {
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
-          {/* Company Self-Registration */}
+          {/* Company Self-Registration & Account Activation */}
           <Route path="/register-company" element={<CompanyRegisterPage />} />
+          <Route path="/activate" element={<AccountActivationPage />} />
 
           {/* Public Program Job Post / Fellowship Listing */}
           <Route path="/programs/:orgSlug/:programSlug" element={<ProgramJobPostPage />} />

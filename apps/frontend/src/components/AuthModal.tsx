@@ -285,6 +285,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </div>
             </form>
+
+            <div className="text-center pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate('/candidate/dashboard');
+                  }}
+                  className="text-xs font-bold text-kulkul-purple hover:underline"
+                >
+                  Sign In or Create Account with Email &amp; Password &rarr;
+                </button>
+              </div>
+            </div>
           </div>
         )}
         </div>

@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { authService } from '@/services/authService';
+import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const LoginPage: React.FC = () => {
@@ -13,11 +14,16 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authTab, setAuthTab] = useState<'google' | 'password'>('google');
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
       if (user.role === 'superadmin') {
         navigate('/superadmin/dashboard', { replace: true });
+      } else if (user.role === 'candidate') {
+        navigate('/candidate/dashboard', { replace: true });
       } else if (user.role === 'org_admin' || user.role === 'reviewer') {
         navigate('/admin/dashboard', { replace: true });
       }
@@ -35,16 +41,40 @@ export const LoginPage: React.FC = () => {
       toast.error('Please enter your email and password');
       return;
     }
+    setUnverifiedEmail(null);
+    setResendSuccess(false);
+
     try {
       const res = await login({ email: email.trim().toLowerCase(), password });
       toast.success('Welcome back!');
       if (res.user?.role === 'superadmin') {
         navigate('/superadmin/dashboard', { replace: true });
+      } else if (res.user?.role === 'candidate') {
+        navigate('/candidate/dashboard', { replace: true });
       } else {
         navigate('/admin/dashboard', { replace: true });
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Invalid email or password');
+      if (err?.response?.data?.requires_activation) {
+        setUnverifiedEmail(err.response.data.email || email.trim().toLowerCase());
+        toast.error('Account not activated yet. Please verify your email.');
+      } else {
+        toast.error(err?.response?.data?.error || 'Invalid email or password');
+      }
+    }
+  };
+
+  const handleResendActivation = async () => {
+    if (!unverifiedEmail) return;
+    setIsResending(true);
+    try {
+      await authService.resendActivation(unverifiedEmail);
+      setResendSuccess(true);
+      toast.success('Activation link sent! Check your inbox.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to resend activation link');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -160,6 +190,33 @@ export const LoginPage: React.FC = () => {
                   </div>
                 </div>
 
+                {unverifiedEmail && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-left">
+                    <div className="flex items-start gap-2 text-amber-800 text-xs">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Account activation required:</span> An activation link was sent to <strong className="text-amber-900">{unverifiedEmail}</strong>. Please check your inbox or spam folder.
+                      </div>
+                    </div>
+                    {resendSuccess ? (
+                      <div className="flex items-center gap-1.5 text-2xs text-emerald-700 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Activation link has been resent!</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendActivation}
+                        disabled={isResending}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs rounded-xl transition disabled:opacity-60"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                        <span>{isResending ? 'Resending...' : 'Resend Activation Email'}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isLoggingIn}
@@ -169,7 +226,7 @@ export const LoginPage: React.FC = () => {
                     <span>Signing in...</span>
                   ) : (
                     <>
-                      <span>Sign In to Admin Portal</span>
+                      <span>Sign In</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

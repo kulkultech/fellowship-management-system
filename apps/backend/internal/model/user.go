@@ -14,6 +14,9 @@ type User struct {
 	Name           string     `json:"name"`
 	AvatarURL      string     `json:"avatar_url"`
 	Role           string     `json:"role"` // 'superadmin', 'org_admin', 'reviewer'
+	EmailVerified  bool       `json:"email_verified"`
+	ActivationToken *string   `json:"-"`
+	ActivationExpiresAt *time.Time `json:"-"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }

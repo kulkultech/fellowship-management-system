@@ -131,4 +131,7 @@ func TestSESService_SimulationMode(t *testing.T) {
 	if err := svc.SendApplicationReceivedEmail("test@example.com", "Test User", "LIT 2026", "Fullstack", "https://test.url", 30, 70); err != nil {
 		t.Fatalf("unexpected error in SendApplicationReceivedEmail: %v", err)
 	}
+	if err := svc.SendAccountActivationEmail("test@example.com", "Test User", "https://fellowhire.kul.to/activate?token=abc"); err != nil {
+		t.Fatalf("unexpected error in SendAccountActivationEmail: %v", err)
+	}
 }

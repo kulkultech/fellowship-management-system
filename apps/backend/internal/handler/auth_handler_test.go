@@ -14,11 +14,11 @@ import (
 	"github.com/kulkul/backend/internal/repository"
 )
 
-func TestAuthHandler_RegisterCompanySetsAuthCookiesAndOrgAdmin(t *testing.T) {
+func TestAuthHandler_RegisterCompanyWithPasswordRequiresActivation(t *testing.T) {
 	userRepo := repository.NewUserRepository(nil)
 	orgRepo := repository.NewOrgRepository(nil)
 	authSvc := auth.NewService("test-secret-key-32characters-long!!", time.Hour)
-	h := handler.NewAuthHandler(userRepo, orgRepo, authSvc, nil, time.Hour, false, "")
+	h := handler.NewAuthHandler(userRepo, orgRepo, authSvc, nil, time.Hour, false, "", "http://localhost:5173")
 
 	payload := map[string]string{
 		"company_name":   "Innovate Tech",
@@ -40,7 +40,63 @@ func TestAuthHandler_RegisterCompanySetsAuthCookiesAndOrgAdmin(t *testing.T) {
 		t.Fatalf("expected status 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Verify that auth_token cookie was set
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if reqAct, ok := resp["requires_activation"].(bool); !ok || !reqAct {
+		t.Fatalf("expected requires_activation: true for email/password company registration, got %v", resp["requires_activation"])
+	}
+
+	// Verify in repository that user is created as org_admin and unverified
+	user, err := userRepo.GetByEmail(context.Background(), "founder@innovatetech.io")
+	if err != nil {
+		t.Fatalf("failed to get user: %v", err)
+	}
+	if user.Role != "org_admin" {
+		t.Errorf("expected user.Role in DB to be 'org_admin', got %q", user.Role)
+	}
+	if user.EmailVerified {
+		t.Errorf("expected user.EmailVerified to be false before activation")
+	}
+	if user.ActivationToken == nil || *user.ActivationToken == "" {
+		t.Fatalf("expected activation token to be set")
+	}
+}
+
+func TestAuthHandler_RegisterCompanyWithGoogleSSOSetsAuthCookies(t *testing.T) {
+	userRepo := repository.NewUserRepository(nil)
+	orgRepo := repository.NewOrgRepository(nil)
+	authSvc := auth.NewService("test-secret-key-32characters-long!!", time.Hour)
+	h := handler.NewAuthHandler(userRepo, orgRepo, authSvc, nil, time.Hour, false, "", "http://localhost:5173")
+
+	// Pre-create verified Google OAuth user
+	_, err := userRepo.Create(context.Background(), "google.admin@innovatetech.io", "", "Google Admin", "candidate", nil)
+	if err != nil {
+		t.Fatalf("failed to create pre-verified user: %v", err)
+	}
+
+	payload := map[string]string{
+		"company_name":   "Google Linked Corp",
+		"company_slug":   "google-linked",
+		"contact_email":  "contact@innovatetech.io",
+		"admin_name":     "Google Admin",
+		"admin_email":    "google.admin@innovatetech.io",
+		"admin_password": "optionalfallback123",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register-company", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterCompany(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify auth_token cookie was set immediately for pre-verified user
 	cookies := w.Result().Cookies()
 	var authTokenCookie *http.Cookie
 	for _, c := range cookies {
@@ -49,30 +105,15 @@ func TestAuthHandler_RegisterCompanySetsAuthCookiesAndOrgAdmin(t *testing.T) {
 			break
 		}
 	}
-
 	if authTokenCookie == nil || authTokenCookie.Value == "" {
-		t.Fatalf("expected auth_token cookie to be set, but was missing")
+		t.Fatalf("expected auth_token cookie to be set for Google-verified user")
 	}
 
-	// Validate the JWT claims in the cookie
 	claims, err := authSvc.ValidateToken(authTokenCookie.Value)
 	if err != nil {
-		t.Fatalf("failed to validate token from cookie: %v", err)
+		t.Fatalf("failed to validate token: %v", err)
 	}
-
 	if claims.Role != "org_admin" {
 		t.Errorf("expected claims.Role == 'org_admin', got %q", claims.Role)
-	}
-	if claims.OrganizationID == nil {
-		t.Errorf("expected claims.OrganizationID to be non-nil")
-	}
-
-	// Verify in repository
-	user, err := userRepo.GetByEmail(context.Background(), "founder@innovatetech.io")
-	if err != nil {
-		t.Fatalf("failed to get user: %v", err)
-	}
-	if user.Role != "org_admin" {
-		t.Errorf("expected user.Role in DB to be 'org_admin', got %q", user.Role)
 	}
 }

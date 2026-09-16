@@ -53,7 +53,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
-	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain)
+	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain, cfg.SES.FrontendURL)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator, store)
@@ -135,10 +135,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			u.Head("/*", uploadHandler.ServeMedia)
 		})
 
-		// Public Auth & Company Registration
+		// Public Auth, Candidate/Company Registration & Activation
 		api.Route("/auth", func(a chi.Router) {
 			a.Use(httprate.LimitByIP(30, time.Minute))
+			a.Post("/register-candidate", authHandler.RegisterCandidate)
 			a.Post("/register-company", authHandler.RegisterCompany)
+			a.Post("/activate", authHandler.ActivateAccount)
+			a.Get("/activate", authHandler.ActivateAccount)
+			a.Post("/resend-activation", authHandler.ResendActivation)
 			a.Post("/login", authHandler.Login)
 			a.Post("/logout", authHandler.Logout)
 			a.Get("/oauth/google", oauthHandler.Start)

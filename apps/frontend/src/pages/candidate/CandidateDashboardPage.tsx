@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, resolveMediaUrl } from '@/services/apiClient';
+import { authService } from '@/services/authService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
+import toast from 'react-hot-toast';
 import {
   FileText,
   Clock,
@@ -15,6 +17,12 @@ import {
   ExternalLink,
   Building2,
   Laptop,
+  Mail,
+  Lock,
+  User,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 
 interface CandidateApplicationItem {
@@ -48,9 +56,21 @@ interface CandidateApplicationItem {
 }
 
 export const CandidateDashboardPage: React.FC = () => {
-  const { user: authUser, logout: authLogout } = useAuth();
+  const { user: authUser, logout: authLogout, login } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview'>('applications');
+
+  // Candidate Auth Form States (when unauthenticated)
+  const [candidateAuthMode, setCandidateAuthMode] = useState<'signin' | 'register'>('signin');
+  const [candidateAuthTab, setCandidateAuthTab] = useState<'google' | 'password'>('google');
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activationPendingEmail, setActivationPendingEmail] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['candidate-applications', authUser?.email],
@@ -78,6 +98,77 @@ export const CandidateDashboardPage: React.FC = () => {
     navigate('/candidate/dashboard');
   };
 
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formEmail.trim() || !formPassword.trim()) {
+      toast.error('Please enter your email and password');
+      return;
+    }
+    setUnverifiedEmail(null);
+    setResendSuccess(false);
+    setIsSubmitting(true);
+    try {
+      await login({ email: formEmail.trim().toLowerCase(), password: formPassword });
+      toast.success('Welcome back!');
+    } catch (err: any) {
+      if (err?.response?.data?.requires_activation) {
+        setUnverifiedEmail(err.response.data.email || formEmail.trim().toLowerCase());
+        toast.error('Please activate your account via email before signing in.');
+      } else {
+        toast.error(err?.response?.data?.error || 'Invalid email or password');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRegisterCandidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formName.trim() || !formEmail.trim() || !formPassword.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    if (formPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await authService.registerCandidate({
+        name: formName.trim(),
+        email: formEmail.trim().toLowerCase(),
+        password: formPassword,
+      });
+
+      if (res.requires_activation) {
+        setActivationPendingEmail(res.email || formEmail.trim().toLowerCase());
+        toast.success('Registration successful! Please check your email.');
+      } else {
+        toast.success('Registration successful! Welcome!');
+        window.location.reload();
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to register account');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendActivation = async (targetEmail?: string) => {
+    const emailToResend = targetEmail || unverifiedEmail || activationPendingEmail;
+    if (!emailToResend) return;
+    setIsResending(true);
+    try {
+      await authService.resendActivation(emailToResend);
+      setResendSuccess(true);
+      toast.success('Activation link sent! Please check your inbox.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to resend activation link');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   const getStageBadge = (stage: string, passed: boolean) => {
     switch (stage) {
       case 'accepted':
@@ -103,7 +194,7 @@ export const CandidateDashboardPage: React.FC = () => {
     }
   };
 
-  // If candidate is not authenticated, show dedicated Google Sign In screen
+  // If candidate is not authenticated, show candidate portal sign-in/registration screen
   if (!authUser?.email) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
@@ -111,56 +202,359 @@ export const CandidateDashboardPage: React.FC = () => {
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-md w-full">
-            {/* Main Card */}
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
-              <div>
-                <h1 className="heading-page">
-                  Candidate Portal
-                </h1>
-                <p className="text-body-sm mt-2">
-                  Sign in with your verified Google account to track your fellowship applications, view MCQ test scorecards, and inspect AI interview evaluations.
-                </p>
-              </div>
+            {activationPendingEmail ? (
+              /* Activation Confirmation Screen */
+              <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6 animate-in fade-in">
+                <div className="w-16 h-16 mx-auto rounded-full bg-purple-100 flex items-center justify-center text-kulkul-purple">
+                  <Mail className="w-8 h-8" />
+                </div>
 
-              {/* Google OAuth Action */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
-                >
-                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                    />
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-              </div>
-
-              {/* Footer Links inside Card */}
-              <div className="pt-4 border-t border-slate-100 flex flex-col gap-2 text-center">
                 <div>
-                  <span className="text-xs text-slate-500">Are you a fellowship administrator? </span>
-                  <Link to="/admin/login" className="text-xs font-bold text-kulkul-purple hover:underline">
-                    Company Sign In
-                  </Link>
+                  <h1 className="heading-page">Check Your Email</h1>
+                  <p className="text-body-sm mt-2 text-slate-600">
+                    We sent an account activation link to:
+                  </p>
+                  <p className="font-bold text-slate-900 mt-1 break-all">
+                    {activationPendingEmail}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 text-left space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-kulkul-purple shrink-0 mt-0.5" />
+                    <span>Click the activation link in your email to verify your account and start tracking your applications.</span>
+                  </div>
+                  <div className="text-2xs text-slate-400">
+                    The link is valid for 24 hours. Don't see it? Check your spam or promotions folder.
+                  </div>
+                </div>
+
+                {resendSuccess ? (
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-2xl">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Activation email resent successfully!</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleResendActivation(activationPendingEmail)}
+                    disabled={isResending}
+                    className="w-full btn btn-md btn-outline gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
+                    <span>{isResending ? 'Resending...' : 'Resend Activation Email'}</span>
+                  </button>
+                )}
+
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivationPendingEmail(null);
+                      setCandidateAuthMode('signin');
+                      setCandidateAuthTab('password');
+                    }}
+                    className="text-xs font-bold text-kulkul-purple hover:underline"
+                  >
+                    &larr; Return to Sign In
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Main Auth Card */
+              <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+                <div>
+                  <h1 className="heading-page">Candidate Portal</h1>
+                  <p className="text-body-sm mt-2">
+                    Access your fellowship applications, logic assessments, and AI screening results.
+                  </p>
+                </div>
+
+                {/* Switch between Sign In and Create Account */}
+                <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCandidateAuthMode('signin');
+                      setUnverifiedEmail(null);
+                    }}
+                    className={`py-2 px-3 rounded-xl transition ${
+                      candidateAuthMode === 'signin'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'hover:text-slate-900 text-slate-500'
+                    }`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCandidateAuthMode('register');
+                      setUnverifiedEmail(null);
+                    }}
+                    className={`py-2 px-3 rounded-xl transition ${
+                      candidateAuthMode === 'register'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'hover:text-slate-900 text-slate-500'
+                    }`}
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                {candidateAuthMode === 'signin' ? (
+                  /* Sign In View */
+                  <div className="space-y-4">
+                    {/* Method Selector */}
+                    <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setCandidateAuthTab('google')}
+                        className={`py-1.5 px-3 rounded-xl border transition ${
+                          candidateAuthTab === 'google'
+                            ? 'bg-purple-50 border-purple-300 text-kulkul-purple font-bold'
+                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        Google 1-Click
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCandidateAuthTab('password')}
+                        className={`py-1.5 px-3 rounded-xl border transition ${
+                          candidateAuthTab === 'password'
+                            ? 'bg-purple-50 border-purple-300 text-kulkul-purple font-bold'
+                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        Email &amp; Password
+                      </button>
+                    </div>
+
+                    {candidateAuthTab === 'google' ? (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleGoogleSignIn}
+                          className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
+                        >
+                          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                            <path
+                              fill="#4285F4"
+                              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                            />
+                            <path
+                              fill="#34A853"
+                              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                            />
+                            <path
+                              fill="#FBBC05"
+                              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                            />
+                            <path
+                              fill="#EA4335"
+                              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                            />
+                          </svg>
+                          <span>Continue with Google</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handlePasswordSignIn} className="space-y-4 text-left pt-1">
+                        <div>
+                          <label className="form-label">Email Address</label>
+                          <div className="relative">
+                            <input
+                              type="email"
+                              required
+                              placeholder="e.g. candidate@example.com"
+                              value={formEmail}
+                              onChange={(e) => setFormEmail(e.target.value)}
+                              className="w-full pl-10 pr-4 input-md"
+                            />
+                            <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="form-label">Password</label>
+                          <div className="relative">
+                            <input
+                              type="password"
+                              required
+                              placeholder="Your password"
+                              value={formPassword}
+                              onChange={(e) => setFormPassword(e.target.value)}
+                              className="w-full pl-10 pr-4 input-md"
+                            />
+                            <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          </div>
+                        </div>
+
+                        {unverifiedEmail && (
+                          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-left">
+                            <div className="flex items-start gap-2 text-amber-800 text-xs">
+                              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-bold">Account not activated:</span> Please check your email for the activation link.
+                              </div>
+                            </div>
+                            {resendSuccess ? (
+                              <div className="flex items-center gap-1.5 text-2xs text-emerald-700 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Activation email resent!</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleResendActivation(unverifiedEmail)}
+                                disabled={isResending}
+                                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs rounded-xl transition disabled:opacity-60"
+                              >
+                                <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                                <span>{isResending ? 'Resending...' : 'Resend Activation Email'}</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="w-full btn btn-lg btn-primary"
+                        >
+                          {isSubmitting ? (
+                            <span>Signing in...</span>
+                          ) : (
+                            <>
+                              <span>Sign In to Dashboard</span>
+                              <ArrowRight className="w-4 h-4" />
+                            </>
+                          )}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                ) : (
+                  /* Register View */
+                  <div className="space-y-4">
+                    {/* Google 1-Click Option */}
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
+                    >
+                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                      <span>Fast Sign Up with Google</span>
+                    </button>
+
+                    <div className="relative flex py-1 items-center">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <span className="flex-shrink mx-3 text-2xs font-bold text-slate-400 uppercase tracking-wider">
+                        Or register with email
+                      </span>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
+
+                    <form onSubmit={handleRegisterCandidate} className="space-y-4 text-left">
+                      <div>
+                        <label className="form-label">Full Name</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Jane Doe"
+                            value={formName}
+                            onChange={(e) => setFormName(e.target.value)}
+                            className="w-full pl-10 pr-4 input-md"
+                          />
+                          <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="form-label">Email Address</label>
+                        <div className="relative">
+                          <input
+                            type="email"
+                            required
+                            placeholder="e.g. jane.doe@example.com"
+                            value={formEmail}
+                            onChange={(e) => setFormEmail(e.target.value)}
+                            className="w-full pl-10 pr-4 input-md"
+                          />
+                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="form-label">Create Password</label>
+                        <div className="relative">
+                          <input
+                            type="password"
+                            required
+                            placeholder="At least 8 characters"
+                            value={formPassword}
+                            onChange={(e) => setFormPassword(e.target.value)}
+                            className="w-full pl-10 pr-4 input-md"
+                          />
+                          <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-purple-50 border border-purple-100 rounded-2xl text-2xs text-slate-600 flex items-start gap-2">
+                        <Mail className="w-3.5 h-3.5 text-kulkul-purple shrink-0 mt-0.5" />
+                        <span>
+                          An email verification link will be sent to confirm your email before first sign in.
+                        </span>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full btn btn-lg btn-primary"
+                      >
+                        {isSubmitting ? (
+                          <span>Creating Account...</span>
+                        ) : (
+                          <>
+                            <span>Register Candidate Account</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Footer Links inside Card */}
+                <div className="pt-4 border-t border-slate-100 flex flex-col gap-2 text-center">
+                  <div>
+                    <span className="text-xs text-slate-500">Are you a fellowship administrator? </span>
+                    <Link to="/admin/login" className="text-xs font-bold text-kulkul-purple hover:underline">
+                      Company Sign In
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
         <Footer />

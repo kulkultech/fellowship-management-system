@@ -9,6 +9,9 @@ import {
   X,
   CheckCircle2,
   UserCheck,
+  Mail,
+  Lock,
+  Sparkles,
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -17,6 +20,7 @@ import { useAuthStore } from '../hooks/useAuthStore';
 import { authService } from '../services/authService';
 import { resolveMediaUrl } from '../services/apiClient';
 import { uploadService } from '../services/uploadService';
+import toast from 'react-hot-toast';
 
 export const CompanyRegisterPage: React.FC = () => {
   const { user: authUser, isLoading: authLoading } = useAuth();
@@ -36,7 +40,12 @@ export const CompanyRegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isActivationSent, setIsActivationSent] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Resend activation state
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   // Prefill admin fields when Google auth is detected
   useEffect(() => {
@@ -94,6 +103,20 @@ export const CompanyRegisterPage: React.FC = () => {
     window.location.href = `${apiBase}/auth/oauth/google?return_to=/register-company`;
   };
 
+  const handleResendActivation = async () => {
+    if (!adminEmail) return;
+    try {
+      setResending(true);
+      await authService.resendActivation(adminEmail);
+      setResendSuccess(true);
+      toast.success('New activation email sent! Please check your inbox.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to resend activation email.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -107,17 +130,28 @@ export const CompanyRegisterPage: React.FC = () => {
       return;
     }
 
+    if (!authUser?.email && (!adminPassword || adminPassword.length < 6)) {
+      setError('Admin password must be at least 6 characters');
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await authService.registerCompany({
         company_name: companyName.trim(),
         company_slug: companySlug.trim().toLowerCase(),
-        contact_email: contactEmail.trim().toLowerCase(),
+        contact_email: contactEmail.trim().toLowerCase() || adminEmail.trim().toLowerCase(),
         logo_url: logoURL,
         admin_name: adminName.trim(),
         admin_email: adminEmail.trim().toLowerCase(),
         admin_password: adminPassword,
       });
+
+      if (res?.requires_activation) {
+        setIsActivationSent(true);
+        toast.success('Registration submitted! Please verify your email.');
+        return;
+      }
 
       if (res?.user) {
         setUser(res.user);
@@ -138,7 +172,73 @@ export const CompanyRegisterPage: React.FC = () => {
 
       {/* Main Registration Form Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        {isSuccess ? (
+        {isActivationSent ? (
+          /* ACTIVATION EMAIL SENT CONFIRMATION */
+          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-purple-200">
+            <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 text-kulkul-purple flex items-center justify-center mx-auto shadow-2xs">
+              <Mail className="w-8 h-8" />
+            </div>
+
+            <div>
+              <span className="badge badge-md bg-purple-100 text-kulkul-purple border border-purple-200 uppercase tracking-wider">
+                Activation Link Dispatched
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-4">
+                Verify Your Work Email
+              </h2>
+              <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-md mx-auto leading-relaxed">
+                We've initialized the organization workspace for <strong>{companyName}</strong>. To protect platform integrity, an activation email has been sent to:
+              </p>
+              <div className="mt-3 inline-block px-4 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-sm font-mono font-bold text-slate-900">
+                {adminEmail}
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs sm:text-sm space-y-2.5 text-slate-600">
+              <div className="flex items-center justify-between font-medium">
+                <span className="text-slate-500">Company Name:</span>
+                <span className="font-bold text-slate-900">{companyName}</span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span className="text-slate-500">Public Slug:</span>
+                <span className="font-mono text-kulkul-purple font-bold">{companySlug}</span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span className="text-slate-500">Administrator:</span>
+                <span className="font-bold text-slate-900">{adminName}</span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span className="text-slate-500">Link Expiration:</span>
+                <span className="text-amber-700 font-semibold">24 hours</span>
+              </div>
+            </div>
+
+            {resendSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                ✓ A new activation link has been sent to your email.
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleResendActivation}
+                disabled={resending}
+                className="w-full sm:w-auto btn btn-md btn-outline"
+              >
+                {resending ? 'Sending...' : 'Resend Activation Email'}
+              </button>
+              <Link
+                to="/admin/login"
+                className="w-full sm:w-auto btn btn-md btn-primary"
+              >
+                <span>Go to Admin Sign In</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        ) : isSuccess ? (
+          /* WORKSPACE READY CONFIRMATION (Pre-verified Google OAuth) */
           <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-slate-100">
             <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8" />
@@ -194,79 +294,24 @@ export const CompanyRegisterPage: React.FC = () => {
               </Link>
             </div>
           </div>
-        ) : !authUser?.email ? (
-          /* STEP 1: CONTINUE WITH GOOGLE FIRST GATE */
-          <div className="max-w-md mx-auto space-y-6 animate-in fade-in duration-300">
-            <div className="text-center space-y-2">
-              <span className="badge badge-md bg-purple-100 text-kulkul-purple border border-purple-200 uppercase tracking-wider">
-                Step 1 of 2: Identity Verification
-              </span>
-              <h1 className="heading-page">
-                Register Your Company
-              </h1>
-              <p className="text-body-sm">
-                To guarantee company authenticity, please continue with your corporate Google account first. After sign in, you will complete your company profile.
-              </p>
-            </div>
-
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
-              <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-200 text-kulkul-purple flex items-center justify-center mx-auto shadow-2xs">
-                <Building2 className="w-7 h-7" />
-              </div>
-
-              <div>
-                <h2 className="heading-card">Sign In with Google</h2>
-                <p className="text-body-sm mt-1">
-                  We'll pre-fill your administrator contact and verify your work credentials instantly.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={authLoading}
-                className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
-              >
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                  />
-                </svg>
-                <span>Continue with Google</span>
-              </button>
-
-              <div className="pt-2 border-t border-slate-100 text-center">
-                <span className="text-xs text-slate-500">Already approved? </span>
-                <Link to="/admin/login" className="text-xs font-bold text-kulkul-purple hover:underline">
-                  Company Admin Sign In
-                </Link>
-              </div>
-            </div>
-          </div>
         ) : (
-          /* STEP 2: FILL COMPANY REGISTRATION FORM */
+          /* REGISTRATION FORM (Google OAuth or Email & Password) */
           <div className="space-y-8 animate-in fade-in duration-300">
             {/* Headline */}
             <div className="text-center max-w-2xl mx-auto space-y-3">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Google Verified: {authUser.email}</span>
-              </div>
+              {authUser?.email ? (
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Google Verified: {authUser.email}</span>
+                </div>
+              ) : (
+                <span className="badge badge-md bg-purple-100 text-kulkul-purple border border-purple-200 uppercase tracking-wider">
+                  Organization Onboarding
+                </span>
+              )}
+
               <h1 className="heading-page">
-                Complete Your Company Registration
+                Register Your Company
               </h1>
               <p className="text-body">
                 Set up your company workspace to host custom MCQ assessments, conversational AI technical interviews, and automated reviewer scorecards.
@@ -394,16 +439,28 @@ export const CompanyRegisterPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Section 3: Verified Google Admin Account */}
+              {/* Section 3: Company Administrator Account */}
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-6">
                   <div className="flex items-center gap-2">
                     <UserCheck className="w-5 h-5 text-emerald-600" />
-                    <h3 className="text-base font-bold text-slate-900">3. Verified Company Administrator</h3>
+                    <h3 className="text-base font-bold text-slate-900">3. Company Administrator</h3>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Verified Google Account
-                  </span>
+                  {authUser?.email ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Verified Google Account
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={authLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"
+                    >
+                      <Sparkles className="w-3 h-3 text-kulkul-orange" />
+                      <span>Use Google SSO Instead</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -423,32 +480,56 @@ export const CompanyRegisterPage: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Work Email (Google Account)
+                      Admin Work Email <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="email"
-                      readOnly
-                      value={adminEmail}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-sm cursor-not-allowed font-medium"
-                    />
-                    <span className="text-2xs text-emerald-600 font-semibold mt-1.5 block">
-                      ✓ Authenticated via Google OAuth
-                    </span>
+                    {authUser?.email ? (
+                      <>
+                        <input
+                          type="email"
+                          readOnly
+                          value={adminEmail}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-sm cursor-not-allowed font-medium"
+                        />
+                        <span className="text-2xs text-emerald-600 font-semibold mt-1.5 block">
+                          ✓ Authenticated via Google OAuth
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="email"
+                          required
+                          placeholder="e.g. alex@acme.ai"
+                          value={adminEmail}
+                          onChange={(e) => setAdminEmail(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                        />
+                        <span className="text-2xs text-slate-400 mt-1.5 block">
+                          An activation link will be sent to this email address.
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Fallback Password (Optional)
+                      Password {authUser?.email ? '(Optional Fallback)' : '<span className="text-red-500">*</span>'}
                     </label>
-                    <input
-                      type="password"
-                      placeholder="Optional — you can always log in with Google"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type="password"
+                        required={!authUser?.email}
+                        placeholder={authUser?.email ? 'Optional — you can always log in with Google' : 'Create a secure password (min. 6 characters)'}
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    </div>
                     <span className="text-2xs text-slate-400 mt-1 block">
-                      Leave empty to continue using Google Single Sign-On exclusively.
+                      {authUser?.email
+                        ? 'Leave empty to continue using Google Single Sign-On exclusively.'
+                        : 'Used to sign in directly to the Reviewer & Administrator portal.'}
                     </span>
                   </div>
                 </div>
@@ -458,7 +539,11 @@ export const CompanyRegisterPage: React.FC = () => {
               <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-xs text-slate-500 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Platform approval required before first program launch</span>
+                  <span>
+                    {authUser?.email
+                      ? 'Instant workspace activation with Google verified account'
+                      : 'Email activation required upon registration'}
+                  </span>
                 </div>
 
                 <button

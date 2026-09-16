@@ -686,3 +686,47 @@ func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, d
 		candidateName, programName, trackDisplay, dashboardURL)
 	return
 }
+
+// 7. Account Activation Email Template
+func buildAccountActivationEmail(userName, activationURL, frontendURL, supportEmail string) (subject string, html string, text string) {
+	if userName == "" {
+		userName = "there"
+	}
+	subject = "Activate Your FellowHire Account"
+
+	body := fmt.Sprintf(`
+    <span class="badge badge-purple">Account Verification</span>
+    <h2>Welcome to FellowHire, %s!</h2>
+    <p>Thank you for creating an account on FellowHire. To complete your registration and activate your account, please verify your email address by clicking the button below.</p>
+    
+    <div class="btn-container">
+      <a href="%s" class="btn">Activate My Account</a>
+    </div>
+
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">Verification Link Validity</span>
+        <span class="info-value">24 Hours</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Security Note</span>
+        <span class="info-value">Never share this link with others</span>
+      </div>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="%s" style="color: #33125d; word-break: break-all;">%s</a>
+    </p>
+
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 24px;">
+      If you did not sign up for a FellowHire account, you can safely ignore this email.
+    </p>
+  `, template.HTMLEscapeString(userName), activationURL, activationURL, activationURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Welcome to FellowHire, %s!\n\nPlease activate your account by visiting the link below:\n\n%s\n\nThis activation link will expire in 24 hours.\n\nIf you did not create an account, please ignore this email.\n\nSupport: %s",
+		userName, activationURL, supportEmail)
+	return
+}
+

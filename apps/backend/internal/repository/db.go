@@ -59,8 +59,12 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT '';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_token VARCHAR(128);
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_expires_at TIMESTAMPTZ;
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 	CREATE INDEX IF NOT EXISTS idx_users_org ON users(organization_id);
+	CREATE INDEX IF NOT EXISTS idx_users_activation_token ON users(activation_token) WHERE activation_token IS NOT NULL;
 
 	CREATE TABLE IF NOT EXISTS programs (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

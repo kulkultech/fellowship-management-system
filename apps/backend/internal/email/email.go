@@ -25,6 +25,7 @@ type Service interface {
 	SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string) error
 	SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error
 	SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error
+	SendAccountActivationEmail(recipientEmail, userName, activationURL string) error
 }
 
 type SESService struct {
@@ -291,6 +292,13 @@ func (s *SESService) SendFinalInterviewInvitationEmail(recipientEmail, candidate
 		dashboardURL = s.frontendURL + "/candidate/dashboard"
 	}
 	subject, html, text := buildFinalInterviewInvitationEmail(candidateName, programName, trackName, dashboardURL, notes, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// 7. SendAccountActivationEmail
+func (s *SESService) SendAccountActivationEmail(recipientEmail, userName, activationURL string) error {
+	subject, html, text := buildAccountActivationEmail(userName, activationURL, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }
