@@ -12,15 +12,34 @@ import {
   ArrowLeft,
   ArrowRight,
   Eye,
+  Crop,
+  Maximize2,
 } from 'lucide-react';
+
+export interface AspectRatioOption {
+  id: string;
+  label: string;
+  ratio: number;
+  width: number;
+  height: number;
+  description: string;
+}
+
+export const ASPECT_RATIO_OPTIONS: AspectRatioOption[] = [
+  { id: '3:1', label: '3:1', ratio: 3, width: 1200, height: 400, description: 'Slim Banner' },
+  { id: '2.5:1', label: '2.5:1', ratio: 2.5, width: 1200, height: 480, description: 'Wide Banner' },
+  { id: '2:1', label: '2:1', ratio: 2, width: 1200, height: 600, description: 'Standard Banner' },
+  { id: '16:9', label: '16:9', ratio: 16 / 9, width: 1200, height: 675, description: 'Widescreen (16:9)' },
+  { id: '4:3', label: '4:3', ratio: 4 / 3, width: 1200, height: 900, description: 'Card / Photo (4:3)' },
+  { id: '1:1', label: '1:1', ratio: 1, width: 800, height: 800, description: 'Square (1:1)' },
+];
 
 export interface ProgramImageAdjustModalProps {
   isOpen: boolean;
   onClose: () => void;
   imageSrc: string; // Blob URL, data URL, or remote URL
-  onApply: (adjustedFile: File, previewUrl: string) => Promise<void> | void;
-  targetWidth?: number; // Default 1200
-  targetHeight?: number; // Default 400
+  onApply: (adjustedFile: File, previewUrl: string, aspectRatio?: number) => Promise<void> | void;
+  defaultRatio?: number; // Optional initial ratio (defaults to 3:1)
 }
 
 export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = ({
@@ -28,9 +47,11 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
   onClose,
   imageSrc,
   onApply,
-  targetWidth = 1200,
-  targetHeight = 400,
+  defaultRatio = 3,
 }) => {
+  const [selectedRatioId, setSelectedRatioId] = useState<string>('3:1');
+  const [customRatio, setCustomRatio] = useState<number>(3);
+  const [isCustom, setIsCustom] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(1);
   const [posX, setPosX] = useState<number>(50); // 0% (left) to 100% (right)
   const [posY, setPosY] = useState<number>(50); // 0% (top) to 100% (bottom)
@@ -48,16 +69,28 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  // Reset adjustments when a new image source is loaded
+  // Active computed aspect ratio (width / height)
+  const activeRatio: number = isCustom
+    ? customRatio
+    : (ASPECT_RATIO_OPTIONS.find((opt) => opt.id === selectedRatioId)?.ratio ?? defaultRatio);
+
+  // Target canvas dimensions based on active ratio
+  const targetW = activeRatio >= 1 ? 1200 : Math.round(1200 * activeRatio);
+  const targetH = activeRatio >= 1 ? Math.round(1200 / activeRatio) : 1200;
+
+  // Reset adjustments when a new image source is loaded or modal opens
   useEffect(() => {
     if (isOpen) {
+      setSelectedRatioId('3:1');
+      setCustomRatio(defaultRatio);
+      setIsCustom(false);
       setZoom(1);
       setPosX(50);
       setPosY(50);
       setImageLoaded(false);
       setLoadError(null);
     }
-  }, [isOpen, imageSrc]);
+  }, [isOpen, imageSrc, defaultRatio]);
 
   // Handle Drag / Pan with Mouse or Touch
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -115,8 +148,11 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
     if (preset === 'right') setPosX(100);
   };
 
-  // Reset to default
+  // Reset all to default
   const handleReset = () => {
+    setSelectedRatioId('3:1');
+    setCustomRatio(3);
+    setIsCustom(false);
     setZoom(1);
     setPosX(50);
     setPosY(50);
@@ -155,8 +191,8 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
       });
 
       const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      canvas.width = targetW;
+      canvas.height = targetH;
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
@@ -166,26 +202,26 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Dimensions math
-      const targetAspect = targetWidth / targetHeight;
+      // Dimensions math based on dynamic active ratio
+      const canvasAspect = targetW / targetH;
       const imgAspect = img.naturalWidth / img.naturalHeight;
 
-      let renderWidth = targetWidth;
-      let renderHeight = targetHeight;
+      let renderWidth = targetW;
+      let renderHeight = targetH;
 
-      if (imgAspect > targetAspect) {
-        // Image is wider than target
-        renderHeight = targetHeight * zoom;
+      if (imgAspect > canvasAspect) {
+        // Image is wider than target frame
+        renderHeight = targetH * zoom;
         renderWidth = renderHeight * imgAspect;
       } else {
-        // Image is taller than target
-        renderWidth = targetWidth * zoom;
+        // Image is taller than target frame
+        renderWidth = targetW * zoom;
         renderHeight = renderWidth / imgAspect;
       }
 
       // Calculate offsets based on posX and posY percentages
-      const maxOffsetX = renderWidth - targetWidth;
-      const maxOffsetY = renderHeight - targetHeight;
+      const maxOffsetX = renderWidth - targetW;
+      const maxOffsetY = renderHeight - targetH;
 
       const offsetX = -(maxOffsetX * (posX / 100));
       const offsetY = -(maxOffsetY * (posY / 100));
@@ -207,7 +243,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
       });
       const previewUrl = URL.createObjectURL(blob);
 
-      await onApply(file, previewUrl);
+      await onApply(file, previewUrl, activeRatio);
       onClose();
     } catch (err: any) {
       console.error('Error adjusting image:', err);
@@ -224,7 +260,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2.5">
@@ -232,8 +268,10 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               <Sliders className="w-4 h-4 text-kulkul-orange" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Adjust Program Banner Framing</h3>
-              <p className="text-2xs text-slate-500">Pan, reposition, and zoom to ensure key details display cleanly.</p>
+              <h3 className="text-base font-bold text-slate-900">Adjust Program Banner &amp; Ratio</h3>
+              <p className="text-2xs text-slate-500">
+                Choose an aspect ratio, pan, reposition, and zoom to ensure key details display cleanly.
+              </p>
             </div>
           </div>
           <button
@@ -254,12 +292,93 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
             </div>
           )}
 
-          {/* Interactive Preview Viewport */}
+          {/* 1. Aspect Ratio Selector Controls */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold uppercase tracking-wider text-slate-700 text-2xs flex items-center gap-1.5">
+                <Crop className="w-3.5 h-3.5 text-kulkul-purple" />
+                Banner Aspect Ratio
+              </span>
+              <span className="text-2xs font-mono font-bold text-kulkul-purple bg-purple-100/80 px-2.5 py-0.5 rounded-lg border border-purple-200/60">
+                {isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId} ({targetW} × {targetH}px)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+              {ASPECT_RATIO_OPTIONS.map((opt) => {
+                const isSelected = !isCustom && selectedRatioId === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRatioId(opt.id);
+                      setIsCustom(false);
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-xl text-center border transition ${
+                      isSelected
+                        ? 'bg-kulkul-purple text-white border-kulkul-purple shadow-xs ring-2 ring-kulkul-purple/20'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-kulkul-purple/40 hover:bg-purple-50/20'
+                    }`}
+                  >
+                    <span className="text-xs font-black leading-tight">{opt.label}</span>
+                    <span className={`text-3xs mt-0.5 ${isSelected ? 'text-purple-200' : 'text-slate-400'}`}>
+                      {opt.description.split(' ')[0]}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* Custom Ratio Button */}
+              <button
+                type="button"
+                onClick={() => setIsCustom(true)}
+                className={`flex flex-col items-center justify-center p-2 rounded-xl text-center border transition ${
+                  isCustom
+                    ? 'bg-kulkul-purple text-white border-kulkul-purple shadow-xs ring-2 ring-kulkul-purple/20'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-kulkul-purple/40 hover:bg-purple-50/20'
+                }`}
+              >
+                <span className="text-xs font-black leading-tight flex items-center gap-1">
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Custom</span>
+                </span>
+                <span className={`text-3xs mt-0.5 ${isCustom ? 'text-purple-200' : 'text-slate-400'}`}>
+                  Freeform
+                </span>
+              </button>
+            </div>
+
+            {/* Custom Ratio Slider */}
+            {isCustom && (
+              <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between text-2xs font-bold text-slate-600">
+                  <span>Custom Aspect Ratio Slider</span>
+                  <span className="font-mono text-kulkul-purple">{customRatio.toFixed(2)}:1</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xs text-slate-400 font-mono">1.0 (Square)</span>
+                  <input
+                    type="range"
+                    min="1.0"
+                    max="4.0"
+                    step="0.05"
+                    value={customRatio}
+                    onChange={(e) => setCustomRatio(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-kulkul-purple"
+                  />
+                  <span className="text-3xs text-slate-400 font-mono">4.0 (Ultra-wide)</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Interactive Preview Viewport */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-extrabold uppercase tracking-wider text-slate-500 text-2xs flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5 text-kulkul-purple" />
-                Live 3:1 Banner Preview
+                Live Frame Preview ({isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId})
               </span>
               <span className="text-2xs text-slate-400 flex items-center gap-1">
                 <Move className="w-3 h-3 text-kulkul-orange" />
@@ -267,57 +386,67 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               </span>
             </div>
 
-            <div
-              ref={containerRef}
-              onPointerDown={handlePointerDown}
-              className={`relative w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-950 overflow-hidden select-none touch-none aspect-[3/1] max-h-72 cursor-grab ${
-                isDragging ? 'cursor-grabbing border-kulkul-purple ring-2 ring-kulkul-purple/20' : ''
-              }`}
-            >
-              <img
-                ref={imgRef}
-                src={imageSrc}
-                alt="Framing preview"
-                onLoad={() => setImageLoaded(true)}
-                onError={() => {
-                  setImageLoaded(false);
-                  setLoadError('Failed to load image source.');
-                }}
+            <div className="flex justify-center items-center w-full bg-slate-900/5 p-3 rounded-2xl border border-slate-200/80 min-h-[200px]">
+              <div
+                ref={containerRef}
+                onPointerDown={handlePointerDown}
                 style={{
-                  objectPosition: `${posX}% ${posY}%`,
-                  transform: `scale(${zoom})`,
-                  transformOrigin: `${posX}% ${posY}%`,
+                  aspectRatio: `${activeRatio}`,
+                  maxHeight: '280px',
+                  width: '100%',
+                  maxWidth: activeRatio >= 2 ? '100%' : `${Math.round(280 * activeRatio)}px`,
                 }}
-                className="w-full h-full object-cover transition-transform duration-75 pointer-events-none"
-              />
+                className={`relative rounded-2xl border-2 border-dashed border-slate-300 bg-slate-950 overflow-hidden select-none touch-none mx-auto transition-all duration-150 cursor-grab shadow-inner ${
+                  isDragging ? 'cursor-grabbing border-kulkul-purple ring-2 ring-kulkul-purple/20' : ''
+                }`}
+              >
+                <img
+                  ref={imgRef}
+                  src={imageSrc}
+                  alt="Framing preview"
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => {
+                    setImageLoaded(false);
+                    setLoadError('Failed to load image source.');
+                  }}
+                  style={{
+                    objectPosition: `${posX}% ${posY}%`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: `${posX}% ${posY}%`,
+                  }}
+                  className="w-full h-full object-cover transition-transform duration-75 pointer-events-none"
+                />
 
-              {/* Grid Guide Overlay */}
-              <div className="absolute inset-0 pointer-events-none border border-white/20">
-                <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-20">
-                  <div className="border-r border-b border-white" />
-                  <div className="border-r border-b border-white" />
-                  <div className="border-b border-white" />
-                  <div className="border-r border-b border-white" />
-                  <div className="border-r border-b border-white" />
-                  <div className="border-b border-white" />
-                  <div className="border-r border-white" />
-                  <div className="border-r border-white" />
-                  <div />
+                {/* Grid Guide Overlay */}
+                <div className="absolute inset-0 pointer-events-none border border-white/20">
+                  <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-20">
+                    <div className="border-r border-b border-white" />
+                    <div className="border-r border-b border-white" />
+                    <div className="border-b border-white" />
+                    <div className="border-r border-b border-white" />
+                    <div className="border-r border-b border-white" />
+                    <div className="border-b border-white" />
+                    <div className="border-r border-b border-white" />
+                    <div className="border-r border-b border-white" />
+                    <div />
+                  </div>
                 </div>
-              </div>
 
-              {/* Status Pill */}
-              <div className="absolute bottom-2 left-2 pointer-events-none bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-3xs font-bold text-white flex items-center gap-2">
-                <span>Position: {posX}% X, {posY}% Y</span>
-                <span>•</span>
-                <span>Zoom: {Math.round(zoom * 100)}%</span>
+                {/* Status Pill */}
+                <div className="absolute bottom-2 left-2 pointer-events-none bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-3xs font-bold text-white flex items-center gap-2">
+                  <span>Ratio: {isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId}</span>
+                  <span>•</span>
+                  <span>Pos: {posX}% X, {posY}% Y</span>
+                  <span>•</span>
+                  <span>Zoom: {Math.round(zoom * 100)}%</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Controls Grid */}
+          {/* 3. Positioning & Zoom Controls Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
-            {/* 1. Zoom Control */}
+            {/* Zoom Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between font-bold text-slate-700">
                 <span className="flex items-center gap-1.5">
@@ -355,7 +484,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               </div>
             </div>
 
-            {/* 2. Vertical Position Control */}
+            {/* Vertical Position Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between font-bold text-slate-700">
                 <span className="flex items-center gap-1.5">
@@ -393,7 +522,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               </div>
             </div>
 
-            {/* 3. Horizontal Position Control */}
+            {/* Horizontal Position Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between font-bold text-slate-700">
                 <span className="flex items-center gap-1.5">
@@ -431,7 +560,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               </div>
             </div>
 
-            {/* 4. Alignment Presets */}
+            {/* Alignment & Reset Presets */}
             <div className="space-y-2">
               <span className="font-bold text-slate-700 block">Focal Presets</span>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -470,10 +599,10 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                   type="button"
                   onClick={handleReset}
                   className="btn btn-xs bg-slate-100 text-slate-600 hover:bg-slate-200 ml-auto flex items-center gap-1"
-                  title="Reset Zoom & Position"
+                  title="Reset Zoom, Position & Ratio"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  <span>Reset</span>
+                  <span>Reset All</span>
                 </button>
               </div>
             </div>
@@ -502,7 +631,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
             ) : (
               <Check className="w-4 h-4 text-kulkul-orange" />
             )}
-            <span>{isProcessing ? 'Processing Banner...' : 'Apply Framing'}</span>
+            <span>{isProcessing ? 'Processing Banner...' : 'Apply Framing & Ratio'}</span>
           </button>
         </div>
       </div>

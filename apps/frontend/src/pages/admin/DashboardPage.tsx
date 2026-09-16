@@ -4046,11 +4046,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </div>
                     ) : newProgImage ? (
                       <div className="space-y-2">
-                        <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 aspect-[3/1] max-h-56 w-full flex items-center justify-center">
+                        <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 min-h-[140px] max-h-72 w-full flex items-center justify-center">
                           <img
                             src={resolveMediaUrl(newProgImage)}
                             alt="Cover banner preview"
-                            className="w-full h-full object-cover"
+                            className="w-full max-h-72 object-cover block"
                           />
                           <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5">
                             <button
@@ -4063,7 +4063,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               className="px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5"
                             >
                               <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
-                              <span>Adjust Framing</span>
+                              <span>Adjust Framing &amp; Ratio</span>
                             </button>
                             <label className="cursor-pointer px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5">
                               <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
@@ -4086,7 +4086,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </div>
                         </div>
                         <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
-                          <span>Standard 3:1 program banner format</span>
+                          <span>Adjustable banner ratio &amp; focal point</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -4097,7 +4097,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             className="font-bold text-kulkul-purple hover:underline flex items-center gap-1"
                           >
                             <Sliders className="w-3 h-3 text-kulkul-orange" />
-                            <span>Adjust Framing &amp; Focal Point</span>
+                            <span>Adjust Framing &amp; Ratio</span>
                           </button>
                         </div>
                       </div>
@@ -5464,11 +5464,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     </div>
                   ) : editFormImage ? (
                     <div className="space-y-2">
-                      <div className="relative rounded-xl border border-slate-200 overflow-hidden aspect-[3/1] max-h-40 w-full flex items-center justify-center group bg-slate-900/5">
+                      <div className="relative rounded-xl border border-slate-200 overflow-hidden min-h-[100px] max-h-56 w-full flex items-center justify-center group bg-slate-900/5">
                         <img
                           src={resolveMediaUrl(editFormImage)}
                           alt="Banner Preview"
-                          className="w-full h-full object-cover"
+                          className="w-full max-h-56 object-cover block"
                         />
                         <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <button
@@ -5504,7 +5504,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
-                        <span>Focal ratio: 3:1 (1200 x 400)</span>
+                        <span>Adjustable banner ratio &amp; focal point</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -5515,7 +5515,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           className="font-semibold text-kulkul-purple hover:underline flex items-center gap-1"
                         >
                           <Sliders className="w-3 h-3 text-kulkul-orange" />
-                          <span>Reposition / Zoom</span>
+                          <span>Reposition / Zoom / Ratio</span>
                         </button>
                       </div>
                     </div>
