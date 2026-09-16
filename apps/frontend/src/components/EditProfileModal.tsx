@@ -137,9 +137,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     try {
       const res = await uploadService.uploadFile(file, 'avatars');
       setAvatarUrl(res.url);
-      toast.success('Profile picture uploaded to Cloudflare R2!');
+      toast.success('Profile picture uploaded successfully!');
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to upload photo to storage');
+      toast.error(err?.response?.data?.error || 'Failed to upload photo');
       setAvatarFileName('');
     } finally {
       setUploadingAvatar(false);
@@ -161,7 +161,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     try {
       const res = await uploadService.uploadFile(file, 'logos');
       setCompanyLogoUrl(res.url);
-      toast.success('Company logo uploaded to Cloudflare R2!');
+      toast.success('Company logo uploaded successfully!');
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Failed to upload logo to storage');
       setLogoFileName('');
@@ -398,7 +398,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                           {uploadingAvatar ? (
                             <>
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-kulkul-purple" />
-                              <span>Uploading to R2...</span>
+                              <span>Uploading...</span>
                             </>
                           ) : (
                             <>
@@ -603,7 +603,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   {uploadingLogo ? (
                     <div className="p-6 rounded-xl bg-purple-50/60 border border-purple-200 flex flex-col items-center justify-center gap-2 animate-pulse">
                       <Loader2 className="w-7 h-7 animate-spin text-kulkul-purple" />
-                      <span className="text-xs font-bold text-kulkul-purple">Uploading logo to Cloudflare R2...</span>
+                      <span className="text-xs font-bold text-kulkul-purple">Uploading logo...</span>
                     </div>
                   ) : companyLogoUrl ? (
                     <div className="flex items-center justify-between gap-4 p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
@@ -624,7 +624,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                             {logoFileName || 'Company Brand Logo'}
                           </div>
                           <span className="text-2xs font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                            <CheckCircle2 className="w-3 h-3" /> Stored in Cloudflare R2
+                            <CheckCircle2 className="w-3 h-3" /> Uploaded
                           </span>
                         </div>
                       </div>

@@ -127,12 +127,12 @@ export const aiInterviewService = {
               }
               resolve();
             } else {
-              reject(new Error(`Direct R2 upload failed with HTTP ${xhr.status}: ${xhr.responseText}`));
+              reject(new Error(`Direct upload failed with HTTP ${xhr.status}: ${xhr.responseText}`));
             }
           };
 
-          xhr.onerror = () => reject(new Error('Network error during direct R2 upload'));
-          xhr.ontimeout = () => reject(new Error('Timeout during direct R2 upload'));
+          xhr.onerror = () => reject(new Error('Network error during video upload'));
+          xhr.ontimeout = () => reject(new Error('Timeout during video upload'));
 
           xhr.send(video);
         });
@@ -145,7 +145,7 @@ export const aiInterviewService = {
         );
         return confirmData;
       } catch (directErr) {
-        console.warn('Direct R2 presigned upload failed, attempting fallback to backend upload:', directErr);
+        console.warn('Direct presigned upload failed, attempting fallback to backend upload:', directErr);
       }
     }
 

@@ -76,7 +76,7 @@ export const CompanyRegisterPage: React.FC = () => {
       const res = await uploadService.uploadFile(file, 'logos');
       setLogoURL(res.url);
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Failed to upload logo to Cloudflare R2');
+      setError(err?.response?.data?.error || 'Failed to upload logo');
       setLogoURL('');
       setLogoFileName('');
     } finally {
@@ -350,7 +350,7 @@ export const CompanyRegisterPage: React.FC = () => {
                   {uploadingLogo ? (
                     <div className="p-8 rounded-2xl bg-purple-50/50 border border-purple-200 flex flex-col items-center justify-center gap-3 animate-pulse">
                       <div className="w-8 h-8 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
-                      <span className="text-xs font-bold text-kulkul-purple">Uploading to Cloudflare R2...</span>
+                      <span className="text-xs font-bold text-kulkul-purple">Uploading logo...</span>
                     </div>
                   ) : logoURL ? (
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
@@ -362,7 +362,7 @@ export const CompanyRegisterPage: React.FC = () => {
                         />
                         <div>
                           <div className="text-sm font-bold text-slate-900">{logoFileName || 'Company Logo'}</div>
-                          <span className="text-2xs font-semibold text-emerald-600">Saved to Cloudflare R2</span>
+                          <span className="text-2xs font-semibold text-emerald-600">Uploaded</span>
                         </div>
                       </div>
                       <button

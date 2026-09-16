@@ -129,9 +129,9 @@ export const ApplyPage: React.FC = () => {
     try {
       const res = await uploadService.uploadFile(file, 'resumes');
       setFormData((prev) => ({ ...prev, resumeUrl: res.url }));
-      toast.success('Resume uploaded to Cloudflare R2');
+      toast.success('Resume uploaded successfully');
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to upload resume to Cloudflare R2');
+      toast.error(err?.response?.data?.error || 'Failed to upload resume');
       setResumeFileName('');
       setResumeFileSize('');
     } finally {
@@ -157,9 +157,9 @@ export const ApplyPage: React.FC = () => {
     try {
       const res = await uploadService.uploadFile(file, 'profiles');
       setFormData((prev) => ({ ...prev, profilePictureUrl: res.url }));
-      toast.success('Profile photo uploaded to Cloudflare R2');
+      toast.success('Profile photo uploaded successfully');
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to upload profile photo to Cloudflare R2');
+      toast.error(err?.response?.data?.error || 'Failed to upload profile photo');
     } finally {
       setUploadingPhoto(false);
     }
@@ -1482,7 +1482,7 @@ export const ApplyPage: React.FC = () => {
                             {uploadingPhoto ? (
                               <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-200 flex items-center justify-center gap-2 animate-pulse">
                                 <div className="w-5 h-5 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
-                                <span className="text-xs font-bold text-kulkul-purple">Uploading photo to Cloudflare R2...</span>
+                                <span className="text-xs font-bold text-kulkul-purple">Uploading photo...</span>
                               </div>
                             ) : formData.profilePictureUrl ? (
                               <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
@@ -1494,7 +1494,7 @@ export const ApplyPage: React.FC = () => {
                                   />
                                   <div>
                                     <div className="text-xs font-bold text-slate-900">Profile Photo</div>
-                                    <div className="text-2xs text-emerald-600 font-semibold">Stored on Cloudflare R2</div>
+                                    <div className="text-2xs text-emerald-600 font-semibold">Uploaded</div>
                                   </div>
                                 </div>
                                 <button
@@ -1513,7 +1513,7 @@ export const ApplyPage: React.FC = () => {
                                   <div className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
                                     Click to upload profile photo
                                   </div>
-                                  <div className="text-2xs text-slate-400">JPG, PNG, WebP up to 5MB (Cloudflare R2)</div>
+                                  <div className="text-2xs text-slate-400">JPG, PNG, WebP up to 5MB</div>
                                 </div>
                                 <input
                                   type="file"
@@ -1542,7 +1542,7 @@ export const ApplyPage: React.FC = () => {
                             {uploadingResume ? (
                               <div className="p-5 rounded-xl bg-purple-50/50 border border-purple-200 flex flex-col items-center justify-center gap-2 animate-pulse">
                                 <div className="w-6 h-6 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin" />
-                                <span className="text-xs font-bold text-kulkul-purple">Uploading resume to Cloudflare R2...</span>
+                                <span className="text-xs font-bold text-kulkul-purple">Uploading resume...</span>
                               </div>
                             ) : formData.resumeUrl ? (
                               <div className="flex items-center justify-between p-3.5 px-4 rounded-xl bg-kulkul-purple/5 border border-kulkul-purple/20">
@@ -1552,7 +1552,7 @@ export const ApplyPage: React.FC = () => {
                                   </div>
                                   <div>
                                     <div className="text-xs font-bold text-slate-900 line-clamp-1">{resumeFileName || 'Resume.pdf'}</div>
-                                    <div className="text-2xs text-emerald-600 font-semibold">{resumeFileSize ? `${resumeFileSize} • Stored on Cloudflare R2` : 'Stored on Cloudflare R2'}</div>
+                                    <div className="text-2xs text-emerald-600 font-semibold">{resumeFileSize ? `${resumeFileSize} • Uploaded` : 'Uploaded'}</div>
                                   </div>
                                 </div>
                                 <button
@@ -1570,7 +1570,7 @@ export const ApplyPage: React.FC = () => {
                                 <span className="text-xs font-bold text-slate-700 group-hover:text-kulkul-purple transition">
                                   Click to upload Resume / CV
                                 </span>
-                                <span className="text-2xs text-slate-400 mt-0.5">PDF up to 10MB (Cloudflare R2)</span>
+                                <span className="text-2xs text-slate-400 mt-0.5">PDF up to 10MB</span>
                                 <input
                                   type="file"
                                   accept=".pdf,application/pdf"

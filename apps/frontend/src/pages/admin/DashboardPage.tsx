@@ -420,9 +420,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setUploadingBanner(true);
       const res = await uploadService.uploadFile(file, 'banners');
       setNewProgImage(res.url);
-      toast.success('Cover banner uploaded to Cloudflare R2');
+      toast.success('Cover banner uploaded successfully');
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to upload cover banner to Cloudflare R2');
+      toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
     } finally {
       setUploadingBanner(false);
     }
@@ -1420,7 +1420,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       setUploadingEditBanner(true);
       const res = await uploadService.uploadFile(file, 'banners');
       setEditFormImage(res.url);
-      toast.success('Cover banner uploaded to Cloudflare R2');
+      toast.success('Cover banner uploaded successfully');
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Failed to upload cover banner');
     } finally {
@@ -4021,7 +4021,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     {uploadingBanner ? (
                       <div className="flex flex-col items-center justify-center rounded-2xl border border-purple-200 bg-purple-50/40 p-8 aspect-[3/1] max-h-56 w-full animate-pulse">
                         <div className="w-8 h-8 rounded-full border-2 border-kulkul-purple border-t-transparent animate-spin mb-2" />
-                        <span className="text-xs font-bold text-kulkul-purple">Uploading banner to Cloudflare R2...</span>
+                        <span className="text-xs font-bold text-kulkul-purple">Uploading banner...</span>
                       </div>
                     ) : newProgImage ? (
                       <div className="relative rounded-2xl border border-slate-200 overflow-hidden group bg-slate-900/5 aspect-[3/1] max-h-56 w-full flex items-center justify-center">
@@ -4059,7 +4059,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <span className="text-xs font-bold text-slate-800 group-hover:text-kulkul-purple transition">
                           Click to upload cover banner photo
                         </span>
-                        <span className="text-2xs text-slate-400 mt-1">PNG, JPG, WebP, or GIF up to 5MB (Saved to Cloudflare R2)</span>
+                        <span className="text-2xs text-slate-400 mt-1">PNG, JPG, WebP, or GIF up to 5MB</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -5194,7 +5194,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         AI Video Interview
                       </label>
                       <span className="text-xs text-slate-500 block mt-0.5">
-                        Interactive audio/video interview evaluated by AI against rubric competencies, recording video to Cloudflare R2.
+                        Interactive audio/video interview evaluated by AI against rubric competencies, recording video securely.
                       </span>
                     </div>
                   </div>
