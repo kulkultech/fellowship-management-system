@@ -273,6 +273,14 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	var customFieldLabels map[string]string
+	if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil && prog.ApplicationFormSchema != nil {
+		customFieldLabels = make(map[string]string)
+		for _, cf := range prog.ApplicationFormSchema.CustomFields {
+			customFieldLabels[cf.ID] = cf.Label
+		}
+	}
+
 	var aiDetail any
 	if ai, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), applicant.ID); err == nil && ai != nil {
 		aiDetail = ai
@@ -280,24 +288,27 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"applicant": map[string]any{
-			"id":              applicant.ID.String(),
-			"full_name":       applicant.FullName,
-			"first_name":      applicant.FirstName,
-			"last_name":       applicant.LastName,
-			"date_of_birth":   applicant.DateOfBirth,
-			"email":           applicant.Email,
-			"phone":           applicant.Phone,
-			"github_url":      applicant.GitHubURL,
-			"linkedin_url":    applicant.LinkedInURL,
-			"resume_url":      applicant.ResumeURL,
-			"university":      applicant.University,
-			"major":           applicant.Major,
-			"semester":        applicant.Semester,
-			"referral_source": applicant.ReferralSource,
-			"current_stage":   applicant.CurrentStage,
-			"notes":           applicant.Notes,
-			"custom_responses": applicant.CustomResponses,
-			"created_at":      applicant.CreatedAt.Format("2006-01-02 15:04:05"),
+			"id":                  applicant.ID.String(),
+			"organization_id":     applicant.OrganizationID.String(),
+			"program_id":          applicant.ProgramID.String(),
+			"full_name":           applicant.FullName,
+			"first_name":          applicant.FirstName,
+			"last_name":           applicant.LastName,
+			"date_of_birth":       applicant.DateOfBirth,
+			"email":               applicant.Email,
+			"phone":               applicant.Phone,
+			"github_url":          applicant.GitHubURL,
+			"linkedin_url":        applicant.LinkedInURL,
+			"resume_url":          applicant.ResumeURL,
+			"university":          applicant.University,
+			"major":               applicant.Major,
+			"semester":            applicant.Semester,
+			"referral_source":     applicant.ReferralSource,
+			"current_stage":       applicant.CurrentStage,
+			"notes":               applicant.Notes,
+			"custom_responses":    applicant.CustomResponses,
+			"custom_field_labels": customFieldLabels,
+			"created_at":          applicant.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 		"track":      trackDetail,
 		"submission": submissionDetail,

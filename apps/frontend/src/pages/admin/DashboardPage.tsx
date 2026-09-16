@@ -146,7 +146,6 @@ import {
   BrainCircuit,
   Building2,
   Lock,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -1852,8 +1851,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       subtitle={
         currentView === 'create_program'
           ? 'Set up a new fellowship or cohort with specialization tracks, screening modules, and candidate assessments.'
-          : currentView === 'stages'
-          ? 'Configure candidate selection funnel stages, automated scoring triggers, and review workflows.'
           : undefined
       }
       companyName={orgProfile?.name || user?.organization?.name || 'Acme Academy'}
@@ -2171,17 +2168,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-kulkul-purple text-2xs font-extrabold uppercase tracking-wider mb-2">
-                    <Sliders className="w-3.5 h-3.5 text-kulkul-orange" />
-                    <span>Intake Pipeline Sequence</span>
-                  </div>
                   <h2 className="text-xl font-extrabold text-kulkul-purple flex items-center gap-2">
                     <Workflow className="w-5 h-5 text-kulkul-orange" />
                     Candidate Admission Flow Sequencer
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-                    Set which evaluation step candidates encounter first. <strong className="text-slate-800">Google Sign-In is always the locked first step</strong> for verified authentication. You can order whether candidates take the MCQ test first, fill out the application profile, or complete the AI screening.
-                  </p>
                 </div>
 
                 <div className="flex items-center gap-2.5 flex-wrap">
@@ -2207,10 +2197,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
               {/* Live Flow Pipeline Visualization */}
               <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-slate-50 to-orange-50/50 border border-slate-200/80">
-                <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-                  <span>Live Candidate Admission Journey</span>
-                </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
                   {/* Pinned Step 1 */}
                   <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border-2 border-kulkul-purple/40 shadow-xs font-bold text-slate-800">
@@ -4925,36 +4911,58 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   Custom Form Responses
                                 </span>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {Object.entries(applicantDetail.applicant.custom_responses).map(([k, val]) => (
-                                    <div
-                                      key={k}
-                                      className={
-                                        typeof val === 'string' && val.length > 40 ? 'sm:col-span-2' : ''
-                                      }
-                                    >
-                                      <span className="text-slate-400 block font-medium capitalize">
-                                        {k.replace(/_/g, ' ')}
-                                      </span>
-                                      <span className="font-bold text-slate-900 break-words">
-                                        {typeof val === 'boolean' ? (
-                                          val ? 'Yes' : 'No'
-                                        ) : typeof val === 'string' && (val.includes('/uploads/') || /\.(pdf|png|jpe?g|webp)$/i.test(val)) ? (
-                                          <a
-                                            href={resolveMediaUrl(val)}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
-                                          >
-                                            <FileText className="w-3.5 h-3.5" />
-                                            <span>View Attached File</span>
-                                            <ExternalLink className="w-3 h-3" />
-                                          </a>
-                                        ) : (
-                                          String(val || '-')
-                                        )}
-                                      </span>
-                                    </div>
-                                  ))}
+                                  {Object.entries(applicantDetail.applicant.custom_responses).map(([k, val]) => {
+                                    const rawKey = k.replace(/^custom_/, '');
+                                    const questionText =
+                                      applicantDetail.applicant.custom_field_labels?.[k] ||
+                                      applicantDetail.applicant.custom_field_labels?.[rawKey] ||
+                                      program?.application_form_schema?.custom_fields?.find(
+                                        (cf) => cf.id === k || cf.id === rawKey
+                                      )?.label ||
+                                      allPrograms
+                                        .find(
+                                          (p) =>
+                                            p.id === applicantDetail.applicant.program_id ||
+                                            p.slug === activeProgramSlug
+                                        )
+                                        ?.application_form_schema?.custom_fields?.find(
+                                          (cf) => cf.id === k || cf.id === rawKey
+                                        )?.label ||
+                                      k.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+                                    return (
+                                      <div
+                                        key={k}
+                                        className={
+                                          (typeof val === 'string' && val.length > 40) || questionText.length > 40
+                                            ? 'sm:col-span-2'
+                                            : ''
+                                        }
+                                      >
+                                        <span className="text-slate-500 block text-xs font-semibold mb-0.5 leading-snug">
+                                          {questionText}
+                                        </span>
+                                        <span className="font-bold text-slate-900 break-words">
+                                          {typeof val === 'boolean' ? (
+                                            val ? 'Yes' : 'No'
+                                          ) : typeof val === 'string' && (val.includes('/uploads/') || /\.(pdf|png|jpe?g|webp)$/i.test(val)) ? (
+                                            <a
+                                              href={resolveMediaUrl(val)}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1.5 text-xs font-bold text-kulkul-purple hover:underline"
+                                            >
+                                              <FileText className="w-3.5 h-3.5" />
+                                              <span>View Attached File</span>
+                                              <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                          ) : (
+                                            String(val || '-')
+                                          )}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

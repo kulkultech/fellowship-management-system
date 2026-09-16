@@ -482,6 +482,7 @@ export interface ApplicantDetailResponse {
     current_stage: string;
     notes?: string;
     custom_responses?: Record<string, any>;
+    custom_field_labels?: Record<string, string>;
     created_at: string;
   };
   track?: {
