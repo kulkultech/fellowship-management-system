@@ -7,8 +7,6 @@ import {
   Lock,
   ArrowRight,
   Loader2,
-  Building2,
-  ShieldCheck,
   UserCheck,
   AlertCircle,
   LogOut,
@@ -235,15 +233,10 @@ export const AcceptInvitationPage: React.FC = () => {
           {/* Active Invitation Acceptance Form */}
           {!loading && !error && !isAccepted && invitation && (
             <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6">
-              {/* Header Badge & Organization */}
+              {/* Role Header */}
               <div className="text-center space-y-2">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-kulkul-purple text-xs font-bold uppercase tracking-wider">
-                  {invitation.role === 'superadmin' ? (
-                    <ShieldCheck className="w-4 h-4 text-kulkul-purple" />
-                  ) : (
-                    <Building2 className="w-4 h-4 text-kulkul-purple" />
-                  )}
-                  <span>{formatRoleName(invitation.role)}</span>
+                <div className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">
+                  {formatRoleName(invitation.role)}
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
