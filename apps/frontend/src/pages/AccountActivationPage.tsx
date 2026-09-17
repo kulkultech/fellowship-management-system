@@ -124,7 +124,7 @@ export const AccountActivationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="badge badge-md bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
                   Email Verified &middot; Account Active
                 </span>
                 <h1 className="text-2xl font-black text-slate-900 mt-3">

@@ -482,8 +482,8 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                         </>
                       )}
                       {(isCandidate || isActions) && (
-                        <span className="text-2xs text-slate-400 font-bold px-1.5 py-0.5 bg-slate-200/50 rounded-md">
-                          Fixed
+                        <span className="text-2xs text-slate-400 font-bold whitespace-nowrap">
+                          (Fixed)
                         </span>
                       )}
                     </div>
@@ -529,8 +529,8 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             </div>
                           </div>
                           {isAdded ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              <Check className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0 whitespace-nowrap">
+                              <Check className="w-3.5 h-3.5" />
                               Added
                             </span>
                           ) : (
@@ -574,8 +574,8 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             </div>
                           </div>
                           {isAdded ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              <Check className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0 whitespace-nowrap">
+                              <Check className="w-3.5 h-3.5" />
                               Added
                             </span>
                           ) : (
@@ -619,8 +619,8 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             </div>
                           </div>
                           {isAdded ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              <Check className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0 whitespace-nowrap">
+                              <Check className="w-3.5 h-3.5" />
                               Added
                             </span>
                           ) : (

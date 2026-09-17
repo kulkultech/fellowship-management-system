@@ -83,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="h-8 sm:h-9 w-auto max-w-[160px] object-contain"
                 />
               ) : (
-                <div className="flex items-center gap-2 h-9 px-3.5 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 whitespace-nowrap">
                   <Building2 className="w-4 h-4 text-kulkul-purple" />
                   <span>{companyName || 'Organization'}</span>
                 </div>
@@ -128,11 +128,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </Link>
               )}
 
-              {/* User Identity Pill */}
-              <div className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-full bg-slate-100 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
-                <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-xs font-black">
-                  {(user.name || user.email || 'C').charAt(0).toUpperCase()}
-                </div>
+              {/* User Identity */}
+              <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-700 whitespace-nowrap">
                 <span className="max-w-[130px] lg:max-w-[180px] truncate">
                   {user.name || user.email}
                 </span>

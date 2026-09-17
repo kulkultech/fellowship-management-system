@@ -271,10 +271,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <div className="flex items-center gap-1 shrink-0 ml-1">
                         {item.badge !== undefined && (
                           <span
-                            className={`badge-sm ${
+                            className={`text-2xs font-bold ${
                               isActive
-                                ? 'bg-white/20 text-white'
-                                : 'bg-slate-100 text-slate-500 group-hover:text-slate-700'
+                                ? 'text-white/80'
+                                : 'text-slate-400 group-hover:text-slate-600'
                             }`}
                           >
                             {item.badge}

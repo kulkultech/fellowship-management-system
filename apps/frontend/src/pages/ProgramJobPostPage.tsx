@@ -158,16 +158,16 @@ export const ProgramJobPostPage: React.FC = () => {
           {/* Program Header (Cleanly positioned below banner, keeping banner artwork 100% visible) */}
           <div className="p-6 sm:p-8 bg-white space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              {/* Organization Branding Badge with Logo */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-kulkul-purple shadow-2xs">
+              {/* Organization Branding */}
+              <div className="inline-flex items-center gap-2 text-kulkul-purple">
                 {orgLogo ? (
                   <img
                     src={orgLogo}
                     alt={org?.name || 'Organization'}
-                    className="w-4 h-4 rounded-full object-contain"
+                    className="w-5 h-5 object-contain"
                   />
                 ) : (
-                  <Building className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <Building className="w-4 h-4 text-kulkul-purple" />
                 )}
                 <span className="text-xs font-black uppercase tracking-wider">
                   {org?.name || 'Organization'}
@@ -175,12 +175,12 @@ export const ProgramJobPostPage: React.FC = () => {
               </div>
 
               {isBeforeOpen ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold shadow-2xs">
+                <div className="inline-flex items-center gap-1.5 text-amber-700 text-xs font-bold whitespace-nowrap">
                   <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
                   <span>Opening Soon</span>
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs">
+                <div className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-bold whitespace-nowrap">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                   <span>Applications Open</span>
                 </div>
@@ -307,8 +307,8 @@ export const ProgramJobPostPage: React.FC = () => {
                   Available Fellowship Tracks
                 </h2>
               </div>
-              <span className="hidden sm:inline-block px-3 py-1 bg-kulkul-purple-light text-kulkul-purple text-xs font-extrabold rounded-full">
-                {tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open
+              <span className="hidden sm:inline-block text-xs font-extrabold text-kulkul-purple">
+                ({tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open)
               </span>
             </div>
 

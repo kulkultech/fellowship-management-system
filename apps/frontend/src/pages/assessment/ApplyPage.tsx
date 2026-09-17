@@ -629,7 +629,7 @@ export const ApplyPage: React.FC = () => {
                   Apply to {program?.name || 'Fellowship Program'}
                 </h1>
                 {currentTrack && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">
                     <span>Selected Track:</span>
                     <span className="font-extrabold text-kulkul-purple">{currentTrack.name}</span>
                   </div>

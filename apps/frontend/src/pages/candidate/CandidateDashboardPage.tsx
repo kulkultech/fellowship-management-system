@@ -172,25 +172,25 @@ export const CandidateDashboardPage: React.FC = () => {
   const getStageBadge = (stage: string, passed: boolean) => {
     switch (stage) {
       case 'accepted':
-        return <span className="badge badge-md bg-emerald-100 text-emerald-800 border border-emerald-200">Accepted 🎉</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-emerald-700">Accepted 🎉</span>;
       case 'rejected':
-        return <span className="badge badge-md bg-rose-100 text-rose-800 border border-rose-200">Not Selected</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-rose-700">Not Selected</span>;
       case 'ai_interview_completed':
-        return <span className="badge badge-md bg-purple-100 text-kulkul-purple border border-purple-200">AI Screening Completed</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-purple-700">AI Screening Completed</span>;
       case 'ai_interview_invited':
-        return <span className="badge badge-md bg-purple-100 text-purple-800 border border-purple-200 animate-pulse">AI Interview Invited</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-purple-700">AI Interview Invited</span>;
       case 'test_completed':
         return passed ? (
-          <span className="badge badge-md bg-emerald-100 text-emerald-800 border border-emerald-200">Assessment Passed</span>
+          <span className="whitespace-nowrap text-xs font-semibold text-emerald-700">Assessment Passed</span>
         ) : (
-          <span className="badge badge-md bg-amber-100 text-amber-800 border border-amber-200">Assessment Completed</span>
+          <span className="whitespace-nowrap text-xs font-semibold text-amber-700">Assessment Completed</span>
         );
       case 'test_failed':
-        return <span className="badge badge-md bg-rose-100 text-rose-800 border border-rose-200">Assessment Below Benchmark</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-rose-700">Assessment Below Benchmark</span>;
       case 'test_in_progress':
-        return <span className="badge badge-md bg-blue-100 text-blue-800 border border-blue-200">Test In Progress</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-blue-700">Test In Progress</span>;
       default:
-        return <span className="badge badge-md bg-slate-100 text-slate-700 border border-slate-200">Application Submitted</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-slate-700">Application Submitted</span>;
     }
   };
 

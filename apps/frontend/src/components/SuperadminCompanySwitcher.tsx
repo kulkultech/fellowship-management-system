@@ -228,10 +228,10 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                   <span>Switch Company</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-kulkul-purple">
-                    Superadmin
+                  <span className="text-[11px] font-extrabold text-kulkul-purple">
+                    (Superadmin)
                   </span>
                 </h4>
                 <p className="text-[11px] text-slate-500">

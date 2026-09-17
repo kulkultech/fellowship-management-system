@@ -238,7 +238,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-purple-100 text-kulkul-purple">
+            <span className="text-sm font-extrabold text-kulkul-purple">
               {program.name}
             </span>
           </div>
@@ -411,11 +411,11 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
 
                     <div className="shrink-0 text-right">
                       {isEnabled ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-3xs font-extrabold bg-purple-100 text-kulkul-purple">
+                        <span className="text-3xs font-extrabold text-kulkul-purple whitespace-nowrap">
                           Position #{orderIndex + 1}
                         </span>
                       ) : (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-3xs font-semibold bg-slate-200/60 text-slate-500">
+                        <span className="text-3xs font-semibold text-slate-400 whitespace-nowrap">
                           Disabled
                         </span>
                       )}
@@ -435,8 +435,8 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                   <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
                     Form Questions & Layout Order
                   </h2>
-                  <span className="px-2 py-0.5 rounded-full text-2xs font-extrabold bg-slate-100 text-slate-700">
-                    {activeOrder.length} Active {activeOrder.length === 1 ? 'Field' : 'Fields'}
+                  <span className="text-2xs font-extrabold text-slate-500 whitespace-nowrap">
+                    ({activeOrder.length} Active {activeOrder.length === 1 ? 'Field' : 'Fields'})
                   </span>
                 </div>
                 <p className="text-2xs text-slate-500 mt-0.5">

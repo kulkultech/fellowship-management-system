@@ -113,7 +113,7 @@ export const ResultPage: React.FC = () => {
 
             <div className="p-6 text-center">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Result Status</div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black mt-2 uppercase tracking-wider bg-slate-100 text-slate-800">
+              <div className="text-sm font-black mt-2 uppercase tracking-wider text-emerald-700">
                 {isPassed ? 'Qualified' : 'Evaluated'}
               </div>
             </div>
@@ -128,7 +128,7 @@ export const ResultPage: React.FC = () => {
                 <FileText className="w-7 h-7 text-white" />
               </div>
               <div className="flex-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider mb-2">
+                <div className="text-2xs font-bold text-emerald-700 uppercase tracking-wider mb-2">
                   Qualifying Stage Cleared &middot; Next: Candidate Profile
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">
@@ -182,7 +182,7 @@ export const ResultPage: React.FC = () => {
                 <Sparkles className="w-7 h-7 text-kulkul-orange" />
               </div>
               <div className="flex-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-kulkul-purple-light text-kulkul-purple border border-kulkul-purple/20 uppercase tracking-wider mb-2">
+                <div className="text-2xs font-bold text-kulkul-purple uppercase tracking-wider mb-2">
                   Stage 2: Technical Screening
                 </div>
                 <h2 className="text-xl font-bold text-kulkul-purple">
@@ -208,7 +208,7 @@ export const ResultPage: React.FC = () => {
                       <Laptop className="w-4 h-4 text-kulkul-purple" />
                       <span>Minimum Device Requirements</span>
                     </div>
-                    <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                    <span className="text-3xs font-bold text-purple-700">
                       Pre-Flight Checklist
                     </span>
                   </div>
