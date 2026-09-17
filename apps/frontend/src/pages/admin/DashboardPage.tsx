@@ -1849,10 +1849,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       : []),
   ];
 
+  const isProgramScopedView = !['programs', 'questions', 'team', 'create_program', 'companies'].includes(currentView);
+
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2.5">
       {/* Program switcher: only visible when a program is opened and multiple programs exist */}
-      {currentView !== 'programs' && programId && allPrograms.length > 1 && (
+      {isProgramScopedView && programId && allPrograms.length > 1 && (
         <select
           value={activeProgramSlug}
           onChange={(e) => setActiveProgramSlug(e.target.value)}
@@ -1867,7 +1869,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       )}
 
       {/* Edit Active Program Details & Banner */}
-      {currentView !== 'programs' && program && (
+      {isProgramScopedView && program && (
         <button
           type="button"
           onClick={() => handleOpenEditProgramModal(program)}
