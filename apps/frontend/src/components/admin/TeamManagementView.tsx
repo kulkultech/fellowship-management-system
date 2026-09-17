@@ -30,7 +30,6 @@ interface TeamManagementViewProps {
 
 export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   organizationId,
-  organizationName,
   isSuperadmin = false,
   scope,
 }) => {
@@ -200,50 +199,6 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* View Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-3">
-            <Users className="w-6 h-6 text-kulkul-purple shrink-0" />
-            <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                {effectiveScope === 'superadmin'
-                  ? 'Platform Superadmin Team'
-                  : organizationName
-                  ? `${organizationName} Team & Admins`
-                  : 'Team & Administrators'}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {effectiveScope === 'superadmin'
-                  ? 'Invite and manage platform superadministrators with full system-wide access.'
-                  : 'Manage company administrators and candidate application reviewers.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="btn btn-sm btn-outline text-slate-600 hover:text-slate-900"
-            title="Refresh team list"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin text-kulkul-purple' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenInviteModal}
-            className="btn btn-sm btn-primary shadow-sm shadow-purple-900/10 flex items-center gap-2"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Invite Admin</span>
-          </button>
-        </div>
-      </div>
-
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
@@ -279,10 +234,10 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
         </div>
       </div>
 
-      {/* Main Content Card with Navigation Tabs */}
+      {/* Main Content Card with Navigation Tabs & Actions */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
-        {/* Top Control Bar: Tabs & Search Filter */}
-        <div className="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Top Control Bar: Tabs, Search, Filter & Action Buttons */}
+        <div className="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-fit">
             <button
               type="button"
@@ -312,7 +267,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Search Input */}
-            <div className="relative flex-1 sm:w-64">
+            <div className="relative flex-1 sm:w-60">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -334,6 +289,26 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               <option value="org_admin">Company Admin</option>
               <option value="reviewer">Reviewer</option>
             </select>
+
+            {/* Actions: Refresh & Invite Admin */}
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className="btn btn-sm btn-outline text-slate-600 hover:text-slate-900 shrink-0"
+              title="Refresh team list"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin text-kulkul-purple' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenInviteModal}
+              className="btn btn-sm btn-primary shadow-sm shadow-purple-900/10 flex items-center gap-2 shrink-0"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Invite Admin</span>
+            </button>
           </div>
         </div>
 
