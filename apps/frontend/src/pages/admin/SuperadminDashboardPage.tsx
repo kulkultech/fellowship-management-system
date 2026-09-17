@@ -16,7 +16,6 @@ import {
   Activity,
   ShieldCheck,
   Calendar,
-  Sparkles,
   Server,
   Database,
   Cpu,
@@ -606,7 +605,7 @@ export const SuperadminDashboardPage: React.FC = () => {
         {/* TAB 3: PLATFORM TELEMETRY & SYSTEM HEALTH */}
         {/* ========================================================================= */}
         {activeTab === 'telemetry' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="max-w-2xl">
             <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs space-y-4">
               <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
                 <Server className="w-5 h-5 text-kulkul-purple" />
@@ -646,39 +645,6 @@ export const SuperadminDashboardPage: React.FC = () => {
                     Active
                   </span>
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs space-y-4">
-              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-kulkul-orange" />
-                <span>Superadmin Quick Actions</span>
-              </h3>
-
-              <div className="space-y-3">
-                <a
-                  href="/register-company"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition group"
-                >
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-4 h-4 text-kulkul-purple" />
-                    <span className="text-xs font-bold text-slate-800">Test Public Company Registration Flow</span>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
-                </a>
-
-                <a
-                  href="/admin/dashboard"
-                  className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition group"
-                >
-                  <div className="flex items-center gap-3">
-                    <Layers className="w-4 h-4 text-kulkul-purple" />
-                    <span className="text-xs font-bold text-slate-800">Switch to RSA Company Workspace</span>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
-                </a>
               </div>
             </div>
           </div>
