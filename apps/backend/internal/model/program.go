@@ -163,6 +163,8 @@ func DefaultCompanyFormSchema() *ApplicationFormSchema {
 type Program struct {
 	ID                       uuid.UUID              `json:"id"`
 	OrganizationID           uuid.UUID              `json:"organization_id"`
+	OrgSlug                  string                 `json:"org_slug,omitempty"`
+	OrgName                  string                 `json:"org_name,omitempty"`
 	QuestionSetID            *uuid.UUID             `json:"question_set_id,omitempty"`
 	QuestionSetName          string                 `json:"question_set_name,omitempty"`
 	QuestionCount            int                    `json:"question_count,omitempty"`

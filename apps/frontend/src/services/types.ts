@@ -104,6 +104,7 @@ export interface Program {
   id: string;
   organization_id?: string;
   org_slug?: string;
+  org_name?: string;
   question_set_id?: string;
   question_set_name?: string;
   question_count?: number;

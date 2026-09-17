@@ -936,9 +936,12 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 			COALESCE(p.candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
-			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count,
+			COALESCE(o.slug, '') as org_slug,
+			COALESCE(o.name, '') as org_name
 		FROM programs p
 		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
+		LEFT JOIN organizations o ON o.id = p.organization_id
 		WHERE p.organization_id = $1
 		ORDER BY p.created_at DESC
 	`
@@ -960,8 +963,81 @@ func (r *ProgramRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]m
 			&rawSchema, &rawCandidateFlow,
 			&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 			&p.QuestionSetName, &p.QuestionCount,
+			&p.OrgSlug, &p.OrgName,
 		); err != nil {
 			return nil, fmt.Errorf("program_repo: scan: %w", err)
+		}
+		unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
+		list = append(list, p)
+	}
+	return list, rows.Err()
+}
+
+func (r *ProgramRepository) ListAll(ctx context.Context) ([]model.Program, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var list []model.Program
+		seen := make(map[string]bool)
+		for _, p := range r.memPrograms {
+			if !seen[p.ID.String()] {
+				seen[p.ID.String()] = true
+				if len(p.ApplicationStages) == 0 {
+					p.ApplicationStages = DefaultApplicationStages()
+				}
+				if p.AIInterviewRubric == nil {
+					p.AIInterviewRubric = model.DefaultAIInterviewRubric()
+				}
+				if p.ApplicationFormSchema == nil {
+					p.ApplicationFormSchema = model.DefaultCompanyFormSchema()
+				}
+				if len(p.CandidateFlow) == 0 {
+					p.CandidateFlow = model.DefaultCandidateFlow()
+				}
+				list = append(list, *p)
+			}
+		}
+		return list, nil
+	}
+
+	query := `
+		SELECT p.id, p.organization_id, p.question_set_id, p.slug, p.name, p.description, COALESCE(p.image_url, ''), p.open_date, p.end_date,
+			p.enable_mcq, p.logic_test_duration_minutes, p.logic_test_passing_score, p.allow_retake,
+			p.enable_ai_interview, COALESCE(p.ai_interview_instructions, ''), p.ai_interview_questions,
+			COALESCE(p.application_stages, '[]'::jsonb), COALESCE(p.ai_interview_rubric, 'null'::jsonb),
+			COALESCE(p.application_form_schema, 'null'::jsonb),
+			COALESCE(p.candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
+			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
+			COALESCE(qs.name, '') as question_set_name,
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count,
+			COALESCE(o.slug, '') as org_slug,
+			COALESCE(o.name, '') as org_name
+		FROM programs p
+		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
+		LEFT JOIN organizations o ON o.id = p.organization_id
+		ORDER BY p.created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: list all: %w", err)
+	}
+	defer rows.Close()
+
+	var list []model.Program
+	for rows.Next() {
+		var p model.Program
+		var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
+		if err := rows.Scan(
+			&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+			&p.OpenDate, &p.EndDate,
+			&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+			&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+			&rawSchema, &rawCandidateFlow,
+			&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
+			&p.QuestionSetName, &p.QuestionCount,
+			&p.OrgSlug, &p.OrgName,
+		); err != nil {
+			return nil, fmt.Errorf("program_repo: scan all: %w", err)
 		}
 		unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
 		list = append(list, p)

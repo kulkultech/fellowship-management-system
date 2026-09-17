@@ -549,9 +549,23 @@ func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.
 
 func (h *AdminHandler) ListPrograms(w http.ResponseWriter, r *http.Request) {
 	claims, _ := middleware.GetUser(r.Context())
-	orgID, _ := h.resolveOrgID(r, claims)
 
-	programs, err := h.programRepo.ListByOrg(r.Context(), orgID)
+	targetOrgStr := strings.TrimSpace(r.URL.Query().Get("org_id"))
+	if targetOrgStr == "" {
+		targetOrgStr = strings.TrimSpace(r.URL.Query().Get("organization_id"))
+	}
+
+	var programs []model.Program
+	var err error
+
+	// If superadmin and no explicit org_id filter requested, list ALL programs across the system!
+	if claims != nil && claims.Role == model.RoleSuperadmin && targetOrgStr == "" {
+		programs, err = h.programRepo.ListAll(r.Context())
+	} else {
+		orgID, _ := h.resolveOrgID(r, claims)
+		programs, err = h.programRepo.ListByOrg(r.Context(), orgID)
+	}
+
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load programs")
 		return

@@ -521,8 +521,11 @@ export const SuperadminDashboardPage: React.FC = () => {
                                 <div className="font-extrabold text-slate-900 text-sm truncate leading-tight">
                                   {prog.name}
                                 </div>
-                                <div className="text-2xs font-mono text-slate-400 mt-0.5 leading-tight">
-                                  slug: {prog.slug}
+                                <div className="flex items-center gap-1.5 text-2xs text-slate-400 mt-0.5 leading-tight">
+                                  {prog.org_name && (
+                                    <span className="font-bold text-slate-600">{prog.org_name} &bull;</span>
+                                  )}
+                                  <span className="font-mono">slug: {prog.slug}</span>
                                 </div>
                               </div>
                             </div>
@@ -556,7 +559,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                           <td className="py-4 px-6 align-middle text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-2 h-10 shrink-0">
                               <Link
-                                to="/admin/dashboard"
+                                to={prog.organization_id ? `/admin/dashboard?org_id=${prog.organization_id}` : '/admin/dashboard'}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition text-xs font-bold shadow-2xs shrink-0"
                               >
                                 <Building2 className="w-3 h-3" />
