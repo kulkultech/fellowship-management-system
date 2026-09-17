@@ -3549,10 +3549,6 @@ export const InterviewPage: React.FC = () => {
 
             {/* Header copy */}
             <div className="space-y-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-3xs font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                <Radio className="w-3 h-3 text-purple-400 animate-pulse" />
-                <span>Session Concluded</span>
-              </span>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Finalizing Your Video Assessment
               </h1>
