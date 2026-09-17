@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
+import { trackFirebaseEvent } from '@/lib/firebase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -32,8 +33,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleTabChange = (tab: 'participant' | 'company') => {
+    setActiveTab(tab);
+    trackFirebaseEvent('select_content', {
+      content_type: 'auth_modal_tab',
+      item_id: tab,
+    });
+  };
+
   const handleGoogleSignIn = async (roleOverride?: 'company' | 'participant') => {
     const role = roleOverride || activeTab;
+    trackFirebaseEvent('login', {
+      method: 'google',
+      role,
+    });
     const returnTo = role === 'company' ? '/admin/dashboard' : '/candidate/dashboard';
     if (role === 'participant' && user && user.role !== 'candidate') {
       try {
@@ -53,6 +66,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
     const cleanEmail = candidateEmail.trim().toLowerCase();
+
+    trackFirebaseEvent('login', {
+      method: 'candidate_email',
+      role: 'candidate',
+    });
+
     if (user && user.role !== 'candidate') {
       try {
         await logout();
@@ -98,7 +117,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Tab Switcher */}
         <div className="grid grid-cols-2 p-2 bg-slate-50 border-b border-slate-100">
           <button
-            onClick={() => setActiveTab('participant')}
+            onClick={() => handleTabChange('participant')}
             className={`flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-sm font-bold transition ${
               activeTab === 'participant'
                 ? 'bg-white text-kulkul-purple shadow-sm'
@@ -110,7 +129,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('company')}
+            onClick={() => handleTabChange('company')}
             className={`flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-sm font-bold transition ${
               activeTab === 'company'
                 ? 'bg-white text-kulkul-purple shadow-sm'

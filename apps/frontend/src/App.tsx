@@ -19,6 +19,8 @@ import { SuperadminDashboardPage } from '@/pages/admin/SuperadminDashboardPage';
 import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
 import { TermsOfServicePage } from '@/pages/legal/TermsOfServicePage';
 import { useUiStore } from '@/hooks/useUiStore';
+import { initFirebaseAnalytics } from '@/lib/firebase';
+import { useFirebasePageTracking } from '@/hooks/useFirebasePageTracking';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +31,11 @@ const queryClient = new QueryClient({
   },
 });
 
+function FirebasePageTracker() {
+  useFirebasePageTracking();
+  return null;
+}
+
 export function App() {
   const theme = useUiStore((s) => s.theme);
 
@@ -36,9 +43,14 @@ export function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
+  useEffect(() => {
+    initFirebaseAnalytics();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <FirebasePageTracker />
         <Toaster
           position="top-right"
           toastOptions={{
