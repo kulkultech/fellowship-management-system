@@ -10,19 +10,15 @@ import {
   ArrowRight,
   Clock,
   Award,
-  Share2,
-  Check,
   AlertCircle,
   Layers,
   Bot,
   Building,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 export const ProgramJobPostPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
   const navigate = useNavigate();
-  const [isCopied, setIsCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -63,13 +59,6 @@ export const ProgramJobPostPage: React.FC = () => {
   );
   const isBeforeOpen = openDate ? (now < openDate.getTime() && !isPreviewMode) : false;
 
-  const handleCopyLink = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url);
-    setIsCopied(true);
-    toast.success('Program link copied! Ready to share with candidates.');
-    setTimeout(() => setIsCopied(false), 2500);
-  };
 
   const handleApplyTrack = (trackSlug: string) => {
     const previewQuery = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
@@ -130,29 +119,7 @@ export const ProgramJobPostPage: React.FC = () => {
               alt={program.name}
               className="w-full h-auto max-h-[460px] sm:max-h-[500px] object-cover block"
             />
-            {/* Subtle top vignette only for share button legibility */}
-            <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
 
-            {/* Share / Copy Link on Banner */}
-            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
-              <button
-                onClick={handleCopyLink}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold bg-white/90 hover:bg-white text-slate-800 backdrop-blur-md shadow-lg transition active:scale-95 border border-white/50"
-                title="Share this program post"
-              >
-                {isCopied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Link Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="w-3.5 h-3.5 text-kulkul-purple" />
-                    <span>Share Program Link</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
 
           {/* Program Header (Cleanly positioned below banner, keeping banner artwork 100% visible) */}
