@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
@@ -135,6 +135,7 @@ import {
   Workflow,
   ArrowUp,
   ArrowDown,
+  ArrowUpDown,
   ArrowLeft,
   RotateCcw,
   Save,
@@ -240,6 +241,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     } catch (e) {}
     return [...DEFAULT_VISIBLE_COLUMNS];
   });
+
+  // Candidate Table Sorting State
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (colId: string) => {
+    if (colId === 'actions') return;
+    if (sortColumn === colId) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        // Cycle: asc -> desc -> clear sorting
+        setSortColumn(null);
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(colId);
+      setSortDirection('asc');
+    }
+  };
 
   // Modals & Sub-views
   const [isCreateQuestionSetModalOpen, setIsCreateQuestionSetModalOpen] = useState(false);
@@ -602,6 +623,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [activeProgramSlug]);
 
   const handleUpdateActiveColumns = (cols: string[]) => {
+    if (sortColumn && !cols.includes(sortColumn)) {
+      setSortColumn(null);
+      setSortDirection('asc');
+    }
     setActiveColumns(cols);
     try {
       localStorage.setItem(`fms_candidate_table_cols_${activeProgramSlug || 'default'}`, JSON.stringify(cols));
@@ -621,6 +646,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const handleRemoveColumn = (colId: string) => {
     if (colId === 'candidate' || colId === 'actions') return;
+    if (sortColumn === colId) {
+      setSortColumn(null);
+      setSortDirection('asc');
+    }
     const colDef = allAvailableColumnsMap.get(colId);
     const updated = activeColumns.filter((id) => id !== colId);
     handleUpdateActiveColumns(updated);
@@ -1601,16 +1630,126 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     onError: () => toast.error('Failed to update company status'),
   });
 
-  // Filtered applicants
-  const filteredApplicants = applicants.filter((a) => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch =
-      a.full_name.toLowerCase().includes(query) ||
-      a.email.toLowerCase().includes(query) ||
-      a.current_stage.toLowerCase().includes(query);
-    const matchesTrack = selectedTrackFilter ? a.track_id === selectedTrackFilter : true;
-    return matchesSearch && matchesTrack;
-  });
+  // Helper to extract comparable values for candidate table column sorting
+  const getApplicantSortValue = (app: ApplicantListItem, colId: string): string | number | null => {
+    switch (colId) {
+      case 'candidate': {
+        const name = (app.full_name || app.email || '').trim();
+        return name.length > 0 ? name.toLowerCase() : null;
+      }
+      case 'track': {
+        const track = (app.track_name || 'General').trim();
+        return track.length > 0 ? track.toLowerCase() : null;
+      }
+      case 'stage': {
+        const stage = (app.current_stage || '').trim();
+        return stage.length > 0 ? stage.toLowerCase() : null;
+      }
+      case 'mcq_score':
+        return app.mcq_score !== undefined && app.mcq_score !== null ? Number(app.mcq_score) : null;
+      case 'ai_score':
+        return app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? Number(app.ai_score) : null;
+      case 'ai_recommendation': {
+        const rec = (app.ai_recommendation || '').trim();
+        return rec.length > 0 ? rec.toLowerCase() : null;
+      }
+      case 'applied_date': {
+        if (!app.created_at) return null;
+        const t = new Date(app.created_at).getTime();
+        return isNaN(t) ? null : t;
+      }
+      case 'phone': {
+        const phone = (app.phone || '').trim();
+        return phone.length > 0 ? phone.toLowerCase() : null;
+      }
+      case 'university': {
+        const univ = (app.university || '').trim();
+        return univ.length > 0 ? univ.toLowerCase() : null;
+      }
+      case 'major': {
+        const major = (app.major || '').trim();
+        return major.length > 0 ? major.toLowerCase() : null;
+      }
+      case 'semester': {
+        const sem = (app.semester || '').trim();
+        return sem.length > 0 ? sem.toLowerCase() : null;
+      }
+      case 'referral_source': {
+        const ref = (app.referral_source || '').trim();
+        return ref.length > 0 ? ref.toLowerCase() : null;
+      }
+      case 'date_of_birth': {
+        if (!app.date_of_birth) return null;
+        const t = new Date(app.date_of_birth).getTime();
+        return isNaN(t) ? null : t;
+      }
+      case 'linkedin_url': {
+        const url = (app.linkedin_url || '').trim();
+        return url.length > 0 ? url.toLowerCase() : null;
+      }
+      case 'github_url': {
+        const url = (app.github_url || '').trim();
+        return url.length > 0 ? url.toLowerCase() : null;
+      }
+      case 'resume_url': {
+        const url = (app.resume_url || '').trim();
+        return url.length > 0 ? url.toLowerCase() : null;
+      }
+      default: {
+        if (colId.startsWith('custom_')) {
+          const customKey = colId.replace(/^custom_/, '');
+          const val = app.custom_responses?.[customKey];
+          if (val === undefined || val === null || val === '') return null;
+          if (typeof val === 'number') return val;
+          if (typeof val === 'boolean') return val ? 1 : 0;
+          const num = Number(val);
+          if (!isNaN(num) && typeof val === 'string' && val.trim() !== '') return num;
+          const str = String(val).trim();
+          return str.length > 0 ? str.toLowerCase() : null;
+        }
+        return null;
+      }
+    }
+  };
+
+  // Filtered & Sorted applicants
+  const filteredApplicants = useMemo(() => {
+    const list = applicants.filter((a) => {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        a.full_name.toLowerCase().includes(query) ||
+        a.email.toLowerCase().includes(query) ||
+        a.current_stage.toLowerCase().includes(query);
+      const matchesTrack = selectedTrackFilter ? a.track_id === selectedTrackFilter : true;
+      return matchesSearch && matchesTrack;
+    });
+
+    if (!sortColumn) {
+      return list;
+    }
+
+    return [...list].sort((a, b) => {
+      const valA = getApplicantSortValue(a, sortColumn);
+      const valB = getApplicantSortValue(b, sortColumn);
+
+      // Missing / empty values always stay at the end in both asc and desc
+      if (valA === null && valB === null) return 0;
+      if (valA === null) return 1;
+      if (valB === null) return -1;
+
+      let comparison = 0;
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comparison = valA - valB;
+      } else {
+        comparison = String(valA).localeCompare(String(valB), undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      }
+
+      return sortDirection === 'desc' ? -comparison : comparison;
+    });
+  }, [applicants, searchQuery, selectedTrackFilter, sortColumn, sortDirection]);
 
   const questionsEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -2655,6 +2794,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     ({activeColumns.length})
                   </span>
                 </button>
+
+                {/* Active Sort Indicator */}
+                {sortColumn && (
+                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-bold text-kulkul-purple shadow-2xs animate-in fade-in duration-150">
+                    {sortDirection === 'asc' ? (
+                      <ArrowUp className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                    ) : (
+                      <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                    )}
+                    <span>
+                      Sorted: {allAvailableColumnsMap.get(sortColumn)?.label || sortColumn} (
+                      {sortDirection === 'asc' ? 'Asc' : 'Desc'})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortColumn(null);
+                        setSortDirection('asc');
+                      }}
+                      className="p-0.5 rounded-full hover:bg-purple-200/70 text-purple-400 hover:text-purple-800 transition ml-0.5"
+                      title="Clear sorting to restore original order"
+                      aria-label="Clear sorting"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2672,20 +2838,51 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           removable: true,
                         };
                         const isRemovable = colDef.removable !== false && colId !== 'candidate' && colId !== 'actions';
+                        const isSortable = colId !== 'actions';
+                        const isCurrentSorted = sortColumn === colId;
 
                         return (
                           <th
                             key={colId}
-                            className={`px-6 py-4 whitespace-nowrap group ${
-                              colId === 'actions' ? 'text-right' : ''
+                            onClick={() => isSortable && handleSort(colId)}
+                            className={`px-6 py-4 whitespace-nowrap group select-none ${
+                              isSortable ? 'cursor-pointer hover:bg-slate-100/90 transition-colors' : ''
+                            } ${colId === 'actions' ? 'text-right' : ''} ${
+                              isCurrentSorted ? 'bg-purple-50/70 text-kulkul-purple' : ''
                             }`}
+                            title={
+                              !isSortable
+                                ? undefined
+                                : !isCurrentSorted
+                                ? `Click to sort by ${colDef.label}`
+                                : sortDirection === 'asc'
+                                ? `Sorted ascending by ${colDef.label}. Click to sort descending.`
+                                : `Sorted descending by ${colDef.label}. Click to clear sorting.`
+                            }
                           >
                             <div
                               className={`flex items-center gap-2 ${
                                 colId === 'actions' ? 'justify-end' : 'justify-between'
                               }`}
                             >
-                              <span>{colDef.label}</span>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={isCurrentSorted ? 'font-black text-kulkul-purple' : ''}>
+                                  {colDef.label}
+                                </span>
+                                {isSortable && (
+                                  <span className="inline-flex items-center">
+                                    {isCurrentSorted ? (
+                                      sortDirection === 'asc' ? (
+                                        <ArrowUp className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                                      ) : (
+                                        <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                                      )
+                                    ) : (
+                                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
                               {isRemovable && (
                                 <button
                                   type="button"
