@@ -2355,7 +2355,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </button>
                     )}
 
-                    {company.status !== 'rejected' && company.slug !== 'rsa' && (
+                    {company.status !== 'rejected' && company.slug !== 'acme' && (
                       <button
                         onClick={() => rejectCompanyMutation.mutate(company.id)}
                         disabled={rejectCompanyMutation.isPending}

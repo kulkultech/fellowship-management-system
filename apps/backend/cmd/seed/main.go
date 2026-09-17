@@ -38,10 +38,10 @@ func main() {
 
 	logger.Info("Seeding initial assessment platform data...")
 
-	// 1. Organization: RSA (No logo)
-	org, err := orgRepo.Register(ctx, "rsa", "Acme Academy", "contact@rsa.org", "", "approved")
+	// 1. Organization: Acme Academy (No logo)
+	org, err := orgRepo.Register(ctx, "acme", "Acme Academy", "contact@acme.org", "", "approved")
 	if err != nil {
-		logger.Error("failed to seed RSA organization", "error", err)
+		logger.Error("failed to seed Acme organization", "error", err)
 		os.Exit(1)
 	}
 	logger.Info("Seeded organization", "slug", org.Slug, "name", org.Name)
@@ -52,9 +52,9 @@ func main() {
 		logger.Error("failed to hash admin password", "error", err)
 		os.Exit(1)
 	}
-	adminUser, err := userRepo.GetByEmail(ctx, "admin@rsa.org")
+	adminUser, err := userRepo.GetByEmail(ctx, "admin@acme.org")
 	if err != nil {
-		adminUser, err = userRepo.Create(ctx, "admin@rsa.org", adminPassHash, "RSA Reviewer Admin", "org_admin", &org.ID)
+		adminUser, err = userRepo.Create(ctx, "admin@acme.org", adminPassHash, "Acme Reviewer Admin", "org_admin", &org.ID)
 		if err != nil {
 			logger.Error("failed to seed admin user", "error", err)
 			os.Exit(1)

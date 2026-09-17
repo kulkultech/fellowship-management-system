@@ -243,13 +243,13 @@ func TestAdminHandler_UpdateCompanySlug_DoesNotDuplicate(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Verify org count remains exactly 2 (rsa + beta-network, no duplicate company created)
+	// Verify org count remains exactly 2 (acme + beta-network, no duplicate company created)
 	orgs, err := orgRepo.List(ctx, "")
 	if err != nil {
 		t.Fatalf("failed to list orgs: %v", err)
 	}
 	if len(orgs) != 2 {
-		t.Errorf("expected exactly 2 orgs (rsa + beta-network), got %d", len(orgs))
+		t.Errorf("expected exactly 2 orgs (acme + beta-network), got %d", len(orgs))
 	}
 
 	// Old slug must no longer exist

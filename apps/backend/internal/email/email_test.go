@@ -74,7 +74,7 @@ func TestEmailTemplates(t *testing.T) {
 	})
 
 	t.Run("LogicTestResultEmail_Passed_FillFormNext", func(t *testing.T) {
-		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", 88, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/programs/rsa/tech/apply", "fill_form", frontendURL, supportEmail)
+		subj, html, _ := buildLogicTestResultEmail("Jane Doe", "Tech Fellowship 2026", "Fullstack Track", 88, 70, true, "https://fellowhire.kul.to/result", "https://fellowhire.kul.to/programs/acme/tech/apply", "fill_form", frontendURL, supportEmail)
 		if !strings.Contains(subj, "Congratulations") {
 			t.Errorf("expected passed subject to contain Congratulations")
 		}

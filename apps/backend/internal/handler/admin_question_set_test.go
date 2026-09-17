@@ -39,13 +39,13 @@ func TestAdminHandler_CreateAndListQuestionSet_Superadmin(t *testing.T) {
 	h, _, orgRepo := newQuestionSetTestHandler()
 	ctx := context.Background()
 
-	// Seed RSA organization
-	_, err := orgRepo.Register(ctx, "rsa", "Acme Academy", "contact@rsa.org", "", model.OrgStatusApproved)
+	// Seed Acme organization
+	_, err := orgRepo.Register(ctx, "acme", "Acme Academy", "contact@acme.org", "", model.OrgStatusApproved)
 	if err != nil {
-		t.Fatalf("failed to seed rsa org: %v", err)
+		t.Fatalf("failed to seed acme org: %v", err)
 	}
 
-	// 1. Superadmin creates question set with no explicit org (should fallback to rsa)
+	// 1. Superadmin creates question set with no explicit org (should fallback to acme)
 	claims := &auth.Claims{
 		UserID: uuid.New(),
 		Email:  "superadmin@fellowhire.com",
@@ -141,7 +141,7 @@ func TestAdminHandler_CreateQuestionSet_InvalidOrgGracefulFallback(t *testing.T)
 
 	h.CreateQuestionSet(w, req)
 
-	// Must NOT crash or return 500 foreign key violation; must gracefully fall back to default rsa org
+	// Must NOT crash or return 500 foreign key violation; must gracefully fall back to default acme org
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201 Created with graceful fallback, got %d: %s", w.Code, w.Body.String())
 	}

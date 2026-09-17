@@ -80,8 +80,8 @@ func TestAdminHandler_RelinkUserValidation(t *testing.T) {
 		wantStatus int
 	}{
 		{"missing fields", map[string]string{}, http.StatusBadRequest},
-		{"unknown user", map[string]string{"email": "ghost@example.com", "org_slug": "rsa"}, http.StatusNotFound},
-		{"unknown org", map[string]string{"email": "admin@rsa.org", "org_slug": "nope"}, http.StatusNotFound},
+		{"unknown user", map[string]string{"email": "ghost@example.com", "org_slug": "acme"}, http.StatusNotFound},
+		{"unknown org", map[string]string{"email": "admin@acme.org", "org_slug": "nope"}, http.StatusNotFound},
 	}
 
 	for _, tc := range cases {
@@ -103,7 +103,7 @@ func TestAdminHandler_RelinkUserValidation(t *testing.T) {
 func TestAdminHandler_LookupUser(t *testing.T) {
 	h, _, _ := newUserRepairTestHandler()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users/lookup?email=admin@rsa.org", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users/lookup?email=admin@acme.org", nil)
 	w := httptest.NewRecorder()
 
 	h.LookupUser(w, req)

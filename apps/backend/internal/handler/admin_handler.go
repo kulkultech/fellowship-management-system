@@ -512,12 +512,12 @@ func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.
 				return *claims.OrganizationID, nil
 			}
 		}
-		// 3. Superadmin default: return primary seeded organization (or fallback to rsa slug)
+		// 3. Superadmin default: return primary seeded organization (or fallback to acme slug)
 		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		if org, err := h.orgRepo.GetByID(ctx, primaryID); err == nil && org != nil {
 			return org.ID, nil
 		}
-		org, err := h.orgRepo.GetBySlug(ctx, "rsa")
+		org, err := h.orgRepo.GetBySlug(ctx, "acme")
 		if err == nil && org != nil && org.ID != uuid.Nil {
 			return org.ID, nil
 		}
@@ -533,8 +533,8 @@ func (h *AdminHandler) resolveOrgID(r *http.Request, claims *auth.Claims) (uuid.
 			return *claims.OrganizationID, nil
 		}
 	}
-	// Fallback 1: Look up "rsa" default org
-	org, err := h.orgRepo.GetBySlug(ctx, "rsa")
+	// Fallback 1: Look up "acme" default org
+	org, err := h.orgRepo.GetBySlug(ctx, "acme")
 	if err == nil && org != nil && org.ID != uuid.Nil {
 		return org.ID, nil
 	}
@@ -1644,9 +1644,9 @@ func (h *AdminHandler) CreateQuestionSet(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	if orgUUID == nil {
-		rsaOrg, err := h.orgRepo.GetBySlug(r.Context(), "rsa")
-		if err == nil && rsaOrg != nil && rsaOrg.ID != uuid.Nil {
-			orgUUID = &rsaOrg.ID
+		acmeOrg, err := h.orgRepo.GetBySlug(r.Context(), "acme")
+		if err == nil && acmeOrg != nil && acmeOrg.ID != uuid.Nil {
+			orgUUID = &acmeOrg.ID
 		} else {
 			defaultID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 			orgUUID = &defaultID
@@ -1805,7 +1805,7 @@ func (h *AdminHandler) GetCurrentOrganization(w http.ResponseWriter, r *http.Req
 			httpx.JSON(w, http.StatusOK, fallbackOrg)
 			return
 		}
-		if fallbackOrg, fErr := h.orgRepo.GetBySlug(r.Context(), "rsa"); fErr == nil && fallbackOrg != nil {
+		if fallbackOrg, fErr := h.orgRepo.GetBySlug(r.Context(), "acme"); fErr == nil && fallbackOrg != nil {
 			httpx.JSON(w, http.StatusOK, fallbackOrg)
 			return
 		}
@@ -1978,9 +1978,9 @@ func (h *AdminHandler) CreateQuestionSetFromCSV(w http.ResponseWriter, r *http.R
 		}
 	}
 	if orgUUID == nil {
-		rsaOrg, err := h.orgRepo.GetBySlug(r.Context(), "rsa")
-		if err == nil && rsaOrg != nil && rsaOrg.ID != uuid.Nil {
-			orgUUID = &rsaOrg.ID
+		acmeOrg, err := h.orgRepo.GetBySlug(r.Context(), "acme")
+		if err == nil && acmeOrg != nil && acmeOrg.ID != uuid.Nil {
+			orgUUID = &acmeOrg.ID
 		} else {
 			fallbackID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 			orgUUID = &fallbackID

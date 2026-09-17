@@ -280,15 +280,15 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	_, _ = pool.Exec(ctx, "DELETE FROM question_sets WHERE id = '00000000-0000-0000-0000-000000000040'")
 
 	// Seed default organization (if not exists)
-	var rsaOrgID string
+	var defaultOrgID string
 	seedOrgQuery := `
 		INSERT INTO organizations (id, slug, name, logo_url, status, contact_email, created_at, updated_at)
-		VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'rsa', 'Acme Academy', '', 'approved', 'contact@rsa.org', now(), now())
+		VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'acme', 'Acme Academy', '', 'approved', 'contact@acme.org', now(), now())
 		ON CONFLICT (id) DO NOTHING
 		RETURNING id::text
 	`
-	if err := pool.QueryRow(ctx, seedOrgQuery).Scan(&rsaOrgID); err != nil {
-		_ = pool.QueryRow(ctx, "SELECT id::text FROM organizations WHERE id = '00000000-0000-0000-0000-000000000001'").Scan(&rsaOrgID)
+	if err := pool.QueryRow(ctx, seedOrgQuery).Scan(&defaultOrgID); err != nil {
+		_ = pool.QueryRow(ctx, "SELECT id::text FROM organizations WHERE id = '00000000-0000-0000-0000-000000000001'").Scan(&defaultOrgID)
 	}
 
 	// Seed default Admin & Superadmin
@@ -296,11 +296,11 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	seedUsersQuery := `
 		INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
 		VALUES 
-			($1::uuid, 'admin@rsa.org', $2, 'RSA Reviewer Admin', 'org_admin', now(), now()),
+			($1::uuid, 'admin@acme.org', $2, 'Acme Reviewer Admin', 'org_admin', now(), now()),
 			(NULL, 'superadmin@fellowhire.com', $2, 'FellowHire SuperAdmin', 'superadmin', now(), now())
 		ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, updated_at = now()
 	`
-	if _, err := pool.Exec(ctx, seedUsersQuery, rsaOrgID, string(passHash)); err != nil {
+	if _, err := pool.Exec(ctx, seedUsersQuery, defaultOrgID, string(passHash)); err != nil {
 		logger.Warn("automigrate: seed users error", slog.Any("error", err))
 	}
 
@@ -339,7 +339,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    role = 'org_admin',
 		    updated_at = now()
 		FROM organizations
-		WHERE organizations.slug <> 'rsa'
+		WHERE organizations.slug <> 'acme'
 		  AND (
 		    (organizations.admin_email IS NOT NULL AND organizations.admin_email <> '' AND LOWER(organizations.admin_email) = LOWER(users.email))
 		    OR (organizations.contact_email IS NOT NULL AND organizations.contact_email <> '' AND LOWER(organizations.contact_email) = LOWER(users.email))
@@ -352,7 +352,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    updated_at = now()
 		FROM organizations
 		WHERE users.organization_id = organizations.id
-		  AND organizations.slug <> 'rsa'
+		  AND organizations.slug <> 'acme'
 		  AND users.role = 'candidate';
 
 		UPDATE organizations
@@ -361,7 +361,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    updated_at = now()
 		FROM users
 		WHERE users.organization_id = organizations.id
-		  AND organizations.slug <> 'rsa'
+		  AND organizations.slug <> 'acme'
 		  AND (organizations.admin_email IS NULL OR organizations.admin_email = '' OR organizations.contact_email IS NULL OR organizations.contact_email = '');
 	`
 	if _, err := pool.Exec(ctx, syncUsersQuery); err != nil {

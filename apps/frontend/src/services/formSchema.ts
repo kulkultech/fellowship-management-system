@@ -202,5 +202,5 @@ export const getResolvedFieldOrder = (
   return order;
 };
 
-// Backwards-compatible alias
-export const DEFAULT_RSA_SCHEMA = DEFAULT_STANDARD_SCHEMA;
+// Default standard form schema alias
+export const DEFAULT_PROGRAM_SCHEMA = DEFAULT_STANDARD_SCHEMA;

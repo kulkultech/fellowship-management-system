@@ -29,18 +29,18 @@ func NewOrgRepository(pool *pgxpool.Pool) *OrgRepository {
 		pool:    pool,
 		memOrgs: make(map[string]*model.Organization),
 	}
-	// Pre-seed default RSA organization (pre-approved) for in-memory mode
+	// Pre-seed default Acme organization (pre-approved) for in-memory mode
 	defaultOrg := &model.Organization{
 		ID:           uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		Slug:         "rsa",
+		Slug:         "acme",
 		Name:         "Acme Academy",
-		ContactEmail: "contact@rsa.org",
+		ContactEmail: "contact@acme.org",
 		LogoURL:      "",
 		Status:       model.OrgStatusApproved,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
-	repo.memOrgs["rsa"] = defaultOrg
+	repo.memOrgs["acme"] = defaultOrg
 	return repo
 }
 

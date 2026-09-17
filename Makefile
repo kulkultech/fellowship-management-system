@@ -74,7 +74,7 @@ migrate-status: ## Show migration status
 migrate-create: ## Create a migration: make migrate-create name=add_table
 	goose -dir $(MIGRATIONS) create $(name) sql
 
-seed: ## Seed local mock data (RSA, LIT 2026, MCQs, Admin)
+seed: ## Seed local mock data (Acme, LIT 2026, MCQs, Admin)
 	cd $(BACKEND) && go run ./cmd/seed
 
 clean: ## Remove build artifacts

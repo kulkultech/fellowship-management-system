@@ -194,8 +194,8 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			mockEmail = "hr.partner@innovatech.io"
 			mockName = "Innovatech Talent Lead"
 		} else if strings.Contains(returnTo, "admin") || strings.Contains(returnTo, "superadmin") {
-			mockEmail = "admin@rsa.org"
-			mockName = "RSA Reviewer Admin"
+			mockEmail = "admin@acme.org"
+			mockName = "Acme Reviewer Admin"
 		}
 		profile = auth.GoogleProfile{
 			Sub:   "1092837465928374",

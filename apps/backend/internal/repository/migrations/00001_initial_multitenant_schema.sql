@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Organizations (e.g. RSA, Kulkul Tech)
+-- Organizations (e.g. Acme, Kulkul Tech)
 CREATE TABLE organizations (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     slug       TEXT NOT NULL UNIQUE,
@@ -29,7 +29,7 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users (email);
 CREATE INDEX idx_users_org ON users (organization_id);
 
--- Programs (e.g. LIT 2026 under RSA)
+-- Programs (e.g. LIT 2026 under Acme)
 CREATE TABLE programs (
     id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id             UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,

@@ -504,7 +504,7 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 		case model.FlowStepForm:
 			nextStep = "fill_form"
 			_ = h.applicantRepo.UpdateStage(r.Context(), submission.ApplicantID, model.StageTestCompleted)
-			orgSlug := "rsa"
+			orgSlug := "acme"
 			if h.orgRepo != nil {
 				if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
 					orgSlug = org.Slug
@@ -609,7 +609,7 @@ func (h *TestHandler) GetResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orgSlug := "rsa"
+	orgSlug := "acme"
 	if h.orgRepo != nil {
 		if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
 			orgSlug = org.Slug

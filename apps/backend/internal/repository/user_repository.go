@@ -50,19 +50,19 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	}
 	repo.memUsers["superadmin@fellowhire.com"] = superadmin
 
-	// 2. Default RSA Org Admin (admin@rsa.org / admin123)
+	// 2. Default Acme Org Admin (admin@acme.org / admin123)
 	admin := &model.User{
 		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		OrganizationID: &orgID,
-		Email:          "admin@rsa.org",
+		Email:          "admin@acme.org",
 		PasswordHash:   string(hash),
-		Name:           "RSA Reviewer Admin",
+		Name:           "Acme Reviewer Admin",
 		Role:           "org_admin",
 		EmailVerified:  true,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-	repo.memUsers["admin@rsa.org"] = admin
+	repo.memUsers["admin@acme.org"] = admin
 	return repo
 }
 
@@ -261,7 +261,7 @@ func (r *UserRepository) SyncUserOrgStatus(ctx context.Context, u *model.User) (
 	var foundOrgID uuid.UUID
 	err := r.pool.QueryRow(ctx, `
 		SELECT id FROM organizations 
-		WHERE slug <> 'rsa' 
+		WHERE slug <> 'acme' 
 		  AND (
 		    LOWER(contact_email) = $1 
 		    OR LOWER(contact_email) LIKE '%' || $1 || '%'
@@ -398,7 +398,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 	isSuperadmin := isSuperadminEmail(email)
 
 	// NOTE: No automatic organization binding by email domain.
-	// Everyone signs in as candidate by default; companies (including RSA)
+	// Everyone signs in as candidate by default; companies
 	// get access via company registration + approval or manual assignment.
 
 	if r.pool == nil {
@@ -442,7 +442,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		// If user is candidate and logging into company portal with a corporate custom domain, check domain relink
 		if u.Role == "candidate" && !id.IsCandidate && !isPublicEmailDomain(domain) {
 			var relinkID uuid.UUID
-			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
+			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug <> 'acme' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
 			if err == nil {
 				_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, role = 'org_admin', updated_at = now() WHERE id = $1", u.ID, relinkID)
 				u.OrganizationID = &relinkID
@@ -464,7 +464,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		var foundOrgID uuid.UUID
 		err := r.pool.QueryRow(ctx, `
 			SELECT id FROM organizations 
-			WHERE slug <> 'rsa' 
+			WHERE slug <> 'acme' 
 			  AND (
 			    LOWER(contact_email) = $1 
 			    OR LOWER(contact_email) LIKE '%' || $1 || '%'
@@ -479,7 +479,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		} else if !id.IsCandidate && !isPublicEmailDomain(domain) {
 			// B. Corporate custom domain matching approved organization
 			var domainOrgID uuid.UUID
-			err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'rsa' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&domainOrgID)
+			err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'acme' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&domainOrgID)
 			if err == nil {
 				orgID = &domainOrgID
 				role = "org_admin"

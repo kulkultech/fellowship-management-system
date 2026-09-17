@@ -42,7 +42,7 @@ func TestRequireRole(t *testing.T) {
 			name: "org_admin allowed on admin route",
 			userClaims: &auth.Claims{
 				UserID: uuid.New(),
-				Email:  "admin@rsa.org",
+				Email:  "admin@acme.org",
 				Role:   "org_admin",
 			},
 			allowedRoles: []string{"org_admin", "reviewer"},
@@ -52,7 +52,7 @@ func TestRequireRole(t *testing.T) {
 			name: "org_admin blocked from superadmin route",
 			userClaims: &auth.Claims{
 				UserID: uuid.New(),
-				Email:  "admin@rsa.org",
+				Email:  "admin@acme.org",
 				Role:   "org_admin",
 			},
 			allowedRoles: []string{"superadmin"},

@@ -137,7 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }`}
           >
             <Building2 className="w-4 h-4" />
-            <span>Company / RSA</span>
+            <span>Company Admin</span>
           </button>
         </div>
 

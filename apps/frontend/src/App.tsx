@@ -91,7 +91,7 @@ export function App() {
           <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />
           <Route path="/candidate/portal" element={<CandidateDashboardPage />} />
 
-          {/* Candidate Funnel: RSA - LIT 2026 & Generic AI Interview */}
+          {/* Candidate Funnel: LIT 2026 & Generic AI Interview */}
           <Route path="/lit2026/apply" element={<ApplyPage />} />
           <Route path="/lit2026/test/:testToken" element={<TestPage />} />
           <Route path="/test/:testToken" element={<TestPage />} />
