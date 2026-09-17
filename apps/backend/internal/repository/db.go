@@ -66,6 +66,23 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_users_org ON users(organization_id);
 	CREATE INDEX IF NOT EXISTS idx_users_activation_token ON users(activation_token) WHERE activation_token IS NOT NULL;
 
+	CREATE TABLE IF NOT EXISTS invitations (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		email VARCHAR(255) NOT NULL,
+		role VARCHAR(32) NOT NULL DEFAULT 'org_admin',
+		organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+		token VARCHAR(128) UNIQUE NOT NULL,
+		invited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+		status VARCHAR(32) NOT NULL DEFAULT 'pending',
+		expires_at TIMESTAMPTZ NOT NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	);
+	CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+	CREATE INDEX IF NOT EXISTS idx_invitations_org ON invitations(organization_id);
+	CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
+	CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status);
+
 	CREATE TABLE IF NOT EXISTS programs (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

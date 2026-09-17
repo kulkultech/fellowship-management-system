@@ -52,13 +52,16 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	}
 
 	// Handlers
+	invitationRepo := repository.NewInvitationRepository(pool)
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain, cfg.SES.FrontendURL)
+	authHandler.SetInvitationRepo(invitationRepo)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator, store)
 	uploadHandler := handler.NewUploadHandler(store, logger)
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
+	adminHandler.SetInvitationRepo(invitationRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 
 	var googleOAuth *auth.GoogleOAuth
@@ -145,6 +148,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			a.Post("/resend-activation", authHandler.ResendActivation)
 			a.Post("/login", authHandler.Login)
 			a.Post("/logout", authHandler.Logout)
+			a.Get("/invitations/{token}", authHandler.GetInvitation)
+			a.Post("/invitations/{token}/accept", authHandler.AcceptInvitation)
 			a.Get("/oauth/google", oauthHandler.Start)
 			a.Get("/oauth/google/callback", oauthHandler.Callback)
 			a.Get("/google", oauthHandler.Start)
@@ -250,6 +255,13 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				// Organization Profile
 				adm.Get("/organization", adminHandler.GetCurrentOrganization)
 				adm.Put("/organization", adminHandler.UpdateOrganization)
+
+				// Team Management & Admin Invitations
+				adm.Get("/team", adminHandler.GetTeam)
+				adm.Post("/invitations", adminHandler.CreateInvitation)
+				adm.Delete("/invitations/{id}", adminHandler.RevokeInvitation)
+				adm.Post("/invitations/{id}/resend", adminHandler.ResendInvitation)
+				adm.Delete("/members/{id}", adminHandler.RemoveMember)
 			})
 		})
 	})

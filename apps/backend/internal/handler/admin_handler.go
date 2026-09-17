@@ -33,6 +33,7 @@ type AdminHandler struct {
 	programRepo     *repository.ProgramRepository
 	orgRepo         *repository.OrgRepository
 	userRepo        *repository.UserRepository
+	invitationRepo  *repository.InvitationRepository
 	emailSvc        email.Service
 	frontendURL     string
 }
@@ -63,8 +64,15 @@ func NewAdminHandler(
 		programRepo:     programRepo,
 		orgRepo:         orgRepo,
 		userRepo:        userRepo,
+		invitationRepo:  repository.NewInvitationRepository(nil),
 		emailSvc:        emailSvc,
 		frontendURL:     strings.TrimRight(frontendURL, "/"),
+	}
+}
+
+func (h *AdminHandler) SetInvitationRepo(repo *repository.InvitationRepository) {
+	if repo != nil {
+		h.invitationRepo = repo
 	}
 }
 
@@ -2082,5 +2090,422 @@ func (h *AdminHandler) DeleteCompany(w http.ResponseWriter, r *http.Request) {
 		"id":      orgID.String(),
 	})
 }
+
+// ------------------------------------------------------------------------------------------------
+// Team Management & Admin/Superadmin Invitations
+// ------------------------------------------------------------------------------------------------
+
+type CreateInvitationRequest struct {
+	Email          string  `json:"email"`
+	Role           string  `json:"role"` // "org_admin", "reviewer", "superadmin"
+	OrganizationID *string `json:"organization_id,omitempty"`
+}
+
+func (h *AdminHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	ctx := r.Context()
+	scope := strings.TrimSpace(r.URL.Query().Get("scope"))
+
+	// Superadmin viewing platform superadmins
+	if claims.Role == model.RoleSuperadmin && scope == "superadmin" {
+		members, err := h.userRepo.ListSuperadmins(ctx)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to list superadmins: "+err.Error())
+			return
+		}
+		invs, err := h.invitationRepo.ListSuperadminInvitations(ctx)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to list superadmin invitations: "+err.Error())
+			return
+		}
+		if members == nil {
+			members = []*model.User{}
+		}
+		if invs == nil {
+			invs = []*model.Invitation{}
+		}
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"scope":       "superadmin",
+			"members":     members,
+			"invitations": invs,
+		})
+		return
+	}
+
+	// Organization team view
+	orgID, err := h.resolveOrgID(r, claims)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "organization context required: "+err.Error())
+		return
+	}
+
+	org, err := h.orgRepo.GetByID(ctx, orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "organization not found")
+		return
+	}
+
+	members, err := h.userRepo.ListByOrganization(ctx, orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list team members: "+err.Error())
+		return
+	}
+	invs, err := h.invitationRepo.ListByOrganization(ctx, orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list invitations: "+err.Error())
+		return
+	}
+	if members == nil {
+		members = []*model.User{}
+	}
+	if invs == nil {
+		invs = []*model.Invitation{}
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"scope":        "organization",
+		"organization": org,
+		"members":      members,
+		"invitations":  invs,
+	})
+}
+
+func (h *AdminHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req CreateInvitationRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	if req.Email == "" || !strings.Contains(req.Email, "@") {
+		httpx.Error(w, http.StatusBadRequest, "a valid email address is required")
+		return
+	}
+
+	if req.Role == "" {
+		req.Role = model.RoleOrgAdmin
+	}
+	if req.Role != model.RoleOrgAdmin && req.Role != model.RoleReviewer && req.Role != model.RoleSuperadmin {
+		httpx.Error(w, http.StatusBadRequest, "invalid role: must be org_admin, reviewer, or superadmin")
+		return
+	}
+
+	ctx := r.Context()
+	var targetOrgPtr *uuid.UUID
+
+	if req.Role == model.RoleSuperadmin {
+		// Only superadmins can invite other superadmins
+		if claims.Role != model.RoleSuperadmin {
+			httpx.Error(w, http.StatusForbidden, "only superadmins can invite platform superadmins")
+			return
+		}
+		targetOrgPtr = nil
+
+		// Check if user is already superadmin
+		if existing, _ := h.userRepo.GetByEmail(ctx, req.Email); existing != nil && existing.Role == model.RoleSuperadmin {
+			httpx.Error(w, http.StatusConflict, "user is already a platform superadmin")
+			return
+		}
+	} else {
+		// Reviewers cannot invite anyone
+		if claims.Role == model.RoleReviewer {
+			httpx.Error(w, http.StatusForbidden, "reviewers do not have permission to invite administrators")
+			return
+		}
+
+		if claims.Role == model.RoleSuperadmin {
+			// Superadmin inviting an org_admin or reviewer
+			if req.OrganizationID != nil && strings.TrimSpace(*req.OrganizationID) != "" {
+				parsed, err := uuid.Parse(strings.TrimSpace(*req.OrganizationID))
+				if err != nil {
+					httpx.Error(w, http.StatusBadRequest, "invalid organization_id")
+					return
+				}
+				targetOrgPtr = &parsed
+			} else {
+				resolved, err := h.resolveOrgID(r, claims)
+				if err != nil {
+					httpx.Error(w, http.StatusBadRequest, "organization context required to invite company admin")
+					return
+				}
+				targetOrgPtr = &resolved
+			}
+		} else {
+			// org_admin inviting to their own organization
+			if claims.OrganizationID == nil || *claims.OrganizationID == uuid.Nil {
+				httpx.Error(w, http.StatusBadRequest, "caller has no associated organization")
+				return
+			}
+			targetOrgPtr = claims.OrganizationID
+		}
+
+		// Verify target organization exists
+		if targetOrgPtr != nil {
+			if _, err := h.orgRepo.GetByID(ctx, *targetOrgPtr); err != nil {
+				httpx.Error(w, http.StatusNotFound, "target organization not found")
+				return
+			}
+		}
+
+		// Check if user already exists with this role in this organization
+		if existing, _ := h.userRepo.GetByEmail(ctx, req.Email); existing != nil {
+			if existing.OrganizationID != nil && targetOrgPtr != nil && *existing.OrganizationID == *targetOrgPtr && existing.Role == req.Role {
+				httpx.Error(w, http.StatusConflict, "user is already a member of this organization with this role")
+				return
+			}
+		}
+	}
+
+	// Generate 32-byte secure token
+	tokenBytes := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to generate secure invitation token")
+		return
+	}
+	token := hex.EncodeToString(tokenBytes)
+	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+	inv := &model.Invitation{
+		Email:          req.Email,
+		Role:           req.Role,
+		OrganizationID: targetOrgPtr,
+		Token:          token,
+		InvitedBy:      &claims.UserID,
+		Status:         model.InvitationStatusPending,
+		ExpiresAt:      expiresAt,
+	}
+
+	created, err := h.invitationRepo.Create(ctx, inv)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to record invitation: "+err.Error())
+		return
+	}
+
+	// Prepare email details
+	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", h.frontendURL, token)
+	inviterName := ""
+	if u, err := h.userRepo.GetByID(ctx, claims.UserID); err == nil && u != nil {
+		inviterName = u.Name
+	}
+	if inviterName == "" {
+		inviterName = claims.Email
+	}
+
+	orgName := ""
+	if targetOrgPtr != nil {
+		if org, err := h.orgRepo.GetByID(ctx, *targetOrgPtr); err == nil && org != nil {
+			orgName = org.Name
+			created.OrganizationName = org.Name
+			created.OrganizationSlug = org.Slug
+			created.OrganizationLogo = org.LogoURL
+		}
+	}
+	created.InvitedByName = inviterName
+
+	// Dispatch email asynchronously
+	if h.emailSvc != nil {
+		_ = h.emailSvc.SendAdminInvitationEmail(req.Email, inviterName, req.Role, orgName, inviteURL)
+	}
+
+	httpx.JSON(w, http.StatusCreated, map[string]any{
+		"message":    "Invitation sent successfully",
+		"invitation": created,
+		"invite_url": inviteURL,
+	})
+}
+
+func (h *AdminHandler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	invID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid invitation id")
+		return
+	}
+
+	ctx := r.Context()
+	inv, err := h.invitationRepo.GetByID(ctx, invID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "invitation not found")
+		return
+	}
+
+	// Permission checks
+	if inv.Role == model.RoleSuperadmin {
+		if claims.Role != model.RoleSuperadmin {
+			httpx.Error(w, http.StatusForbidden, "only superadmins can revoke superadmin invitations")
+			return
+		}
+	} else if claims.Role != model.RoleSuperadmin {
+		if claims.OrganizationID == nil || inv.OrganizationID == nil || *claims.OrganizationID != *inv.OrganizationID {
+			httpx.Error(w, http.StatusForbidden, "cannot revoke invitation for another organization")
+			return
+		}
+	}
+
+	if err := h.invitationRepo.UpdateStatus(ctx, inv.ID, model.InvitationStatusRevoked); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to revoke invitation: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Invitation revoked successfully",
+		"id":      inv.ID.String(),
+	})
+}
+
+func (h *AdminHandler) ResendInvitation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	invID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid invitation id")
+		return
+	}
+
+	ctx := r.Context()
+	inv, err := h.invitationRepo.GetByID(ctx, invID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "invitation not found")
+		return
+	}
+
+	// Permission checks
+	if inv.Role == model.RoleSuperadmin {
+		if claims.Role != model.RoleSuperadmin {
+			httpx.Error(w, http.StatusForbidden, "only superadmins can resend superadmin invitations")
+			return
+		}
+	} else if claims.Role != model.RoleSuperadmin {
+		if claims.OrganizationID == nil || inv.OrganizationID == nil || *claims.OrganizationID != *inv.OrganizationID {
+			httpx.Error(w, http.StatusForbidden, "cannot resend invitation for another organization")
+			return
+		}
+	}
+
+	if inv.Status != model.InvitationStatusPending {
+		httpx.Error(w, http.StatusBadRequest, "only pending invitations can be resent")
+		return
+	}
+
+	// Refresh expiration by 7 days
+	newExpiresAt := time.Now().Add(7 * 24 * time.Hour)
+	if err := h.invitationRepo.RefreshExpiration(ctx, inv.ID, newExpiresAt); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update invitation expiration: "+err.Error())
+		return
+	}
+	inv.ExpiresAt = newExpiresAt
+
+	// Resend email
+	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", h.frontendURL, inv.Token)
+	inviterName := ""
+	if u, err := h.userRepo.GetByID(ctx, claims.UserID); err == nil && u != nil {
+		inviterName = u.Name
+	}
+	if inviterName == "" {
+		inviterName = claims.Email
+	}
+
+	orgName := ""
+	if inv.OrganizationID != nil {
+		if org, err := h.orgRepo.GetByID(ctx, *inv.OrganizationID); err == nil && org != nil {
+			orgName = org.Name
+		}
+	}
+
+	if h.emailSvc != nil {
+		_ = h.emailSvc.SendAdminInvitationEmail(inv.Email, inviterName, inv.Role, orgName, inviteURL)
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":    "Invitation resent successfully",
+		"invitation": inv,
+		"invite_url": inviteURL,
+	})
+}
+
+func (h *AdminHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	targetUserID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid member id")
+		return
+	}
+
+	if targetUserID == claims.UserID {
+		httpx.Error(w, http.StatusBadRequest, "you cannot remove yourself from the organization")
+		return
+	}
+
+	ctx := r.Context()
+	targetUser, err := h.userRepo.GetByID(ctx, targetUserID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "member not found")
+		return
+	}
+
+	if targetUser.Role == model.RoleSuperadmin {
+		if claims.Role != model.RoleSuperadmin {
+			httpx.Error(w, http.StatusForbidden, "only superadmins can manage superadmin accounts")
+			return
+		}
+		// Count superadmins to prevent removing the only remaining superadmin
+		superadmins, _ := h.userRepo.ListSuperadmins(ctx)
+		if len(superadmins) <= 1 {
+			httpx.Error(w, http.StatusBadRequest, "cannot remove the only platform superadmin")
+			return
+		}
+		// Demote superadmin to candidate
+		if err := h.userRepo.UpdateOrgAndRole(ctx, targetUserID, nil, model.RoleCandidate, targetUser.Name); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to update user role: "+err.Error())
+			return
+		}
+	} else {
+		// Org admin or reviewer removal
+		if claims.Role != model.RoleSuperadmin {
+			if claims.OrganizationID == nil || targetUser.OrganizationID == nil || *claims.OrganizationID != *targetUser.OrganizationID {
+				httpx.Error(w, http.StatusForbidden, "cannot remove member of another organization")
+				return
+			}
+		}
+		if err := h.userRepo.RemoveFromOrganization(ctx, targetUserID); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to remove member: "+err.Error())
+			return
+		}
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Member removed successfully",
+		"id":      targetUserID.String(),
+	})
+}
+
 
 

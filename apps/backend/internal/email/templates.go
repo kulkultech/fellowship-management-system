@@ -730,3 +730,89 @@ func buildAccountActivationEmail(userName, activationURL, frontendURL, supportEm
 	return
 }
 
+// 8. Admin & Superadmin Team Invitation Email Template
+func buildAdminInvitationEmail(inviterName, role, orgName, inviteURL, frontendURL, supportEmail string) (subject string, html string, text string) {
+	if inviterName == "" {
+		inviterName = "A team administrator"
+	}
+
+	roleDisplay := "Organization Administrator"
+	switch role {
+	case "superadmin":
+		roleDisplay = "Platform Superadmin"
+	case "reviewer":
+		roleDisplay = "Reviewer / Evaluator"
+	}
+
+	if role == "superadmin" {
+		subject = "You have been invited as a Platform Superadmin on FellowHire"
+	} else if orgName != "" {
+		subject = fmt.Sprintf("You have been invited to join %s on FellowHire", orgName)
+	} else {
+		subject = "You have been invited to join the administrative team on FellowHire"
+	}
+
+	scopeDescription := ""
+	if role == "superadmin" {
+		scopeDescription = "You have been invited to join FellowHire as a <strong>Platform Superadmin</strong>, granting full platform-level administrative privileges."
+	} else {
+		scopeDescription = fmt.Sprintf("%s has invited you to join <strong>%s</strong> as an <strong>%s</strong> on FellowHire.",
+			template.HTMLEscapeString(inviterName), template.HTMLEscapeString(orgName), template.HTMLEscapeString(roleDisplay))
+	}
+
+	body := fmt.Sprintf(`
+    <span class="badge badge-purple">Team Invitation</span>
+    <h2>Join the Administrative Team</h2>
+    <p>%s</p>
+    
+    <div class="btn-container">
+      <a href="%s" class="btn">Accept Invitation & Join Team</a>
+    </div>
+
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">Assigned Role</span>
+        <span class="info-value">%s</span>
+      </div>
+      %s
+      <div class="info-row">
+        <span class="info-label">Invited By</span>
+        <span class="info-value">%s</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Invitation Expiration</span>
+        <span class="info-value">7 Days</span>
+      </div>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="%s" style="color: #33125d; word-break: break-all;">%s</a>
+    </p>
+
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 24px;">
+      If you did not expect this invitation, you can safely ignore this email.
+    </p>
+  `, scopeDescription, inviteURL,
+		template.HTMLEscapeString(roleDisplay),
+		func() string {
+			if orgName != "" {
+				return fmt.Sprintf(`<div class="info-row"><span class="info-label">Organization</span><span class="info-value">%s</span></div>`, template.HTMLEscapeString(orgName))
+			}
+			return ""
+		}(),
+		template.HTMLEscapeString(inviterName),
+		inviteURL, inviteURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("You have been invited to FellowHire!\n\n%s has invited you as %s%s.\n\nAccept your invitation at:\n%s\n\nThis invitation will expire in 7 days.\n\nSupport: %s",
+		inviterName, roleDisplay, func() string {
+			if orgName != "" {
+				return " for " + orgName
+			}
+			return ""
+		}(), inviteURL, supportEmail)
+	return
+}
+
+

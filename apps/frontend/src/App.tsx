@@ -11,6 +11,7 @@ import { ResultPage } from '@/pages/assessment/ResultPage';
 import { InterviewPage } from '@/pages/assessment/InterviewPage';
 import { CompanyRegisterPage } from '@/pages/CompanyRegisterPage';
 import { AccountActivationPage } from '@/pages/AccountActivationPage';
+import { AcceptInvitationPage } from '@/pages/AcceptInvitationPage';
 import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
@@ -65,6 +66,8 @@ export function App() {
           {/* Company Self-Registration & Account Activation */}
           <Route path="/register-company" element={<CompanyRegisterPage />} />
           <Route path="/activate" element={<AccountActivationPage />} />
+          <Route path="/invite/accept" element={<AcceptInvitationPage />} />
+          <Route path="/invitations/:token" element={<AcceptInvitationPage />} />
 
           {/* Public Program Job Post / Fellowship Listing */}
           <Route path="/programs/:orgSlug/:programSlug" element={<ProgramJobPostPage />} />

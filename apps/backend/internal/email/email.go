@@ -26,6 +26,7 @@ type Service interface {
 	SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error
 	SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error
 	SendAccountActivationEmail(recipientEmail, userName, activationURL string) error
+	SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error
 }
 
 type SESService struct {
@@ -302,3 +303,11 @@ func (s *SESService) SendAccountActivationEmail(recipientEmail, userName, activa
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }
+
+// 8. SendAdminInvitationEmail
+func (s *SESService) SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error {
+	subject, html, text := buildAdminInvitationEmail(inviterName, role, orgName, inviteURL, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+

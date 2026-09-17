@@ -6,6 +6,8 @@ import type {
   RegistrationResponse,
   UpdateProfilePayload,
   User,
+  InvitationDetails,
+  AcceptInvitePayload,
 } from './types';
 
 export const authService = {
@@ -31,6 +33,22 @@ export const authService = {
 
   resendActivation: async (email: string): Promise<{ message: string }> => {
     const { data } = await apiClient.post<{ message: string }>('/auth/resend-activation', { email });
+    return data;
+  },
+
+  getInvitation: async (token: string): Promise<InvitationDetails> => {
+    const { data } = await apiClient.get<InvitationDetails>(`/auth/invitations/${token}`);
+    return data;
+  },
+
+  acceptInvitation: async (
+    token: string,
+    payload: AcceptInvitePayload
+  ): Promise<{ message: string; user: User; redirect_url: string }> => {
+    const { data } = await apiClient.post<{ message: string; user: User; redirect_url: string }>(
+      `/auth/invitations/${token}/accept`,
+      payload
+    );
     return data;
   },
 

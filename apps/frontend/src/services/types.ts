@@ -550,3 +550,54 @@ export interface CandidateApplicationItem {
   form_submitted?: boolean;
   created_at: string;
 }
+
+export interface Invitation {
+  id: string;
+  email: string;
+  role: 'org_admin' | 'reviewer' | 'superadmin';
+  organization_id?: string | null;
+  organization_name?: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  invited_by: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  organization_id?: string | null;
+  organization_name?: string;
+  created_at: string;
+}
+
+export interface TeamResponse {
+  members: TeamMember[];
+  invitations: Invitation[];
+}
+
+export interface InviteAdminPayload {
+  email: string;
+  role: 'org_admin' | 'reviewer' | 'superadmin';
+  organization_id?: string;
+}
+
+export interface InvitationDetails {
+  id: string;
+  email: string;
+  role: string;
+  organization_id?: string | null;
+  organization_name?: string;
+  inviter_name?: string;
+  inviter_email?: string;
+  status: string;
+  expires_at: string;
+  is_existing_user: boolean;
+}
+
+export interface AcceptInvitePayload {
+  name?: string;
+  password?: string;
+}

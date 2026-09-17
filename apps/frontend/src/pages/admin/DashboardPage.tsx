@@ -31,6 +31,7 @@ import {
   type CandidateTableColumnDef,
 } from '@/components/admin/CandidateTableCustomizer';
 import { ProgramImageAdjustModal } from '@/components/admin/ProgramImageAdjustModal';
+import { TeamManagementView } from '@/components/admin/TeamManagementView';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -193,7 +194,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
 ];
 
 export interface DashboardPageProps {
-  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program';
+  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team';
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
@@ -214,8 +215,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [user, navigate]);
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -1717,7 +1718,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Active nav ID calculation for hierarchical tree
   const activeNavId =
-    currentView === 'programs'
+    currentView === 'team'
+      ? 'team'
+      : currentView === 'programs'
       ? 'programs'
       : currentView === 'create_program'
       ? 'launch-new-program-nav'
@@ -1835,6 +1838,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       badge: allQuestionSets.length > 0 ? allQuestionSets.length : undefined,
       onClick: () => setCurrentView('questions'),
     },
+    {
+      id: 'team',
+      label: 'Team & Admins',
+      icon: Users,
+      onClick: () => setCurrentView('team'),
+    },
     ...(isSuperadmin
       ? [
           {
@@ -1905,7 +1914,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     <DashboardLayout
       portalType="company_admin"
       title={
-        currentView === 'programs'
+        currentView === 'team'
+          ? 'Team & Administrators'
+          : currentView === 'programs'
           ? 'Programs'
           : currentView === 'create_program'
           ? 'Launch New Program'
@@ -4354,6 +4365,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
                 queryClient.invalidateQueries({ queryKey: ['program-stats', activeProgramSlug] });
               }}
+            />
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* VIEW 9: TEAM & ADMIN MANAGEMENT */}
+        {/* ================================================================================= */}
+        {currentView === 'team' && (
+          <div className="animate-in fade-in duration-200">
+            <TeamManagementView
+              organizationId={impersonatedOrgId || orgProfile?.id || user?.organization?.id}
+              organizationName={orgProfile?.name || user?.organization?.name}
+              isSuperadmin={isSuperadmin}
+              scope={isSuperadmin && !impersonatedOrgId ? 'superadmin' : 'company'}
             />
           </div>
         )}

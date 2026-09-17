@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/email"
@@ -22,12 +23,13 @@ import (
 )
 
 type AuthHandler struct {
-	userRepo    *repository.UserRepository
-	orgRepo     *repository.OrgRepository
-	authSvc     *auth.Service
-	emailSvc    email.Service
-	cookieOpts  auth.CookieOptions
-	frontendURL string
+	userRepo       *repository.UserRepository
+	orgRepo        *repository.OrgRepository
+	invitationRepo *repository.InvitationRepository
+	authSvc        *auth.Service
+	emailSvc       email.Service
+	cookieOpts     auth.CookieOptions
+	frontendURL    string
 }
 
 func NewAuthHandler(
@@ -47,16 +49,23 @@ func NewAuthHandler(
 		}
 	}
 	return &AuthHandler{
-		userRepo:    userRepo,
-		orgRepo:     orgRepo,
-		authSvc:     authSvc,
-		emailSvc:    emailSvc,
-		frontendURL: frontendURL,
+		userRepo:       userRepo,
+		orgRepo:        orgRepo,
+		invitationRepo: repository.NewInvitationRepository(nil),
+		authSvc:        authSvc,
+		emailSvc:       emailSvc,
+		frontendURL:    frontendURL,
 		cookieOpts: auth.CookieOptions{
 			Secure: secure,
 			Domain: domain,
 			MaxAge: ttl,
 		},
+	}
+}
+
+func (h *AuthHandler) SetInvitationRepo(repo *repository.InvitationRepository) {
+	if repo != nil {
+		h.invitationRepo = repo
 	}
 }
 
@@ -791,3 +800,181 @@ func generateActivationToken() (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
+
+// ------------------------------------------------------------------------------------------------
+// Public Invitation Verification & Acceptance
+// ------------------------------------------------------------------------------------------------
+
+type AcceptInvitationRequest struct {
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+func (h *AuthHandler) GetInvitation(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(chi.URLParam(r, "token"))
+	if token == "" {
+		token = strings.TrimSpace(r.URL.Query().Get("token"))
+	}
+	if token == "" {
+		httpx.Error(w, http.StatusBadRequest, "invitation token is required")
+		return
+	}
+
+	ctx := r.Context()
+	inv, err := h.invitationRepo.GetByToken(ctx, token)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "invalid or non-existent invitation token")
+		return
+	}
+
+	if inv.Status != model.InvitationStatusPending {
+		httpx.Error(w, http.StatusBadRequest, "this invitation has already been "+inv.Status)
+		return
+	}
+
+	if time.Now().After(inv.ExpiresAt) {
+		httpx.Error(w, http.StatusBadRequest, "this invitation has expired")
+		return
+	}
+
+	existingUser, _ := h.userRepo.GetByEmail(ctx, inv.Email)
+	isExistingUser := existingUser != nil
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"id":                inv.ID,
+		"email":             inv.Email,
+		"role":              inv.Role,
+		"organization_name": inv.OrganizationName,
+		"organization_slug": inv.OrganizationSlug,
+		"organization_logo": inv.OrganizationLogo,
+		"invited_by_name":   inv.InvitedByName,
+		"expires_at":        inv.ExpiresAt,
+		"is_existing_user":  isExistingUser,
+	})
+}
+
+func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(chi.URLParam(r, "token"))
+	if token == "" {
+		token = strings.TrimSpace(r.URL.Query().Get("token"))
+	}
+	if token == "" {
+		httpx.Error(w, http.StatusBadRequest, "invitation token is required")
+		return
+	}
+
+	ctx := r.Context()
+	inv, err := h.invitationRepo.GetByToken(ctx, token)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "invalid or non-existent invitation token")
+		return
+	}
+
+	if inv.Status != model.InvitationStatusPending {
+		httpx.Error(w, http.StatusBadRequest, "this invitation has already been "+inv.Status)
+		return
+	}
+
+	if time.Now().After(inv.ExpiresAt) {
+		httpx.Error(w, http.StatusBadRequest, "this invitation has expired")
+		return
+	}
+
+	var req AcceptInvitationRequest
+	_ = httpx.Decode(w, r, &req)
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.Password = strings.TrimSpace(req.Password)
+
+	existingUser, _ := h.userRepo.GetByEmail(ctx, inv.Email)
+
+	var user *model.User
+	if existingUser != nil {
+		// Existing user: promote role and assign organization
+		userName := existingUser.Name
+		if req.Name != "" {
+			userName = req.Name
+		}
+		if req.Password != "" {
+			if len(req.Password) < 6 {
+				httpx.Error(w, http.StatusBadRequest, "password must be at least 6 characters")
+				return
+			}
+			hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "failed to hash password")
+				return
+			}
+			_ = h.userRepo.SetPassword(ctx, existingUser.ID, string(hash))
+		}
+
+		if err := h.userRepo.UpdateOrgAndRole(ctx, existingUser.ID, inv.OrganizationID, inv.Role, userName); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to update user permissions: "+err.Error())
+			return
+		}
+		_ = h.userRepo.ActivateUser(ctx, existingUser.ID)
+
+		user, _ = h.userRepo.GetByID(ctx, existingUser.ID)
+		if user == nil {
+			user = existingUser
+			user.Role = inv.Role
+			user.OrganizationID = inv.OrganizationID
+			user.EmailVerified = true
+		}
+	} else {
+		// New user: create account
+		if req.Password == "" {
+			httpx.Error(w, http.StatusBadRequest, "password is required to set up your account")
+			return
+		}
+		if len(req.Password) < 6 {
+			httpx.Error(w, http.StatusBadRequest, "password must be at least 6 characters")
+			return
+		}
+		if req.Name == "" {
+			req.Name = strings.Split(inv.Email, "@")[0]
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
+
+		user, err = h.userRepo.Create(ctx, inv.Email, string(hash), req.Name, inv.Role, inv.OrganizationID)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to create user account: "+err.Error())
+			return
+		}
+	}
+
+	// Mark invitation accepted
+	_ = h.invitationRepo.UpdateStatus(ctx, inv.ID, model.InvitationStatusAccepted)
+
+	// Issue JWT & CSRF cookies
+	jwtToken, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to issue session token")
+		return
+	}
+
+	csrfToken, err := auth.GenerateCSRFToken()
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to issue csrf token")
+		return
+	}
+
+	auth.SetAuthCookies(w, jwtToken, csrfToken, h.cookieOpts)
+
+	redirectURL := "/admin/dashboard"
+	if user.Role == model.RoleSuperadmin {
+		redirectURL = "/superadmin/dashboard"
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":      "Invitation accepted successfully! Welcome to the team.",
+		"user":         user,
+		"redirect_url": redirectURL,
+		"csrf_token":   csrfToken,
+	})
+}
+

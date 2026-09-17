@@ -11,6 +11,9 @@ import type {
   CreateQuestionSetPayload,
   UpdateQuestionSetPayload,
   AIInterviewRubric,
+  TeamResponse,
+  InviteAdminPayload,
+  Invitation,
 } from './types';
 
 export interface CreateProgramPayload {
@@ -316,5 +319,32 @@ export const adminService = {
   ): Promise<Organization> => {
     const { data } = await apiClient.put<Organization>(`/admin/companies/${companyId}`, payload);
     return data;
+  },
+
+  // Team & Invitation Management
+  getTeam: async (params?: { org_id?: string; scope?: string }): Promise<TeamResponse> => {
+    const { data } = await apiClient.get<TeamResponse>('/admin/team', { params });
+    return data;
+  },
+
+  inviteAdmin: async (payload: InviteAdminPayload): Promise<{ invitation: Invitation }> => {
+    const { data } = await apiClient.post<{ invitation: Invitation }>('/admin/invitations', payload);
+    return data;
+  },
+
+  revokeInvitation: async (invitationId: string, orgId?: string): Promise<void> => {
+    const params = orgId ? { org_id: orgId } : undefined;
+    await apiClient.delete(`/admin/invitations/${invitationId}`, { params });
+  },
+
+  resendInvitation: async (invitationId: string, orgId?: string): Promise<{ invitation: Invitation }> => {
+    const params = orgId ? { org_id: orgId } : undefined;
+    const { data } = await apiClient.post<{ invitation: Invitation }>(`/admin/invitations/${invitationId}/resend`, null, { params });
+    return data;
+  },
+
+  removeMember: async (memberId: string, orgId?: string): Promise<void> => {
+    const params = orgId ? { org_id: orgId } : undefined;
+    await apiClient.delete(`/admin/members/${memberId}`, { params });
   },
 };

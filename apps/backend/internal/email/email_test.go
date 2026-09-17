@@ -112,6 +112,29 @@ func TestEmailTemplates(t *testing.T) {
 			t.Errorf("expected committee notes in html")
 		}
 	})
+
+	t.Run("AdminInvitationEmail_OrgAdmin", func(t *testing.T) {
+		subj, html, text := buildAdminInvitationEmail("Alice Admin", "org_admin", "Acme Labs", "https://fellowhire.kul.to/invite/accept?token=xyz", frontendURL, supportEmail)
+		if !strings.Contains(subj, "Acme Labs") {
+			t.Errorf("expected subject to contain Acme Labs, got %s", subj)
+		}
+		if !strings.Contains(html, "Organization Administrator") {
+			t.Errorf("expected html to contain role")
+		}
+		if !strings.Contains(text, "Alice Admin") {
+			t.Errorf("expected text to contain inviter name")
+		}
+	})
+
+	t.Run("AdminInvitationEmail_Superadmin", func(t *testing.T) {
+		subj, html, _ := buildAdminInvitationEmail("Super Admin", "superadmin", "", "https://fellowhire.kul.to/invite/accept?token=xyz", frontendURL, supportEmail)
+		if !strings.Contains(subj, "Platform Superadmin") {
+			t.Errorf("expected subject to contain Platform Superadmin, got %s", subj)
+		}
+		if !strings.Contains(html, "Platform Superadmin") {
+			t.Errorf("expected html to contain role")
+		}
+	})
 }
 
 func TestSESService_SimulationMode(t *testing.T) {
@@ -134,4 +157,8 @@ func TestSESService_SimulationMode(t *testing.T) {
 	if err := svc.SendAccountActivationEmail("test@example.com", "Test User", "https://fellowhire.kul.to/activate?token=abc"); err != nil {
 		t.Fatalf("unexpected error in SendAccountActivationEmail: %v", err)
 	}
+	if err := svc.SendAdminInvitationEmail("test@example.com", "Alice Admin", "org_admin", "Acme Labs", "https://fellowhire.kul.to/invite/accept?token=xyz"); err != nil {
+		t.Fatalf("unexpected error in SendAdminInvitationEmail: %v", err)
+	}
 }
+

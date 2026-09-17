@@ -695,3 +695,108 @@ func (r *UserRepository) SetPassword(ctx context.Context, userID uuid.UUID, pass
 	return nil
 }
 
+func (r *UserRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*model.User, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var res []*model.User
+		for _, u := range r.memUsers {
+			if u.OrganizationID != nil && *u.OrganizationID == orgID && (u.Role == model.RoleOrgAdmin || u.Role == model.RoleReviewer) {
+				res = append(res, u)
+			}
+		}
+		return res, nil
+	}
+
+	query := `
+		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
+		FROM users
+		WHERE organization_id = $1 AND role IN ('org_admin', 'reviewer')
+		ORDER BY created_at ASC
+	`
+	rows, err := r.pool.Query(ctx, query, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("user_repo: list by org: %w", err)
+	}
+	defer rows.Close()
+
+	var res []*model.User
+	for rows.Next() {
+		var u model.User
+		err := rows.Scan(
+			&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("user_repo: scan user: %w", err)
+		}
+		res = append(res, &u)
+	}
+	return res, nil
+}
+
+func (r *UserRepository) ListSuperadmins(ctx context.Context) ([]*model.User, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var res []*model.User
+		for _, u := range r.memUsers {
+			if u.Role == model.RoleSuperadmin {
+				res = append(res, u)
+			}
+		}
+		return res, nil
+	}
+
+	query := `
+		SELECT id, organization_id, email, password_hash, name, COALESCE(avatar_url, ''), role, COALESCE(email_verified, true), activation_token, activation_expires_at, created_at, updated_at
+		FROM users
+		WHERE role = 'superadmin'
+		ORDER BY created_at ASC
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("user_repo: list superadmins: %w", err)
+	}
+	defer rows.Close()
+
+	var res []*model.User
+	for rows.Next() {
+		var u model.User
+		err := rows.Scan(
+			&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.EmailVerified, &u.ActivationToken, &u.ActivationExpiresAt, &u.CreatedAt, &u.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("user_repo: scan superadmin: %w", err)
+		}
+		res = append(res, &u)
+	}
+	return res, nil
+}
+
+func (r *UserRepository) RemoveFromOrganization(ctx context.Context, userID uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, u := range r.memUsers {
+			if u.ID == userID {
+				u.OrganizationID = nil
+				u.Role = model.RoleCandidate
+				u.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrUserNotFound
+	}
+
+	query := `UPDATE users SET organization_id = NULL, role = 'candidate', updated_at = now() WHERE id = $1`
+	tag, err := r.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("user_repo: remove from org: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+

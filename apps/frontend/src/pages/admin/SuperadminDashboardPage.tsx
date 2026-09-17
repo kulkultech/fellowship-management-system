@@ -24,8 +24,10 @@ import {
   Pencil,
   X,
   Check,
+  Users,
 } from 'lucide-react';
 import type { Organization } from '@/services/types';
+import { TeamManagementView } from '@/components/admin/TeamManagementView';
 import toast from 'react-hot-toast';
 
 export const SuperadminDashboardPage: React.FC = () => {
@@ -41,7 +43,7 @@ export const SuperadminDashboardPage: React.FC = () => {
     }
   }, [user, navigate]);
 
-  const [activeTab, setActiveTab] = useState<'companies' | 'programs' | 'telemetry'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'programs' | 'telemetry' | 'team'>('companies');
   const [companyStatusFilter, setCompanyStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -179,6 +181,11 @@ export const SuperadminDashboardPage: React.FC = () => {
       id: 'telemetry',
       label: 'Platform Telemetry',
       icon: Activity,
+    },
+    {
+      id: 'team',
+      label: 'Superadmin Team',
+      icon: Users,
     },
   ];
 
@@ -825,6 +832,13 @@ export const SuperadminDashboardPage: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 4: SUPERADMIN TEAM MANAGEMENT */}
+        {/* ========================================================================= */}
+        {activeTab === 'team' && (
+          <TeamManagementView isSuperadmin={true} scope="superadmin" />
         )}
       </div>
     </DashboardLayout>
