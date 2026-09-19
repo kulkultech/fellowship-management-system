@@ -244,9 +244,9 @@ func DefaultProgramEmailTemplates(programName string) *ProgramEmailTemplates {
 		},
 		FinalInterview: &EmailTemplateConfig{
 			Enabled:    true,
-			Subject:    "Congratulations! Next Steps for {{program_name}}",
-			Headline:   "Application Shortlisted!",
-			Body:       "Dear {{candidate_name}},\n\nWe are thrilled to inform you that your application and screening assessments for {{program_name}} ({{track_name}}) have been thoroughly evaluated, and you have been shortlisted for the final stage!\n\n{{notes}}\n\nPlease visit your candidate portal for scheduled session times and preparation guidelines.",
+			Subject:    "Congratulations! Next Stage Invitation: {{program_name}}",
+			Headline:   "You're Moving to the Next Stage!",
+			Body:       "Dear {{candidate_name}},\n\nWe are pleased to inform you that your application and screening assessments for {{program_name}} ({{track_name}}) have been thoroughly evaluated, and you have qualified to advance to the next stage!\n\n{{notes}}\n\nPlease visit your candidate portal for schedule details, next steps, and preparation guidelines.",
 			ButtonText: "Go to Candidate Portal",
 		},
 		Rejection: &EmailTemplateConfig{

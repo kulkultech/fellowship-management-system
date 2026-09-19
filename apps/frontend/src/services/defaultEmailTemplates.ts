@@ -77,16 +77,16 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
   },
   {
     key: 'final_interview',
-    label: 'Final Live Stage',
-    stageTag: 'Stage 4 • Final Selection',
-    description: 'Sent when admin shortlists candidate for live interview / final acceptance.',
+    label: 'Next Stage',
+    stageTag: 'Stage 4 • Next Step',
+    description: 'Sent when candidate advances to the next stage after assessment (e.g. live interview, offer, or next round).',
     defaultActionUrl: 'https://fellowhire.kul.to/candidate/dashboard',
     supportedVariables: [
       { variable: '{{candidate_name}}', label: 'Candidate Name', example: 'Jane Doe' },
       { variable: '{{program_name}}', label: 'Program Name', example: 'Tech Fellowship 2026' },
       { variable: '{{track_name}}', label: 'Track Name', example: 'Full Stack Engineering' },
       { variable: '{{dashboard_url}}', label: 'Candidate Dashboard', example: 'https://fellowhire.kul.to/candidate/dashboard' },
-      { variable: '{{notes}}', label: 'Admissions Feedback / Notes', example: 'Shortlisted for final interview round.' },
+      { variable: '{{notes}}', label: 'Admissions Feedback / Notes', example: 'Selected to advance to the next round.' },
       { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
     ],
   },
@@ -138,9 +138,9 @@ export function getDefaultProgramEmailTemplates(_programName: string = 'Fellowsh
     },
     final_interview: {
       enabled: true,
-      subject: `Congratulations! Invitation to Live Stage: {{program_name}}`,
-      headline: `You're Moving to the Live Stage!`,
-      body: `Dear {{candidate_name}},\n\nCongratulations! Based on your outstanding performance throughout the evaluation stages, you have been shortlisted for the final live interview stage for {{program_name}}.\n\nPlease visit your candidate dashboard to review interview scheduling instructions and prep materials.`,
+      subject: `Congratulations! Next Stage Invitation: {{program_name}}`,
+      headline: `You're Moving to the Next Stage!`,
+      body: `Dear {{candidate_name}},\n\nCongratulations! Based on your performance across the evaluation stages, you have been selected to advance to the next stage for {{program_name}}.\n\nPlease visit your candidate dashboard to review details, schedule instructions, and next steps.`,
       button_text: `Open Candidate Dashboard`,
     },
     rejection: {

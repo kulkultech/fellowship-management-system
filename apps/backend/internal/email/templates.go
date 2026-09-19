@@ -632,7 +632,7 @@ func buildAIInterviewInvitationEmail(candidateName, programName, trackName, inte
 
 // 6. Result of AI Interview / Approved for Final Interview Email Template
 func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, dashboardURL, notes, frontendURL, supportEmail string) (subject string, html string, text string) {
-	subject = fmt.Sprintf("Congratulations! Approved for Final Live Interview - %s", programName)
+	subject = fmt.Sprintf("Congratulations! Next Stage Invitation - %s", programName)
 
 	trackDisplay := trackName
 	if trackDisplay == "" {
@@ -652,7 +652,7 @@ func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, d
 	body := fmt.Sprintf(`
     <h2>Admissions Committee Approval</h2>
     <p>Dear <strong>%s</strong>,</p>
-    <p>We are delighted to inform you that your AI video screening assessment and application for <strong>%s</strong> (%s) have been <strong>officially approved by the Admissions Committee</strong>!</p>
+    <p>We are delighted to inform you that your application and assessments for <strong>%s</strong> (%s) have been <strong>officially approved by the Admissions Committee</strong>!</p>
 
     <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
@@ -666,25 +666,25 @@ func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, d
         </tr>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Current Stage</td>
-          <td style="padding: 12px 18px; color: #047857; font-size: 13px; font-weight: 700; text-align: right;">Approved for Final Live Interview</td>
+          <td style="padding: 12px 18px; color: #047857; font-size: 13px; font-weight: 700; text-align: right;">Approved for Next Stage</td>
         </tr>
       </tbody>
     </table>
 
     %s
 
-    <p>You have advanced to the final stage of the selection process: a live conversation with our engineering leads and fellowship mentors.</p>
-    <p>Please log in to your candidate dashboard to review your status and scheduling instructions.</p>
+    <p>You have advanced to the next stage of the selection process for %s (%s).</p>
+    <p>Please log in to your candidate dashboard to review your status, schedule instructions, and next steps.</p>
 
     <div class="btn-container">
       <a href="%s" class="btn">Open Candidate Dashboard</a>
     </div>
   `, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
 		template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
-		notesBlock, dashboardURL)
+		notesBlock, template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay), dashboardURL)
 
 	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
-	text = fmt.Sprintf("Congratulations %s!\n\nYour application and AI video screening for %s (%s) have been approved by the Admissions Committee!\n\nYou are invited to the final live interview stage.\n\nOpen your candidate dashboard for details:\n%s\n\nFellowHire Admissions Team",
+	text = fmt.Sprintf("Congratulations %s!\n\nYour application and assessments for %s (%s) have been approved by the Admissions Committee!\n\nYou have advanced to the next stage.\n\nOpen your candidate dashboard for details:\n%s\n\nFellowHire Admissions Team",
 		candidateName, programName, trackDisplay, dashboardURL)
 	return
 }

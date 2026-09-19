@@ -105,8 +105,8 @@ func TestEmailTemplates(t *testing.T) {
 
 	t.Run("FinalInterviewInvitationEmail", func(t *testing.T) {
 		subj, html, _ := buildFinalInterviewInvitationEmail("Jane Doe", "LIT 2026", "Fullstack Track", "https://fellowhire.kul.to/candidate/dashboard", "Prepare your GitHub projects.", frontendURL, supportEmail)
-		if !strings.Contains(subj, "Approved for Final Live Interview") {
-			t.Errorf("expected final interview subject")
+		if !strings.Contains(subj, "Next Stage") {
+			t.Errorf("expected Next Stage in subject")
 		}
 		if !strings.Contains(html, "Prepare your GitHub projects") {
 			t.Errorf("expected committee notes in html")

@@ -2110,7 +2110,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           : currentView === 'ai_rubric'
           ? 'AI Rubric & Prompts'
           : currentView === 'email_templates'
-          ? 'Email Communication Templates'
+          ? 'Email Templates'
           : program?.name || 'Candidate Pipeline'
       }
       subtitle={
