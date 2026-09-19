@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -83,7 +84,12 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		logger,
 	)
 
+	sentryHandler := sentryhttp.New(sentryhttp.Options{
+		Repanic: true,
+	})
+
 	r := chi.NewRouter()
+	r.Use(sentryHandler.Handle)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recover(logger))
 	r.Use(middleware.Logger(logger))

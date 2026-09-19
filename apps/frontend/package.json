@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@sentry/react": "^10.75.0",
     "@tanstack/react-query": "^5.59.0",
     "axios": "^1.7.7",
     "exceljs": "^4.4.0",

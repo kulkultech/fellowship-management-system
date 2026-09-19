@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/repository"
@@ -29,6 +30,20 @@ func run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+
+	if cfg.SentryDSN != "" && cfg.SentryDSN != "none" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:              cfg.SentryDSN,
+			Environment:      cfg.AppEnv,
+			EnableTracing:    true,
+			TracesSampleRate: 1.0,
+		}); err != nil {
+			logger.Warn("sentry.Init failed", slog.Any("error", err))
+		} else {
+			defer sentry.Flush(2 * time.Second)
+			logger.Info("Sentry crash analytics initialized successfully", slog.String("env", cfg.AppEnv))
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
