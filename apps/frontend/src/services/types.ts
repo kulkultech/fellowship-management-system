@@ -462,8 +462,20 @@ export interface ApplicantListItem {
   mcq_score?: number;
   mcq_passed?: boolean;
   time_spent_seconds?: number;
+  mcq_status?: string;
+  mcq_started_at?: string;
+  mcq_submitted_at?: string;
   ai_score?: number;
   ai_recommendation?: string;
+  ai_status?: string;
+  ai_recording_url?: string;
+  ai_completed_at?: string;
+  ai_technical_acumen?: number;
+  ai_communication?: number;
+  ai_problem_solving?: number;
+  ai_key_strengths?: string[];
+  ai_areas_for_growth?: string[];
+  ai_executive_summary?: string;
   created_at: string;
 }
 

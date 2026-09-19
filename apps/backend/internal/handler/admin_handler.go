@@ -94,13 +94,25 @@ type ApplicantListItem struct {
 	CustomResponses  map[string]interface{} `json:"custom_responses,omitempty"`
 	TrackID          string                 `json:"track_id,omitempty"`
 	TrackName        string                 `json:"track_name,omitempty"`
-	CurrentStage     model.ApplicantStage   `json:"current_stage"`
-	MCQScore         *int                   `json:"mcq_score,omitempty"`
-	MCQPassed        *bool                  `json:"mcq_passed,omitempty"`
-	TimeSpentSeconds *int                   `json:"time_spent_seconds,omitempty"`
-	AIScore          *int                   `json:"ai_score,omitempty"`
-	AIRecommendation *string                `json:"ai_recommendation,omitempty"`
-	CreatedAt        string                 `json:"created_at"`
+	CurrentStage       model.ApplicantStage   `json:"current_stage"`
+	MCQScore           *int                   `json:"mcq_score,omitempty"`
+	MCQPassed          *bool                  `json:"mcq_passed,omitempty"`
+	TimeSpentSeconds   *int                   `json:"time_spent_seconds,omitempty"`
+	MCQStatus          *string                `json:"mcq_status,omitempty"`
+	MCQStartedAt       *string                `json:"mcq_started_at,omitempty"`
+	MCQSubmittedAt     *string                `json:"mcq_submitted_at,omitempty"`
+	AIScore            *int                   `json:"ai_score,omitempty"`
+	AIRecommendation   *string                `json:"ai_recommendation,omitempty"`
+	AIStatus           *string                `json:"ai_status,omitempty"`
+	AIRecordingURL     *string                `json:"ai_recording_url,omitempty"`
+	AICompletedAt      *string                `json:"ai_completed_at,omitempty"`
+	AITechnicalAcumen  *int                   `json:"ai_technical_acumen,omitempty"`
+	AICommunication    *int                   `json:"ai_communication,omitempty"`
+	AIProblemSolving   *int                   `json:"ai_problem_solving,omitempty"`
+	AIKeyStrengths     []string               `json:"ai_key_strengths,omitempty"`
+	AIAreasForGrowth   []string               `json:"ai_areas_for_growth,omitempty"`
+	AIExecutiveSummary *string                `json:"ai_executive_summary,omitempty"`
+	CreatedAt          string                 `json:"created_at"`
 }
 
 func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
@@ -167,14 +179,46 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			item.MCQScore = &score
 			item.MCQPassed = &passed
 			item.TimeSpentSeconds = &spent
+			statusStr := string(sub.Status)
+			item.MCQStatus = &statusStr
+			if !sub.StartedAt.IsZero() {
+				sAt := sub.StartedAt.Format("2006-01-02 15:04")
+				item.MCQStartedAt = &sAt
+			}
+			if sub.SubmittedAt != nil && !sub.SubmittedAt.IsZero() {
+				subAt := sub.SubmittedAt.Format("2006-01-02 15:04")
+				item.MCQSubmittedAt = &subAt
+			}
 		}
 
 		if ai, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), a.ID); err == nil && ai != nil {
 			score := ai.ScorecardScore
 			item.AIScore = &score
+			aiStatusStr := string(ai.Status)
+			item.AIStatus = &aiStatusStr
+			if ai.RecordingURL != "" {
+				recURL := ai.RecordingURL
+				item.AIRecordingURL = &recURL
+			}
+			if ai.CompletedAt != nil && !ai.CompletedAt.IsZero() {
+				cAt := ai.CompletedAt.Format("2006-01-02 15:04")
+				item.AICompletedAt = &cAt
+			}
 			if ai.SummaryEvaluation != nil {
 				rec := ai.SummaryEvaluation.Recommendation
 				item.AIRecommendation = &rec
+				tech := ai.SummaryEvaluation.TechnicalAcumen
+				comm := ai.SummaryEvaluation.Communication
+				prob := ai.SummaryEvaluation.ProblemSolving
+				item.AITechnicalAcumen = &tech
+				item.AICommunication = &comm
+				item.AIProblemSolving = &prob
+				item.AIKeyStrengths = ai.SummaryEvaluation.KeyStrengths
+				item.AIAreasForGrowth = ai.SummaryEvaluation.AreasForGrowth
+				if ai.SummaryEvaluation.ExecutiveSummary != "" {
+					exec := ai.SummaryEvaluation.ExecutiveSummary
+					item.AIExecutiveSummary = &exec
+				}
 			}
 		}
 

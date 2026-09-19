@@ -32,6 +32,7 @@ import {
 } from '@/components/admin/CandidateTableCustomizer';
 import { ProgramImageAdjustModal } from '@/components/admin/ProgramImageAdjustModal';
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
+import { exportCandidatesToExcel } from '@/utils/candidateExcelExporter';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
   name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
@@ -149,6 +150,9 @@ import {
   BrainCircuit,
   Building2,
   Lock,
+  FileSpreadsheet,
+  ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -245,6 +249,38 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   // Candidate Table Sorting State
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Candidate Export to Excel State
+  const [isExportingCandidates, setIsExportingCandidates] = useState(false);
+  const [showCandidateExportMenu, setShowCandidateExportMenu] = useState(false);
+
+  const hasActiveCandidateFilters = Boolean(searchQuery.trim() || selectedTrackFilter || selectedStage);
+
+  const handleExportCandidates = async (targetApplicants: ApplicantListItem[], scope: string) => {
+    if (targetApplicants.length === 0) {
+      toast.error('No candidates available to export.');
+      return;
+    }
+    setIsExportingCandidates(true);
+    setShowCandidateExportMenu(false);
+    try {
+      toast.loading('Generating candidate Excel spreadsheet...', { id: 'export-candidates-excel' });
+      await exportCandidatesToExcel({
+        program,
+        applicants: targetApplicants,
+        programName: program?.name || activeProgramSlug,
+        scopeLabel: scope,
+      });
+      toast.success(`Successfully exported ${targetApplicants.length} candidate(s) to Excel!`, {
+        id: 'export-candidates-excel',
+      });
+    } catch (error) {
+      console.error('Export candidates failed:', error);
+      toast.error('Failed to export candidates to Excel', { id: 'export-candidates-excel' });
+    } finally {
+      setIsExportingCandidates(false);
+    }
+  };
 
   const handleSort = (colId: string) => {
     if (colId === 'actions') return;
@@ -2794,6 +2830,110 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     ({activeColumns.length})
                   </span>
                 </button>
+
+                {/* Export Candidates to Excel Button */}
+                <div className="relative">
+                  <div className="inline-flex items-stretch rounded-full shadow-2xs border border-emerald-300/80 bg-emerald-50 hover:bg-emerald-100/80 transition overflow-hidden">
+                    <button
+                      type="button"
+                      disabled={isExportingCandidates || applicants.length === 0}
+                      onClick={() => {
+                        if (hasActiveCandidateFilters) {
+                          setShowCandidateExportMenu((prev) => !prev);
+                        } else {
+                          handleExportCandidates(applicants, 'All Candidates');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 pl-3.5 pr-2.5 py-1.5 text-xs font-bold text-emerald-800 disabled:opacity-50 transition whitespace-nowrap"
+                      title="Export candidate list with all form responses, logic tests, and AI interview evaluations to Excel (.xlsx)"
+                    >
+                      {isExportingCandidates ? (
+                        <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                      <span>Export to Excel</span>
+                      <span className="text-2xs font-extrabold text-emerald-800 bg-emerald-200/80 px-1.5 py-0.5 rounded-full">
+                        {hasActiveCandidateFilters ? filteredApplicants.length : applicants.length}
+                      </span>
+                    </button>
+                    {hasActiveCandidateFilters && (
+                      <button
+                        type="button"
+                        disabled={isExportingCandidates || applicants.length === 0}
+                        onClick={() => setShowCandidateExportMenu((prev) => !prev)}
+                        className="px-2 py-1.5 text-emerald-700 hover:text-emerald-900 border-l border-emerald-200 hover:bg-emerald-200/50 transition flex items-center justify-center disabled:opacity-50"
+                        title="Choose export scope"
+                      >
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Menu for Filtered vs All Candidates */}
+                  {showCandidateExportMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowCandidateExportMenu(false)}
+                      />
+                      <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="px-3 py-2 border-b border-slate-100">
+                          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400">
+                            Select Export Scope
+                          </p>
+                          <p className="text-xs font-semibold text-slate-700">
+                            Includes form fields, logic tests & AI interviews
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleExportCandidates(
+                              filteredApplicants,
+                              `Filtered View (${filteredApplicants.length} Candidates)`
+                            )
+                          }
+                          className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 transition flex items-center justify-between group"
+                        >
+                          <div>
+                            <div className="font-bold text-slate-800 group-hover:text-emerald-800">
+                              Export Filtered List
+                            </div>
+                            <div className="text-2xs text-slate-500">
+                              Matches current stage, track & search
+                            </div>
+                          </div>
+                          <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            {filteredApplicants.length}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleExportCandidates(
+                              applicants,
+                              `All Candidates (${applicants.length} Total)`
+                            )
+                          }
+                          className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-slate-50 text-slate-700 transition flex items-center justify-between group"
+                        >
+                          <div>
+                            <div className="font-bold text-slate-800">
+                              Export All Candidates
+                            </div>
+                            <div className="text-2xs text-slate-500">
+                              Complete program applicant pool
+                            </div>
+                          </div>
+                          <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {applicants.length}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {/* Active Sort Indicator */}
                 {sortColumn && (
