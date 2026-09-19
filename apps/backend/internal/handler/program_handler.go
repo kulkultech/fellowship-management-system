@@ -586,7 +586,11 @@ func (h *ProgramHandler) Apply(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			testURL := fmt.Sprintf("%s/test/%s", h.frontendURL, newSub.TestToken)
-			_ = h.emailSvc.SendApplicationReceivedEmail(applicant.Email, applicant.FullName, program.Name, trackName, testURL, duration, passingScore)
+			var appRecTmpl *model.EmailTemplateConfig
+			if program.EmailTemplates != nil {
+				appRecTmpl = program.EmailTemplates.ApplicationReceived
+			}
+			_ = h.emailSvc.SendCustomApplicationReceivedEmail(applicant.Email, applicant.FullName, program.Name, trackName, testURL, duration, passingScore, appRecTmpl)
 		}
 
 		httpx.JSON(w, http.StatusCreated, ApplyResponse{
@@ -932,7 +936,11 @@ func (h *ProgramHandler) StartProgram(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			testURL := fmt.Sprintf("%s/test/%s", h.frontendURL, newSub.TestToken)
-			_ = h.emailSvc.SendApplicationReceivedEmail(applicant.Email, applicant.FullName, program.Name, trackName, testURL, duration, passingScore)
+			var appRecTmpl *model.EmailTemplateConfig
+			if program.EmailTemplates != nil {
+				appRecTmpl = program.EmailTemplates.ApplicationReceived
+			}
+			_ = h.emailSvc.SendCustomApplicationReceivedEmail(applicant.Email, applicant.FullName, program.Name, trackName, testURL, duration, passingScore, appRecTmpl)
 		}
 
 		httpx.JSON(w, http.StatusOK, StartProgramResponse{

@@ -32,6 +32,7 @@ import {
 } from '@/components/admin/CandidateTableCustomizer';
 import { ProgramImageAdjustModal } from '@/components/admin/ProgramImageAdjustModal';
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
+import { ProgramEmailTemplatesView } from '@/components/admin/ProgramEmailTemplatesView';
 import { exportCandidatesToExcel } from '@/utils/candidateExcelExporter';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
@@ -153,6 +154,7 @@ import {
   FileSpreadsheet,
   ChevronDown,
   Loader2,
+  Mail,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -199,7 +201,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
 ];
 
 export interface DashboardPageProps {
-  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team';
+  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates';
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
@@ -220,8 +222,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [user, navigate]);
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -1898,6 +1900,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       ? `form-builder-${activeProgramSlug}`
       : currentView === 'ai_rubric'
       ? `ai-rubric-${activeProgramSlug}`
+      : currentView === 'email_templates'
+      ? `email-templates-${activeProgramSlug}`
       : selectedTrackFilter
       ? `track-${selectedTrackFilter}`
       : `all-candidates-${activeProgramSlug}`;
@@ -1982,6 +1986,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 icon: Bot,
                 onClick: () => {
                   handleOpenRubricPage(p);
+                },
+              },
+              {
+                id: `email-templates-${p.slug}`,
+                label: 'Email Templates',
+                icon: Mail,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('email_templates');
                 },
               },
             ],
@@ -2096,6 +2109,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? 'Application Form Builder'
           : currentView === 'ai_rubric'
           ? 'AI Rubric & Prompts'
+          : currentView === 'email_templates'
+          ? 'Email Communication Templates'
           : program?.name || 'Candidate Pipeline'
       }
       subtitle={
@@ -4710,6 +4725,37 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               isSuperadmin={isSuperadmin}
               scope={isSuperadmin && !impersonatedOrgId ? 'superadmin' : 'company'}
             />
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* VIEW 10: PROGRAM EMAIL TEMPLATES */}
+        {/* ================================================================================= */}
+        {currentView === 'email_templates' && (
+          <div className="animate-in fade-in duration-200">
+            {(() => {
+              const targetProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0];
+              if (!targetProg) {
+                return (
+                  <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+                    <Mail className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Please select or create a fellowship cohort to configure candidate email templates.
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <ProgramEmailTemplatesView
+                  program={targetProg}
+                  onUpdateProgram={(updated) => {
+                    queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+                    queryClient.invalidateQueries({ queryKey: ['program', updated.slug] });
+                  }}
+                />
+              );
+            })()}
           </div>
         )}
 

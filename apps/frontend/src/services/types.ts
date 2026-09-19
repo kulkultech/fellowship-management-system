@@ -100,6 +100,23 @@ export interface ApplicationFormSchema {
   field_order?: string[];
 }
 
+export interface EmailTemplateConfig {
+  enabled: boolean;
+  subject: string;
+  headline: string;
+  body: string;
+  button_text?: string;
+}
+
+export interface ProgramEmailTemplates {
+  application_received?: EmailTemplateConfig;
+  test_result_passed?: EmailTemplateConfig;
+  test_result_failed?: EmailTemplateConfig;
+  ai_interview_invitation?: EmailTemplateConfig;
+  final_interview?: EmailTemplateConfig;
+  rejection?: EmailTemplateConfig;
+}
+
 export interface Program {
   id: string;
   organization_id?: string;
@@ -129,6 +146,7 @@ export interface Program {
   is_open?: boolean;
   tracks?: Track[];
   candidate_flow?: string[];
+  email_templates?: ProgramEmailTemplates;
 }
 
 export interface ProgramPublicInfo {

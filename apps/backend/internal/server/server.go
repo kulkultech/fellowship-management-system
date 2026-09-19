@@ -212,6 +212,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Put("/programs/{id}/rubric", adminHandler.UpdateProgramRubric)
 				adm.Put("/programs/{id}/stages", adminHandler.UpdateProgramStages)
 				adm.Put("/programs/{id}/form", adminHandler.UpdateProgramFormSchema)
+				adm.Get("/programs/{id}/email-templates", adminHandler.GetProgramEmailTemplates)
+				adm.Put("/programs/{id}/email-templates", adminHandler.UpdateProgramEmailTemplates)
+				adm.Post("/programs/{id}/email-templates/test", adminHandler.SendTestProgramEmail)
 				adm.Get("/programs/{id}/questions", adminHandler.ListProgramQuestions)
 				adm.Put("/programs/{id}/questions", adminHandler.SaveProgramQuestions)
 

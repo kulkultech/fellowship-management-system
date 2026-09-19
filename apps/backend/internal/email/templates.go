@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"strings"
 	"time"
+
+	"github.com/kulkul/backend/internal/model"
 )
 
 type BaseTemplateData struct {
@@ -812,6 +814,103 @@ func buildAdminInvitationEmail(inviterName, role, orgName, inviteURL, frontendUR
 			}
 			return ""
 		}(), inviteURL, supportEmail)
+	return
+}
+
+func replaceTemplateVariables(input string, vars map[string]string) string {
+	res := input
+	for k, v := range vars {
+		res = strings.ReplaceAll(res, "{{"+k+"}}", v)
+		res = strings.ReplaceAll(res, "{{ "+k+" }}", v)
+	}
+	return res
+}
+
+func buildCustomEmail(
+	cfg *model.EmailTemplateConfig,
+	vars map[string]string,
+	actionURL string,
+	frontendURL string,
+	supportEmail string,
+) (subject string, html string, text string) {
+	if cfg == nil {
+		return "", "", ""
+	}
+
+	subject = replaceTemplateVariables(cfg.Subject, vars)
+	if subject == "" {
+		subject = "Fellowship Application Notification"
+	}
+
+	headline := replaceTemplateVariables(cfg.Headline, vars)
+	bodyText := replaceTemplateVariables(cfg.Body, vars)
+	buttonText := replaceTemplateVariables(cfg.ButtonText, vars)
+	if buttonText == "" && actionURL != "" {
+		buttonText = "View Details"
+	}
+
+	var bodyBuilder strings.Builder
+	if headline != "" {
+		bodyBuilder.WriteString(fmt.Sprintf(`<h2 style="margin: 0 0 18px 0; color: #1e1b4b; font-size: 22px; font-weight: 800; line-height: 1.3;">%s</h2>`, template.HTMLEscapeString(headline)))
+	}
+
+	// Split body into paragraphs
+	paragraphs := strings.Split(bodyText, "\n\n")
+	for _, p := range paragraphs {
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			continue
+		}
+		// Convert single newlines inside a paragraph into <br>
+		escaped := template.HTMLEscapeString(trimmed)
+		withBreaks := strings.ReplaceAll(escaped, "\n", "<br>")
+		bodyBuilder.WriteString(fmt.Sprintf(`<p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155; font-size: 14px;">%s</p>`, withBreaks))
+	}
+
+	if actionURL != "" && buttonText != "" {
+		bodyBuilder.WriteString(fmt.Sprintf(`
+    <div class="btn-container" style="margin: 28px 0; text-align: center;">
+      <a href="%s" class="btn" style="display: inline-block; padding: 14px 32px; background-color: #4f46e5; color: #ffffff; text-decoration: none; border-radius: 9999px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">%s</a>
+    </div>
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 12px;">Or open this link directly in your browser: <br><a href="%s" style="color: #4f46e5; word-break: break-all;">%s</a></p>
+		`, actionURL, template.HTMLEscapeString(buttonText), actionURL, actionURL))
+	}
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, bodyBuilder.String())
+	text = bodyText
+	if actionURL != "" {
+		text += "\n\n" + buttonText + ": " + actionURL
+	}
+	text += "\n\nSupport: " + supportEmail
+	return
+}
+
+func buildRejectionEmail(candidateName, programName, trackName, notes, frontendURL, supportEmail string) (subject string, html string, text string) {
+	subject = fmt.Sprintf("Application Update: %s", programName)
+
+	trackDisplay := trackName
+	if trackDisplay == "" {
+		trackDisplay = "General Track"
+	}
+
+	var notesHTML string
+	if notes != "" {
+		notesHTML = fmt.Sprintf(`<div class="guidelines" style="margin: 20px 0; background-color: #f8fafc; border-left: 4px solid #94a3b8; padding: 14px 18px; border-radius: 6px;"><strong>Admissions Feedback:</strong><p style="margin: 8px 0 0 0; font-size: 13px; color: #475569;">%s</p></div>`, template.HTMLEscapeString(notes))
+	}
+
+	body := fmt.Sprintf(`
+    <h2>Application Status Update</h2>
+    <p>Dear <strong>%s</strong>,</p>
+    <p>Thank you for your application to <strong>%s</strong> (%s) and for your time and participation throughout our selection process.</p>
+    <p>After thorough review, we regret to inform you that we are unable to offer you admission into this fellowship cohort. Because of limited seats and a large volume of highly qualified candidates, our admissions committee had to make difficult selection decisions.</p>
+    %s
+    <p>We truly appreciate your dedication and encourage you to continue developing your skills and apply for future cohorts.</p>
+    <p>We wish you all the best in your career and academic journey.</p>
+  `, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay), notesHTML)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Dear %s,\n\nThank you for applying to %s (%s).\n\nAfter thorough review, we regret to inform you that we are unable to offer you admission to this cohort.\n\nWe wish you all the best in your career journey.\n\nSupport: %s",
+		candidateName, programName, trackDisplay, supportEmail)
 	return
 }
 

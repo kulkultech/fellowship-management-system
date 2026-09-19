@@ -400,8 +400,12 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
 			if err == nil && applicant != nil && applicant.Email != "" {
 				progName := "KulKul Fellowship"
+				var customTmpl *model.EmailTemplateConfig
 				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
 					progName = prog.Name
+					if prog.EmailTemplates != nil {
+						customTmpl = prog.EmailTemplates.FinalInterview
+					}
 				}
 				trackName := ""
 				if applicant.TrackID != nil {
@@ -410,21 +414,26 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 					}
 				}
 				dashboardURL := fmt.Sprintf("%s", h.frontendURL)
-				_ = h.emailSvc.SendFinalInterviewInvitationEmail(
+				_ = h.emailSvc.SendCustomFinalInterviewInvitationEmail(
 					applicant.Email,
 					applicant.FullName,
 					progName,
 					trackName,
 					dashboardURL,
 					applicant.Notes,
+					customTmpl,
 				)
 			}
 		} else if req.Stage == model.StageAIInterviewInvited {
 			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
 			if err == nil && applicant != nil && applicant.Email != "" {
 				progName := "KulKul Fellowship"
+				var customTmpl *model.EmailTemplateConfig
 				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
 					progName = prog.Name
+					if prog.EmailTemplates != nil {
+						customTmpl = prog.EmailTemplates.AIInterviewInvitation
+					}
 				}
 				trackName := ""
 				if applicant.TrackID != nil {
@@ -453,13 +462,40 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 					)
 				}
 				interviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, inviteToken)
-				_ = h.emailSvc.SendAIInterviewInvitationEmail(
+				_ = h.emailSvc.SendCustomAIInterviewInvitationEmail(
 					applicant.Email,
 					applicant.FullName,
 					progName,
 					trackName,
 					interviewURL,
 					expiresAt,
+					customTmpl,
+				)
+			}
+		} else if req.Stage == model.StageRejected {
+			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+			if err == nil && applicant != nil && applicant.Email != "" {
+				progName := "KulKul Fellowship"
+				var customTmpl *model.EmailTemplateConfig
+				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+					progName = prog.Name
+					if prog.EmailTemplates != nil {
+						customTmpl = prog.EmailTemplates.Rejection
+					}
+				}
+				trackName := ""
+				if applicant.TrackID != nil {
+					if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+						trackName = tr.Name
+					}
+				}
+				_ = h.emailSvc.SendRejectionEmail(
+					applicant.Email,
+					applicant.FullName,
+					progName,
+					trackName,
+					applicant.Notes,
+					customTmpl,
 				)
 			}
 		}
@@ -1084,6 +1120,130 @@ func (h *AdminHandler) UpdateProgramFormSchema(w http.ResponseWriter, r *http.Re
 
 	httpx.JSON(w, http.StatusOK, updated)
 }
+
+// --------------------------------------------------------------------------------
+// Program Email Templates Endpoints
+// --------------------------------------------------------------------------------
+
+// GetProgramEmailTemplates returns email templates for a program, defaulting if unconfigured
+func (h *AdminHandler) GetProgramEmailTemplates(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	prog, err := h.programRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, repository.ErrProgramNotFound) {
+			httpx.Error(w, http.StatusNotFound, "program not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to fetch program")
+		return
+	}
+
+	templates := prog.EmailTemplates
+	if templates == nil {
+		templates = model.DefaultProgramEmailTemplates(prog.Name)
+	}
+
+	httpx.JSON(w, http.StatusOK, templates)
+}
+
+// UpdateProgramEmailTemplates updates email templates configuration for a program
+func (h *AdminHandler) UpdateProgramEmailTemplates(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req model.ProgramEmailTemplates
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	updated, err := h.programRepo.UpdateEmailTemplates(r.Context(), id, &req)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update program email templates")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, updated.EmailTemplates)
+}
+
+type SendTestProgramEmailRequest struct {
+	Type           string                    `json:"type"`
+	RecipientEmail string                    `json:"recipient_email"`
+	Template       model.EmailTemplateConfig `json:"template"`
+}
+
+// SendTestProgramEmail sends a test email to the specified recipient using the provided template configuration
+func (h *AdminHandler) SendTestProgramEmail(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req SendTestProgramEmailRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	recipient := strings.TrimSpace(req.RecipientEmail)
+	if recipient == "" {
+		httpx.Error(w, http.StatusBadRequest, "recipient_email is required")
+		return
+	}
+
+	prog, err := h.programRepo.GetByID(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to fetch program")
+		return
+	}
+
+	testLink := fmt.Sprintf("%s/test/sample-preview-token", h.frontendURL)
+	actionURL := testLink
+	if req.Type == "ai_interview_invitation" {
+		actionURL = fmt.Sprintf("%s/interview/sample-preview-token", h.frontendURL)
+	} else if req.Type == "final_interview" {
+		actionURL = fmt.Sprintf("%s/candidate/dashboard", h.frontendURL)
+	} else if req.Type == "test_result_passed" || req.Type == "test_result_failed" {
+		actionURL = fmt.Sprintf("%s/result/sample-preview-token", h.frontendURL)
+	}
+
+	vars := map[string]string{
+		"candidate_name":   "Alex Mercer (Preview)",
+		"program_name":     prog.Name,
+		"track_name":       "Full Stack Engineering",
+		"test_link":        testLink,
+		"action_url":       actionURL,
+		"interview_link":   actionURL,
+		"dashboard_url":    actionURL,
+		"duration_minutes": "45",
+		"passing_score":    "70",
+		"score":            "85",
+		"next_step":        "AI Video Screening",
+		"expires_at":       time.Now().Add(7 * 24 * time.Hour).Format("Monday, January 2, 2006 at 15:04 MST"),
+		"notes":            "Excellent problem-solving skills demonstrated in technical assessment.",
+	}
+
+	if h.emailSvc != nil {
+		_ = h.emailSvc.SendCustomEmail(recipient, &req.Template, vars, actionURL)
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Test email sent to %s", recipient),
+	})
+}
+
 
 // --------------------------------------------------------------------------------
 // Track Management Endpoints

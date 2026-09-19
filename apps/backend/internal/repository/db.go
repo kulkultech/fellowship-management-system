@@ -116,6 +116,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS application_form_schema JSONB;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS candidate_flow JSONB NOT NULL DEFAULT '["fill_form", "mcq_test", "ai_interview"]'::jsonb;
 	ALTER TABLE programs ADD COLUMN IF NOT EXISTS preview_token UUID NOT NULL DEFAULT gen_random_uuid();
+	ALTER TABLE programs ADD COLUMN IF NOT EXISTS email_templates JSONB;
 
 	CREATE TABLE IF NOT EXISTS question_sets (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

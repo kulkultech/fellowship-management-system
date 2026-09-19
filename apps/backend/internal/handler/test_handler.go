@@ -542,12 +542,24 @@ func (h *TestHandler) SubmitTest(w http.ResponseWriter, r *http.Request) {
 			_ = h.emailSvc.SendLogicTestSubmittedEmail(applicant.Email, applicant.FullName, program.Name, trackName, resultURL)
 
 			// Trigger 4: Email of the result of the logic test (passed or not)
-			_ = h.emailSvc.SendLogicTestResultEmail(applicant.Email, applicant.FullName, program.Name, trackName, scorePercentage, passingScore, passed, resultURL, actionURL, nextStep)
+			var resultTmpl *model.EmailTemplateConfig
+			if program.EmailTemplates != nil {
+				if passed {
+					resultTmpl = program.EmailTemplates.TestResultPassed
+				} else {
+					resultTmpl = program.EmailTemplates.TestResultFailed
+				}
+			}
+			_ = h.emailSvc.SendCustomLogicTestResultEmail(applicant.Email, applicant.FullName, program.Name, trackName, scorePercentage, passingScore, passed, resultURL, actionURL, nextStep, resultTmpl)
 
 			// Trigger 5: AI interview invitation if passed & invited directly
 			if passed && nextStep == "ai_interview" && inviteToken != nil && inviteExpires != nil {
 				aiInterviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, *inviteToken)
-				_ = h.emailSvc.SendAIInterviewInvitationEmail(applicant.Email, applicant.FullName, program.Name, trackName, aiInterviewURL, *inviteExpires)
+				var aiInviteTmpl *model.EmailTemplateConfig
+				if program.EmailTemplates != nil {
+					aiInviteTmpl = program.EmailTemplates.AIInterviewInvitation
+				}
+				_ = h.emailSvc.SendCustomAIInterviewInvitationEmail(applicant.Email, applicant.FullName, program.Name, trackName, aiInterviewURL, *inviteExpires, aiInviteTmpl)
 			}
 		}
 	}

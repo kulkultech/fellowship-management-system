@@ -114,7 +114,7 @@ func NewProgramRepository(pool *pgxpool.Pool) *ProgramRepository {
 	return repo
 }
 
-func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte) {
+func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte, rawEmailTemplates ...[]byte) {
 	_ = json.Unmarshal(rawQuestions, &p.AIInterviewQuestions)
 	_ = json.Unmarshal(rawStages, &p.ApplicationStages)
 	if len(rawRubric) > 0 && string(rawRubric) != "null" {
@@ -140,6 +140,12 @@ func unmarshalAndDefaultProgram(p *model.Program, rawQuestions, rawStages, rawRu
 	}
 	if len(p.ApplicationStages) == 0 {
 		p.ApplicationStages = BuildApplicationStagesWithFlow(p.CandidateFlow, p.EnableMCQ, p.EnableAIInterview, false)
+	}
+	if len(rawEmailTemplates) > 0 && len(rawEmailTemplates[0]) > 0 && string(rawEmailTemplates[0]) != "null" {
+		_ = json.Unmarshal(rawEmailTemplates[0], &p.EmailTemplates)
+	}
+	if p.EmailTemplates == nil {
+		p.EmailTemplates = model.DefaultProgramEmailTemplates(p.Name)
 	}
 }
 
@@ -325,7 +331,8 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
 			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count,
-			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at
+			o.id, o.slug, o.name, COALESCE(o.logo_url, ''), o.status, o.created_at, o.updated_at,
+			COALESCE(p.email_templates, 'null'::jsonb)
 		FROM programs p
 		JOIN organizations o ON p.organization_id = o.id
 		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
@@ -333,7 +340,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	`
 	var p model.Program
 	var o model.Organization
-	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow, rawEmailTemplates []byte
 	err := r.pool.QueryRow(ctx, query, orgSlug, programSlug).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
@@ -343,6 +350,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 		&p.QuestionSetName, &p.QuestionCount,
 		&o.ID, &o.Slug, &o.Name, &o.LogoURL, &o.Status, &o.CreatedAt, &o.UpdatedAt,
+		&rawEmailTemplates,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, ErrProgramNotFound
@@ -350,7 +358,7 @@ func (r *ProgramRepository) GetByOrgSlugAndProgramSlug(ctx context.Context, orgS
 	if err != nil {
 		return nil, nil, fmt.Errorf("program_repo: get by slugs: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow, rawEmailTemplates)
 	return &p, &o, nil
 }
 
@@ -387,13 +395,14 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 			COALESCE(p.candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
 			p.status, COALESCE(p.preview_token, gen_random_uuid()), p.created_at, p.updated_at,
 			COALESCE(qs.name, '') as question_set_name,
-			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count
+			(SELECT COUNT(*) FROM mcq_questions mq WHERE mq.question_set_id = p.question_set_id) as question_count,
+			COALESCE(p.email_templates, 'null'::jsonb)
 		FROM programs p
 		LEFT JOIN question_sets qs ON qs.id = p.question_set_id
 		WHERE p.id = $1
 	`
 	var p model.Program
-	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow []byte
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow, rawEmailTemplates []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
 		&p.OpenDate, &p.EndDate,
@@ -402,6 +411,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 		&rawSchema, &rawCandidateFlow,
 		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt,
 		&p.QuestionSetName, &p.QuestionCount,
+		&rawEmailTemplates,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProgramNotFound
@@ -409,7 +419,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 	if err != nil {
 		return nil, fmt.Errorf("program_repo: get by id: %w", err)
 	}
-	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow, rawEmailTemplates)
 	return &p, nil
 }
 
@@ -896,6 +906,60 @@ func (r *ProgramRepository) UpdateCandidateFlow(ctx context.Context, id uuid.UUI
 		return nil, fmt.Errorf("program_repo: update candidate flow: %w", err)
 	}
 	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow)
+	r.populateQuestionSetInfo(ctx, &p)
+	return &p, nil
+}
+
+func (r *ProgramRepository) UpdateEmailTemplates(ctx context.Context, id uuid.UUID, templates *model.ProgramEmailTemplates) (*model.Program, error) {
+	if templates == nil {
+		templates = model.DefaultProgramEmailTemplates("")
+	}
+	templatesJSON, _ := json.Marshal(templates)
+
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, p := range r.memPrograms {
+			if p.ID == id {
+				p.EmailTemplates = templates
+				p.UpdatedAt = time.Now()
+				return p, nil
+			}
+		}
+		return nil, ErrProgramNotFound
+	}
+
+	query := `
+		UPDATE programs
+		SET email_templates = $2,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING id, organization_id, question_set_id, slug, name, description, COALESCE(image_url, ''), open_date, end_date,
+			enable_mcq, logic_test_duration_minutes, logic_test_passing_score, allow_retake,
+			enable_ai_interview, COALESCE(ai_interview_instructions, ''), ai_interview_questions,
+			COALESCE(application_stages, '[]'::jsonb), COALESCE(ai_interview_rubric, 'null'::jsonb),
+			COALESCE(application_form_schema, 'null'::jsonb),
+			COALESCE(candidate_flow, '["fill_form", "mcq_test", "ai_interview"]'::jsonb),
+			status, COALESCE(preview_token, gen_random_uuid()), created_at, updated_at,
+			COALESCE(email_templates, 'null'::jsonb)
+	`
+	var p model.Program
+	var rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow, rawEmailTemplates []byte
+	err := r.pool.QueryRow(ctx, query, id, templatesJSON).Scan(
+		&p.ID, &p.OrganizationID, &p.QuestionSetID, &p.Slug, &p.Name, &p.Description, &p.ImageURL,
+		&p.OpenDate, &p.EndDate,
+		&p.EnableMCQ, &p.LogicTestDurationMinutes, &p.LogicTestPassingScore, &p.AllowRetake,
+		&p.EnableAIInterview, &p.AIInterviewInstructions, &rawQuestions, &rawStages, &rawRubric,
+		&rawSchema, &rawCandidateFlow,
+		&p.Status, &p.PreviewToken, &p.CreatedAt, &p.UpdatedAt, &rawEmailTemplates,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProgramNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("program_repo: update email templates: %w", err)
+	}
+	unmarshalAndDefaultProgram(&p, rawQuestions, rawStages, rawRubric, rawSchema, rawCandidateFlow, rawEmailTemplates)
 	r.populateQuestionSetInfo(ctx, &p)
 	return &p, nil
 }

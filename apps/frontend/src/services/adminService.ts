@@ -14,6 +14,8 @@ import type {
   TeamResponse,
   InviteAdminPayload,
   Invitation,
+  EmailTemplateConfig,
+  ProgramEmailTemplates,
 } from './types';
 
 export interface CreateProgramPayload {
@@ -115,6 +117,24 @@ export const adminService = {
 
   updateProgramFormSchema: async (programId: string, schema: import('./types').ApplicationFormSchema): Promise<Program> => {
     const { data } = await apiClient.put<Program>(`/admin/programs/${programId}/form`, schema);
+    return data;
+  },
+
+  getProgramEmailTemplates: async (programId: string): Promise<ProgramEmailTemplates> => {
+    const { data } = await apiClient.get<ProgramEmailTemplates>(`/admin/programs/${programId}/email-templates`);
+    return data;
+  },
+
+  updateProgramEmailTemplates: async (programId: string, templates: ProgramEmailTemplates): Promise<ProgramEmailTemplates> => {
+    const { data } = await apiClient.put<ProgramEmailTemplates>(`/admin/programs/${programId}/email-templates`, templates);
+    return data;
+  },
+
+  sendTestProgramEmail: async (
+    programId: string,
+    payload: { type: string; recipient_email: string; template: EmailTemplateConfig }
+  ): Promise<{ message: string }> => {
+    const { data } = await apiClient.post<{ message: string }>(`/admin/programs/${programId}/email-templates/test`, payload);
     return data;
   },
 

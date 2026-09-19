@@ -185,10 +185,78 @@ type Program struct {
 	ApplicationStages        []ApplicationStageItem `json:"application_stages,omitempty"`
 	ApplicationFormSchema    *ApplicationFormSchema `json:"application_form_schema,omitempty"`
 	CandidateFlow            []string               `json:"candidate_flow,omitempty"`
+	EmailTemplates           *ProgramEmailTemplates `json:"email_templates,omitempty"`
 	Status                   string                 `json:"status"` // 'draft', 'published', 'archived'
 	PreviewToken             uuid.UUID              `json:"preview_token"`
 	CreatedAt                time.Time              `json:"created_at"`
 	UpdatedAt                time.Time              `json:"updated_at"`
+}
+
+type EmailTemplateConfig struct {
+	Enabled    bool   `json:"enabled"`
+	Subject    string `json:"subject"`
+	Headline   string `json:"headline,omitempty"`
+	Body       string `json:"body"`
+	ButtonText string `json:"button_text,omitempty"`
+}
+
+type ProgramEmailTemplates struct {
+	ApplicationReceived   *EmailTemplateConfig `json:"application_received,omitempty"`
+	TestResultPassed      *EmailTemplateConfig `json:"test_result_passed,omitempty"`
+	TestResultFailed      *EmailTemplateConfig `json:"test_result_failed,omitempty"`
+	AIInterviewInvitation *EmailTemplateConfig `json:"ai_interview_invitation,omitempty"`
+	FinalInterview        *EmailTemplateConfig `json:"final_interview,omitempty"`
+	Rejection             *EmailTemplateConfig `json:"rejection,omitempty"`
+}
+
+func DefaultProgramEmailTemplates(programName string) *ProgramEmailTemplates {
+	if programName == "" {
+		programName = "Fellowship Program"
+	}
+	return &ProgramEmailTemplates{
+		ApplicationReceived: &EmailTemplateConfig{
+			Enabled:    true,
+			Subject:    "Application Confirmed: {{program_name}} - Next Step: Timed Assessment",
+			Headline:   "Application Confirmed!",
+			Body:       "Dear {{candidate_name}},\n\nWe have successfully received your application for {{program_name}} ({{track_name}}).\n\nPlease proceed to complete your timed logic MCQ assessment within the allocated duration of {{duration_minutes}} minutes. The passing benchmark is {{passing_score}}%.\n\nEnsure you have a stable internet connection before beginning.",
+			ButtonText: "Start Timed Logic Assessment",
+		},
+		TestResultPassed: &EmailTemplateConfig{
+			Enabled:    true,
+			Subject:    "Congratulations! Logic Test Passed - {{program_name}}",
+			Headline:   "You Passed the Logic Assessment!",
+			Body:       "Dear {{candidate_name}},\n\nCongratulations! You have successfully passed the timed logic assessment for {{program_name}} with a score of {{score}}% (Passing benchmark: {{passing_score}}%).\n\nYour application has advanced to the next screening stage. Click below to continue.",
+			ButtonText: "Continue Application",
+		},
+		TestResultFailed: &EmailTemplateConfig{
+			Enabled:    true,
+			Subject:    "Your Logic Test Result - {{program_name}}",
+			Headline:   "Assessment Completed",
+			Body:       "Dear {{candidate_name}},\n\nThank you for completing the timed logic assessment for {{program_name}}. Your score was {{score}}% (Passing benchmark: {{passing_score}}%).\n\nWhile your score did not meet the advancement threshold for this cohort, we sincerely appreciate your effort and encourage you to apply for future cohorts.",
+			ButtonText: "View Assessment Results",
+		},
+		AIInterviewInvitation: &EmailTemplateConfig{
+			Enabled:    true,
+			Subject:    "Invitation: AI Screening Interview - {{program_name}}",
+			Headline:   "You are Invited to the AI Screening Interview!",
+			Body:       "Dear {{candidate_name}},\n\nGreat news! You have been selected to take the automated AI screening interview for {{program_name}} ({{track_name}}).\n\nThis interactive voice interview will assess your technical fundamentals, problem-solving, and communication skills. It takes approximately 10-15 minutes.\n\nPlease complete your interview before {{expires_at}}.",
+			ButtonText: "Begin AI Interview",
+		},
+		FinalInterview: &EmailTemplateConfig{
+			Enabled:    true,
+			Subject:    "Congratulations! Next Steps for {{program_name}}",
+			Headline:   "Application Shortlisted!",
+			Body:       "Dear {{candidate_name}},\n\nWe are thrilled to inform you that your application and screening assessments for {{program_name}} ({{track_name}}) have been thoroughly evaluated, and you have been shortlisted for the final stage!\n\n{{notes}}\n\nPlease visit your candidate portal for scheduled session times and preparation guidelines.",
+			ButtonText: "Go to Candidate Portal",
+		},
+		Rejection: &EmailTemplateConfig{
+			Enabled:    true,
+			Subject:    "Application Update: {{program_name}}",
+			Headline:   "Application Status Update",
+			Body:       "Dear {{candidate_name}},\n\nThank you for your interest in {{program_name}} ({{track_name}}) and for taking the time to participate in our selection process.\n\nAfter careful review, we regret to inform you that we are unable to offer you a spot in this cohort. Due to limited capacity and a high volume of strong applicants, our admissions committee had to make difficult choices.\n\nWe wish you the very best in your academic and professional endeavors.",
+			ButtonText: "View Application Status",
+		},
+	}
 }
 
 const (

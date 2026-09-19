@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"github.com/kulkul/backend/internal/config"
+	"github.com/kulkul/backend/internal/model"
 )
 
 type Service interface {
@@ -27,6 +28,13 @@ type Service interface {
 	SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error
 	SendAccountActivationEmail(recipientEmail, userName, activationURL string) error
 	SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error
+
+	SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error
+	SendCustomLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string, customTmpl *model.EmailTemplateConfig) error
+	SendCustomAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time, customTmpl *model.EmailTemplateConfig) error
+	SendCustomFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string, customTmpl *model.EmailTemplateConfig) error
+	SendRejectionEmail(recipientEmail, candidateName, programName, trackName, notes string, customTmpl *model.EmailTemplateConfig) error
+	SendCustomEmail(recipientEmail string, customTmpl *model.EmailTemplateConfig, vars map[string]string, actionURL string) error
 }
 
 type SESService struct {
@@ -310,4 +318,123 @@ func (s *SESService) SendAdminInvitationEmail(recipientEmail, inviterName, role,
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }
+
+// SendCustomApplicationReceivedEmail sends application received email using custom template if configured & enabled, else standard template.
+func (s *SESService) SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error {
+	if customTmpl != nil && customTmpl.Enabled {
+		vars := map[string]string{
+			"candidate_name":   candidateName,
+			"program_name":     programName,
+			"track_name":       trackName,
+			"test_link":        testURL,
+			"action_url":       testURL,
+			"duration_minutes": fmt.Sprintf("%d", durationMinutes),
+			"passing_score":    fmt.Sprintf("%d", passingScore),
+			"support_email":    s.supportEmail,
+		}
+		subject, html, text := buildCustomEmail(customTmpl, vars, testURL, s.frontendURL, s.supportEmail)
+		s.send(recipientEmail, subject, html, text)
+		return nil
+	}
+	return s.SendApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL, durationMinutes, passingScore)
+}
+
+// SendCustomLogicTestResultEmail sends logic test result email using custom template if configured & enabled, else standard template.
+func (s *SESService) SendCustomLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string, customTmpl *model.EmailTemplateConfig) error {
+	if customTmpl != nil && customTmpl.Enabled {
+		vars := map[string]string{
+			"candidate_name": candidateName,
+			"program_name":   programName,
+			"track_name":     trackName,
+			"score":          fmt.Sprintf("%d", score),
+			"passing_score":  fmt.Sprintf("%d", passingScore),
+			"action_url":     actionURL,
+			"result_url":     resultURL,
+			"next_step":      nextStep,
+			"support_email":  s.supportEmail,
+		}
+		subject, html, text := buildCustomEmail(customTmpl, vars, actionURL, s.frontendURL, s.supportEmail)
+		s.send(recipientEmail, subject, html, text)
+		return nil
+	}
+	return s.SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName, score, passingScore, passed, resultURL, actionURL, nextStep)
+}
+
+// SendCustomAIInterviewInvitationEmail sends AI interview invite using custom template if configured & enabled, else standard template.
+func (s *SESService) SendCustomAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time, customTmpl *model.EmailTemplateConfig) error {
+	if customTmpl != nil && customTmpl.Enabled {
+		expiryStr := expiresAt.Format("Monday, January 2, 2006 at 15:04 MST")
+		if expiresAt.IsZero() {
+			expiryStr = "Within 7 days of this invitation"
+		}
+		vars := map[string]string{
+			"candidate_name": candidateName,
+			"program_name":   programName,
+			"track_name":     trackName,
+			"interview_link": interviewURL,
+			"action_url":     interviewURL,
+			"expires_at":     expiryStr,
+			"support_email":  s.supportEmail,
+		}
+		subject, html, text := buildCustomEmail(customTmpl, vars, interviewURL, s.frontendURL, s.supportEmail)
+		s.send(recipientEmail, subject, html, text)
+		return nil
+	}
+	return s.SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL, expiresAt)
+}
+
+// SendCustomFinalInterviewInvitationEmail sends final interview invite using custom template if configured & enabled, else standard template.
+func (s *SESService) SendCustomFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string, customTmpl *model.EmailTemplateConfig) error {
+	if dashboardURL == "" {
+		dashboardURL = s.frontendURL + "/candidate/dashboard"
+	}
+	if customTmpl != nil && customTmpl.Enabled {
+		vars := map[string]string{
+			"candidate_name": candidateName,
+			"program_name":   programName,
+			"track_name":     trackName,
+			"dashboard_url":  dashboardURL,
+			"action_url":     dashboardURL,
+			"notes":          notes,
+			"support_email":  s.supportEmail,
+		}
+		subject, html, text := buildCustomEmail(customTmpl, vars, dashboardURL, s.frontendURL, s.supportEmail)
+		s.send(recipientEmail, subject, html, text)
+		return nil
+	}
+	return s.SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes)
+}
+
+// SendRejectionEmail sends rejection notice using custom template if configured & enabled, else standard template.
+func (s *SESService) SendRejectionEmail(recipientEmail, candidateName, programName, trackName, notes string, customTmpl *model.EmailTemplateConfig) error {
+	if customTmpl != nil && customTmpl.Enabled {
+		vars := map[string]string{
+			"candidate_name": candidateName,
+			"program_name":   programName,
+			"track_name":     trackName,
+			"notes":          notes,
+			"support_email":  s.supportEmail,
+		}
+		subject, html, text := buildCustomEmail(customTmpl, vars, "", s.frontendURL, s.supportEmail)
+		s.send(recipientEmail, subject, html, text)
+		return nil
+	}
+	subject, html, text := buildRejectionEmail(candidateName, programName, trackName, notes, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// SendCustomEmail sends an ad-hoc custom email (useful for sending test preview emails).
+func (s *SESService) SendCustomEmail(recipientEmail string, customTmpl *model.EmailTemplateConfig, vars map[string]string, actionURL string) error {
+	if vars == nil {
+		vars = make(map[string]string)
+	}
+	if _, ok := vars["support_email"]; !ok {
+		vars["support_email"] = s.supportEmail
+	}
+	subject, html, text := buildCustomEmail(customTmpl, vars, actionURL, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
 
