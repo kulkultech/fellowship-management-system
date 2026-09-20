@@ -148,20 +148,28 @@ func TestAdminHandler_DeleteApplicant(t *testing.T) {
 		t.Fatalf("expected 200 for same-org delete, got %d (body: %s)", wSame.Code, wSame.Body.String())
 	}
 
-	// Verify applicant is gone
+	// Verify applicant is gone from active queries (UI shows as deleted)
 	_, err = appRepo.GetByID(ctx, applicant.ID)
 	if err != repository.ErrApplicantNotFound {
 		t.Fatalf("expected ErrApplicantNotFound, got %v", err)
 	}
 
-	// Verify child records are gone
+	appList, err := appRepo.ListByProgram(ctx, prog.ID, "")
+	if err != nil {
+		t.Fatalf("failed to list applicants by program: %v", err)
+	}
+	if len(appList) != 0 {
+		t.Fatalf("expected 0 active applicants in program list, got %d", len(appList))
+	}
+
+	// Verify child records are still preserved in backend (not wiped)
 	sub, _ := subRepo.GetByApplicantID(ctx, applicant.ID)
-	if sub != nil {
-		t.Fatalf("expected submission to be cleaned up, got %v", sub)
+	if sub == nil {
+		t.Fatalf("expected submission to be preserved in backend, got nil")
 	}
 	ai, _ := aiRepo.GetByApplicantID(ctx, applicant.ID)
-	if ai != nil {
-		t.Fatalf("expected ai interview to be cleaned up, got %v", ai)
+	if ai == nil {
+		t.Fatalf("expected ai interview to be preserved in backend, got nil")
 	}
 
 	// 3. User can now apply again to the same program as a brand new applicant!
@@ -253,9 +261,23 @@ func TestCandidateHandler_DeleteCandidateApplication(t *testing.T) {
 		t.Fatalf("expected 200 for owner delete, got %d (body: %s)", wOwner.Code, wOwner.Body.String())
 	}
 
-	// Verify applicant is gone
+	// Verify applicant is gone from active queries (UI shows as deleted)
 	_, err = appRepo.GetByID(ctx, app.ID)
 	if err != repository.ErrApplicantNotFound {
 		t.Fatalf("expected ErrApplicantNotFound, got %v", err)
+	}
+
+	emailList, err := appRepo.ListByEmail(ctx, "mytest@candidate.com")
+	if err != nil {
+		t.Fatalf("failed to list by email: %v", err)
+	}
+	if len(emailList) != 0 {
+		t.Fatalf("expected 0 active applications in candidate list, got %d", len(emailList))
+	}
+
+	// Verify child submission is still preserved in backend (not wiped)
+	sub, _ := subRepo.GetByApplicantID(ctx, app.ID)
+	if sub == nil {
+		t.Fatalf("expected submission to be preserved in backend, got nil")
 	}
 }

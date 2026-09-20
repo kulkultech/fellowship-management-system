@@ -241,9 +241,6 @@ func (h *CandidateHandler) DeleteCandidateApplication(w http.ResponseWriter, r *
 		return
 	}
 
-	_ = h.submissionRepo.DeleteByApplicantID(r.Context(), applicantID)
-	_ = h.aiInterviewRepo.DeleteByApplicantID(r.Context(), applicantID)
-
 	if err := h.applicantRepo.Delete(r.Context(), applicantID); err != nil {
 		if errors.Is(err, repository.ErrApplicantNotFound) {
 			httpx.Error(w, http.StatusNotFound, "application not found")

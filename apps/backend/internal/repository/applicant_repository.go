@@ -36,7 +36,7 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		for _, app := range r.memApplicants {
-			if app.ProgramID == a.ProgramID && app.Email == a.Email {
+			if app.DeletedAt == nil && app.ProgramID == a.ProgramID && app.Email == a.Email {
 				app.FullName = a.FullName
 				app.FirstName = a.FirstName
 				app.LastName = a.LastName
@@ -93,7 +93,7 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 			date_of_birth, phone, github_url, linkedin_url, resume_url, profile_picture_url, university, major,
 			semester, referral_source, current_stage, notes, custom_responses, form_submitted, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, now(), now())
-		ON CONFLICT (program_id, email) DO UPDATE SET
+		ON CONFLICT (program_id, email) WHERE deleted_at IS NULL DO UPDATE SET
 			full_name = EXCLUDED.full_name,
 			first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), applicants.first_name),
 			last_name = COALESCE(NULLIF(EXCLUDED.last_name, ''), applicants.last_name),
@@ -150,7 +150,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		r.mu.RLock()
 		defer r.mu.RUnlock()
 		app, ok := r.memApplicants[id]
-		if !ok {
+		if !ok || app.DeletedAt != nil {
 			return nil, ErrApplicantNotFound
 		}
 		return app, nil
@@ -166,7 +166,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 			COALESCE(custom_responses, '{}'::jsonb),
 			created_at, updated_at
 		FROM applicants
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`
 	var a model.Applicant
 	var rawCustomResponses []byte
@@ -195,7 +195,7 @@ func (r *ApplicantRepository) UpdateStage(ctx context.Context, id uuid.UUID, sta
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		app, ok := r.memApplicants[id]
-		if !ok {
+		if !ok || app.DeletedAt != nil {
 			return ErrApplicantNotFound
 		}
 		app.CurrentStage = stage
@@ -206,7 +206,7 @@ func (r *ApplicantRepository) UpdateStage(ctx context.Context, id uuid.UUID, sta
 	query := `
 		UPDATE applicants
 		SET current_stage = $2, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`
 	tag, err := r.pool.Exec(ctx, query, id, stage)
 	if err != nil {
@@ -223,7 +223,7 @@ func (r *ApplicantRepository) SetFormSubmitted(ctx context.Context, id uuid.UUID
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		app, ok := r.memApplicants[id]
-		if !ok {
+		if !ok || app.DeletedAt != nil {
 			return ErrApplicantNotFound
 		}
 		app.FormSubmitted = submitted
@@ -234,7 +234,7 @@ func (r *ApplicantRepository) SetFormSubmitted(ctx context.Context, id uuid.UUID
 	query := `
 		UPDATE applicants
 		SET form_submitted = $2, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`
 	tag, err := r.pool.Exec(ctx, query, id, submitted)
 	if err != nil {
@@ -252,7 +252,7 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 		r.mu.RLock()
 		defer r.mu.RUnlock()
 		for _, app := range r.memApplicants {
-			if app.ProgramID == programID && strings.ToLower(app.Email) == email {
+			if app.DeletedAt == nil && app.ProgramID == programID && strings.ToLower(app.Email) == email {
 				return app, nil
 			}
 		}
@@ -269,7 +269,7 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 			COALESCE(custom_responses, '{}'::jsonb),
 			created_at, updated_at
 		FROM applicants
-		WHERE program_id = $1 AND LOWER(email) = $2
+		WHERE program_id = $1 AND LOWER(email) = $2 AND deleted_at IS NULL
 		LIMIT 1
 	`
 	var a model.Applicant
@@ -300,7 +300,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 		defer r.mu.RUnlock()
 		var list []model.Applicant
 		for _, app := range r.memApplicants {
-			if app.ProgramID == programID {
+			if app.DeletedAt == nil && app.ProgramID == programID {
 				if stageFilter == "" || string(app.CurrentStage) == stageFilter {
 					list = append(list, *app)
 				}
@@ -319,7 +319,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			COALESCE(custom_responses, '{}'::jsonb),
 			created_at, updated_at
 		FROM applicants
-		WHERE program_id = $1 AND ($2 = '' OR current_stage = $2)
+		WHERE program_id = $1 AND deleted_at IS NULL AND ($2 = '' OR current_stage = $2)
 		ORDER BY created_at DESC
 	`
 	rows, err := r.pool.Query(ctx, query, programID, stageFilter)
@@ -357,7 +357,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 		defer r.mu.RUnlock()
 		var list []model.Applicant
 		for _, app := range r.memApplicants {
-			if strings.ToLower(app.Email) == email {
+			if app.DeletedAt == nil && strings.ToLower(app.Email) == email {
 				list = append(list, *app)
 			}
 		}
@@ -374,7 +374,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			COALESCE(custom_responses, '{}'::jsonb),
 			created_at, updated_at
 		FROM applicants
-		WHERE LOWER(email) = $1
+		WHERE LOWER(email) = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 	`
 	rows, err := r.pool.Query(ctx, query, email)
@@ -409,37 +409,27 @@ func (r *ApplicantRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		if _, ok := r.memApplicants[id]; !ok {
+		app, ok := r.memApplicants[id]
+		if !ok || app.DeletedAt != nil {
 			return ErrApplicantNotFound
 		}
-		delete(r.memApplicants, id)
+		now := time.Now()
+		app.DeletedAt = &now
+		app.UpdatedAt = now
 		return nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("applicant_repo: begin delete tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Explicitly delete dependent test submissions and AI interviews (also enforced via DB ON DELETE CASCADE)
-	if _, err := tx.Exec(ctx, `DELETE FROM ai_interviews WHERE applicant_id = $1`, id); err != nil {
-		return fmt.Errorf("applicant_repo: delete ai_interviews: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM test_submissions WHERE applicant_id = $1`, id); err != nil {
-		return fmt.Errorf("applicant_repo: delete test_submissions: %w", err)
-	}
-
-	tag, err := tx.Exec(ctx, `DELETE FROM applicants WHERE id = $1`, id)
+	query := `
+		UPDATE applicants
+		SET deleted_at = now(), updated_at = now()
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	tag, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("applicant_repo: delete applicant: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrApplicantNotFound
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("applicant_repo: commit delete: %w", err)
 	}
 	return nil
 }
