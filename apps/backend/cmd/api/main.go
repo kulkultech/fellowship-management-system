@@ -44,6 +44,8 @@ func run() error {
 			defer sentry.Flush(2 * time.Second)
 			logger.Info("Sentry crash analytics initialized successfully", slog.String("env", cfg.AppEnv))
 		}
+	} else {
+		logger.Warn("Sentry DSN not configured, crash analytics disabled (set SENTRY_DSN in deployment environment)")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

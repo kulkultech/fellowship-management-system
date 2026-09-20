@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"github.com/getsentry/sentry-go"
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -20,6 +21,7 @@ import (
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/handler"
+	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/repository"
 	"github.com/kulkul/backend/pkg/storage"
@@ -103,11 +105,34 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		MaxAge:           300,
 	}))
 
+	sentryTestHandler := func(w http.ResponseWriter, r *http.Request) {
+		if cfg.SentryDSN == "" {
+			httpx.JSON(w, http.StatusOK, map[string]any{
+				"status":  "disabled",
+				"message": "Sentry is not configured. Set SENTRY_DSN in your deployment environment to enable.",
+			})
+			return
+		}
+		eventID := sentry.CaptureMessage("FellowHire Backend Sentry Connection Test")
+		sentry.Flush(2 * time.Second)
+		eventIDStr := ""
+		if eventID != nil {
+			eventIDStr = string(*eventID)
+		}
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"status":   "connected",
+			"message":  "Test event sent to Sentry successfully!",
+			"event_id": eventIDStr,
+			"env":      cfg.AppEnv,
+		})
+	}
+
 	// Health and probe endpoints (root level)
 	r.Get("/health", healthHandler.Health)
 	r.Get("/healthz", healthHandler.Liveness)
 	r.Get("/livez", healthHandler.Liveness)
 	r.Get("/readyz", healthHandler.Readiness)
+	r.Get("/health/sentry-test", sentryTestHandler)
 
 	if cfg.MetricsToken != "" {
 		r.Group(func(m chi.Router) {
@@ -134,6 +159,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			h.Get("/liveness", healthHandler.Liveness)
 			h.Get("/ready", healthHandler.Readiness)
 			h.Get("/readiness", healthHandler.Readiness)
+			h.Get("/sentry-test", sentryTestHandler)
 		})
 
 		// Public Media Upload & Streaming (Cloudflare R2)

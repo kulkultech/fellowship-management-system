@@ -155,7 +155,12 @@ func Load() (*Config, error) {
 			FromEmail:       getString("EMAIL_FROM", "support@fellowhire.kul.to"),
 			FrontendURL:     getString("FRONTEND_URL", "https://fellowhire.kul.to"),
 		},
-		SentryDSN: getString("SENTRY_DSN", ""),
+		SentryDSN: cleanDSN(func() string {
+			if dsn := getString("SENTRY_DSN", ""); dsn != "" {
+				return dsn
+			}
+			return getString("BACKEND_SENTRY_DSN", "")
+		}()),
 	}
 
 	if cfg.AppEnv == "production" {
@@ -239,3 +244,10 @@ func getBool(key string, fallback bool) bool {
 	}
 	return b
 }
+
+func cleanDSN(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, `"'`)
+	return s
+}
+
