@@ -25,12 +25,24 @@ if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
     environment: (typeof window !== 'undefined' && window.__ENV__?.APP_ENV) || (import.meta.env.MODE as string) || 'production',
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        maskAllText: false,
+        blockAllMedia: false,
+      }),
+    ],
+    // Tracing: 25% sampling rate for performance monitoring
+    tracesSampleRate: 0.25,
+    // Session Replay: 25% sampling rate for normal sessions, 100% on error
+    replaysSessionSampleRate: 0.25,
+    replaysOnErrorSampleRate: 1.0,
     dataCollection: {
       // userInfo: false,
       // httpBodies: []
     },
   });
-  console.info('[Sentry] Crash analytics initialized successfully');
+  console.info('[Sentry] Crash analytics, Tracing (25%), and Session Replay (25%) initialized successfully');
 } else {
   console.warn('[Sentry] No DSN provided via window.__ENV__ or VITE_SENTRY_DSN. Crash analytics is inactive.');
 }

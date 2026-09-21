@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,12 +38,12 @@ func run() error {
 			Dsn:              cfg.SentryDSN,
 			Environment:      cfg.AppEnv,
 			EnableTracing:    true,
-			TracesSampleRate: 1.0,
+			TracesSampleRate: 0.25,
 		}); err != nil {
 			logger.Warn("sentry.Init failed", slog.Any("error", err))
 		} else {
 			defer sentry.Flush(2 * time.Second)
-			logger.Info("Sentry crash analytics initialized successfully", slog.String("env", cfg.AppEnv))
+			logger.Info("Sentry crash analytics and tracing (25%) initialized successfully", slog.String("env", cfg.AppEnv))
 		}
 	} else {
 		logger.Warn("Sentry DSN not configured, crash analytics disabled (set SENTRY_DSN in deployment environment)")
@@ -53,8 +54,32 @@ func run() error {
 
 	var dbPool *pgxpool.Pool
 	if cfg.DatabaseURL != "" {
-		pool, err := repository.NewPool(ctx, cfg.DatabaseURL)
+		var pool *pgxpool.Pool
+		var err error
+		maxRetries := 5
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			pool, err = repository.NewPool(ctx, cfg.DatabaseURL)
+			if err == nil {
+				break
+			}
+			logger.Warn("database connection attempt failed", "attempt", attempt, "max_retries", maxRetries, "error", err)
+			if attempt < maxRetries {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(time.Duration(attempt) * time.Second):
+				}
+			}
+		}
+
 		if err != nil {
+			if cfg.AppEnv == "production" {
+				if cfg.SentryDSN != "" {
+					sentry.CaptureException(fmt.Errorf("fatal: database connection failed in production after %d attempts: %w", maxRetries, err))
+					sentry.Flush(2 * time.Second)
+				}
+				return fmt.Errorf("fatal: database connection failed in production: %w", err)
+			}
 			logger.Warn("database connection failed (falling back to in-memory store for dev)", "error", err)
 		} else {
 			dbPool = pool
@@ -62,6 +87,9 @@ func run() error {
 
 			if err := repository.AutoMigrateAndSeed(ctx, dbPool, logger); err != nil {
 				logger.Error("database auto-migration failed", "error", err)
+				if cfg.SentryDSN != "" {
+					sentry.CaptureException(fmt.Errorf("database auto-migration failed: %w", err))
+				}
 			}
 		}
 	}
