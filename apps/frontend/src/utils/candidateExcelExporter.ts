@@ -344,7 +344,7 @@ export async function exportCandidatesToExcel({
 
   summarySheet.mergeCells('A2:I2');
   const summarySubCell = summarySheet.getCell('A2');
-  summarySubCell.value = `Quick comparative scorecard for evaluation and admissions committee`;
+  summarySubCell.value = `Quick comparative scorecard | Scope: ${scopeLabel} | Total Candidates: ${applicants.length}`;
   summarySubCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
   summarySubCell.alignment = { vertical: 'middle' };
   summarySheet.getRow(2).height = 20;
@@ -466,7 +466,12 @@ export async function exportCandidatesToExcel({
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '');
     const dateStr = new Date().toISOString().slice(0, 10);
-    const filename = `${sanitizedProg || 'candidates'}_candidates_${dateStr}.xlsx`;
+    const isFiltered = Boolean(
+      scopeLabel &&
+      scopeLabel !== 'All Candidates' &&
+      !scopeLabel.startsWith('All Candidates')
+    );
+    const filename = `${sanitizedProg || 'candidates'}_${isFiltered ? 'filtered_' : ''}candidates_${dateStr}.xlsx`;
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

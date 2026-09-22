@@ -256,7 +256,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [isExportingCandidates, setIsExportingCandidates] = useState(false);
   const [showCandidateExportMenu, setShowCandidateExportMenu] = useState(false);
 
-  const hasActiveCandidateFilters = Boolean(searchQuery.trim() || selectedTrackFilter || selectedStage);
+  const hasActiveCandidateFilters = Boolean(
+    searchQuery.trim() || selectedTrackFilter || selectedStage || sortColumn
+  );
 
   const handleExportCandidates = async (targetApplicants: ApplicantListItem[], scope: string) => {
     if (targetApplicants.length === 0) {
@@ -615,10 +617,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const activeFilteredTrack = programTracks.find((t) => t.id === selectedTrackFilter);
 
-  // Load Applicants list
+  // Load Applicants list (complete program pool cached in memory)
   const { data: applicants = [], isLoading: isListLoading } = useQuery({
-    queryKey: ['admin-applicants', programId, selectedStage],
-    queryFn: () => adminService.listApplicants(programId!, selectedStage),
+    queryKey: ['admin-applicants', programId],
+    queryFn: () => adminService.listApplicants(programId!),
     enabled: !!programId,
   });
 
@@ -1750,16 +1752,79 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   };
 
-  // Filtered & Sorted applicants
+  // Pre-calculated stage counts for tabs & metrics
+  const stageCounts = useMemo(() => {
+    return {
+      all: applicants.length,
+      test_completed: applicants.filter(
+        (a) =>
+          a.current_stage === 'test_completed' ||
+          a.current_stage === 'logic_test_passed' ||
+          Boolean(a.mcq_passed)
+      ).length,
+      ai_interview_completed: applicants.filter(
+        (a) =>
+          a.current_stage === 'ai_interview_completed' ||
+          Boolean(a.ai_score && a.ai_score > 0)
+      ).length,
+      approved_for_live: applicants.filter(
+        (a) => a.current_stage === 'approved_for_live'
+      ).length,
+    };
+  }, [applicants]);
+
+  // Filtered & Sorted applicants matching current UI filters
   const filteredApplicants = useMemo(() => {
     const list = applicants.filter((a) => {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch =
-        a.full_name.toLowerCase().includes(query) ||
-        a.email.toLowerCase().includes(query) ||
-        a.current_stage.toLowerCase().includes(query);
-      const matchesTrack = selectedTrackFilter ? a.track_id === selectedTrackFilter : true;
-      return matchesSearch && matchesTrack;
+      // 1. Stage filter
+      if (selectedStage) {
+        if (selectedStage === 'test_completed') {
+          const isMcqPassed =
+            a.current_stage === 'test_completed' ||
+            a.current_stage === 'logic_test_passed' ||
+            Boolean(a.mcq_passed);
+          if (!isMcqPassed) return false;
+        } else if (selectedStage === 'ai_interview_completed') {
+          const isAiEvaluated =
+            a.current_stage === 'ai_interview_completed' ||
+            Boolean(a.ai_score && a.ai_score > 0);
+          if (!isAiEvaluated) return false;
+        } else if (selectedStage === 'approved_for_live') {
+          if (a.current_stage !== 'approved_for_live') return false;
+        } else {
+          if (a.current_stage !== selectedStage) return false;
+        }
+      }
+
+      // 2. Track filter
+      if (selectedTrackFilter && a.track_id !== selectedTrackFilter) {
+        return false;
+      }
+
+      // 3. Search filter
+      const query = searchQuery.trim().toLowerCase();
+      if (query) {
+        const matchesSearch = Boolean(
+          a.full_name?.toLowerCase().includes(query) ||
+          a.first_name?.toLowerCase().includes(query) ||
+          a.last_name?.toLowerCase().includes(query) ||
+          a.email?.toLowerCase().includes(query) ||
+          a.phone?.toLowerCase().includes(query) ||
+          a.university?.toLowerCase().includes(query) ||
+          a.major?.toLowerCase().includes(query) ||
+          a.track_name?.toLowerCase().includes(query) ||
+          a.current_stage?.toLowerCase().includes(query) ||
+          a.ai_recommendation?.toLowerCase().includes(query) ||
+          (a.custom_responses &&
+            typeof a.custom_responses === 'object' &&
+            Object.values(a.custom_responses).some(
+              (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(query)
+            ))
+        );
+        if (!matchesSearch) return false;
+      }
+
+      return true;
     });
 
     if (!sortColumn) {
@@ -1787,7 +1852,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       return sortDirection === 'desc' ? -comparison : comparison;
     });
-  }, [applicants, searchQuery, selectedTrackFilter, sortColumn, sortDirection]);
+  }, [applicants, searchQuery, selectedTrackFilter, selectedStage, sortColumn, sortDirection]);
 
   const questionsEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -2780,11 +2845,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search candidates by name, email, or stage..."
+                  placeholder="Search candidates by name, email, university, track, or stage..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                  className="w-full pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Stage Filter Tabs & Active Track Indicator & Track Actions */}
@@ -2814,21 +2889,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
 
                 {[
-                  { label: 'All Candidates', value: '' },
-                  { label: 'MCQ Passed', value: 'test_completed' },
-                  { label: 'AI Evaluated', value: 'ai_interview_completed' },
-                  { label: 'Live Accepted', value: 'approved_for_live' },
+                  { label: 'All Candidates', value: '', count: stageCounts.all },
+                  { label: 'MCQ Passed', value: 'test_completed', count: stageCounts.test_completed },
+                  { label: 'AI Evaluated', value: 'ai_interview_completed', count: stageCounts.ai_interview_completed },
+                  { label: 'Live Accepted', value: 'approved_for_live', count: stageCounts.approved_for_live },
                 ].map((st) => (
                   <button
                     key={st.value}
                     onClick={() => setSelectedStage(st.value)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                       selectedStage === st.value
                         ? 'bg-kulkul-purple text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {st.label}
+                    <span>{st.label}</span>
+                    <span
+                      className={`text-2xs px-1.5 py-0.5 rounded-full font-extrabold ${
+                        selectedStage === st.value
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {st.count}
+                    </span>
                   </button>
                 ))}
 
@@ -2851,16 +2935,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <div className="inline-flex items-stretch rounded-full shadow-2xs border border-emerald-300/80 bg-emerald-50 hover:bg-emerald-100/80 transition overflow-hidden">
                     <button
                       type="button"
-                      disabled={isExportingCandidates || applicants.length === 0}
+                      disabled={isExportingCandidates || filteredApplicants.length === 0}
                       onClick={() => {
-                        if (hasActiveCandidateFilters) {
-                          setShowCandidateExportMenu((prev) => !prev);
-                        } else {
-                          handleExportCandidates(applicants, 'All Candidates');
-                        }
+                        handleExportCandidates(
+                          filteredApplicants,
+                          hasActiveCandidateFilters
+                            ? `Filtered View (${filteredApplicants.length} Candidates)`
+                            : 'All Candidates'
+                        );
                       }}
                       className="inline-flex items-center gap-1.5 pl-3.5 pr-2.5 py-1.5 text-xs font-bold text-emerald-800 disabled:opacity-50 transition whitespace-nowrap"
-                      title="Export candidate list with all form responses, logic tests, and AI interview evaluations to Excel (.xlsx)"
+                      title={
+                        hasActiveCandidateFilters
+                          ? `Export ${filteredApplicants.length} filtered candidate(s) to Excel (.xlsx)`
+                          : 'Export all candidates to Excel (.xlsx)'
+                      }
                     >
                       {isExportingCandidates ? (
                         <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
@@ -2878,7 +2967,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         disabled={isExportingCandidates || applicants.length === 0}
                         onClick={() => setShowCandidateExportMenu((prev) => !prev)}
                         className="px-2 py-1.5 text-emerald-700 hover:text-emerald-900 border-l border-emerald-200 hover:bg-emerald-200/50 transition flex items-center justify-center disabled:opacity-50"
-                        title="Choose export scope"
+                        title="Choose export scope (Filtered vs All Candidates)"
                       >
                         <ChevronDown className="w-3 h-3" />
                       </button>
@@ -2903,12 +2992,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         </div>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            setShowCandidateExportMenu(false);
                             handleExportCandidates(
                               filteredApplicants,
                               `Filtered View (${filteredApplicants.length} Candidates)`
-                            )
-                          }
+                            );
+                          }}
                           className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 transition flex items-center justify-between group"
                         >
                           <div>
@@ -2916,7 +3006,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               Export Filtered List
                             </div>
                             <div className="text-2xs text-slate-500">
-                              Matches current stage, track & search
+                              Matches current stage, track, search & sort
                             </div>
                           </div>
                           <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -2925,12 +3015,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         </button>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            setShowCandidateExportMenu(false);
                             handleExportCandidates(
                               applicants,
                               `All Candidates (${applicants.length} Total)`
-                            )
-                          }
+                            );
+                          }}
                           className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-slate-50 text-slate-700 transition flex items-center justify-between group"
                         >
                           <div>
@@ -3069,10 +3160,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <tr>
                         <td colSpan={activeColumns.length} className="px-6 py-16 text-center text-slate-400">
                           <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                          <div className="text-base font-bold text-slate-700">No applicants yet</div>
-                          <div className="text-xs text-slate-400 mt-1">
-                            Share your program link with candidates to start receiving assessments.
+                          <div className="text-base font-bold text-slate-700">
+                            {hasActiveCandidateFilters ? 'No candidates matching filters' : 'No applicants yet'}
                           </div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            {hasActiveCandidateFilters
+                              ? 'Try adjusting your search query, track selection, or stage filter.'
+                              : 'Share your program link with candidates to start receiving assessments.'}
+                          </div>
+                          {hasActiveCandidateFilters && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchQuery('');
+                                setSelectedStage('');
+                                setSelectedTrackFilter('');
+                                setSortColumn(null);
+                              }}
+                              className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-kulkul-purple bg-purple-50 hover:bg-purple-100 transition"
+                            >
+                              Reset all filters
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ) : (

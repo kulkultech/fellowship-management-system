@@ -148,4 +148,64 @@ describe('candidateExcelExporter', () => {
     expect(masterSheet).toBeDefined();
     expect(masterSheet!.rowCount).toBe(4); // 3 title rows + 1 header row
   });
+
+  it('exports only filtered applicants when a filtered subset is provided', async () => {
+    // Only pass the MCQ-passed / AI-completed applicant (Budi)
+    const filteredList = mockApplicants.filter(
+      (a) => a.current_stage === 'ai_interview_completed'
+    );
+    expect(filteredList.length).toBe(1);
+
+    const workbook = await exportCandidatesToExcel({
+      program: mockProgram,
+      applicants: filteredList,
+      programName: 'AI Fellowship 2026',
+      scopeLabel: 'Filtered View (1 Candidates)',
+    });
+
+    const masterSheet = workbook.getWorksheet('Candidates Master List');
+    expect(masterSheet).toBeDefined();
+
+    // Row 2 subtitle should reflect the filtered scope
+    const subTitle = masterSheet!.getCell('A2').value as string;
+    expect(subTitle).toContain('Scope: Filtered View (1 Candidates)');
+    expect(subTitle).toContain('Total Candidates: 1');
+
+    // Total rows: 3 title rows + 1 header row + 1 data row = 5 rows
+    expect(masterSheet!.rowCount).toBe(5);
+
+    const row5 = masterSheet!.getRow(5).values as any[];
+    expect(row5).toContain('Budi Santoso');
+    expect(row5).not.toContain('Siti Rahma');
+
+    // Summary sheet checks
+    const summarySheet = workbook.getWorksheet('Assessment Summary');
+    expect(summarySheet).toBeDefined();
+    const summarySub = summarySheet!.getCell('A2').value as string;
+    expect(summarySub).toContain('Scope: Filtered View (1 Candidates)');
+    expect(summarySub).toContain('Total Candidates: 1');
+    expect(summarySheet!.rowCount).toBe(5);
+  });
+
+  it('preserves sort order in exported sheets', async () => {
+    // Pass in reverse order: Siti first, then Budi
+    const sortedList = [...mockApplicants].reverse();
+    expect(sortedList[0].full_name).toBe('Siti Rahma');
+    expect(sortedList[1].full_name).toBe('Budi Santoso');
+
+    const workbook = await exportCandidatesToExcel({
+      program: mockProgram,
+      applicants: sortedList,
+      scopeLabel: 'Sorted View (2 Candidates)',
+    });
+
+    const masterSheet = workbook.getWorksheet('Candidates Master List');
+    // First data row (row 5) should be Siti
+    const row5Values = masterSheet!.getRow(5).values as any[];
+    expect(row5Values).toContain('Siti Rahma');
+
+    // Second data row (row 6) should be Budi
+    const row6Values = masterSheet!.getRow(6).values as any[];
+    expect(row6Values).toContain('Budi Santoso');
+  });
 });
