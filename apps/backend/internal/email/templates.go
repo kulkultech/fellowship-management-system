@@ -732,6 +732,50 @@ func buildAccountActivationEmail(userName, activationURL, frontendURL, supportEm
 	return
 }
 
+// 7b. Password Reset Email Template
+func buildPasswordResetEmail(userName, resetURL, frontendURL, supportEmail string) (subject string, html string, text string) {
+	if userName == "" {
+		userName = "there"
+	}
+	subject = "Reset Your FellowHire Password"
+
+	body := fmt.Sprintf(`
+    <span class="badge badge-purple">Password Reset</span>
+    <h2>Password Reset Request</h2>
+    <p>Hello %s,</p>
+    <p>We received a request to reset the password for your FellowHire account. You can set a new password by clicking the button below:</p>
+    
+    <div class="btn-container">
+      <a href="%s" class="btn">Reset My Password</a>
+    </div>
+
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">Link Expiration</span>
+        <span class="info-value">1 Hour</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Security Notice</span>
+        <span class="info-value">Never share this link with anyone</span>
+      </div>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="%s" style="color: #33125d; word-break: break-all;">%s</a>
+    </p>
+
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 24px;">
+      If you did not request a password reset, you can safely ignore this email. Your password will not change and your account remains secure.
+    </p>
+  `, template.HTMLEscapeString(userName), resetURL, resetURL, resetURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Hello %s,\n\nWe received a request to reset your FellowHire password. Please visit the link below to set a new password:\n\n%s\n\nThis reset link will expire in 1 hour.\n\nIf you did not request a password reset, please ignore this email. Your password will remain unchanged.\n\nSupport: %s",
+		userName, resetURL, supportEmail)
+	return
+}
+
 // 8. Admin & Superadmin Team Invitation Email Template
 func buildAdminInvitationEmail(inviterName, role, orgName, inviteURL, frontendURL, supportEmail string) (subject string, html string, text string) {
 	if inviterName == "" {

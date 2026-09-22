@@ -27,6 +27,7 @@ type Service interface {
 	SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error
 	SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error
 	SendAccountActivationEmail(recipientEmail, userName, activationURL string) error
+	SendPasswordResetEmail(recipientEmail, userName, resetURL string) error
 	SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error
 
 	SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error
@@ -308,6 +309,13 @@ func (s *SESService) SendFinalInterviewInvitationEmail(recipientEmail, candidate
 // 7. SendAccountActivationEmail
 func (s *SESService) SendAccountActivationEmail(recipientEmail, userName, activationURL string) error {
 	subject, html, text := buildAccountActivationEmail(userName, activationURL, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// 7b. SendPasswordResetEmail
+func (s *SESService) SendPasswordResetEmail(recipientEmail, userName, resetURL string) error {
+	subject, html, text := buildPasswordResetEmail(userName, resetURL, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

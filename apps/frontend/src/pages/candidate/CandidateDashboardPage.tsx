@@ -377,7 +377,15 @@ export const CandidateDashboardPage: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="form-label">Password</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="form-label mb-0">Password</label>
+                            <Link
+                              to="/forgot-password"
+                              className="text-xs font-semibold text-primary hover:text-primary-dark hover:underline transition"
+                            >
+                              Forgot password?
+                            </Link>
+                          </div>
                           <div className="relative">
                             <input
                               type="password"

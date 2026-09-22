@@ -118,6 +118,15 @@ type ResendActivationRequest struct {
 	Email string `json:"email"`
 }
 
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
 type UpdateProfileRequest struct {
 	Name                string  `json:"name"`
 	AvatarURL           string  `json:"avatar_url"`
@@ -976,5 +985,147 @@ func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 		"redirect_url": redirectURL,
 		"csrf_token":   csrfToken,
 	})
+}
+
+// ------------------------------------------------------------------------------------------------
+// Forgot & Reset Password
+// ------------------------------------------------------------------------------------------------
+
+// ForgotPassword handles sending a password reset email to a user.
+// Returns a generic success message to prevent user enumeration attacks.
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req ForgotPasswordRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email == "" || !strings.Contains(email, "@") {
+		httpx.Error(w, http.StatusBadRequest, "valid email address is required")
+		return
+	}
+
+	genericSuccessMsg := "If an account exists with this email address, you will receive password reset instructions shortly."
+
+	user, err := h.userRepo.GetByEmail(r.Context(), email)
+	if err != nil || user == nil {
+		// Anti-enumeration: Return 200 OK without disclosing whether the email exists
+		httpx.JSON(w, http.StatusOK, map[string]string{
+			"message": genericSuccessMsg,
+		})
+		return
+	}
+
+	token, err := generateActivationToken()
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to generate reset token")
+		return
+	}
+	expiresAt := time.Now().Add(1 * time.Hour)
+
+	if err := h.userRepo.SetPasswordResetToken(r.Context(), user.ID, token, expiresAt); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to initiate password reset")
+		return
+	}
+
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", h.frontendURL, token)
+	if h.emailSvc != nil {
+		go func() {
+			_ = h.emailSvc.SendPasswordResetEmail(user.Email, user.Name, resetURL)
+		}()
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"message": genericSuccessMsg,
+	})
+}
+
+// VerifyResetToken validates a password reset token without consuming it.
+func (h *AuthHandler) VerifyResetToken(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		httpx.Error(w, http.StatusBadRequest, "reset token is required")
+		return
+	}
+
+	user, err := h.userRepo.GetByPasswordResetToken(r.Context(), token)
+	if err != nil || user == nil {
+		httpx.Error(w, http.StatusBadRequest, "This password reset link is invalid or has expired. Please request a new one.")
+		return
+	}
+
+	if user.PasswordResetExpiresAt != nil && time.Now().After(*user.PasswordResetExpiresAt) {
+		httpx.Error(w, http.StatusBadRequest, "This password reset link has expired. Please request a new one.")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"valid": true,
+		"email": maskEmail(user.Email),
+	})
+}
+
+// ResetPassword consumes the reset token and sets the user's new password.
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req ResetPasswordRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	token := strings.TrimSpace(req.Token)
+	if token == "" {
+		httpx.Error(w, http.StatusBadRequest, "reset token is required")
+		return
+	}
+
+	if len(req.Password) < 8 {
+		httpx.Error(w, http.StatusBadRequest, "password must be at least 8 characters long")
+		return
+	}
+
+	user, err := h.userRepo.GetByPasswordResetToken(r.Context(), token)
+	if err != nil || user == nil {
+		httpx.Error(w, http.StatusBadRequest, "This password reset link is invalid or has expired. Please request a new one.")
+		return
+	}
+
+	if user.PasswordResetExpiresAt != nil && time.Now().After(*user.PasswordResetExpiresAt) {
+		httpx.Error(w, http.StatusBadRequest, "This password reset link has expired. Please request a new one.")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to secure password")
+		return
+	}
+
+	if err := h.userRepo.ResetPassword(r.Context(), user.ID, string(hash)); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update password")
+		return
+	}
+
+	// If account had unverified email, verify it since they verified email ownership via reset token
+	if !user.EmailVerified {
+		_ = h.userRepo.ActivateUser(r.Context(), user.ID)
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"message": "Your password has been successfully reset. You may now sign in with your new password.",
+	})
+}
+
+func maskEmail(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return email
+	}
+	name, domain := parts[0], parts[1]
+	if len(name) <= 2 {
+		return name[:1] + "***@" + domain
+	}
+	return name[:2] + "***@" + domain
 }
 

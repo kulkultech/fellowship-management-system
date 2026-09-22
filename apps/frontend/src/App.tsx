@@ -14,6 +14,8 @@ import { AccountActivationPage } from '@/pages/AccountActivationPage';
 import { AcceptInvitationPage } from '@/pages/AcceptInvitationPage';
 import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { SuperadminDashboardPage } from '@/pages/admin/SuperadminDashboardPage';
 import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
@@ -78,6 +80,8 @@ export function App() {
           {/* Company Self-Registration & Account Activation */}
           <Route path="/register-company" element={<CompanyRegisterPage />} />
           <Route path="/activate" element={<AccountActivationPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/invite/accept" element={<AcceptInvitationPage />} />
           <Route path="/invitations/:token" element={<AcceptInvitationPage />} />
 

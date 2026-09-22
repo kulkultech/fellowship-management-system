@@ -17,6 +17,8 @@ type User struct {
 	EmailVerified  bool       `json:"email_verified"`
 	ActivationToken *string   `json:"-"`
 	ActivationExpiresAt *time.Time `json:"-"`
+	PasswordResetToken *string `json:"-"`
+	PasswordResetExpiresAt *time.Time `json:"-"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
