@@ -53,6 +53,7 @@ interface CandidateApplicationItem {
   form_submitted?: boolean;
   next_step?: string;
   redirect_url?: string;
+  program_room_invited_at?: string;
 }
 
 export const CandidateDashboardPage: React.FC = () => {
@@ -171,8 +172,9 @@ export const CandidateDashboardPage: React.FC = () => {
 
   const getStageBadge = (stage: string, passed: boolean) => {
     switch (stage) {
+      case 'approved_for_live':
       case 'accepted':
-        return <span className="whitespace-nowrap text-xs font-semibold text-emerald-700">Accepted 🎉</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-emerald-700">Accepted Fellow 🎉</span>;
       case 'rejected':
         return <span className="whitespace-nowrap text-xs font-semibold text-rose-700">Not Selected</span>;
       case 'ai_interview_completed':
@@ -759,8 +761,76 @@ export const CandidateDashboardPage: React.FC = () => {
                               <ExternalLink className="w-4 h-4" />
                             </button>
                           )}
+
+                          {/* Case 5: Approved for Live Cohort / Program Room */}
+                          {app.current_stage === 'approved_for_live' && (
+                            app.program_room_invited_at ? (
+                              <button
+                                onClick={() => {
+                                  if (app.redirect_url) {
+                                    navigate(app.redirect_url);
+                                  } else {
+                                    navigate(`/programs/${app.org_slug}/${app.program_slug}/room`);
+                                  }
+                                }}
+                                className="w-full lg:w-auto btn btn-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 flex items-center gap-2"
+                              >
+                                <Sparkles className="w-4 h-4 text-emerald-200" />
+                                <span>Enter Program Room</span>
+                                <ArrowRight className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-2 rounded-xl">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Accepted &bull; Program Room Access Pending</span>
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
+
+                      {/* Celebratory Banner for Accepted Fellows */}
+                      {app.current_stage === 'approved_for_live' && (
+                        <div className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start sm:items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                              <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-sm font-extrabold text-slate-900">
+                                  🎉 Congratulations! You have been accepted into the Fellowship Cohort!
+                                </h4>
+                                {app.program_room_invited_at && (
+                                  <span className="text-3xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-2xs">
+                                    Room Unlocked
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-600 mt-0.5">
+                                {app.program_room_invited_at
+                                  ? 'Your Program Room has been unlocked! Click "Enter Program Room" to access onboarding materials, schedules, and cohort channels.'
+                                  : 'Our admissions committee has officially accepted your application. Your Program Room invitation email is currently being prepared.'}
+                              </p>
+                            </div>
+                          </div>
+                          {app.program_room_invited_at && (
+                            <button
+                              onClick={() => {
+                                if (app.redirect_url) {
+                                  navigate(app.redirect_url);
+                                } else {
+                                  navigate(`/programs/${app.org_slug}/${app.program_slug}/room`);
+                                }
+                              }}
+                              className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold whitespace-nowrap shadow-sm shrink-0"
+                            >
+                              <span>Enter Program Room</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {/* Detailed Metric Strips */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">

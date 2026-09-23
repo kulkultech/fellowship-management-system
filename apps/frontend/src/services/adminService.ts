@@ -294,6 +294,11 @@ export const adminService = {
     await apiClient.delete(`/admin/applicants/${applicantId}`);
   },
 
+  inviteApplicantToProgramRoom: async (applicantId: string): Promise<{ message: string; id: string; program_room_invited_at: string }> => {
+    const { data } = await apiClient.post(`/admin/applicants/${applicantId}/invite-program-room`);
+    return data;
+  },
+
   // Superadmin Company Approvals
   listCompanies: async (status?: string): Promise<Organization[]> => {
     const { data } = await apiClient.get<{ companies: Organization[] }>('/admin/companies', {

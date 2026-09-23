@@ -155,6 +155,8 @@ import {
   ChevronDown,
   Loader2,
   Mail,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -724,7 +726,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       case 'stage':
         return (
           <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
-            {renderStageBadge(app.current_stage)}
+            <div className="flex flex-col gap-1 items-start">
+              {renderStageBadge(app.current_stage)}
+              {app.current_stage === 'approved_for_live' && (
+                app.program_room_invited_at ? (
+                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                    Room Invited
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                    Room Pending
+                  </span>
+                )
+              )}
+            </div>
           </td>
         );
 
@@ -1649,6 +1666,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to delete candidate application');
+    },
+  });
+
+  const inviteProgramRoomMutation = useMutation({
+    mutationFn: (applicantId: string) => adminService.inviteApplicantToProgramRoom(applicantId),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Program Room invitation sent successfully!');
+      queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
+      if (selectedApplicantId) {
+        queryClient.invalidateQueries({ queryKey: ['admin-applicant-detail', selectedApplicantId] });
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to send Program Room invitation');
     },
   });
 
@@ -5027,6 +5058,57 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </button>
               </div>
 
+              {/* Accepted Cohort Status Banner */}
+              {applicantDetail?.applicant.current_stage === 'approved_for_live' && (
+                <div className="mx-6 mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-5 h-5 text-emerald-700" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-2">
+                        <span>Candidate Accepted into Fellowship Cohort</span>
+                        {applicantDetail.applicant.program_room_invited_at && (
+                          <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                            Room Invited
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-2xs text-emerald-700 mt-0.5">
+                        {applicantDetail.applicant.program_room_invited_at
+                          ? `Program Room access email dispatched on ${new Date(applicantDetail.applicant.program_room_invited_at).toLocaleString()}`
+                          : 'Candidate has passed all screening stages. Click "Invite to Program Room" below to unlock their portal access.'}
+                      </p>
+                    </div>
+                  </div>
+                  {applicantDetail.applicant.program_room_invited_at ? (
+                    <button
+                      type="button"
+                      onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
+                      disabled={inviteProgramRoomMutation.isPending}
+                      className="px-3.5 py-1.5 rounded-xl border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-bold transition flex items-center gap-1.5 shrink-0 self-start sm:self-auto disabled:opacity-60"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${inviteProgramRoomMutation.isPending ? 'animate-spin' : ''}`} />
+                      <span>Resend Invite</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
+                      disabled={inviteProgramRoomMutation.isPending}
+                      className="px-4 py-2 rounded-xl bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 shrink-0 self-start sm:self-auto disabled:opacity-60"
+                    >
+                      {inviteProgramRoomMutation.isPending ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+                      )}
+                      <span>Invite to Program Room</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Drawer Tabs */}
               <div className="flex border-b border-slate-200 bg-white px-6">
                 <button
@@ -5607,30 +5689,85 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() =>
-                      updateStageMutation.mutate({
-                        applicantId: selectedApplicantId,
-                        stage: 'rejected',
-                      })
-                    }
-                    className="px-4 py-2 rounded-full bg-slate-200 hover:bg-red-50 hover:text-red-700 text-slate-700 text-xs font-bold transition"
-                  >
-                    Reject
-                  </button>
+                  {applicantDetail?.applicant.current_stage === 'approved_for_live' ? (
+                    <>
+                      {applicantDetail.applicant.program_room_invited_at ? (
+                        <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold shadow-2xs">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Invited to Program Room</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
+                            disabled={inviteProgramRoomMutation.isPending}
+                            className="px-4 py-2 rounded-full border border-purple-200 text-kulkul-purple hover:bg-purple-50 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
+                            title="Resend Program Room invitation email"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${inviteProgramRoomMutation.isPending ? 'animate-spin' : ''}`} />
+                            <span>Resend Invite</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateStageMutation.mutate({
+                                applicantId: selectedApplicantId,
+                                stage: 'rejected',
+                              })
+                            }
+                            className="px-4 py-2 rounded-full bg-slate-200 hover:bg-red-50 hover:text-red-700 text-slate-700 text-xs font-bold transition"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
+                            disabled={inviteProgramRoomMutation.isPending}
+                            className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-60"
+                          >
+                            {inviteProgramRoomMutation.isPending ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+                            )}
+                            <span>Invite to Program Room</span>
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateStageMutation.mutate({
+                            applicantId: selectedApplicantId,
+                            stage: 'rejected',
+                          })
+                        }
+                        className="px-4 py-2 rounded-full bg-slate-200 hover:bg-red-50 hover:text-red-700 text-slate-700 text-xs font-bold transition"
+                      >
+                        Reject
+                      </button>
 
-                  <button
-                    onClick={() =>
-                      updateStageMutation.mutate({
-                        applicantId: selectedApplicantId,
-                        stage: 'approved_for_live',
-                      })
-                    }
-                    className="px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Accept Candidate</span>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateStageMutation.mutate({
+                            applicantId: selectedApplicantId,
+                            stage: 'approved_for_live',
+                          })
+                        }
+                        className="px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Accept Candidate</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

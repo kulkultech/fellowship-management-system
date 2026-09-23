@@ -29,6 +29,7 @@ type Service interface {
 	SendAccountActivationEmail(recipientEmail, userName, activationURL string) error
 	SendPasswordResetEmail(recipientEmail, userName, resetURL string) error
 	SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error
+	SendProgramRoomInvitationEmail(recipientEmail, candidateName, programName, trackName, roomURL string) error
 
 	SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error
 	SendCustomLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string, customTmpl *model.EmailTemplateConfig) error
@@ -323,6 +324,16 @@ func (s *SESService) SendPasswordResetEmail(recipientEmail, userName, resetURL s
 // 8. SendAdminInvitationEmail
 func (s *SESService) SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error {
 	subject, html, text := buildAdminInvitationEmail(inviterName, role, orgName, inviteURL, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// 9. SendProgramRoomInvitationEmail
+func (s *SESService) SendProgramRoomInvitationEmail(recipientEmail, candidateName, programName, trackName, roomURL string) error {
+	if roomURL == "" {
+		roomURL = s.frontendURL + "/candidate/dashboard"
+	}
+	subject, html, text := buildProgramRoomInvitationEmail(candidateName, programName, trackName, roomURL, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

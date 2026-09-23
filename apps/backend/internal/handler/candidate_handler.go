@@ -38,11 +38,12 @@ type CandidateApplicationItem struct {
 	InterviewToken   string               `json:"interview_token,omitempty"`
 	InterviewStatus  string               `json:"interview_status,omitempty"`
 	InterviewScore   int                  `json:"interview_score"`
-	CandidateFlow    []string             `json:"candidate_flow,omitempty"`
-	NextStep         string               `json:"next_step,omitempty"`
-	RedirectURL      string               `json:"redirect_url,omitempty"`
-	FormSubmitted    bool                 `json:"form_submitted"`
-	CreatedAt        string               `json:"created_at"`
+	CandidateFlow        []string             `json:"candidate_flow,omitempty"`
+	NextStep             string               `json:"next_step,omitempty"`
+	RedirectURL          string               `json:"redirect_url,omitempty"`
+	FormSubmitted        bool                 `json:"form_submitted"`
+	ProgramRoomInvitedAt *string              `json:"program_room_invited_at,omitempty"`
+	CreatedAt            string               `json:"created_at"`
 }
 
 type CandidateHandler struct {
@@ -126,22 +127,29 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 			}
 		}
 
+		var roomInvitedAt *string
+		if app.ProgramRoomInvitedAt != nil && !app.ProgramRoomInvitedAt.IsZero() {
+			s := app.ProgramRoomInvitedAt.Format("2006-01-02T15:04:05Z")
+			roomInvitedAt = &s
+		}
+
 		item := CandidateApplicationItem{
-			ApplicantID:    app.ID.String(),
-			Email:          app.Email,
-			FullName:       app.FullName,
-			CurrentStage:   app.CurrentStage,
-			ProgramID:      program.ID.String(),
-			ProgramSlug:    program.Slug,
-			ProgramName:    program.Name,
-			TrackID:        trackID,
-			TrackSlug:      trackSlug,
-			TrackName:      trackName,
-			OrganizationID: app.OrganizationID.String(),
-			OrgSlug:        orgSlug,
-			OrgName:        orgName,
-			OrgLogoURL:     orgLogo,
-			CreatedAt:      app.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			ApplicantID:          app.ID.String(),
+			Email:                app.Email,
+			FullName:             app.FullName,
+			CurrentStage:         app.CurrentStage,
+			ProgramID:            program.ID.String(),
+			ProgramSlug:          program.Slug,
+			ProgramName:          program.Name,
+			TrackID:              trackID,
+			TrackSlug:            trackSlug,
+			TrackName:            trackName,
+			OrganizationID:       app.OrganizationID.String(),
+			OrgSlug:              orgSlug,
+			OrgName:              orgName,
+			OrgLogoURL:           orgLogo,
+			ProgramRoomInvitedAt: roomInvitedAt,
+			CreatedAt:            app.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		}
 
 		// Test submission
@@ -167,8 +175,15 @@ func (h *CandidateHandler) GetCandidateApplications(w http.ResponseWriter, r *ht
 		item.FormSubmitted = app.FormSubmitted
 
 		// Calculate next step
-		if app.CurrentStage == model.StageRejected || app.CurrentStage == model.StageApprovedForLive {
+		if app.CurrentStage == model.StageRejected {
 			item.NextStep = ""
+		} else if app.CurrentStage == model.StageApprovedForLive {
+			if roomInvitedAt != nil {
+				item.NextStep = "program_room"
+				item.RedirectURL = fmt.Sprintf("/programs/%s/%s/room", orgSlug, program.Slug)
+			} else {
+				item.NextStep = "pending_room_invite"
+			}
 		} else {
 			for _, step := range effectiveFlow {
 				if step == model.FlowStepMCQ {

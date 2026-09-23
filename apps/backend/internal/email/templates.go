@@ -960,4 +960,58 @@ func buildRejectionEmail(candidateName, programName, trackName, notes, frontendU
 	return
 }
 
+// 9. Program Room Invitation Email Template
+func buildProgramRoomInvitationEmail(candidateName, programName, trackName, roomURL, frontendURL, supportEmail string) (subject string, html string, text string) {
+	if candidateName == "" {
+		candidateName = "Candidate"
+	}
+	trackDisplay := trackName
+	if trackDisplay == "" {
+		trackDisplay = "General Track"
+	}
+	subject = fmt.Sprintf("🎉 Welcome to the Program Room! Official Invitation - %s", programName)
+
+	body := fmt.Sprintf(`
+    <span class="badge badge-purple" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">Cohort Access Granted</span>
+    <h2>Welcome to the Program Room! 🎉</h2>
+    <p>Dear <strong>%s</strong>,</p>
+    <p>Congratulations! Following your official acceptance into <strong>%s</strong> (%s), you have now been granted direct access to your <strong>Fellowship Program Room</strong>.</p>
+    
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Fellow</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Program &amp; Track</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s - %s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Status</td>
+          <td style="padding: 12px 18px; color: #047857; font-size: 13px; font-weight: 700; text-align: right;">Program Room Unlocked</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>In your Program Room, you will find session schedules, curriculum materials, cohort peers, mentorship channels, and fellowship resources.</p>
+
+    <div class="btn-container">
+      <a href="%s" class="btn" style="background-color: #33125d; color: #ffffff;">Enter Program Room</a>
+    </div>
+
+    <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 16px;">
+      You can also access the room anytime directly from your <a href="%s/candidate/dashboard" style="color: #33125d; font-weight: 600;">Candidate Dashboard</a>.
+    </p>
+  `, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
+		template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
+		roomURL, frontendURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Congratulations %s!\n\nYou have been officially invited to the Program Room for %s (%s)!\n\nEnter your Program Room here:\n%s\n\nOr access it anytime from your Candidate Dashboard:\n%s/candidate/dashboard\n\nWelcome aboard,\nFellowHire Admissions & Mentorship Team",
+		candidateName, programName, trackDisplay, roomURL, frontendURL)
+	return
+}
+
+
 

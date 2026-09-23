@@ -164,6 +164,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
 		WHERE id = $1 AND deleted_at IS NULL
@@ -178,6 +179,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 		&rawCustomResponses,
+		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -267,6 +269,7 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
 		WHERE program_id = $1 AND LOWER(email) = $2 AND deleted_at IS NULL
@@ -282,6 +285,7 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 		&rawCustomResponses,
+		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -317,6 +321,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
 		WHERE program_id = $1 AND deleted_at IS NULL AND ($2 = '' OR current_stage = $2)
@@ -340,6 +345,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 			&rawCustomResponses,
+			&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan: %w", err)
@@ -372,6 +378,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
 		WHERE LOWER(email) = $1 AND deleted_at IS NULL
@@ -395,6 +402,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 			&rawCustomResponses,
+			&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan by email: %w", err)
@@ -403,6 +411,60 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 		list = append(list, a)
 	}
 	return list, rows.Err()
+}
+
+func (r *ApplicantRepository) InviteToProgramRoom(ctx context.Context, id uuid.UUID, invitedBy uuid.UUID) (*model.Applicant, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		app, ok := r.memApplicants[id]
+		if !ok || app.DeletedAt != nil {
+			return nil, ErrApplicantNotFound
+		}
+		now := time.Now()
+		app.ProgramRoomInvitedAt = &now
+		app.ProgramRoomInvitedBy = &invitedBy
+		app.UpdatedAt = now
+		return app, nil
+	}
+
+	query := `
+		UPDATE applicants
+		SET program_room_invited_at = now(),
+		    program_room_invited_by = $2,
+		    updated_at = now()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id, organization_id, program_id, track_id, email, full_name,
+			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
+			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
+			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(semester, ''), COALESCE(referral_source, ''),
+			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
+			COALESCE(custom_responses, '{}'::jsonb),
+			program_room_invited_at, program_room_invited_by,
+			created_at, updated_at
+	`
+	var a model.Applicant
+	var rawCustomResponses []byte
+	err := r.pool.QueryRow(ctx, query, id, invitedBy).Scan(
+		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
+		&a.FirstName, &a.LastName, &a.DateOfBirth,
+		&a.Phone, &a.GitHubURL, &a.LinkedInURL,
+		&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
+		&a.Semester, &a.ReferralSource,
+		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
+		&rawCustomResponses,
+		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
+		&a.CreatedAt, &a.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrApplicantNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("applicant_repo: invite to program room: %w", err)
+	}
+	_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+	return &a, nil
 }
 
 func (r *ApplicantRepository) Delete(ctx context.Context, id uuid.UUID) error {

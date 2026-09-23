@@ -13,6 +13,7 @@ import { CompanyRegisterPage } from '@/pages/CompanyRegisterPage';
 import { AccountActivationPage } from '@/pages/AccountActivationPage';
 import { AcceptInvitationPage } from '@/pages/AcceptInvitationPage';
 import { CandidateDashboardPage } from '@/pages/candidate/CandidateDashboardPage';
+import { ProgramRoomPage } from '@/pages/candidate/ProgramRoomPage';
 import { LoginPage } from '@/pages/admin/LoginPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
@@ -91,6 +92,7 @@ export function App() {
           <Route path="/programs/:orgSlug/:programSlug/apply" element={<ApplyPage />} />
           <Route path="/programs/:orgSlug/:programSlug/tracks/:trackSlug/apply" element={<ApplyPage />} />
           <Route path="/programs/:orgSlug/:programSlug/:trackSlug/apply" element={<ApplyPage />} />
+          <Route path="/programs/:orgSlug/:programSlug/room" element={<ProgramRoomPage />} />
 
           {/* Candidate Dashboard & Portal */}
           <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />

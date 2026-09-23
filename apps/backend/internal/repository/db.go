@@ -191,10 +191,13 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS custom_responses JSONB NOT NULL DEFAULT '{}'::jsonb;
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS form_submitted BOOLEAN NOT NULL DEFAULT true;
 	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS program_room_invited_at TIMESTAMPTZ;
+	ALTER TABLE applicants ADD COLUMN IF NOT EXISTS program_room_invited_by UUID REFERENCES users(id) ON DELETE SET NULL;
 	CREATE INDEX IF NOT EXISTS idx_applicants_program ON applicants(program_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_track ON applicants(track_id);
 	CREATE INDEX IF NOT EXISTS idx_applicants_stage ON applicants(current_stage);
 	CREATE INDEX IF NOT EXISTS idx_applicants_deleted_at ON applicants(deleted_at);
+	CREATE INDEX IF NOT EXISTS idx_applicants_program_room_invited ON applicants(program_room_invited_at) WHERE program_room_invited_at IS NOT NULL;
 	ALTER TABLE applicants DROP CONSTRAINT IF EXISTS uq_program_applicant_email;
 	CREATE UNIQUE INDEX IF NOT EXISTS uq_program_applicant_active_email ON applicants(program_id, email) WHERE deleted_at IS NULL;
 

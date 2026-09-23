@@ -494,6 +494,7 @@ export interface ApplicantListItem {
   ai_key_strengths?: string[];
   ai_areas_for_growth?: string[];
   ai_executive_summary?: string;
+  program_room_invited_at?: string | null;
   created_at: string;
 }
 
@@ -531,6 +532,7 @@ export interface ApplicantDetailResponse {
     notes?: string;
     custom_responses?: Record<string, any>;
     custom_field_labels?: Record<string, string>;
+    program_room_invited_at?: string | null;
     created_at: string;
   };
   track?: {

@@ -291,6 +291,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Get("/applicants", adminHandler.ListApplicants)
 				adm.Get("/applicants/{id}", adminHandler.GetApplicantDetail)
 				adm.Post("/applicants/{id}/stage", adminHandler.UpdateApplicantStage)
+				adm.Post("/applicants/{id}/invite-program-room", adminHandler.InviteApplicantToProgramRoom)
 				adm.Delete("/applicants/{id}", adminHandler.DeleteApplicant)
 
 				// Superadmin Exclusive: Company Approvals

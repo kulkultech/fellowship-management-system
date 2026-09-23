@@ -119,6 +119,7 @@ type ApplicantListItem struct {
 	AIKeyStrengths     []string               `json:"ai_key_strengths,omitempty"`
 	AIAreasForGrowth   []string               `json:"ai_areas_for_growth,omitempty"`
 	AIExecutiveSummary *string                `json:"ai_executive_summary,omitempty"`
+	ProgramRoomInvitedAt *string              `json:"program_room_invited_at,omitempty"`
 	CreatedAt          string                 `json:"created_at"`
 }
 
@@ -157,26 +158,33 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			trackName = trackMap[trackID]
 		}
 
+		var roomInvitedAt *string
+		if a.ProgramRoomInvitedAt != nil && !a.ProgramRoomInvitedAt.IsZero() {
+			s := a.ProgramRoomInvitedAt.Format("2006-01-02 15:04")
+			roomInvitedAt = &s
+		}
+
 		item := ApplicantListItem{
-			ID:             a.ID.String(),
-			FullName:       a.FullName,
-			FirstName:      a.FirstName,
-			LastName:       a.LastName,
-			DateOfBirth:    a.DateOfBirth,
-			Email:          a.Email,
-			Phone:          a.Phone,
-			GitHubURL:      a.GitHubURL,
-			LinkedInURL:    a.LinkedInURL,
-			ResumeURL:      a.ResumeURL,
-			University:     a.University,
-			Major:          a.Major,
-			Semester:       a.Semester,
-			ReferralSource: a.ReferralSource,
-			CustomResponses: a.CustomResponses,
-			TrackID:        trackID,
-			TrackName:      trackName,
-			CurrentStage:   a.CurrentStage,
-			CreatedAt:      a.CreatedAt.Format("2006-01-02 15:04"),
+			ID:                   a.ID.String(),
+			FullName:             a.FullName,
+			FirstName:            a.FirstName,
+			LastName:             a.LastName,
+			DateOfBirth:          a.DateOfBirth,
+			Email:                a.Email,
+			Phone:                a.Phone,
+			GitHubURL:            a.GitHubURL,
+			LinkedInURL:          a.LinkedInURL,
+			ResumeURL:            a.ResumeURL,
+			University:           a.University,
+			Major:                a.Major,
+			Semester:             a.Semester,
+			ReferralSource:       a.ReferralSource,
+			CustomResponses:      a.CustomResponses,
+			TrackID:              trackID,
+			TrackName:            trackName,
+			CurrentStage:         a.CurrentStage,
+			ProgramRoomInvitedAt: roomInvitedAt,
+			CreatedAt:            a.CreatedAt.Format("2006-01-02 15:04"),
 		}
 
 		if sub, err := h.submissionRepo.GetByApplicantID(r.Context(), a.ID); err == nil && sub != nil {
@@ -367,6 +375,7 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 			"notes":               applicant.Notes,
 			"custom_responses":    applicant.CustomResponses,
 			"custom_field_labels": customFieldLabels,
+			"program_room_invited_at": applicant.ProgramRoomInvitedAt,
 			"created_at":          applicant.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 		"track":      trackDetail,
@@ -563,6 +572,100 @@ func (h *AdminHandler) DeleteApplicant(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message": "Candidate application data deleted successfully",
 		"id":      applicantID.String(),
+	})
+}
+
+func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	applicantID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "applicant not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to check applicant")
+		return
+	}
+
+	// Superadmin can invite any applicant. Org admin/reviewer can only invite applicants of their org.
+	if claims.Role != model.RoleSuperadmin {
+		orgID, _ := h.resolveOrgID(r, claims)
+		if orgID == uuid.Nil && claims.OrganizationID != nil {
+			orgID = *claims.OrganizationID
+		}
+		rsaOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		if orgID != uuid.Nil && applicant.OrganizationID != orgID && applicant.OrganizationID != rsaOrgID && orgID != rsaOrgID {
+			httpx.Error(w, http.StatusForbidden, "unauthorized to invite applicant of another organization")
+			return
+		}
+	}
+
+	// Candidate must be approved for live cohort
+	if applicant.CurrentStage != model.StageApprovedForLive {
+		httpx.Error(w, http.StatusBadRequest, "applicant must be in approved_for_live stage to be invited to program room")
+		return
+	}
+
+	updated, err := h.applicantRepo.InviteToProgramRoom(r.Context(), applicantID, claims.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to record program room invitation")
+		return
+	}
+
+	// Send branded Program Room invitation email
+	if h.emailSvc != nil && updated.Email != "" {
+		progName := "KulKul Fellowship"
+		orgSlug := "kulkul"
+		progSlug := ""
+		if prog, err := h.programRepo.GetByID(r.Context(), updated.ProgramID); err == nil && prog != nil {
+			progName = prog.Name
+			progSlug = prog.Slug
+		}
+		if org, err := h.orgRepo.GetByID(r.Context(), updated.OrganizationID); err == nil && org != nil {
+			orgSlug = org.Slug
+		}
+		trackName := ""
+		if updated.TrackID != nil {
+			if tr, err := h.trackRepo.GetByID(r.Context(), *updated.TrackID); err == nil && tr != nil {
+				trackName = tr.Name
+			}
+		}
+
+		roomURL := fmt.Sprintf("%s/candidate/dashboard", h.frontendURL)
+		if orgSlug != "" && progSlug != "" {
+			roomURL = fmt.Sprintf("%s/programs/%s/%s/room", h.frontendURL, orgSlug, progSlug)
+		}
+
+		_ = h.emailSvc.SendProgramRoomInvitationEmail(
+			updated.Email,
+			updated.FullName,
+			progName,
+			trackName,
+			roomURL,
+		)
+	}
+
+	var invitedAtStr string
+	if updated.ProgramRoomInvitedAt != nil {
+		invitedAtStr = updated.ProgramRoomInvitedAt.Format("2006-01-02 15:04:05")
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":                 "Candidate successfully invited to Program Room",
+		"id":                      updated.ID.String(),
+		"program_room_invited_at": invitedAtStr,
 	})
 }
 
