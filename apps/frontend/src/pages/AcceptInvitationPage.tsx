@@ -54,6 +54,8 @@ export const AcceptInvitationPage: React.FC = () => {
           setInvitation(details);
           if (details.role === 'superadmin') {
             setRedirectUrl('/superadmin/dashboard');
+          } else if (details.role === 'mentor') {
+            setRedirectUrl('/mentor/dashboard');
           } else {
             setRedirectUrl('/admin/dashboard');
           }
@@ -136,6 +138,8 @@ export const AcceptInvitationPage: React.FC = () => {
         return 'Company Administrator';
       case 'reviewer':
         return 'Evaluator & Reviewer';
+      case 'mentor':
+        return 'Program Mentor';
       default:
         return role;
     }
@@ -269,6 +273,22 @@ export const AcceptInvitationPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {invitation.program_name && (
+                <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="text-slate-400 font-semibold uppercase text-3xs tracking-wider">
+                      Assigned Fellowship Program
+                    </div>
+                    <div className="text-sm font-bold text-slate-900 mt-0.5">
+                      {invitation.program_name}
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-purple-100 text-kulkul-purple">
+                    Cohort
+                  </span>
+                </div>
+              )}
 
               {/* Already Logged In Check */}
               {currentUser && (

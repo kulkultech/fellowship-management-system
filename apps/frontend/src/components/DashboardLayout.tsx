@@ -49,7 +49,7 @@ export interface NavItem {
 }
 
 interface DashboardLayoutProps {
-  portalType: 'company_admin' | 'superadmin' | 'candidate';
+  portalType: 'company_admin' | 'superadmin' | 'candidate' | 'mentor';
   title?: string;
   subtitle?: string;
   companyName?: string;
@@ -486,10 +486,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   {portalType === 'superadmin' && (
                     <span className="text-kulkul-purple font-bold">Platform Superadmin</span>
                   )}
+                  {portalType === 'mentor' && (
+                    <span className="text-kulkul-purple font-bold">Program Mentor</span>
+                  )}
                   {portalType === 'candidate' && (
                     <span className="truncate">{candidateEmail || user?.email || 'Candidate'}</span>
                   )}
-                  {portalType !== 'company_admin' && portalType !== 'superadmin' && portalType !== 'candidate' && (
+                  {portalType !== 'company_admin' && portalType !== 'superadmin' && portalType !== 'mentor' && portalType !== 'candidate' && (
                     <span className="truncate">{user?.role || 'Active Session'}</span>
                   )}
                 </div>

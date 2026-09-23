@@ -34,6 +34,7 @@ type AdminHandler struct {
 	orgRepo         *repository.OrgRepository
 	userRepo        *repository.UserRepository
 	invitationRepo  *repository.InvitationRepository
+	mentorRepo      *repository.MentorRepository
 	emailSvc        email.Service
 	frontendURL     string
 }
@@ -73,6 +74,12 @@ func NewAdminHandler(
 func (h *AdminHandler) SetInvitationRepo(repo *repository.InvitationRepository) {
 	if repo != nil {
 		h.invitationRepo = repo
+	}
+}
+
+func (h *AdminHandler) SetMentorRepo(repo *repository.MentorRepository) {
+	if repo != nil {
+		h.mentorRepo = repo
 	}
 }
 
@@ -1241,6 +1248,113 @@ func (h *AdminHandler) SendTestProgramEmail(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+// --------------------------------------------------------------------------------
+// Program Mentor Management Endpoints
+// --------------------------------------------------------------------------------
+
+type AssignMentorRequest struct {
+	UserID    string `json:"user_id"`
+	RoleTitle string `json:"role_title,omitempty"`
+	Bio       string `json:"bio,omitempty"`
+}
+
+func (h *AdminHandler) ListProgramMentors(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	programID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	if h.mentorRepo == nil {
+		httpx.JSON(w, http.StatusOK, map[string]any{"mentors": []*model.ProgramMentor{}})
+		return
+	}
+
+	mentors, err := h.mentorRepo.ListMentorsByProgram(r.Context(), programID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list program mentors: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"mentors": mentors,
+		"total":   len(mentors),
+	})
+}
+
+func (h *AdminHandler) AssignProgramMentor(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	programID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req AssignMentorRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		return
+	}
+
+	userID, err := uuid.Parse(req.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	// Verify user exists
+	targetUser, err := h.userRepo.GetByID(r.Context(), userID)
+	if err != nil || targetUser == nil {
+		httpx.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	if h.mentorRepo == nil {
+		httpx.Error(w, http.StatusInternalServerError, "mentor repository not configured")
+		return
+	}
+
+	assigned, err := h.mentorRepo.AssignMentor(r.Context(), programID, userID, req.RoleTitle, req.Bio)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to assign mentor: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Mentor assigned to program successfully",
+		"mentor":  assigned,
+	})
+}
+
+func (h *AdminHandler) RemoveProgramMentor(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	programID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	userIDStr := chi.URLParam(r, "userId")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	if h.mentorRepo == nil {
+		httpx.Error(w, http.StatusInternalServerError, "mentor repository not configured")
+		return
+	}
+
+	if err := h.mentorRepo.RemoveMentor(r.Context(), programID, userID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to remove mentor: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"message": "Mentor removed from program successfully",
+	})
+}
 
 // --------------------------------------------------------------------------------
 // Track Management Endpoints
@@ -2312,8 +2426,9 @@ func (h *AdminHandler) DeleteCompany(w http.ResponseWriter, r *http.Request) {
 
 type CreateInvitationRequest struct {
 	Email          string  `json:"email"`
-	Role           string  `json:"role"` // "org_admin", "reviewer", "superadmin"
+	Role           string  `json:"role"` // "org_admin", "reviewer", "mentor", "superadmin"
 	OrganizationID *string `json:"organization_id,omitempty"`
+	ProgramID      *string `json:"program_id,omitempty"`
 }
 
 func (h *AdminHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
@@ -2411,8 +2526,8 @@ func (h *AdminHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) 
 	if req.Role == "" {
 		req.Role = model.RoleOrgAdmin
 	}
-	if req.Role != model.RoleOrgAdmin && req.Role != model.RoleReviewer && req.Role != model.RoleSuperadmin {
-		httpx.Error(w, http.StatusBadRequest, "invalid role: must be org_admin, reviewer, or superadmin")
+	if req.Role != model.RoleOrgAdmin && req.Role != model.RoleReviewer && req.Role != model.RoleSuperadmin && req.Role != model.RoleMentor {
+		httpx.Error(w, http.StatusBadRequest, "invalid role: must be org_admin, reviewer, mentor, or superadmin")
 		return
 	}
 
@@ -2440,7 +2555,7 @@ func (h *AdminHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if claims.Role == model.RoleSuperadmin {
-			// Superadmin inviting an org_admin or reviewer
+			// Superadmin inviting an org_admin, reviewer, or mentor
 			if req.OrganizationID != nil && strings.TrimSpace(*req.OrganizationID) != "" {
 				parsed, err := uuid.Parse(strings.TrimSpace(*req.OrganizationID))
 				if err != nil {
@@ -2482,6 +2597,23 @@ func (h *AdminHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	var targetProgPtr *uuid.UUID
+	if req.ProgramID != nil && strings.TrimSpace(*req.ProgramID) != "" {
+		parsedProg, err := uuid.Parse(strings.TrimSpace(*req.ProgramID))
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid program_id")
+			return
+		}
+		if targetOrgPtr != nil {
+			prog, err := h.programRepo.GetByID(ctx, parsedProg)
+			if err != nil || prog.OrganizationID != *targetOrgPtr {
+				httpx.Error(w, http.StatusBadRequest, "program does not exist in target organization")
+				return
+			}
+		}
+		targetProgPtr = &parsedProg
+	}
+
 	// Generate 32-byte secure token
 	tokenBytes := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
@@ -2495,6 +2627,7 @@ func (h *AdminHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) 
 		Email:          req.Email,
 		Role:           req.Role,
 		OrganizationID: targetOrgPtr,
+		ProgramID:      targetProgPtr,
 		Token:          token,
 		InvitedBy:      &claims.UserID,
 		Status:         model.InvitationStatusPending,

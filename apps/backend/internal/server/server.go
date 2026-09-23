@@ -56,16 +56,20 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 
 	// Handlers
 	invitationRepo := repository.NewInvitationRepository(pool)
+	mentorRepo := repository.NewMentorRepository(pool)
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain, cfg.SES.FrontendURL)
 	authHandler.SetInvitationRepo(invitationRepo)
+	authHandler.SetMentorRepo(mentorRepo)
 	programHandler := handler.NewProgramHandler(orgRepo, programRepo, trackRepo, mcqRepo, applicantRepo, submissionRepo, aiInterviewRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	testHandler := handler.NewTestHandler(submissionRepo, mcqRepo, questionSetRepo, programRepo, trackRepo, applicantRepo, aiInterviewRepo, orgRepo, emailSvc, cfg.SES.FrontendURL)
 	aiInterviewHandler := handler.NewAIInterviewHandler(aiInterviewRepo, applicantRepo, programRepo, trackRepo, aiEvaluator, store)
 	uploadHandler := handler.NewUploadHandler(store, logger)
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	adminHandler.SetInvitationRepo(invitationRepo)
+	adminHandler.SetMentorRepo(mentorRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
+	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -233,6 +237,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Get("/candidate/applications", candidateHandler.GetCandidateApplications)
 			protected.Delete("/candidate/applications/{id}", candidateHandler.DeleteCandidateApplication)
 
+			// Mentor Portal
+			protected.Route("/mentor", func(m chi.Router) {
+				m.Use(middleware.RequireRole("mentor", "org_admin", "superadmin"))
+				m.Get("/overview", mentorHandler.GetOverview)
+				m.Get("/programs", mentorHandler.ListPrograms)
+				m.Get("/programs/{id}/fellows", mentorHandler.ListFellows)
+			})
+
 			protected.Route("/admin", func(adm chi.Router) {
 				// Require org_admin or reviewer (superadmin auto-allowed)
 				adm.Use(middleware.RequireRole("org_admin", "reviewer"))
@@ -252,6 +264,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Post("/programs/{id}/email-templates/test", adminHandler.SendTestProgramEmail)
 				adm.Get("/programs/{id}/questions", adminHandler.ListProgramQuestions)
 				adm.Put("/programs/{id}/questions", adminHandler.SaveProgramQuestions)
+				adm.Get("/programs/{id}/mentors", adminHandler.ListProgramMentors)
+				adm.Post("/programs/{id}/mentors", adminHandler.AssignProgramMentor)
+				adm.Delete("/programs/{id}/mentors/{userId}", adminHandler.RemoveProgramMentor)
 
 				// Program Tracks
 				adm.Get("/programs/{id}/tracks", adminHandler.ListProgramTracks)

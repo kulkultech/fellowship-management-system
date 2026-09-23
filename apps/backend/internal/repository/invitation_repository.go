@@ -78,15 +78,15 @@ func (r *InvitationRepository) Create(ctx context.Context, inv *model.Invitation
 	_, _ = r.pool.Exec(ctx, revokeQuery, inv.Email, inv.OrganizationID)
 
 	query := `
-		INSERT INTO invitations (id, email, role, organization_id, token, invited_by, status, expires_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id, email, role, organization_id, token, invited_by, status, expires_at, created_at, updated_at
+		INSERT INTO invitations (id, email, role, organization_id, program_id, token, invited_by, status, expires_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, email, role, organization_id, program_id, token, invited_by, status, expires_at, created_at, updated_at
 	`
 	var res model.Invitation
 	err := r.pool.QueryRow(ctx, query,
-		inv.ID, inv.Email, inv.Role, inv.OrganizationID, inv.Token, inv.InvitedBy, inv.Status, inv.ExpiresAt, inv.CreatedAt, inv.UpdatedAt,
+		inv.ID, inv.Email, inv.Role, inv.OrganizationID, inv.ProgramID, inv.Token, inv.InvitedBy, inv.Status, inv.ExpiresAt, inv.CreatedAt, inv.UpdatedAt,
 	).Scan(
-		&res.ID, &res.Email, &res.Role, &res.OrganizationID, &res.Token, &res.InvitedBy, &res.Status, &res.ExpiresAt, &res.CreatedAt, &res.UpdatedAt,
+		&res.ID, &res.Email, &res.Role, &res.OrganizationID, &res.ProgramID, &res.Token, &res.InvitedBy, &res.Status, &res.ExpiresAt, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -112,20 +112,24 @@ func (r *InvitationRepository) GetByToken(ctx context.Context, token string) (*m
 
 	query := `
 		SELECT 
-			i.id, i.email, i.role, i.organization_id, i.token, i.invited_by, i.status, i.expires_at, i.created_at, i.updated_at,
+			i.id, i.email, i.role, i.organization_id, i.program_id, i.token, i.invited_by, i.status, i.expires_at, i.created_at, i.updated_at,
 			COALESCE(u.name, '') AS invited_by_name,
 			COALESCE(o.name, '') AS organization_name,
 			COALESCE(o.slug, '') AS organization_slug,
-			COALESCE(o.logo_url, '') AS organization_logo
+			COALESCE(o.logo_url, '') AS organization_logo,
+			COALESCE(p.name, '') AS program_name,
+			COALESCE(p.slug, '') AS program_slug
 		FROM invitations i
 		LEFT JOIN users u ON u.id = i.invited_by
 		LEFT JOIN organizations o ON o.id = i.organization_id
+		LEFT JOIN programs p ON p.id = i.program_id
 		WHERE i.token = $1
 	`
 	var inv model.Invitation
 	err := r.pool.QueryRow(ctx, query, token).Scan(
-		&inv.ID, &inv.Email, &inv.Role, &inv.OrganizationID, &inv.Token, &inv.InvitedBy, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt,
+		&inv.ID, &inv.Email, &inv.Role, &inv.OrganizationID, &inv.ProgramID, &inv.Token, &inv.InvitedBy, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt,
 		&inv.InvitedByName, &inv.OrganizationName, &inv.OrganizationSlug, &inv.OrganizationLogo,
+		&inv.ProgramName, &inv.ProgramSlug,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -149,20 +153,24 @@ func (r *InvitationRepository) GetByID(ctx context.Context, id uuid.UUID) (*mode
 
 	query := `
 		SELECT 
-			i.id, i.email, i.role, i.organization_id, i.token, i.invited_by, i.status, i.expires_at, i.created_at, i.updated_at,
+			i.id, i.email, i.role, i.organization_id, i.program_id, i.token, i.invited_by, i.status, i.expires_at, i.created_at, i.updated_at,
 			COALESCE(u.name, '') AS invited_by_name,
 			COALESCE(o.name, '') AS organization_name,
 			COALESCE(o.slug, '') AS organization_slug,
-			COALESCE(o.logo_url, '') AS organization_logo
+			COALESCE(o.logo_url, '') AS organization_logo,
+			COALESCE(p.name, '') AS program_name,
+			COALESCE(p.slug, '') AS program_slug
 		FROM invitations i
 		LEFT JOIN users u ON u.id = i.invited_by
 		LEFT JOIN organizations o ON o.id = i.organization_id
+		LEFT JOIN programs p ON p.id = i.program_id
 		WHERE i.id = $1
 	`
 	var inv model.Invitation
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&inv.ID, &inv.Email, &inv.Role, &inv.OrganizationID, &inv.Token, &inv.InvitedBy, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt,
+		&inv.ID, &inv.Email, &inv.Role, &inv.OrganizationID, &inv.ProgramID, &inv.Token, &inv.InvitedBy, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt,
 		&inv.InvitedByName, &inv.OrganizationName, &inv.OrganizationSlug, &inv.OrganizationLogo,
+		&inv.ProgramName, &inv.ProgramSlug,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -188,14 +196,17 @@ func (r *InvitationRepository) ListByOrganization(ctx context.Context, orgID uui
 
 	query := `
 		SELECT 
-			i.id, i.email, i.role, i.organization_id, i.token, i.invited_by, i.status, i.expires_at, i.created_at, i.updated_at,
+			i.id, i.email, i.role, i.organization_id, i.program_id, i.token, i.invited_by, i.status, i.expires_at, i.created_at, i.updated_at,
 			COALESCE(u.name, '') AS invited_by_name,
 			COALESCE(o.name, '') AS organization_name,
 			COALESCE(o.slug, '') AS organization_slug,
-			COALESCE(o.logo_url, '') AS organization_logo
+			COALESCE(o.logo_url, '') AS organization_logo,
+			COALESCE(p.name, '') AS program_name,
+			COALESCE(p.slug, '') AS program_slug
 		FROM invitations i
 		LEFT JOIN users u ON u.id = i.invited_by
 		LEFT JOIN organizations o ON o.id = i.organization_id
+		LEFT JOIN programs p ON p.id = i.program_id
 		WHERE i.organization_id = $1
 		ORDER BY i.created_at DESC
 	`
@@ -209,8 +220,9 @@ func (r *InvitationRepository) ListByOrganization(ctx context.Context, orgID uui
 	for rows.Next() {
 		var inv model.Invitation
 		err := rows.Scan(
-			&inv.ID, &inv.Email, &inv.Role, &inv.OrganizationID, &inv.Token, &inv.InvitedBy, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt,
+			&inv.ID, &inv.Email, &inv.Role, &inv.OrganizationID, &inv.ProgramID, &inv.Token, &inv.InvitedBy, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt,
 			&inv.InvitedByName, &inv.OrganizationName, &inv.OrganizationSlug, &inv.OrganizationLogo,
+			&inv.ProgramName, &inv.ProgramSlug,
 		)
 		if err != nil {
 			return nil, err

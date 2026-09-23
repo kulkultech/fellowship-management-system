@@ -18,6 +18,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { SuperadminDashboardPage } from '@/pages/admin/SuperadminDashboardPage';
+import { MentorDashboardPage } from '@/pages/mentor/MentorDashboardPage';
 import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
 import { TermsOfServicePage } from '@/pages/legal/TermsOfServicePage';
 import { useUiStore } from '@/hooks/useUiStore';
@@ -115,6 +116,13 @@ export function App() {
             <Route path="/admin/rubric" element={<DashboardPage defaultView="ai_rubric" />} />
             <Route path="/admin/programs/:programSlug/rubric" element={<DashboardPage defaultView="ai_rubric" />} />
           </Route>
+
+          {/* Mentor Portal */}
+          <Route element={<ProtectedRoute allowedRoles={['mentor', 'org_admin', 'superadmin']} />}>
+            <Route path="/mentor/dashboard" element={<MentorDashboardPage />} />
+          </Route>
+
+          {/* Superadmin Portal */}
           <Route element={<ProtectedRoute allowedRoles={['superadmin']} redirectTo="/admin/dashboard" />}>
             <Route path="/superadmin/dashboard" element={<SuperadminDashboardPage />} />
           </Route>

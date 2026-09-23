@@ -28,7 +28,7 @@ import toast from 'react-hot-toast';
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  portalType?: 'company_admin' | 'superadmin' | 'candidate';
+  portalType?: 'company_admin' | 'superadmin' | 'candidate' | 'mentor';
   candidateEmail?: string;
   initialTab?: 'personal' | 'company';
   initialOrg?: Organization;

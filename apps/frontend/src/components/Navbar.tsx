@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import { LogOut, Building2, User, ChevronDown } from 'lucide-react';
+import { LogOut, Building2, User, ChevronDown, GraduationCap } from 'lucide-react';
 
 interface NavbarProps {
   title?: string;
@@ -49,7 +49,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-20 sm:h-24">
           {/* Brand Logo - Prominent FellowHire brand */}
           <div className="flex items-center shrink-0">
-            <Link to={showAdminNav ? "/admin/dashboard" : "/"} className="flex items-center gap-3 group">
+            <Link
+              to={
+                showAdminNav
+                  ? user?.role === 'mentor'
+                    ? '/mentor/dashboard'
+                    : '/admin/dashboard'
+                  : '/'
+              }
+              className="flex items-center gap-3 group"
+            >
               <img src="/kulkul-logo.svg" alt="FellowHire" className="h-9 sm:h-11 w-auto object-contain transition group-hover:opacity-90" />
               <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 group-hover:text-kulkul-purple transition leading-none">
                 FellowHire
@@ -102,27 +111,33 @@ export const Navbar: React.FC<NavbarProps> = ({
             /* Candidate or Authenticated User on Public / Interview / Test / Candidate Pages */
             <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
               {/* Role-Aware Dashboard Link */}
-              {(!hideAdminButton || user.role === 'candidate') && (
+              {(!hideAdminButton || user.role === 'candidate' || user.role === 'mentor') && (
                 <Link
                   to={
                     user.role === 'superadmin'
                       ? '/superadmin/dashboard'
-                      : user.role === 'org_admin'
+                      : user.role === 'org_admin' || user.role === 'reviewer'
                       ? '/admin/dashboard'
+                      : user.role === 'mentor'
+                      ? '/mentor/dashboard'
                       : '/candidate/dashboard'
                   }
                   className="btn btn-md bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs"
                 >
                   {user.role === 'candidate' ? (
                     <User className="w-4 h-4 text-kulkul-orange" />
+                  ) : user.role === 'mentor' ? (
+                    <GraduationCap className="w-4 h-4 text-kulkul-orange" />
                   ) : (
                     <Building2 className="w-4 h-4 text-kulkul-orange" />
                   )}
                   <span>
                     {user.role === 'superadmin'
                       ? 'Admin Workspace'
-                      : user.role === 'org_admin'
+                      : user.role === 'org_admin' || user.role === 'reviewer'
                       ? 'Company Portal'
+                      : user.role === 'mentor'
+                      ? 'Mentor Dashboard'
                       : 'My Dashboard'}
                   </span>
                 </Link>

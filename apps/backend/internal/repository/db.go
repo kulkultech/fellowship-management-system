@@ -274,6 +274,23 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS recording_url TEXT;
 	CREATE INDEX IF NOT EXISTS idx_ai_interviews_track ON ai_interviews(track_id);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_interviews_invitation_token ON ai_interviews(invitation_token) WHERE invitation_token IS NOT NULL;
+
+	CREATE TABLE IF NOT EXISTS program_mentors (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		role_title VARCHAR(128) NOT NULL DEFAULT 'Mentor',
+		bio TEXT NOT NULL DEFAULT '',
+		assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		CONSTRAINT uq_program_mentor UNIQUE (program_id, user_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_program_mentors_user ON program_mentors(user_id);
+	CREATE INDEX IF NOT EXISTS idx_program_mentors_program ON program_mentors(program_id);
+
+	ALTER TABLE invitations ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id) ON DELETE SET NULL;
+	CREATE INDEX IF NOT EXISTS idx_invitations_program ON invitations(program_id);
 	`
 
 	if _, err := pool.Exec(ctx, schema); err != nil {

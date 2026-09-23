@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 
 interface ProtectedRouteProps {
-  allowedRoles?: ('superadmin' | 'org_admin' | 'reviewer' | 'candidate')[];
+  allowedRoles?: ('superadmin' | 'org_admin' | 'reviewer' | 'candidate' | 'mentor')[];
   redirectTo?: string;
 }
 
@@ -20,6 +20,8 @@ export function ProtectedRoute({ allowedRoles, redirectTo }: ProtectedRouteProps
         toastShownRef.current = true;
         if (user.role === 'candidate') {
           toast.error('Access restricted: Candidate accounts cannot access the admin portal.');
+        } else if (user.role === 'mentor') {
+          toast.error('Access restricted: Mentor accounts cannot access this administrative area.');
         } else {
           toast.error('Access restricted: Insufficient administrative permissions.');
         }
@@ -48,6 +50,9 @@ export function ProtectedRoute({ allowedRoles, redirectTo }: ProtectedRouteProps
     if (!isAllowed) {
       if (user.role === 'candidate') {
         return <Navigate to="/candidate/dashboard" replace />;
+      }
+      if (user.role === 'mentor') {
+        return <Navigate to="/mentor/dashboard" replace />;
       }
       return <Navigate to={redirectTo || '/admin/dashboard'} replace />;
     }

@@ -788,6 +788,8 @@ func buildAdminInvitationEmail(inviterName, role, orgName, inviteURL, frontendUR
 		roleDisplay = "Platform Superadmin"
 	case "reviewer":
 		roleDisplay = "Reviewer / Evaluator"
+	case "mentor":
+		roleDisplay = "Program Mentor"
 	}
 
 	if role == "superadmin" {

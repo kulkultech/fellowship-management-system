@@ -18,6 +18,7 @@ import {
   Search,
   Loader2,
   Send,
+  GraduationCap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,10 +44,11 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   // Modal State
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'org_admin' | 'reviewer' | 'superadmin'>(
+  const [inviteRole, setInviteRole] = useState<'org_admin' | 'reviewer' | 'superadmin' | 'mentor'>(
     isSuperadmin && !organizationId ? 'superadmin' : 'org_admin'
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string>(organizationId || '');
+  const [selectedProgramId, setSelectedProgramId] = useState<string>('');
 
   // Confirm delete modal state
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
@@ -73,11 +75,19 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   const members: TeamMember[] = teamData?.members || [];
   const invitations: Invitation[] = teamData?.invitations || [];
 
-  // Query: List Companies (only needed if superadmin is inviting a company admin)
+  // Query: List Companies (only needed if superadmin is inviting a company admin or mentor)
   const { data: companiesList = [] } = useQuery({
     queryKey: ['superadmin-companies-for-invite'],
     queryFn: () => adminService.listCompanies('approved'),
     enabled: isSuperadmin,
+    staleTime: 60 * 1000,
+  });
+
+  // Query: List Programs (for assigning mentor to a program)
+  const { data: programsList = [] } = useQuery({
+    queryKey: ['programs-for-mentor-invite', selectedOrgId || organizationId],
+    queryFn: () => adminService.listPrograms(selectedOrgId || organizationId),
+    enabled: inviteRole === 'mentor',
     staleTime: 60 * 1000,
   });
 
@@ -89,11 +99,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
         role: inviteRole,
         organization_id:
           inviteRole !== 'superadmin' ? selectedOrgId || organizationId || undefined : undefined,
+        program_id: inviteRole === 'mentor' && selectedProgramId ? selectedProgramId : undefined,
       }),
     onSuccess: (data) => {
       toast.success(`Invitation sent to ${data.invitation.email}!`);
       setIsInviteModalOpen(false);
       setInviteEmail('');
+      setSelectedProgramId('');
       queryClient.invalidateQueries({ queryKey: ['admin-team'] });
     },
     onError: (err: any) => {
@@ -143,6 +155,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
     setInviteEmail('');
     setInviteRole(isSuperadmin && !organizationId ? 'superadmin' : 'org_admin');
     setSelectedOrgId(organizationId || (companiesList.length > 0 ? companiesList[0].id : ''));
+    setSelectedProgramId('');
     setIsInviteModalOpen(true);
   };
 
@@ -182,6 +195,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
         return <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">Company Admin</span>;
       case 'reviewer':
         return <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">Reviewer</span>;
+      case 'mentor':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
+            <GraduationCap className="w-3.5 h-3.5" />
+            Mentor
+          </span>
+        );
       default:
         return <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">{role}</span>;
     }
@@ -288,6 +308,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               {isSuperadmin && <option value="superadmin">Superadmin</option>}
               <option value="org_admin">Company Admin</option>
               <option value="reviewer">Reviewer</option>
+              <option value="mentor">Mentor</option>
             </select>
 
             {/* Actions: Refresh & Invite Admin */}
@@ -433,7 +454,15 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                         <td className="py-3.5 px-6 font-bold text-slate-900 text-sm">
                           {inv.email}
                         </td>
-                        <td className="py-3.5 px-6 whitespace-nowrap">{getRoleText(inv.role)}</td>
+                        <td className="py-3.5 px-6 whitespace-nowrap">
+                          {getRoleText(inv.role)}
+                          {inv.program_name && (
+                            <div className="text-3xs text-purple-700 font-semibold mt-1 flex items-center gap-1">
+                              <GraduationCap className="w-3 h-3 text-purple-600" />
+                              <span>{inv.program_name}</span>
+                            </div>
+                          )}
+                        </td>
                         {isSuperadmin && (
                           <td className="py-3.5 px-6 text-slate-600 font-medium whitespace-nowrap">
                             {inv.organization_name || (
@@ -617,8 +646,58 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                       </div>
                     </div>
                   </label>
+
+                  <label
+                    className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition ${
+                      inviteRole === 'mentor'
+                        ? 'border-kulkul-purple bg-purple-50/50 ring-1 ring-kulkul-purple'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="inviteRole"
+                      value="mentor"
+                      checked={inviteRole === 'mentor'}
+                      onChange={() => setInviteRole('mentor')}
+                      className="mt-1 text-kulkul-purple focus:ring-kulkul-purple"
+                    />
+                    <div>
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-purple-600" />
+                        Program Mentor
+                      </div>
+                      <div className="text-3xs text-slate-500 mt-0.5">
+                        Guides cohort fellows, conducts mentor sessions, and monitors candidate progress.
+                      </div>
+                    </div>
+                  </label>
                 </div>
               </div>
+
+              {/* Program Selection (when inviting a mentor) */}
+              {inviteRole === 'mentor' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                    Assign to Program (Optional)
+                  </label>
+                  <select
+                    value={selectedProgramId}
+                    onChange={(e) => setSelectedProgramId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
+                  >
+                    <option value="">Select a fellowship program (or assign later)...</option>
+                    {programsList.map((prog) => (
+                      <option key={prog.id} value={prog.id}>
+                        {prog.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-3xs text-slate-400 mt-1">
+                    The mentor will be automatically granted access to this program upon registration.
+                  </p>
+                </div>
+              )}
 
               {/* Company Selection (only if superadmin inviting for a company) */}
               {isSuperadmin && inviteRole !== 'superadmin' && !organizationId && (

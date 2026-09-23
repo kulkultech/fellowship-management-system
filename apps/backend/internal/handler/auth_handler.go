@@ -26,6 +26,7 @@ type AuthHandler struct {
 	userRepo       *repository.UserRepository
 	orgRepo        *repository.OrgRepository
 	invitationRepo *repository.InvitationRepository
+	mentorRepo     *repository.MentorRepository
 	authSvc        *auth.Service
 	emailSvc       email.Service
 	cookieOpts     auth.CookieOptions
@@ -66,6 +67,12 @@ func NewAuthHandler(
 func (h *AuthHandler) SetInvitationRepo(repo *repository.InvitationRepository) {
 	if repo != nil {
 		h.invitationRepo = repo
+	}
+}
+
+func (h *AuthHandler) SetMentorRepo(repo *repository.MentorRepository) {
+	if repo != nil {
+		h.mentorRepo = repo
 	}
 }
 
@@ -974,9 +981,16 @@ func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 
 	auth.SetAuthCookies(w, jwtToken, csrfToken, h.cookieOpts)
 
+	// If invitation was tied to a program and user is mentor, auto-assign
+	if inv.ProgramID != nil && h.mentorRepo != nil {
+		_, _ = h.mentorRepo.AssignMentor(ctx, *inv.ProgramID, user.ID, "Mentor", "")
+	}
+
 	redirectURL := "/admin/dashboard"
 	if user.Role == model.RoleSuperadmin {
 		redirectURL = "/superadmin/dashboard"
+	} else if user.Role == model.RoleMentor {
+		redirectURL = "/mentor/dashboard"
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{

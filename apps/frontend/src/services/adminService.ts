@@ -16,6 +16,7 @@ import type {
   Invitation,
   EmailTemplateConfig,
   ProgramEmailTemplates,
+  ProgramMentor,
 } from './types';
 
 export interface CreateProgramPayload {
@@ -366,5 +367,23 @@ export const adminService = {
   removeMember: async (memberId: string, orgId?: string): Promise<void> => {
     const params = orgId ? { org_id: orgId } : undefined;
     await apiClient.delete(`/admin/members/${memberId}`, { params });
+  },
+
+  // Program Mentors Management
+  getProgramMentors: async (programId: string): Promise<ProgramMentor[]> => {
+    const { data } = await apiClient.get<{ mentors: ProgramMentor[] }>(`/admin/programs/${programId}/mentors`);
+    return data.mentors || [];
+  },
+
+  assignProgramMentor: async (
+    programId: string,
+    payload: { user_id: string; role_title?: string; bio?: string }
+  ): Promise<ProgramMentor> => {
+    const { data } = await apiClient.post<ProgramMentor>(`/admin/programs/${programId}/mentors`, payload);
+    return data;
+  },
+
+  removeProgramMentor: async (programId: string, userId: string): Promise<void> => {
+    await apiClient.delete(`/admin/programs/${programId}/mentors/${userId}`);
   },
 };

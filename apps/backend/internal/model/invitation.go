@@ -16,8 +16,9 @@ const (
 type Invitation struct {
 	ID             uuid.UUID  `json:"id"`
 	Email          string     `json:"email"`
-	Role           string     `json:"role"` // 'org_admin', 'reviewer', 'superadmin'
+	Role           string     `json:"role"` // 'org_admin', 'reviewer', 'mentor', 'superadmin'
 	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
+	ProgramID      *uuid.UUID `json:"program_id,omitempty"`
 	Token          string     `json:"-"`
 	InvitedBy      *uuid.UUID `json:"invited_by,omitempty"`
 	Status         string     `json:"status"` // 'pending', 'accepted', 'revoked', 'expired'
@@ -30,4 +31,6 @@ type Invitation struct {
 	OrganizationName string `json:"organization_name,omitempty"`
 	OrganizationSlug string `json:"organization_slug,omitempty"`
 	OrganizationLogo string `json:"organization_logo,omitempty"`
+	ProgramName      string `json:"program_name,omitempty"`
+	ProgramSlug      string `json:"program_slug,omitempty"`
 }

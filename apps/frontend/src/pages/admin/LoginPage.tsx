@@ -24,6 +24,8 @@ export const LoginPage: React.FC = () => {
         navigate('/superadmin/dashboard', { replace: true });
       } else if (user.role === 'candidate') {
         navigate('/candidate/dashboard', { replace: true });
+      } else if (user.role === 'mentor') {
+        navigate('/mentor/dashboard', { replace: true });
       } else if (user.role === 'org_admin' || user.role === 'reviewer') {
         navigate('/admin/dashboard', { replace: true });
       }
@@ -51,6 +53,8 @@ export const LoginPage: React.FC = () => {
         navigate('/superadmin/dashboard', { replace: true });
       } else if (res.user?.role === 'candidate') {
         navigate('/candidate/dashboard', { replace: true });
+      } else if (res.user?.role === 'mentor') {
+        navigate('/mentor/dashboard', { replace: true });
       } else {
         navigate('/admin/dashboard', { replace: true });
       }

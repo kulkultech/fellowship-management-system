@@ -401,7 +401,7 @@ export interface User {
   email: string;
   name: string;
   avatar_url?: string;
-  role: 'superadmin' | 'org_admin' | 'reviewer' | 'candidate';
+  role: 'superadmin' | 'org_admin' | 'reviewer' | 'mentor' | 'candidate';
   email_verified?: boolean;
 }
 
@@ -585,9 +585,12 @@ export interface CandidateApplicationItem {
 export interface Invitation {
   id: string;
   email: string;
-  role: 'org_admin' | 'reviewer' | 'superadmin';
+  role: 'org_admin' | 'reviewer' | 'mentor' | 'superadmin';
   organization_id?: string | null;
   organization_name?: string;
+  program_id?: string | null;
+  program_name?: string;
+  program_slug?: string;
   status: 'pending' | 'accepted' | 'revoked' | 'expired';
   invited_by: string;
   expires_at: string;
@@ -611,8 +614,9 @@ export interface TeamResponse {
 
 export interface InviteAdminPayload {
   email: string;
-  role: 'org_admin' | 'reviewer' | 'superadmin';
+  role: 'org_admin' | 'reviewer' | 'mentor' | 'superadmin';
   organization_id?: string;
+  program_id?: string;
 }
 
 export interface InvitationDetails {
@@ -621,6 +625,9 @@ export interface InvitationDetails {
   role: string;
   organization_id?: string | null;
   organization_name?: string;
+  program_id?: string | null;
+  program_name?: string;
+  program_slug?: string;
   inviter_name?: string;
   inviter_email?: string;
   status: string;
@@ -631,4 +638,47 @@ export interface InvitationDetails {
 export interface AcceptInvitePayload {
   name?: string;
   password?: string;
+}
+
+export interface ProgramMentor {
+  id: string;
+  program_id: string;
+  user_id: string;
+  role_title: string;
+  bio: string;
+  assigned_at: string;
+  user_name?: string;
+  user_email?: string;
+  user_avatar?: string;
+  program_name?: string;
+  program_slug?: string;
+  organization_id?: string;
+  organization_slug?: string;
+  organization_name?: string;
+}
+
+export interface MentorProgramSummary {
+  program_id: string;
+  program_slug: string;
+  program_name: string;
+  description?: string;
+  image_url?: string;
+  organization_id: string;
+  org_slug: string;
+  org_name: string;
+  role_title: string;
+  fellow_count: number;
+  track_count: number;
+  open_date: string;
+  end_date: string;
+}
+
+export interface MentorOverview {
+  mentor_id: string;
+  name: string;
+  email: string;
+  avatar_url: string;
+  assigned_programs: MentorProgramSummary[];
+  total_fellows: number;
+  active_sessions: number;
 }

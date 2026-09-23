@@ -27,5 +27,6 @@ const (
 	RoleSuperadmin = "superadmin"
 	RoleOrgAdmin   = "org_admin"
 	RoleReviewer   = "reviewer"
+	RoleMentor     = "mentor"
 	RoleCandidate  = "candidate"
 )
