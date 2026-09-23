@@ -614,7 +614,7 @@ export interface TeamResponse {
 
 export interface InviteAdminPayload {
   email: string;
-  role: 'org_admin' | 'reviewer' | 'mentor' | 'superadmin';
+  role: 'org_admin' | 'mentor' | 'superadmin';
   organization_id?: string;
   program_id?: string;
 }

@@ -8,7 +8,6 @@ import {
   UserPlus,
   ShieldCheck,
   Building2,
-  ClipboardCheck,
   Mail,
   Trash2,
   RefreshCw,
@@ -44,7 +43,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   // Modal State
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'org_admin' | 'reviewer' | 'superadmin' | 'mentor'>(
+  const [inviteRole, setInviteRole] = useState<'org_admin' | 'superadmin' | 'mentor'>(
     isSuperadmin && !organizationId ? 'superadmin' : 'org_admin'
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string>(organizationId || '');
@@ -307,7 +306,6 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               <option value="all">All Roles</option>
               {isSuperadmin && <option value="superadmin">Superadmin</option>}
               <option value="org_admin">Company Admin</option>
-              <option value="reviewer">Reviewer</option>
               <option value="mentor">Mentor</option>
             </select>
 
@@ -617,32 +615,6 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                       </div>
                       <div className="text-3xs text-slate-500 mt-0.5">
                         Can launch fellowship programs, edit question banks, and evaluate candidates.
-                      </div>
-                    </div>
-                  </label>
-
-                  <label
-                    className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition ${
-                      inviteRole === 'reviewer'
-                        ? 'border-kulkul-purple bg-purple-50/50 ring-1 ring-kulkul-purple'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="inviteRole"
-                      value="reviewer"
-                      checked={inviteRole === 'reviewer'}
-                      onChange={() => setInviteRole('reviewer')}
-                      className="mt-1 text-kulkul-purple focus:ring-kulkul-purple"
-                    />
-                    <div>
-                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                        <ClipboardCheck className="w-3.5 h-3.5 text-blue-600" />
-                        Application Reviewer
-                      </div>
-                      <div className="text-3xs text-slate-500 mt-0.5">
-                        Read-only access to view candidates, watch interview responses, and grade rubrics.
                       </div>
                     </div>
                   </label>

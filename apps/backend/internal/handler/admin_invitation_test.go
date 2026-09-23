@@ -92,10 +92,10 @@ func TestAdminHandler_OrgAdminInvite(t *testing.T) {
 		}
 	})
 
-	t.Run("OrgAdmin can invite Reviewer", func(t *testing.T) {
+	t.Run("OrgAdmin can invite Mentor", func(t *testing.T) {
 		payload := map[string]any{
-			"email": "reviewer@testorg.com",
-			"role":  model.RoleReviewer,
+			"email": "mentor@testorg.com",
+			"role":  model.RoleMentor,
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/invitations", bytes.NewReader(body))

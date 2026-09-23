@@ -2526,8 +2526,8 @@ func (h *AdminHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) 
 	if req.Role == "" {
 		req.Role = model.RoleOrgAdmin
 	}
-	if req.Role != model.RoleOrgAdmin && req.Role != model.RoleReviewer && req.Role != model.RoleSuperadmin && req.Role != model.RoleMentor {
-		httpx.Error(w, http.StatusBadRequest, "invalid role: must be org_admin, reviewer, mentor, or superadmin")
+	if req.Role != model.RoleOrgAdmin && req.Role != model.RoleSuperadmin && req.Role != model.RoleMentor {
+		httpx.Error(w, http.StatusBadRequest, "invalid role: must be org_admin, mentor, or superadmin")
 		return
 	}
 
