@@ -9,7 +9,6 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import toast from 'react-hot-toast';
 import {
-  Sparkles,
   Calendar,
   Clock,
   Video,
@@ -21,7 +20,6 @@ import {
   Laptop,
   GraduationCap,
   MessageSquare,
-  ShieldCheck,
   AlertCircle,
   Loader2,
   Award,
@@ -177,13 +175,6 @@ export const ProgramRoomPage: React.FC = () => {
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
             <span>Back to Candidate Dashboard</span>
           </Link>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Program Room Active</span>
-            </span>
-          </div>
         </div>
 
         {/* Hero Card */}
@@ -192,11 +183,6 @@ export const ProgramRoomPage: React.FC = () => {
           <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
           <div className="relative z-10 space-y-4 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-bold text-emerald-300">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Official Fellowship Cohort Member</span>
-            </div>
-
             <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
               {program?.name || 'Fellowship Program Room'}
             </h1>

@@ -42,7 +42,7 @@ interface ProgramSessionsViewProps {
 export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   programId,
   programName = 'Fellowship Cohort',
-  isMentor = false,
+  isMentor: _isMentor = false,
   tracks = [],
   mentors = [],
 }) => {
@@ -396,11 +396,6 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-6">
         <div className="flex items-center justify-between text-xs text-slate-500 font-bold pb-1">
           <span>Cohort Program: <strong className="text-slate-900">{programName}</strong></span>
-          {isMentor && (
-            <span className="px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple text-2xs font-extrabold uppercase">
-              Mentor Mode
-            </span>
-          )}
         </div>
 
         {/* Tab & Controls Bar */}

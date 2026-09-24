@@ -18,7 +18,6 @@ import {
   Loader2,
   Video,
   Award,
-  Sparkles,
   X,
   Building2,
   UserCheck,
@@ -152,10 +151,6 @@ export const MentorDashboardPage: React.FC = () => {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-kulkul-purple via-[#4a1d7f] to-[#250d45] text-white p-6 sm:p-8 shadow-xl">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold text-kulkul-orange tracking-wide uppercase">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Fellowship Technical Mentor</span>
-              </div>
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
                 Welcome back, {user?.name || user?.email?.split('@')[0]}!
               </h2>

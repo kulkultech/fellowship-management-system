@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Sparkles,
+  GraduationCap,
 } from 'lucide-react';
 
 interface CandidateApplicationItem {
@@ -59,7 +60,7 @@ interface CandidateApplicationItem {
 export const CandidateDashboardPage: React.FC = () => {
   const { user: authUser, logout: authLogout, login } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview'>('applications');
+  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'program_room'>('applications');
 
   // Candidate Auth Form States (when unauthenticated)
   const [candidateAuthMode, setCandidateAuthMode] = useState<'signin' | 'register'>('signin');
@@ -174,7 +175,7 @@ export const CandidateDashboardPage: React.FC = () => {
     switch (stage) {
       case 'approved_for_live':
       case 'accepted':
-        return <span className="whitespace-nowrap text-xs font-semibold text-emerald-700">Accepted Fellow 🎉</span>;
+        return <span className="whitespace-nowrap text-xs font-semibold text-emerald-700">Accepted Fellow</span>;
       case 'rejected':
         return <span className="whitespace-nowrap text-xs font-semibold text-rose-700">Not Selected</span>;
       case 'ai_interview_completed':
@@ -572,6 +573,16 @@ export const CandidateDashboardPage: React.FC = () => {
     );
   }
 
+  const acceptedCohortApps = applications.filter(
+    (a) => a.current_stage === 'approved_for_live' && Boolean(a.program_room_invited_at)
+  );
+
+  const singleRoomUrl =
+    acceptedCohortApps.length === 1
+      ? acceptedCohortApps[0].redirect_url ||
+        `/programs/${acceptedCohortApps[0].org_slug}/${acceptedCohortApps[0].program_slug}/room`
+      : null;
+
   const navItems: NavItem[] = [
     {
       id: 'applications',
@@ -579,6 +590,27 @@ export const CandidateDashboardPage: React.FC = () => {
       icon: FileText,
       badge: applications.length,
     },
+    ...(acceptedCohortApps.length > 0
+      ? [
+          {
+            id: 'program_room',
+            label: 'Program Room',
+            icon: GraduationCap,
+            badge: acceptedCohortApps.length,
+            badgeColor: 'bg-emerald-100 text-emerald-800',
+            onClick: singleRoomUrl ? () => navigate(singleRoomUrl) : undefined,
+            children:
+              acceptedCohortApps.length > 1
+                ? acceptedCohortApps.map((a) => ({
+                    id: `room-${a.program_id}`,
+                    label: a.program_name,
+                    onClick: () =>
+                      navigate(a.redirect_url || `/programs/${a.org_slug}/${a.program_slug}/room`),
+                  }))
+                : undefined,
+          },
+        ]
+      : []),
     {
       id: 'assessments',
       label: 'Logic MCQ Tests',
@@ -791,44 +823,22 @@ export const CandidateDashboardPage: React.FC = () => {
 
                       {/* Celebratory Banner for Accepted Fellows */}
                       {app.current_stage === 'approved_for_live' && (
-                        <div className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 border border-emerald-200/80 flex items-center justify-between gap-4">
                           <div className="flex items-start sm:items-center gap-3.5">
                             <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
                               <Sparkles className="w-5 h-5" />
                             </div>
                             <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-sm font-extrabold text-slate-900">
-                                  🎉 Congratulations! You have been accepted into the Fellowship Cohort!
-                                </h4>
-                                {app.program_room_invited_at && (
-                                  <span className="text-3xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-2xs">
-                                    Room Unlocked
-                                  </span>
-                                )}
-                              </div>
+                              <h4 className="text-sm font-extrabold text-slate-900">
+                                Congratulations! You have been accepted into the Fellowship Cohort!
+                              </h4>
                               <p className="text-xs text-slate-600 mt-0.5">
                                 {app.program_room_invited_at
-                                  ? 'Your Program Room has been unlocked! Click "Enter Program Room" to access onboarding materials, schedules, and cohort channels.'
+                                  ? 'Your Program Room has been unlocked! Use the "Enter Program Room" button above to access onboarding materials, schedules, and cohort channels.'
                                   : 'Our admissions committee has officially accepted your application. Your Program Room invitation email is currently being prepared.'}
                               </p>
                             </div>
                           </div>
-                          {app.program_room_invited_at && (
-                            <button
-                              onClick={() => {
-                                if (app.redirect_url) {
-                                  navigate(app.redirect_url);
-                                } else {
-                                  navigate(`/programs/${app.org_slug}/${app.program_slug}/room`);
-                                }
-                              }}
-                              className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold whitespace-nowrap shadow-sm shrink-0"
-                            >
-                              <span>Enter Program Room</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                         </div>
                       )}
 
@@ -973,8 +983,68 @@ export const CandidateDashboardPage: React.FC = () => {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 4: EXPLORE PROGRAMS */}
+          {/* TAB 4: FELLOWSHIP PROGRAM ROOM */}
           {/* ========================================================================= */}
+          {activeTab === 'program_room' && (
+            <div className="space-y-6">
+              {acceptedCohortApps.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-4">
+                    <GraduationCap className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">No Active Fellowship Rooms</h3>
+                  <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                    Program rooms are unlocked once your application is officially accepted by the fellowship committee.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {acceptedCohortApps.map((app) => (
+                    <div
+                      key={app.applicant_id}
+                      className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs hover:shadow-md transition space-y-5 flex flex-col justify-between"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                            Accepted Fellow
+                          </span>
+                          <span className="text-xs font-semibold text-slate-500">
+                            {app.org_name}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 text-xl">{app.program_name}</h3>
+                          {app.track_name && (
+                            <p className="text-xs font-bold text-kulkul-purple mt-1">Track: {app.track_name}</p>
+                          )}
+                          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                            Access your cohort onboarding materials, live lecture links, scheduled workshops, and attendance tracker in your dedicated program room.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (app.redirect_url) {
+                            navigate(app.redirect_url);
+                          } else {
+                            navigate(`/programs/${app.org_slug}/${app.program_slug}/room`);
+                          }
+                        }}
+                        className="w-full btn btn-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
+                      >
+                        <Sparkles className="w-4 h-4 text-emerald-200" />
+                        <span>Enter Program Room</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
     </DashboardLayout>
   );
