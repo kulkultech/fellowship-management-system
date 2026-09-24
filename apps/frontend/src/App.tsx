@@ -111,6 +111,7 @@ export function App() {
           <Route path="/programs/:orgSlug/:programSlug/interview/:inviteToken" element={<InterviewPage />} />
 
           {/* Admin & Reviewer Portal */}
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/admin/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute allowedRoles={['org_admin', 'reviewer', 'superadmin']} />}>
             <Route path="/admin/dashboard" element={<DashboardPage />} />

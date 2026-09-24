@@ -246,7 +246,7 @@ func (r *UserRepository) SyncUserOrgStatus(ctx context.Context, u *model.User) (
 		var orgExists bool
 		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)", u.OrganizationID).Scan(&orgExists)
 		if orgExists {
-			if u.Role != "org_admin" && u.Role != "reviewer" {
+			if u.Role != "org_admin" && u.Role != "reviewer" && u.Role != "mentor" {
 				u.Role = "org_admin"
 				_, _ = r.pool.Exec(ctx, "UPDATE users SET role = 'org_admin', updated_at = now() WHERE id = $1", u.ID)
 			}
@@ -495,7 +495,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		VALUES ($1, $2, '', $3, $4, true, now(), now())
 		ON CONFLICT (email) DO UPDATE SET
 			name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END,
-			role = CASE WHEN users.role IN ('org_admin', 'reviewer', 'superadmin') AND EXCLUDED.role = 'candidate' THEN users.role ELSE EXCLUDED.role END,
+			role = CASE WHEN users.role IN ('org_admin', 'reviewer', 'superadmin', 'mentor') AND EXCLUDED.role = 'candidate' THEN users.role ELSE EXCLUDED.role END,
 			organization_id = CASE WHEN users.organization_id IS NOT NULL AND EXCLUDED.organization_id IS NULL THEN users.organization_id ELSE EXCLUDED.organization_id END,
 			email_verified = true,
 			updated_at = now()
