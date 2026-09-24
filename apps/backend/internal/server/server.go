@@ -57,6 +57,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	// Handlers
 	invitationRepo := repository.NewInvitationRepository(pool)
 	mentorRepo := repository.NewMentorRepository(pool)
+	sessionRepo := repository.NewSessionRepository(pool, applicantRepo)
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain, cfg.SES.FrontendURL)
 	authHandler.SetInvitationRepo(invitationRepo)
@@ -70,6 +71,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	adminHandler.SetMentorRepo(mentorRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo)
+	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -244,6 +246,20 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				m.Get("/programs", mentorHandler.ListPrograms)
 				m.Get("/programs/{id}/fellows", mentorHandler.ListFellows)
 			})
+
+			// Fellowship Cohort Sessions & Attendance Tracker
+			protected.Route("/programs/{programId}/sessions", func(s chi.Router) {
+				s.Get("/", sessionHandler.ListSessions)
+				s.Post("/", sessionHandler.CreateSession)
+				s.Get("/attendance-summary", sessionHandler.GetAttendanceSummary)
+				s.Get("/{sessionId}", sessionHandler.GetSession)
+				s.Put("/{sessionId}", sessionHandler.UpdateSession)
+				s.Delete("/{sessionId}", sessionHandler.DeleteSession)
+				s.Get("/{sessionId}/attendance", sessionHandler.GetSessionAttendance)
+				s.Post("/{sessionId}/attendance", sessionHandler.BatchUpdateAttendance)
+				s.Post("/{sessionId}/check-in", sessionHandler.FellowCheckIn)
+			})
+			protected.Get("/programs/{programId}/attendance-summary", sessionHandler.GetAttendanceSummary)
 
 			protected.Route("/admin", func(adm chi.Router) {
 				// Require org_admin or reviewer (superadmin auto-allowed)

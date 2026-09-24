@@ -33,6 +33,7 @@ import {
 import { ProgramImageAdjustModal } from '@/components/admin/ProgramImageAdjustModal';
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
 import { ProgramEmailTemplatesView } from '@/components/admin/ProgramEmailTemplatesView';
+import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { exportCandidatesToExcel } from '@/utils/candidateExcelExporter';
 
 const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
@@ -203,7 +204,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
 ];
 
 export interface DashboardPageProps {
-  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates';
+  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions';
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
@@ -224,8 +225,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [user, navigate]);
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -1998,6 +1999,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       ? `ai-rubric-${activeProgramSlug}`
       : currentView === 'email_templates'
       ? `email-templates-${activeProgramSlug}`
+      : currentView === 'sessions'
+      ? `sessions-${activeProgramSlug}`
       : selectedTrackFilter
       ? `track-${selectedTrackFilter}`
       : `all-candidates-${activeProgramSlug}`;
@@ -2091,6 +2094,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 onClick: () => {
                   setActiveProgramSlug(p.slug);
                   setCurrentView('email_templates');
+                },
+              },
+              {
+                id: `sessions-${p.slug}`,
+                label: 'Sessions & Attendance',
+                icon: Calendar,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('sessions');
                 },
               },
             ],
@@ -2207,6 +2219,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? 'AI Rubric & Prompts'
           : currentView === 'email_templates'
           ? 'Email Templates'
+          : currentView === 'sessions'
+          ? `${program?.name || 'Program'} - Sessions & Attendance`
           : program?.name || 'Candidate Pipeline'
       }
       subtitle={
@@ -4896,6 +4910,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 />
               );
             })()}
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* VIEW 11: PROGRAM SESSIONS & ATTENDANCE TRACKER */}
+        {/* ================================================================================= */}
+        {currentView === 'sessions' && (
+          <div className="animate-in fade-in duration-200">
+            {program ? (
+              <ProgramSessionsView
+                programId={program.id}
+                programName={program.name}
+                tracks={programTracks}
+              />
+            ) : (
+              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Please select a fellowship cohort to manage its scheduled sessions and attendance check sheet.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

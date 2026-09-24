@@ -684,3 +684,81 @@ export interface MentorOverview {
   total_fellows: number;
   active_sessions: number;
 }
+
+export type SessionType = 'live_lecture' | 'workshop' | 'mentorship_sync' | 'demo_day' | 'general';
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
+
+export interface SessionAttendance {
+  id: string;
+  session_id: string;
+  applicant_id: string;
+  status: AttendanceStatus;
+  checked_in_at?: string;
+  marked_by?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+  fellow_name?: string;
+  fellow_email?: string;
+  track_name?: string;
+}
+
+export interface ProgramSession {
+  id: string;
+  program_id: string;
+  track_id?: string;
+  track_name?: string;
+  title: string;
+  description?: string;
+  session_type: SessionType;
+  start_time: string;
+  end_time: string;
+  meeting_url?: string;
+  recording_url?: string;
+  mentor_id?: string;
+  mentor_name?: string;
+  created_at?: string;
+  updated_at?: string;
+  total_fellows?: number;
+  present_count?: number;
+  late_count?: number;
+  absent_count?: number;
+  excused_count?: number;
+  attendance_rate?: number;
+  fellow_attendance?: SessionAttendance;
+}
+
+export interface FellowAttendanceSummary {
+  applicant_id: string;
+  full_name: string;
+  email: string;
+  track_name?: string;
+  total_sessions: number;
+  present_count: number;
+  late_count: number;
+  absent_count: number;
+  excused_count: number;
+  attendance_rate: number;
+  status: 'Good' | 'Warning' | 'At Risk' | string;
+}
+
+export interface CreateSessionPayload {
+  title: string;
+  description?: string;
+  session_type: SessionType;
+  start_time: string;
+  end_time: string;
+  meeting_url?: string;
+  recording_url?: string;
+  track_id?: string;
+  mentor_id?: string;
+}
+
+export interface BatchAttendanceUpdatePayload {
+  attendances: Array<{
+    applicant_id: string;
+    status: AttendanceStatus;
+    notes?: string;
+  }>;
+}
+

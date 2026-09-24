@@ -23,8 +23,10 @@ import {
   Building2,
   UserCheck,
   TrendingUp,
+  Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -105,6 +107,13 @@ export const MentorDashboardPage: React.FC = () => {
       icon: Users,
       badge: totalFellows > 0 ? totalFellows : undefined,
       onClick: () => setActiveNavId('fellows'),
+    },
+    {
+      id: 'sessions',
+      label: 'Sessions & Attendance',
+      icon: Calendar,
+      badge: overview?.active_sessions || undefined,
+      onClick: () => setActiveNavId('sessions'),
     },
   ];
 
@@ -325,15 +334,15 @@ export const MentorDashboardPage: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() =>
-                          toast('Program Room will unlock in Phase 2!', {
-                            icon: '🚀',
-                          })
-                        }
-                        className="btn btn-sm btn-outline text-slate-600 hover:text-kulkul-purple hover:border-kulkul-purple"
-                        title="Program Room (Coming in Phase 2)"
+                        onClick={() => {
+                          setSelectedProgramId(prog.program_id);
+                          setActiveNavId('sessions');
+                        }}
+                        className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-kulkul-purple flex items-center gap-1.5"
+                        title="Manage Sessions & Attendance"
                       >
-                        <Video className="w-4 h-4" />
+                        <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
+                        <span>Sessions</span>
                       </button>
                     </div>
                   </div>
@@ -700,6 +709,42 @@ export const MentorDashboardPage: React.FC = () => {
                 </a>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 5. SESSIONS & ATTENDANCE TRACKER */}
+        {/* ========================================================================= */}
+        {activeNavId === 'sessions' && (
+          <div className="space-y-4">
+            {programs.length > 1 && (
+              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-700">Active Program:</span>
+                <select
+                  value={activeProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
+                  className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                >
+                  {programs.map((p) => (
+                    <option key={p.program_id} value={p.program_id}>
+                      {p.program_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {activeProgramId ? (
+              <ProgramSessionsView
+                programId={activeProgramId}
+                programName={programs.find((p) => p.program_id === activeProgramId)?.program_name}
+                isMentor={true}
+              />
+            ) : (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                <p className="text-xs text-slate-500 font-bold">No active program found to schedule sessions for.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

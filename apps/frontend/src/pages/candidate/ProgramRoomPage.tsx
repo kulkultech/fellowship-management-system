@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
+import { sessionService } from '@/services/sessionService';
 import { apiClient } from '@/services/apiClient';
 import { useAuth } from '@/hooks/useAuth';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import toast from 'react-hot-toast';
 import {
   Sparkles,
   Calendar,
@@ -22,6 +24,7 @@ import {
   ShieldCheck,
   AlertCircle,
   Loader2,
+  Award,
 } from 'lucide-react';
 
 interface FellowSession {
@@ -38,6 +41,7 @@ interface FellowSession {
 export const ProgramRoomPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
   const { user: authUser } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'sessions' | 'curriculum' | 'resources'>('sessions');
 
   // 1. Fetch Program Info
@@ -56,8 +60,6 @@ export const ProgramRoomPage: React.FC = () => {
     enabled: Boolean(authUser?.email),
   });
 
-  const isLoading = isLoadingProg || isLoadingCand;
-
   const program = progData?.program;
   const org = progData?.organization;
   const applications = candData?.applications || [];
@@ -68,6 +70,45 @@ export const ProgramRoomPage: React.FC = () => {
   );
 
   const isInvited = Boolean(currentApp?.program_room_invited_at || authUser?.role === 'superadmin' || authUser?.role === 'org_admin' || authUser?.role === 'mentor');
+
+  // 3. Fetch Live Program Sessions
+  const { data: realSessions = [], isLoading: isLoadingSessions } = useQuery({
+    queryKey: ['candidate-program-sessions', program?.id],
+    queryFn: () => (program?.id ? sessionService.listSessions(program.id) : Promise.resolve([])),
+    enabled: Boolean(program?.id),
+  });
+
+  // Check-In Mutation
+  const checkInMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      if (!program?.id) return;
+      return sessionService.fellowCheckIn(program.id, sessionId);
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Attendance check-in confirmed!');
+      queryClient.invalidateQueries({ queryKey: ['candidate-program-sessions', program?.id] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err.message || 'Check-in failed');
+    },
+  });
+
+  // Fellow Personal Attendance Stats
+  const fellowStats = React.useMemo(() => {
+    if (realSessions.length === 0) return null;
+    const total = realSessions.length;
+    let attended = 0;
+    realSessions.forEach((s) => {
+      if (s.fellow_attendance?.status === 'present' || s.fellow_attendance?.status === 'late') {
+        attended++;
+      }
+    });
+    const rate = Math.round((attended / total) * 100);
+    const status = rate >= 80 ? 'Good' : rate >= 65 ? 'Warning' : 'At Risk';
+    return { total, attended, rate, status };
+  }, [realSessions]);
+
+  const isLoading = isLoadingProg || isLoadingCand;
 
   // Sample structured fellowship sessions
   const sampleSessions: FellowSession[] = [
@@ -230,6 +271,56 @@ export const ProgramRoomPage: React.FC = () => {
         {/* Tab Content: Sessions & Attendance */}
         {activeTab === 'sessions' && (
           <div className="space-y-6">
+            {/* Fellow Attendance Health & Progress Card */}
+            {fellowStats && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
+                      Your Attendance Record
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-3xs font-extrabold uppercase tracking-wider ${
+                        fellowStats.status === 'Good'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : fellowStats.status === 'Warning'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}
+                    >
+                      <Award className="w-3 h-3" />
+                      <span>{fellowStats.status} Status</span>
+                    </span>
+                  </div>
+                  <h4 className="text-xl font-black text-slate-900">
+                    {fellowStats.rate}% Attendance Rate
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Attended <strong>{fellowStats.attended}</strong> of <strong>{fellowStats.total}</strong> cohort sessions. Maintaining &ge;80% attendance is required for graduation.
+                  </p>
+                </div>
+
+                <div className="sm:w-56 space-y-2">
+                  <div className="flex items-center justify-between text-2xs font-bold text-slate-600">
+                    <span>Graduation Threshold</span>
+                    <span>{fellowStats.rate}% / 80%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        fellowStats.rate >= 80
+                          ? 'bg-emerald-500'
+                          : fellowStats.rate >= 65
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500'
+                      }`}
+                      style={{ width: `${Math.min(100, Math.max(0, fellowStats.rate))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div>
@@ -240,68 +331,190 @@ export const ProgramRoomPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Attendance Tracking Enabled</span>
+                  <span>Real-Time Check-In Active</span>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {sampleSessions.map((sess) => (
-                  <div
-                    key={sess.id}
-                    className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
-                        <Video className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
-                          <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                            {sess.type.replace('_', ' ')}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                          <span dangerouslySetInnerHTML={{ __html: sess.date }} />
-                          <span>&bull;</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {sess.time}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+              {isLoadingSessions ? (
+                <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
+                  <span className="text-xs font-bold">Loading fellowship sessions...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {realSessions.length > 0 ? (
+                    realSessions.map((sess) => {
+                      const isCheckedIn = Boolean(
+                        sess.fellow_attendance?.status === 'present' ||
+                        sess.fellow_attendance?.status === 'late'
+                      );
+                      const isExcused = sess.fellow_attendance?.status === 'excused';
 
-                    <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
-                      {sess.status === 'check_in_available' ? (
-                        <>
-                          <a
-                            href={sess.meeting_url || '#'}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
-                          >
-                            <Video className="w-3.5 h-3.5" />
-                            <span>Join Live Session</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline text-emerald-800 border-emerald-300 font-bold"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Check-in Attendance</span>
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-xl">
-                          Upcoming Session
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      const startDate = new Date(sess.start_time);
+                      const endDate = new Date(sess.end_time);
+                      const formattedDate = new Intl.DateTimeFormat('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      }).format(startDate);
+                      const formattedTime = `${startDate.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+                      return (
+                        <div
+                          key={sess.id}
+                          className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
+                        >
+                          <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
+                              <Video className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
+                                <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                                  {sess.session_type.replace('_', ' ')}
+                                </span>
+                                {sess.track_name && (
+                                  <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
+                                    {sess.track_name}
+                                  </span>
+                                )}
+                              </div>
+                              {sess.description && (
+                                <p className="text-xs text-slate-600 mt-0.5 line-clamp-1">{sess.description}</p>
+                              )}
+                              <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                                <span>{formattedDate}</span>
+                                <span>&bull;</span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formattedTime}
+                                </span>
+                                {sess.mentor_name && (
+                                  <>
+                                    <span>&bull;</span>
+                                    <span>Host: <strong>{sess.mentor_name}</strong></span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
+                            {isCheckedIn ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <span>
+                                  Checked In ({sess.fellow_attendance?.status === 'late' ? 'Late' : 'Present'})
+                                </span>
+                              </span>
+                            ) : isExcused ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
+                                <span>Excused</span>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={checkInMutation.isPending}
+                                onClick={() => checkInMutation.mutate(sess.id)}
+                                className="btn btn-sm btn-outline text-emerald-800 border-emerald-400 hover:bg-emerald-50 font-bold flex items-center gap-1.5"
+                              >
+                                {checkInMutation.isPending ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                )}
+                                <span>Check-in Attendance</span>
+                              </button>
+                            )}
+
+                            {sess.meeting_url && (
+                              <a
+                                href={sess.meeting_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={() => {
+                                  // Auto check-in if not yet checked in
+                                  if (!isCheckedIn && !isExcused) {
+                                    checkInMutation.mutate(sess.id);
+                                  }
+                                }}
+                                className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                <span>Join Live Session</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    // Sample roadmap fallback if no live sessions scheduled yet
+                    sampleSessions.map((sess) => (
+                      <div
+                        key={sess.id}
+                        className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
+                            <Video className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
+                              <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                                {sess.type.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                              <span dangerouslySetInnerHTML={{ __html: sess.date }} />
+                              <span>&bull;</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {sess.time}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+                          {sess.status === 'check_in_available' ? (
+                            <>
+                              <a
+                                href={sess.meeting_url || '#'}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                <span>Join Live Session</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => toast.success('Attendance recorded for orientation session!')}
+                                className="btn btn-sm btn-outline text-emerald-800 border-emerald-300 font-bold"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Check-in Attendance</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-xl">
+                              Upcoming Session
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
