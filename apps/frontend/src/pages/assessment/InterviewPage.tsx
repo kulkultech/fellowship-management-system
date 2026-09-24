@@ -1284,7 +1284,8 @@ export const InterviewPage: React.FC = () => {
     if (
       uiStageRef.current !== 'interview' ||
       speechRecognitionUnsupportedRef.current ||
-      isMicMutedRef.current
+      isMicMutedRef.current ||
+      isAiSpeakingRef.current
     ) {
       return;
     }
@@ -1298,7 +1299,8 @@ export const InterviewPage: React.FC = () => {
       if (
         uiStageRef.current === 'interview' &&
         !speechRecognitionUnsupportedRef.current &&
-        !isMicMutedRef.current
+        !isMicMutedRef.current &&
+        !isAiSpeakingRef.current
       ) {
         startSpeechRecognitionRef.current();
       }
@@ -1442,6 +1444,9 @@ export const InterviewPage: React.FC = () => {
         if (!isSpeechRecognitionActiveRef.current) {
           restartSpeechRecognition(80);
         }
+        if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+          startTurnAudioRecorder();
+        }
       };
 
       // Safety timeout: ensure AI speaking flag releases even if onended is delayed by browser
@@ -1507,12 +1512,18 @@ export const InterviewPage: React.FC = () => {
       if (!isSpeechRecognitionActiveRef.current) {
         restartSpeechRecognition(80);
       }
+      if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+        startTurnAudioRecorder();
+      }
     };
     audio.onerror = () => {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
       if (!isSpeechRecognitionActiveRef.current) {
         restartSpeechRecognition(80);
+      }
+      if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+        startTurnAudioRecorder();
       }
     };
 
@@ -1524,6 +1535,9 @@ export const InterviewPage: React.FC = () => {
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
         restartSpeechRecognition(150);
+        if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+          startTurnAudioRecorder();
+        }
       });
     }
   };
@@ -1616,6 +1630,7 @@ export const InterviewPage: React.FC = () => {
   // Speak AI text using Cloudflare Workers AI TTS (Deepgram Aura-2) - strictly 100% human voice, zero robot fallback
   const speakAI = async (text: string) => {
     stopSpeech();
+    stopSpeechRecognition();
     if (isVoiceMuted) {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
@@ -1675,6 +1690,7 @@ export const InterviewPage: React.FC = () => {
       if (onBeforePresent) onBeforePresent();
       setChatMessages((prev) => [...prev, messageItem]);
       if (!isVoiceMuted) {
+        stopSpeechRecognition();
         if (cachedBuffer) {
           playAudioBuffer(cachedBuffer);
         } else if (cachedUrl) {
@@ -1682,6 +1698,9 @@ export const InterviewPage: React.FC = () => {
         }
       } else {
         restartSpeechRecognition(150);
+        if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+          startTurnAudioRecorder();
+        }
       }
       return;
     }
@@ -1699,6 +1718,7 @@ export const InterviewPage: React.FC = () => {
       setChatMessages((prev) => [...prev, messageItem]);
 
       if (result && !isVoiceMuted) {
+        stopSpeechRecognition();
         if (result.buffer) {
           playAudioBuffer(result.buffer);
         } else if (result.url) {
@@ -1706,6 +1726,9 @@ export const InterviewPage: React.FC = () => {
         }
       } else {
         restartSpeechRecognition(150);
+        if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+          startTurnAudioRecorder();
+        }
       }
     } catch {
       setIsEvaluatingAnswer(false);
@@ -1713,6 +1736,9 @@ export const InterviewPage: React.FC = () => {
       if (onBeforePresent) onBeforePresent();
       setChatMessages((prev) => [...prev, messageItem]);
       restartSpeechRecognition(150);
+      if (!turnAudioRecorderRef.current || turnAudioRecorderRef.current.state === 'inactive') {
+        startTurnAudioRecorder();
+      }
     }
   };
 
@@ -2179,7 +2205,8 @@ export const InterviewPage: React.FC = () => {
       if (
         uiStageRef.current !== 'interview' ||
         isMicMutedRef.current ||
-        speechRecognitionUnsupportedRef.current
+        speechRecognitionUnsupportedRef.current ||
+        isAiSpeakingRef.current
       ) {
         return;
       }
@@ -2221,15 +2248,8 @@ export const InterviewPage: React.FC = () => {
       };
 
       recognition.onresult = (event: any) => {
-        if (isMicMutedRef.current || isEvaluatingAnswerRef.current) {
+        if (isMicMutedRef.current || isEvaluatingAnswerRef.current || isAiSpeakingRef.current) {
           return;
-        }
-
-        // Natural Barge-In: If candidate starts speaking while AI voice is playing, immediately interrupt AI
-        if (isAiSpeakingRef.current) {
-          stopSpeech();
-          setIsAiSpeaking(false);
-          isAiSpeakingRef.current = false;
         }
 
         let currentSessionInterim = '';
@@ -2477,11 +2497,8 @@ export const InterviewPage: React.FC = () => {
     setChatMessages([]);
     setRecordingSeconds(0);
 
-    // 3. Start continuous speech recognition & turn audio recorder IMMEDIATELY
-    startSpeechRecognition();
-    startTurnAudioRecorder();
-
-    // 4. Welcome candidate and ask Question 1
+    // 3. Welcome candidate and ask Question 1
+    // Mic and speech recognition will automatically start ONLY AFTER AI finishes reading Question 1 (via onended)
     const firstQ = questions[0];
     if (firstQ) {
       const welcomeText = `Welcome to your AI interview! Let's begin with Question 1: ${firstQ.prompt}`;
@@ -2495,6 +2512,7 @@ export const InterviewPage: React.FC = () => {
       speakAndPresentAiMessage(welcomeText, initMsg);
     } else {
       restartSpeechRecognition(80);
+      startTurnAudioRecorder();
     }
   };
 
