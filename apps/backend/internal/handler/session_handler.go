@@ -112,15 +112,16 @@ func (h *SessionHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 
 // CreateSessionRequest payload
 type CreateSessionRequest struct {
-	TrackID      *uuid.UUID        `json:"track_id,omitempty"`
-	Title        string            `json:"title"`
-	Description  string            `json:"description"`
-	SessionType  model.SessionType `json:"session_type"`
-	StartTime    string            `json:"start_time"`
-	EndTime      string            `json:"end_time"`
-	MeetingURL   string            `json:"meeting_url"`
-	RecordingURL string            `json:"recording_url,omitempty"`
-	MentorID     *uuid.UUID        `json:"mentor_id,omitempty"`
+	TrackID            *uuid.UUID        `json:"track_id,omitempty"`
+	Title              string            `json:"title"`
+	Description        string            `json:"description"`
+	SessionType        model.SessionType `json:"session_type"`
+	StartTime          string            `json:"start_time"`
+	EndTime            string            `json:"end_time"`
+	MeetingURL         string            `json:"meeting_url"`
+	RecordingURL       string            `json:"recording_url,omitempty"`
+	MentorID           *uuid.UUID        `json:"mentor_id,omitempty"`
+	TargetApplicantIDs []uuid.UUID       `json:"target_applicant_ids,omitempty"`
 }
 
 // CreateSession handles POST /api/v1/programs/{programId}/sessions
@@ -170,18 +171,24 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		sessionType = model.SessionTypeLiveLecture
 	}
 
+	targetIDs := req.TargetApplicantIDs
+	if targetIDs == nil {
+		targetIDs = []uuid.UUID{}
+	}
+
 	sess := &model.ProgramSession{
-		ID:           uuid.New(),
-		ProgramID:    programID,
-		TrackID:      req.TrackID,
-		Title:        req.Title,
-		Description:  req.Description,
-		SessionType:  sessionType,
-		StartTime:    startTime,
-		EndTime:      endTime,
-		MeetingURL:   req.MeetingURL,
-		RecordingURL: req.RecordingURL,
-		MentorID:     req.MentorID,
+		ID:                 uuid.New(),
+		ProgramID:          programID,
+		TrackID:            req.TrackID,
+		Title:              req.Title,
+		Description:        req.Description,
+		SessionType:        sessionType,
+		StartTime:          startTime,
+		EndTime:            endTime,
+		MeetingURL:         req.MeetingURL,
+		RecordingURL:       req.RecordingURL,
+		MentorID:           req.MentorID,
+		TargetApplicantIDs: targetIDs,
 	}
 
 	created, err := h.sessionRepo.CreateSession(r.Context(), sess)
@@ -273,6 +280,9 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 	existing.RecordingURL = req.RecordingURL
 	existing.MentorID = req.MentorID
 	existing.TrackID = req.TrackID
+	if req.TargetApplicantIDs != nil {
+		existing.TargetApplicantIDs = req.TargetApplicantIDs
+	}
 
 	updated, err := h.sessionRepo.UpdateSession(r.Context(), existing)
 	if err != nil {
@@ -449,6 +459,27 @@ func (h *SessionHandler) FellowCheckIn(w http.ResponseWriter, r *http.Request) {
 	if acceptedApp == nil {
 		httpx.Error(w, http.StatusForbidden, "only accepted fellows in this cohort may check in")
 		return
+	}
+
+	// Verify session and student targeting
+	sess, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID)
+	if err != nil || sess.ProgramID != programID {
+		httpx.Error(w, http.StatusNotFound, "session not found for this program")
+		return
+	}
+
+	if len(sess.TargetApplicantIDs) > 0 {
+		isTargeted := false
+		for _, tid := range sess.TargetApplicantIDs {
+			if tid == acceptedApp.ID {
+				isTargeted = true
+				break
+			}
+		}
+		if !isTargeted {
+			httpx.Error(w, http.StatusForbidden, "you are not invited to this session")
+			return
+		}
 	}
 
 	att, err := h.sessionRepo.FellowCheckIn(r.Context(), sessionID, acceptedApp.ID)

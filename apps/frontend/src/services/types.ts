@@ -685,7 +685,14 @@ export interface MentorOverview {
   active_sessions: number;
 }
 
-export type SessionType = 'live_lecture' | 'workshop' | 'mentorship_sync' | 'demo_day' | 'general';
+export type SessionType =
+  | 'live_lecture'
+  | 'workshop'
+  | 'mentorship_sync'
+  | 'demo_day'
+  | 'general'
+  | '1_on_1'
+  | 'group_sync';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
 
 export interface SessionAttendance {
@@ -717,6 +724,7 @@ export interface ProgramSession {
   recording_url?: string;
   mentor_id?: string;
   mentor_name?: string;
+  target_applicant_ids?: string[];
   created_at?: string;
   updated_at?: string;
   total_fellows?: number;
@@ -752,6 +760,7 @@ export interface CreateSessionPayload {
   recording_url?: string;
   track_id?: string;
   mentor_id?: string;
+  target_applicant_ids?: string[];
 }
 
 export interface BatchAttendanceUpdatePayload {
@@ -761,4 +770,81 @@ export interface BatchAttendanceUpdatePayload {
     notes?: string;
   }>;
 }
+
+export type AssignmentStatus = 'published' | 'draft' | 'closed';
+export type AssignmentSubmissionStatus = 'submitted' | 'graded' | 'resubmitted' | 'late';
+
+export interface AssignmentSubmission {
+  id: string;
+  assignment_id: string;
+  applicant_id: string;
+  user_id?: string;
+  file_url?: string;
+  file_name?: string;
+  file_size?: number;
+  github_url?: string;
+  notes?: string;
+  submitted_at: string;
+  status: AssignmentSubmissionStatus;
+  score?: number;
+  feedback?: string;
+  graded_by?: string;
+  grader_name?: string;
+  graded_at?: string;
+  created_at: string;
+  updated_at: string;
+  fellow_name?: string;
+  fellow_email?: string;
+  track_name?: string;
+  university?: string;
+}
+
+export interface ProgramAssignment {
+  id: string;
+  program_id: string;
+  track_id?: string;
+  track_name?: string;
+  creator_id?: string;
+  creator_name?: string;
+  title: string;
+  description: string;
+  due_date?: string;
+  max_score: number;
+  attachment_url?: string;
+  attachment_name?: string;
+  status: AssignmentStatus;
+  target_applicant_ids?: string[];
+  created_at: string;
+  updated_at: string;
+  total_submissions?: number;
+  graded_count?: number;
+  pending_count?: number;
+  my_submission?: AssignmentSubmission;
+}
+
+export interface CreateAssignmentPayload {
+  track_id?: string;
+  title: string;
+  description?: string;
+  due_date?: string;
+  max_score?: number;
+  attachment_url?: string;
+  attachment_name?: string;
+  status?: AssignmentStatus;
+  target_applicant_ids?: string[];
+}
+
+export interface SubmitAssignmentPayload {
+  file_url?: string;
+  file_name?: string;
+  file_size?: number;
+  github_url?: string;
+  notes?: string;
+}
+
+export interface GradeSubmissionPayload {
+  score: number;
+  feedback: string;
+}
+
 

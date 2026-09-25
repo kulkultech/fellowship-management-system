@@ -72,6 +72,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
+	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -260,6 +262,18 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				s.Post("/{sessionId}/check-in", sessionHandler.FellowCheckIn)
 			})
 			protected.Get("/programs/{programId}/attendance-summary", sessionHandler.GetAttendanceSummary)
+
+			// Fellowship Cohort Assignments & Submissions
+			protected.Route("/programs/{programId}/assignments", func(a chi.Router) {
+				a.Get("/", assignmentHandler.ListAssignments)
+				a.Post("/", assignmentHandler.CreateAssignment)
+				a.Get("/{assignmentId}", assignmentHandler.GetAssignment)
+				a.Put("/{assignmentId}", assignmentHandler.UpdateAssignment)
+				a.Delete("/{assignmentId}", assignmentHandler.DeleteAssignment)
+				a.Get("/{assignmentId}/submissions", assignmentHandler.ListSubmissions)
+				a.Post("/{assignmentId}/submit", assignmentHandler.SubmitAssignment)
+				a.Post("/{assignmentId}/submissions/{submissionId}/grade", assignmentHandler.GradeSubmission)
+			})
 
 			protected.Route("/admin", func(adm chi.Router) {
 				// Require org_admin or reviewer (superadmin auto-allowed)

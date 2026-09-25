@@ -42,6 +42,14 @@ var allowedMimePrefixes = []string{
 	"image/",
 	"video/",
 	"application/pdf",
+	"application/zip",
+	"application/x-zip-compressed",
+	"application/x-tar",
+	"application/gzip",
+	"application/x-gzip",
+	"application/msword",
+	"application/vnd.openxmlformats",
+	"text/",
 }
 
 var allowedExtensions = map[string]bool{
@@ -56,6 +64,23 @@ var allowedExtensions = map[string]bool{
 	".mp4":  true,
 	".mov":  true,
 	".ogg":  true,
+	".zip":  true,
+	".tar":  true,
+	".gz":   true,
+	".tgz":  true,
+	".doc":  true,
+	".docx": true,
+	".txt":  true,
+	".md":   true,
+	".json": true,
+	".csv":  true,
+	".py":   true,
+	".go":   true,
+	".ts":   true,
+	".js":   true,
+	".java": true,
+	".cpp":  true,
+	".c":    true,
 }
 
 func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +145,7 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if !validMime && ext != ".pdf" {
+	if !validMime && !allowedExtensions[ext] {
 		httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("unsupported media type: %s", contentType))
 		return
 	}
@@ -135,7 +160,9 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 			folder = "images"
 		case strings.HasPrefix(contentType, "video/"):
 			folder = "recordings"
-		case ext == ".pdf":
+		case ext == ".zip" || ext == ".tar" || ext == ".gz" || ext == ".tgz":
+			folder = "assignments"
+		case ext == ".pdf" || ext == ".doc" || ext == ".docx":
 			folder = "documents"
 		default:
 			folder = "general"

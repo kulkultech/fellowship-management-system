@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sessionService } from '@/services/sessionService';
+import { mentorService } from '@/services/mentorService';
 import type {
   ProgramSession,
   CreateSessionPayload,
@@ -14,6 +15,7 @@ import {
   Video,
   Plus,
   Users,
+  UserCheck,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
@@ -124,11 +126,37 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const [formTrackId, setFormTrackId] = useState<string>('');
   const [formMentorId, setFormMentorId] = useState<string>('');
 
+  // Student targeting for sessions
+  const { data: fellowsData } = useQuery({
+    queryKey: ['program-fellows-for-sessions', programId],
+    queryFn: () => mentorService.getProgramFellows(programId),
+    enabled: Boolean(programId),
+  });
+  const allFellows = fellowsData?.fellows || [];
+
+  const [formAudience, setFormAudience] = useState<'all' | '1_on_1' | 'group'>('all');
+  const [selectedFellowIds, setSelectedFellowIds] = useState<string[]>([]);
+  const [fellowSearch, setFellowSearch] = useState('');
+
+  const filteredFellows = useMemo(() => {
+    if (!fellowSearch.trim()) return allFellows;
+    const q = fellowSearch.toLowerCase();
+    return allFellows.filter(
+      (f) =>
+        f.full_name?.toLowerCase().includes(q) ||
+        f.email?.toLowerCase().includes(q) ||
+        f.track_name?.toLowerCase().includes(q)
+    );
+  }, [allFellows, fellowSearch]);
+
   const openCreateModal = () => {
     setEditingSession(null);
     setFormTitle('');
     setFormDescription('');
     setFormType('live_lecture');
+    setFormAudience('all');
+    setSelectedFellowIds([]);
+    setFellowSearch('');
     const today = new Date().toISOString().split('T')[0];
     setFormStartDate(today);
     setFormStartTime('19:00');
@@ -146,6 +174,18 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormTitle(sess.title);
     setFormDescription(sess.description || '');
     setFormType(sess.session_type);
+
+    if (sess.target_applicant_ids && sess.target_applicant_ids.length === 1) {
+      setFormAudience('1_on_1');
+      setSelectedFellowIds(sess.target_applicant_ids);
+    } else if (sess.target_applicant_ids && sess.target_applicant_ids.length > 1) {
+      setFormAudience('group');
+      setSelectedFellowIds(sess.target_applicant_ids);
+    } else {
+      setFormAudience('all');
+      setSelectedFellowIds([]);
+    }
+    setFellowSearch('');
 
     const s = new Date(sess.start_time);
     const e = new Date(sess.end_time);
@@ -165,6 +205,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   // Create / Update Mutation
   const saveSessionMutation = useMutation({
     mutationFn: async () => {
+      if (formAudience === '1_on_1' && selectedFellowIds.length !== 1) {
+        throw new Error('Please select exactly 1 fellow for a 1-on-1 session');
+      }
+      if (formAudience === 'group' && selectedFellowIds.length === 0) {
+        throw new Error('Please select at least 1 fellow for a group session');
+      }
+
       const startDateTime = new Date(`${formStartDate}T${formStartTime}:00`).toISOString();
       const endDateTime = new Date(`${formEndDate}T${formEndTime}:00`).toISOString();
 
@@ -178,6 +225,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         recording_url: formRecordingUrl.trim() || undefined,
         track_id: formTrackId || undefined,
         mentor_id: formMentorId || undefined,
+        target_applicant_ids: formAudience !== 'all' ? selectedFellowIds : [],
       };
 
       if (editingSession) {
@@ -508,7 +556,18 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           <span className="text-3xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                             {sess.session_type.replace('_', ' ')}
                           </span>
-                          {sess.track_name && (
+                          {sess.target_applicant_ids && sess.target_applicant_ids.length === 1 ? (
+                            <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <UserCheck className="w-2.5 h-2.5" />
+                              1-on-1
+                            </span>
+                          ) : sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
+                            <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                              <Users className="w-2.5 h-2.5" />
+                              Group ({sess.target_applicant_ids.length} fellows)
+                            </span>
+                          ) : null}
+                          {sess.track_name && tracks.length > 0 && (
                             <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
                               {sess.track_name}
                             </span>
@@ -637,7 +696,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
                     <tr>
                       <th className="px-5 py-3">Fellow</th>
-                      <th className="px-4 py-3">Track</th>
+                      {tracks.length > 0 && <th className="px-4 py-3">Track</th>}
                       <th className="px-3 py-3 text-center">Sessions</th>
                       <th className="px-3 py-3 text-center">Present</th>
                       <th className="px-3 py-3 text-center">Late</th>
@@ -654,9 +713,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           <div className="font-extrabold text-slate-900">{s.full_name}</div>
                           <div className="text-2xs text-slate-400">{s.email}</div>
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600 font-medium">
-                          {s.track_name || <span className="text-slate-400">&mdash;</span>}
-                        </td>
+                        {tracks.length > 0 && (
+                          <td className="px-4 py-3.5 text-slate-600 font-medium">
+                            {s.track_name || <span className="text-slate-400">&mdash;</span>}
+                          </td>
+                        )}
                         <td className="px-3 py-3.5 text-center font-bold text-slate-700">{s.total_sessions}</td>
                         <td className="px-3 py-3.5 text-center font-bold text-emerald-700">{s.present_count}</td>
                         <td className="px-3 py-3.5 text-center font-bold text-amber-600">{s.late_count}</td>
@@ -750,16 +811,183 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 />
               </div>
 
+              {/* Target Audience Selector */}
+              <div className="space-y-2.5">
+                <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider">
+                  Target Audience *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormAudience('all');
+                      setSelectedFellowIds([]);
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                      formAudience === 'all'
+                        ? 'border-kulkul-purple bg-purple-50/60 ring-2 ring-purple-100'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Users className={`w-3.5 h-3.5 ${formAudience === 'all' ? 'text-kulkul-purple' : 'text-slate-400'}`} />
+                      <span className="text-2xs font-extrabold text-slate-900">All Fellows</span>
+                    </div>
+                    <span className="text-3xs text-slate-500">
+                      {tracks.length > 0 ? 'Cohort or track' : 'Cohort-wide'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormAudience('1_on_1');
+                      setFormType('1_on_1');
+                      if (selectedFellowIds.length > 1) {
+                        setSelectedFellowIds(selectedFellowIds.slice(0, 1));
+                      }
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                      formAudience === '1_on_1'
+                        ? 'border-kulkul-purple bg-purple-50/60 ring-2 ring-purple-100'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck className={`w-3.5 h-3.5 ${formAudience === '1_on_1' ? 'text-kulkul-purple' : 'text-slate-400'}`} />
+                      <span className="text-2xs font-extrabold text-slate-900">1-on-1 Session</span>
+                    </div>
+                    <span className="text-3xs text-slate-500">
+                      {selectedFellowIds.length === 1 ? '1 fellow selected' : 'Pick 1 fellow'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormAudience('group');
+                      setFormType('group_sync');
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                      formAudience === 'group'
+                        ? 'border-kulkul-purple bg-purple-50/60 ring-2 ring-purple-100'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Users className={`w-3.5 h-3.5 ${formAudience === 'group' ? 'text-kulkul-purple' : 'text-slate-400'}`} />
+                      <span className="text-2xs font-extrabold text-slate-900">Group Session</span>
+                    </div>
+                    <span className="text-3xs text-slate-500">
+                      {selectedFellowIds.length > 0 ? `${selectedFellowIds.length} selected` : 'Pick group'}
+                    </span>
+                  </button>
+                </div>
+
+                {formAudience !== 'all' && (
+                  <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder={tracks.length > 0 ? "Search fellows by name, email, or track..." : "Search fellows by name or email..."}
+                          value={fellowSearch}
+                          onChange={(e) => setFellowSearch(e.target.value)}
+                          className="input input-xs input-bordered w-full pl-8 text-xs rounded-xl bg-white"
+                        />
+                      </div>
+                      {formAudience === 'group' && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFellowIds(allFellows.map((f) => f.id))}
+                            className="text-3xs font-extrabold text-kulkul-purple hover:underline cursor-pointer"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFellowIds([])}
+                            className="text-3xs font-extrabold text-slate-500 hover:underline cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+                      {filteredFellows.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-slate-400">
+                          No fellows found matching "{fellowSearch}"
+                        </div>
+                      ) : (
+                        filteredFellows.map((fellow) => {
+                          const isChecked = selectedFellowIds.includes(fellow.id);
+                          return (
+                            <label
+                              key={fellow.id}
+                              className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition ${
+                                isChecked
+                                  ? 'bg-purple-50/70 border-purple-200'
+                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <input
+                                  type={formAudience === '1_on_1' ? 'radio' : 'checkbox'}
+                                  name="sessionFellowTarget"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (formAudience === '1_on_1') {
+                                      setSelectedFellowIds([fellow.id]);
+                                    } else {
+                                      if (e.target.checked) {
+                                        setSelectedFellowIds((prev) => [...prev, fellow.id]);
+                                      } else {
+                                        setSelectedFellowIds((prev) => prev.filter((id) => id !== fellow.id));
+                                      }
+                                    }
+                                  }}
+                                  className={
+                                    formAudience === '1_on_1'
+                                      ? 'radio radio-xs radio-primary'
+                                      : 'checkbox checkbox-xs checkbox-primary rounded'
+                                  }
+                                />
+                                <div className="truncate">
+                                  <span className="font-bold text-slate-900">{fellow.full_name}</span>
+                                  <span className="text-slate-400 text-3xs ml-1.5">({fellow.email})</span>
+                                </div>
+                              </div>
+                              {fellow.track_name && tracks.length > 0 && (
+                                <span className="text-3xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0 font-medium ml-2">
+                                  {fellow.track_name}
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
                   Session Type
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {(
                     [
                       { id: 'live_lecture', label: 'Live Lecture' },
                       { id: 'workshop', label: 'Workshop' },
                       { id: 'mentorship_sync', label: 'Mentor Sync' },
+                      { id: '1_on_1', label: '1-on-1' },
+                      { id: 'group_sync', label: 'Group Sync' },
                       { id: 'demo_day', label: 'Demo Day' },
                     ] as const
                   ).map((t) => (
@@ -994,7 +1222,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   <thead className="bg-slate-100/70 text-slate-600 font-extrabold sticky top-0 border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3">Fellow</th>
-                      <th className="px-3 py-3">Track</th>
+                      {tracks.length > 0 && <th className="px-3 py-3">Track</th>}
                       <th className="px-4 py-3 text-center">Attendance Status</th>
                       <th className="px-4 py-3">Notes / Remarks</th>
                     </tr>
@@ -1003,7 +1231,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     {attendanceSheet.map((item) => (
                       <tr key={item.applicant_id} className="hover:bg-slate-50/70 transition">
                         <td className="px-4 py-3 font-bold text-slate-900">{item.fellow_name}</td>
-                        <td className="px-3 py-3 text-slate-500">{item.track_name || 'General'}</td>
+                        {tracks.length > 0 && (
+                          <td className="px-3 py-3 text-slate-500">{item.track_name || 'General'}</td>
+                        )}
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1.5">
                             {(['present', 'late', 'absent', 'excused'] as const).map((st) => (

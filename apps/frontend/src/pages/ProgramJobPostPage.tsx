@@ -168,18 +168,20 @@ export const ProgramJobPostPage: React.FC = () => {
 
           {/* Quick Benchmark Bar */}
           <div className="p-6 bg-white border-t border-slate-100 space-y-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
-                <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 shadow-xs">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Tracks</div>
-                  <div className="text-sm font-extrabold text-slate-900 truncate">
-                    {tracks.length > 0 ? `${tracks.length} Available` : 'General (Direct)'}
+            <div className={`grid grid-cols-2 ${tracks.length > 0 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3.5`}>
+              {tracks.length > 0 && (
+                <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 shadow-xs">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Tracks</div>
+                    <div className="text-sm font-extrabold text-slate-900 truncate">
+                      {tracks.length} Available
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
                 <div className="w-10 h-10 rounded-xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0 shadow-xs">
@@ -378,7 +380,9 @@ export const ProgramJobPostPage: React.FC = () => {
             </div>
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <div className="font-bold text-slate-900 text-sm mb-1">Assessment Technology</div>
-              <p className="text-xs text-slate-600">FellowHire Multi-Track Assessment Engine</p>
+              <p className="text-xs text-slate-600">
+                {tracks.length > 0 ? 'FellowHire Multi-Track Assessment Engine' : 'FellowHire Assessment Engine'}
+              </p>
             </div>
           </div>
         </div>

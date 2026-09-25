@@ -888,9 +888,11 @@ export const CandidateDashboardPage: React.FC = () => {
                 {applications.map((app) => (
                   <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-kulkul-purple">
-                        {app.track_name || 'General'}
-                      </span>
+                      {app.track_name ? (
+                        <span className="text-xs font-bold text-kulkul-purple">
+                          {app.track_name}
+                        </span>
+                      ) : <span />}
                       {getStageBadge(app.current_stage, app.test_passed)}
                     </div>
 
@@ -930,9 +932,11 @@ export const CandidateDashboardPage: React.FC = () => {
                 {applications.map((app) => (
                   <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-kulkul-purple">
-                        {app.track_name || 'AI Screen'}
-                      </span>
+                      {app.track_name ? (
+                        <span className="text-xs font-bold text-kulkul-purple">
+                          {app.track_name}
+                        </span>
+                      ) : <span />}
                       {app.interview_status === 'completed' ? (
                         <span className="text-2xs font-bold text-emerald-700">
                           Interview Completed

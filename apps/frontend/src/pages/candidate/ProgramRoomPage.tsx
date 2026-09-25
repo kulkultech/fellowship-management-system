@@ -23,12 +23,16 @@ import {
   AlertCircle,
   Loader2,
   Award,
+  FileText,
+  UserCheck,
 } from 'lucide-react';
+import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
+import type { SessionType } from '@/services/types';
 
 interface FellowSession {
   id: string;
   title: string;
-  type: 'live_lecture' | 'workshop' | 'mentorship_sync' | 'demo_day';
+  type: SessionType;
   date: string;
   time: string;
   status: 'upcoming' | 'check_in_available' | 'completed';
@@ -40,7 +44,12 @@ export const ProgramRoomPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
   const { user: authUser } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'sessions' | 'curriculum' | 'resources'>('sessions');
+  const [activeTab, setActiveTab] = useState<'assignments' | 'sessions' | 'curriculum' | 'resources'>('assignments');
+  const isMentorOrAdmin = Boolean(
+    authUser?.role === 'mentor' ||
+    authUser?.role === 'org_admin' ||
+    authUser?.role === 'superadmin'
+  );
 
   // 1. Fetch Program Info
   const { data: progData, isLoading: isLoadingProg } = useQuery({
@@ -169,11 +178,25 @@ export const ProgramRoomPage: React.FC = () => {
         {/* Top Navigation Breadcrumb */}
         <div className="flex items-center justify-between">
           <Link
-            to="/candidate/dashboard"
+            to={
+              isMentorOrAdmin && authUser?.role === 'mentor'
+                ? '/mentor/dashboard'
+                : isMentorOrAdmin && authUser?.role === 'superadmin'
+                ? '/superadmin/dashboard'
+                : isMentorOrAdmin
+                ? '/admin/dashboard'
+                : '/candidate/dashboard'
+            }
             className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-kulkul-purple transition group"
           >
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-            <span>Back to Candidate Dashboard</span>
+            <span>
+              {isMentorOrAdmin && authUser?.role === 'mentor'
+                ? 'Back to Mentor Dashboard'
+                : isMentorOrAdmin
+                ? 'Back to Dashboard'
+                : 'Back to Candidate Dashboard'}
+            </span>
           </Link>
         </div>
 
@@ -192,11 +215,15 @@ export const ProgramRoomPage: React.FC = () => {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-purple-200/80 font-medium">
-              <div className="flex items-center gap-1.5">
-                <GraduationCap className="w-4 h-4 text-[#fe900d]" />
-                <span>Track: {currentApp?.track_name || 'General Track'}</span>
-              </div>
-              <span>&bull;</span>
+              {Boolean(program?.tracks && program.tracks.length > 0 && currentApp?.track_name) && (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-[#fe900d]" />
+                    <span>Track: {currentApp?.track_name}</span>
+                  </div>
+                  <span>&bull;</span>
+                </>
+              )}
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-emerald-400" />
                 <span>Hosted by {org?.name || 'KulKul Tech'}</span>
@@ -216,7 +243,19 @@ export const ProgramRoomPage: React.FC = () => {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-1 flex-wrap">
+          <button
+            onClick={() => setActiveTab('assignments')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeTab === 'assignments'
+                ? 'bg-kulkul-purple text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Assignments &amp; Projects</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('sessions')}
             className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
@@ -253,6 +292,17 @@ export const ProgramRoomPage: React.FC = () => {
             <span>Channels &amp; Resources</span>
           </button>
         </div>
+
+        {/* Tab Content: Assignments & Projects */}
+        {activeTab === 'assignments' && program?.id && (
+          <ProgramAssignmentsView
+            programId={program.id}
+            isMentorOrAdmin={isMentorOrAdmin}
+            tracks={program.tracks}
+            candidateTrackId={currentApp?.track_id}
+            userRole={authUser?.role}
+          />
+        )}
 
         {/* Tab Content: Sessions & Attendance */}
         {activeTab === 'sessions' && (
@@ -363,7 +413,18 @@ export const ProgramRoomPage: React.FC = () => {
                                 <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
                                   {sess.session_type.replace('_', ' ')}
                                 </span>
-                                {sess.track_name && (
+                                {sess.target_applicant_ids && sess.target_applicant_ids.length === 1 ? (
+                                  <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                    <UserCheck className="w-2.5 h-2.5" />
+                                    1-on-1 Session
+                                  </span>
+                                ) : sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
+                                  <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                                    <Users className="w-2.5 h-2.5" />
+                                    Group Session
+                                  </span>
+                                ) : null}
+                                {sess.track_name && Boolean(program?.tracks && program.tracks.length > 0) && (
                                   <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
                                     {sess.track_name}
                                   </span>

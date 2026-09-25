@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -43,6 +44,9 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 	now := time.Now()
 	s.CreatedAt = now
 	s.UpdatedAt = now
+	if s.TargetApplicantIDs == nil {
+		s.TargetApplicantIDs = []uuid.UUID{}
+	}
 
 	if r.pool == nil {
 		r.mu.Lock()
@@ -52,28 +56,44 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 		return &cp, nil
 	}
 
+	rawTargets, _ := json.Marshal(s.TargetApplicantIDs)
+	if len(rawTargets) == 0 {
+		rawTargets = []byte("[]")
+	}
+
 	query := `
 		INSERT INTO program_sessions (
 			id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
+			target_applicant_ids,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
+			target_applicant_ids,
 			created_at, updated_at
 	`
 	var res model.ProgramSession
+	var resRawTargets []byte
 	err := r.pool.QueryRow(ctx, query,
 		s.ID, s.ProgramID, s.TrackID, s.Title, s.Description, string(s.SessionType),
 		s.StartTime, s.EndTime, s.MeetingURL, s.RecordingURL, s.MentorID,
+		rawTargets,
 		s.CreatedAt, s.UpdatedAt,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
+		&resRawTargets,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: create: %w", err)
+	}
+	if len(resRawTargets) > 0 {
+		_ = json.Unmarshal(resRawTargets, &res.TargetApplicantIDs)
+	}
+	if res.TargetApplicantIDs == nil {
+		res.TargetApplicantIDs = []uuid.UUID{}
 	}
 	return &res, nil
 }
@@ -87,12 +107,16 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 			return nil, ErrSessionNotFound
 		}
 		cp := *s
+		if cp.TargetApplicantIDs == nil {
+			cp.TargetApplicantIDs = []uuid.UUID{}
+		}
 		return &cp, nil
 	}
 
 	query := `
 		SELECT s.id, s.program_id, s.track_id, COALESCE(t.name, ''), s.title, s.description, s.session_type,
 			s.start_time, s.end_time, s.meeting_url, s.recording_url, s.mentor_id, COALESCE(u.name, ''),
+			COALESCE(s.target_applicant_ids, '[]'::jsonb),
 			s.created_at, s.updated_at
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
@@ -100,9 +124,11 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 		WHERE s.id = $1
 	`
 	var res model.ProgramSession
+	var rawTargets []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.TrackName, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID, &res.MentorName,
+		&rawTargets,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -110,6 +136,12 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	}
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: get by id: %w", err)
+	}
+	if len(rawTargets) > 0 {
+		_ = json.Unmarshal(rawTargets, &res.TargetApplicantIDs)
+	}
+	if res.TargetApplicantIDs == nil {
+		res.TargetApplicantIDs = []uuid.UUID{}
 	}
 	return &res, nil
 }
@@ -124,7 +156,23 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 				if trackID != nil && s.TrackID != nil && *s.TrackID != *trackID {
 					continue
 				}
+				// If fellow context, check student targeting
+				if fellowApplicantID != nil && len(s.TargetApplicantIDs) > 0 {
+					matched := false
+					for _, tid := range s.TargetApplicantIDs {
+						if tid == *fellowApplicantID {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						continue
+					}
+				}
 				cp := *s
+				if cp.TargetApplicantIDs == nil {
+					cp.TargetApplicantIDs = []uuid.UUID{}
+				}
 
 				// Calculate memory attendances
 				total := 0
@@ -169,6 +217,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 	query := `
 		SELECT s.id, s.program_id, s.track_id, COALESCE(t.name, ''), s.title, s.description, s.session_type,
 			s.start_time, s.end_time, s.meeting_url, s.recording_url, s.mentor_id, COALESCE(u.name, ''),
+			COALESCE(s.target_applicant_ids, '[]'::jsonb),
 			s.created_at, s.updated_at,
 			COALESCE(att_stats.total_fellows, 0),
 			COALESCE(att_stats.present_count, 0),
@@ -190,7 +239,15 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			GROUP BY session_id
 		) att_stats ON s.id = att_stats.session_id
 		LEFT JOIN session_attendances fa ON s.id = fa.session_id AND fa.applicant_id = $3
-		WHERE s.program_id = $1 AND ($2::uuid IS NULL OR s.track_id IS NULL OR s.track_id = $2::uuid)
+		WHERE s.program_id = $1
+			AND ($2::uuid IS NULL OR s.track_id IS NULL OR s.track_id = $2::uuid)
+			AND (
+				$3::uuid IS NULL
+				OR (
+					jsonb_array_length(COALESCE(s.target_applicant_ids, '[]'::jsonb)) = 0
+					OR s.target_applicant_ids @> to_jsonb($3::text)
+				)
+			)
 		ORDER BY s.start_time ASC
 	`
 	rows, err := r.pool.Query(ctx, query, programID, trackID, fellowApplicantID)
@@ -202,6 +259,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 	var list []model.ProgramSession
 	for rows.Next() {
 		var s model.ProgramSession
+		var rawTargets []byte
 		var faID *uuid.UUID
 		var faStatus *string
 		var faCheckedInAt *time.Time
@@ -211,11 +269,19 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 		if err := rows.Scan(
 			&s.ID, &s.ProgramID, &s.TrackID, &s.TrackName, &s.Title, &s.Description, &s.SessionType,
 			&s.StartTime, &s.EndTime, &s.MeetingURL, &s.RecordingURL, &s.MentorID, &s.MentorName,
+			&rawTargets,
 			&s.CreatedAt, &s.UpdatedAt,
 			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount,
 			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan list by program: %w", err)
+		}
+
+		if len(rawTargets) > 0 {
+			_ = json.Unmarshal(rawTargets, &s.TargetApplicantIDs)
+		}
+		if s.TargetApplicantIDs == nil {
+			s.TargetApplicantIDs = []uuid.UUID{}
 		}
 
 		if s.TotalFellows > 0 {
@@ -241,6 +307,10 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 
 func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramSession) (*model.ProgramSession, error) {
 	s.UpdatedAt = time.Now()
+	if s.TargetApplicantIDs == nil {
+		s.TargetApplicantIDs = []uuid.UUID{}
+	}
+
 	if r.pool == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -257,26 +327,37 @@ func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramS
 		existing.RecordingURL = s.RecordingURL
 		existing.MentorID = s.MentorID
 		existing.TrackID = s.TrackID
+		existing.TargetApplicantIDs = s.TargetApplicantIDs
 		existing.UpdatedAt = s.UpdatedAt
 		cp := *existing
 		return &cp, nil
 	}
 
+	rawTargets, _ := json.Marshal(s.TargetApplicantIDs)
+	if len(rawTargets) == 0 {
+		rawTargets = []byte("[]")
+	}
+
 	query := `
 		UPDATE program_sessions
 		SET title = $2, description = $3, session_type = $4, start_time = $5, end_time = $6,
-			meeting_url = $7, recording_url = $8, mentor_id = $9, track_id = $10, updated_at = now()
+			meeting_url = $7, recording_url = $8, mentor_id = $9, track_id = $10,
+			target_applicant_ids = $11, updated_at = now()
 		WHERE id = $1
 		RETURNING id, program_id, track_id, title, description, session_type,
-			start_time, end_time, meeting_url, recording_url, mentor_id, created_at, updated_at
+			start_time, end_time, meeting_url, recording_url, mentor_id,
+			target_applicant_ids, created_at, updated_at
 	`
 	var res model.ProgramSession
+	var resRawTargets []byte
 	err := r.pool.QueryRow(ctx, query,
 		s.ID, s.Title, s.Description, string(s.SessionType), s.StartTime, s.EndTime,
 		s.MeetingURL, s.RecordingURL, s.MentorID, s.TrackID,
+		rawTargets,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
+		&resRawTargets,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -284,6 +365,12 @@ func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramS
 	}
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: update session: %w", err)
+	}
+	if len(resRawTargets) > 0 {
+		_ = json.Unmarshal(resRawTargets, &res.TargetApplicantIDs)
+	}
+	if res.TargetApplicantIDs == nil {
+		res.TargetApplicantIDs = []uuid.UUID{}
 	}
 	return &res, nil
 }
@@ -324,6 +411,18 @@ func (r *SessionRepository) GetSessionAttendanceList(ctx context.Context, sessio
 			for _, f := range fellows {
 				if session.TrackID != nil && f.TrackID != nil && *session.TrackID != *f.TrackID {
 					continue
+				}
+				if len(session.TargetApplicantIDs) > 0 {
+					targeted := false
+					for _, tid := range session.TargetApplicantIDs {
+						if tid == f.ID {
+							targeted = true
+							break
+						}
+					}
+					if !targeted {
+						continue
+					}
 				}
 				key := fmt.Sprintf("%s:%s", sessionID, f.ID)
 				att, exists := r.memAttendances[key]
@@ -367,9 +466,10 @@ func (r *SessionRepository) GetSessionAttendanceList(ctx context.Context, sessio
 			AND a.current_stage = 'approved_for_live'
 			AND a.deleted_at IS NULL
 			AND ($3::uuid IS NULL OR a.track_id IS NULL OR a.track_id = $3::uuid)
+			AND ($4::uuid[] IS NULL OR cardinality($4::uuid[]) = 0 OR a.id = ANY($4::uuid[]))
 		ORDER BY a.full_name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, sessionID, session.ProgramID, session.TrackID)
+	rows, err := r.pool.Query(ctx, query, sessionID, session.ProgramID, session.TrackID, session.TargetApplicantIDs)
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: get attendance list: %w", err)
 	}
@@ -515,14 +615,30 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 		var summaries []model.FellowAttendanceSummary
 		if r.appRepo != nil {
 			fellows, _ := r.appRepo.ListByProgram(ctx, programID, string(model.StageApprovedForLive))
-			totalSessions := 0
-			for _, s := range r.memSessions {
-				if s.ProgramID == programID {
-					totalSessions++
-				}
-			}
 
 			for _, f := range fellows {
+				totalSessions := 0
+				for _, s := range r.memSessions {
+					if s.ProgramID == programID {
+						if s.TrackID != nil && f.TrackID != nil && *s.TrackID != *f.TrackID {
+							continue
+						}
+						if len(s.TargetApplicantIDs) > 0 {
+							targeted := false
+							for _, tid := range s.TargetApplicantIDs {
+								if tid == f.ID {
+									targeted = true
+									break
+								}
+							}
+							if !targeted {
+								continue
+							}
+						}
+						totalSessions++
+					}
+				}
+
 				present := 0
 				late := 0
 				absent := 0
@@ -571,7 +687,7 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 
 	query := `
 		WITH prog_sessions AS (
-			SELECT id, track_id
+			SELECT id, track_id, COALESCE(target_applicant_ids, '[]'::jsonb) as target_applicant_ids
 			FROM program_sessions
 			WHERE program_id = $1
 		),
@@ -588,7 +704,10 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 			f.full_name,
 			f.email,
 			f.track_name,
-			(SELECT COUNT(*) FROM prog_sessions ps WHERE ps.track_id IS NULL OR ps.track_id = f.track_id) as total_sessions,
+			(SELECT COUNT(*) FROM prog_sessions ps 
+			 WHERE (ps.track_id IS NULL OR ps.track_id = f.track_id)
+			   AND (jsonb_array_length(ps.target_applicant_ids) = 0 OR ps.target_applicant_ids @> to_jsonb(f.id::text))
+			) as total_sessions,
 			COUNT(att.id) FILTER (WHERE att.status = 'present') as present_count,
 			COUNT(att.id) FILTER (WHERE att.status = 'late') as late_count,
 			COUNT(att.id) FILTER (WHERE att.status = 'absent') as absent_count,

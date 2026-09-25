@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { mentorService } from '@/services/mentorService';
 import { useAuthStore } from '@/hooks/useAuthStore';
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
+import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -85,6 +87,11 @@ export const MentorDashboardPage: React.FC = () => {
     });
   }, [fellowsList, searchFellowQuery]);
 
+  // Check if any fellow in this program has a track assigned
+  const hasTracks = useMemo(() => {
+    return fellowsList.some((f) => Boolean(f.track_name && f.track_name.trim() !== ''));
+  }, [fellowsList]);
+
   // Sidebar navigation items
   const navItems: NavItem[] = [
     {
@@ -113,6 +120,12 @@ export const MentorDashboardPage: React.FC = () => {
       icon: Calendar,
       badge: overview?.active_sessions || undefined,
       onClick: () => setActiveNavId('sessions'),
+    },
+    {
+      id: 'assignments',
+      label: 'Assignments & Grading',
+      icon: FileText,
+      onClick: () => setActiveNavId('assignments'),
     },
   ];
 
@@ -314,7 +327,16 @@ export const MentorDashboardPage: React.FC = () => {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center gap-2">
+                    <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                      <Link
+                        to={`/programs/${prog.org_slug}/${prog.program_slug}/room`}
+                        className="btn btn-sm bg-kulkul-purple hover:bg-[#431970] text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                        title="Enter Program Room to collaborate with fellows"
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>Room</span>
+                      </Link>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -331,13 +353,13 @@ export const MentorDashboardPage: React.FC = () => {
                         type="button"
                         onClick={() => {
                           setSelectedProgramId(prog.program_id);
-                          setActiveNavId('sessions');
+                          setActiveNavId('assignments');
                         }}
                         className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-kulkul-purple flex items-center gap-1.5"
-                        title="Manage Sessions & Attendance"
+                        title="Manage Assignments & Grading"
                       >
-                        <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
-                        <span>Sessions</span>
+                        <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
+                        <span>Tasks</span>
                       </button>
                     </div>
                   </div>
@@ -360,7 +382,7 @@ export const MentorDashboardPage: React.FC = () => {
                   <span>Cohort Fellows Directory</span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Review applicant profiles, tracks, and contact details of candidates in your programs.
+                  Review applicant profiles{hasTracks ? ', tracks,' : ''} and contact details of candidates in your programs.
                 </p>
               </div>
 
@@ -416,7 +438,7 @@ export const MentorDashboardPage: React.FC = () => {
                   <thead className="bg-slate-50/75 border-b border-slate-200 text-3xs font-extrabold uppercase tracking-wider text-slate-400">
                     <tr>
                       <th className="py-3.5 px-6">Fellow Details</th>
-                      <th className="py-3.5 px-6 whitespace-nowrap">Track</th>
+                      {hasTracks && <th className="py-3.5 px-6 whitespace-nowrap">Track</th>}
                       <th className="py-3.5 px-6 whitespace-nowrap">Stage</th>
                       <th className="py-3.5 px-6 whitespace-nowrap">Assessment</th>
                       <th className="py-3.5 px-6 whitespace-nowrap">Profiles</th>
@@ -446,15 +468,17 @@ export const MentorDashboardPage: React.FC = () => {
                           )}
                         </td>
 
-                        <td className="py-3.5 px-6 whitespace-nowrap">
-                          {fellow.track_name ? (
-                            <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-100">
-                              {fellow.track_name}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">General Track</span>
-                          )}
-                        </td>
+                        {hasTracks && (
+                          <td className="py-3.5 px-6 whitespace-nowrap">
+                            {fellow.track_name ? (
+                              <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-100">
+                                {fellow.track_name}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">&mdash;</span>
+                            )}
+                          </td>
+                        )}
 
                         <td className="py-3.5 px-6 whitespace-nowrap">
                           <span
@@ -575,13 +599,15 @@ export const MentorDashboardPage: React.FC = () => {
               </div>
 
               {/* Quick Info Grid */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-3xs font-extrabold uppercase text-slate-400">Track</span>
-                  <div className="font-bold text-slate-800 mt-0.5">
-                    {selectedFellow.track_name || 'General Fellowship Track'}
+              <div className={`grid ${selectedFellow.track_name ? 'grid-cols-2' : 'grid-cols-1'} gap-3 text-xs`}>
+                {selectedFellow.track_name && (
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span className="text-3xs font-extrabold uppercase text-slate-400">Track</span>
+                    <div className="font-bold text-slate-800 mt-0.5">
+                      {selectedFellow.track_name}
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                   <span className="text-3xs font-extrabold uppercase text-slate-400">Stage</span>
                   <div className="font-bold text-emerald-700 capitalize mt-0.5">
@@ -738,6 +764,41 @@ export const MentorDashboardPage: React.FC = () => {
             ) : (
               <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
                 <p className="text-xs text-slate-500 font-bold">No active program found to schedule sessions for.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 6. ASSIGNMENTS & COHORT GRADING */}
+        {/* ========================================================================= */}
+        {activeNavId === 'assignments' && (
+          <div className="space-y-4">
+            {programs.length > 1 && (
+              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-700">Active Program:</span>
+                <select
+                  value={activeProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
+                  className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                >
+                  {programs.map((p) => (
+                    <option key={p.program_id} value={p.program_id}>
+                      {p.program_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {activeProgramId ? (
+              <ProgramAssignmentsView
+                programId={activeProgramId}
+                isMentorOrAdmin={true}
+              />
+            ) : (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                <p className="text-xs text-slate-500 font-bold">No active program found to manage assignments for.</p>
               </div>
             )}
           </div>

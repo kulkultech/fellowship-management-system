@@ -14,6 +14,8 @@ const (
 	SessionTypeMentorshipSync SessionType = "mentorship_sync"
 	SessionTypeDemoDay        SessionType = "demo_day"
 	SessionTypeGeneral        SessionType = "general"
+	SessionType1On1           SessionType = "1_on_1"
+	SessionTypeGroupSync      SessionType = "group_sync"
 )
 
 type AttendanceStatus string
@@ -26,21 +28,22 @@ const (
 )
 
 type ProgramSession struct {
-	ID           uuid.UUID   `json:"id"`
-	ProgramID    uuid.UUID   `json:"program_id"`
-	TrackID      *uuid.UUID  `json:"track_id,omitempty"`
-	TrackName    string      `json:"track_name,omitempty"`
-	Title        string      `json:"title"`
-	Description  string      `json:"description"`
-	SessionType  SessionType `json:"session_type"`
-	StartTime    time.Time   `json:"start_time"`
-	EndTime      time.Time   `json:"end_time"`
-	MeetingURL   string      `json:"meeting_url"`
-	RecordingURL string      `json:"recording_url,omitempty"`
-	MentorID     *uuid.UUID  `json:"mentor_id,omitempty"`
-	MentorName   string      `json:"mentor_name,omitempty"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	ID                 uuid.UUID   `json:"id"`
+	ProgramID          uuid.UUID   `json:"program_id"`
+	TrackID            *uuid.UUID  `json:"track_id,omitempty"`
+	TrackName          string      `json:"track_name,omitempty"`
+	Title              string      `json:"title"`
+	Description        string      `json:"description"`
+	SessionType        SessionType `json:"session_type"`
+	StartTime          time.Time   `json:"start_time"`
+	EndTime            time.Time   `json:"end_time"`
+	MeetingURL         string      `json:"meeting_url"`
+	RecordingURL       string      `json:"recording_url,omitempty"`
+	MentorID           *uuid.UUID  `json:"mentor_id,omitempty"`
+	MentorName         string      `json:"mentor_name,omitempty"`
+	TargetApplicantIDs []uuid.UUID `json:"target_applicant_ids"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
 
 	// Attendance stats (computed on queries)
 	TotalFellows   int `json:"total_fellows,omitempty"`
