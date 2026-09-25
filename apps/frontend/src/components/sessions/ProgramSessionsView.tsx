@@ -15,7 +15,6 @@ import {
   Video,
   Plus,
   Users,
-  UserCheck,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
@@ -152,7 +151,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   });
   const allFellows = fellowsData?.fellows || [];
 
-  const [formAudience, setFormAudience] = useState<'all' | '1_on_1' | 'group'>('all');
+  const [formAudience, setFormAudience] = useState<'all' | 'group'>('all');
   const [selectedFellowIds, setSelectedFellowIds] = useState<string[]>([]);
   const [fellowSearch, setFellowSearch] = useState('');
 
@@ -193,10 +192,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormDescription(sess.description || '');
     setFormType(sess.session_type);
 
-    if (sess.target_applicant_ids && sess.target_applicant_ids.length === 1) {
-      setFormAudience('1_on_1');
-      setSelectedFellowIds(sess.target_applicant_ids);
-    } else if (sess.target_applicant_ids && sess.target_applicant_ids.length > 1) {
+    if (sess.target_applicant_ids && sess.target_applicant_ids.length > 0) {
       setFormAudience('group');
       setSelectedFellowIds(sess.target_applicant_ids);
     } else {
@@ -223,9 +219,6 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   // Create / Update Mutation
   const saveSessionMutation = useMutation({
     mutationFn: async () => {
-      if (formAudience === '1_on_1' && selectedFellowIds.length !== 1) {
-        throw new Error('Please select exactly 1 fellow for a 1-on-1 session');
-      }
       if (formAudience === 'group' && selectedFellowIds.length === 0) {
         throw new Error('Please select at least 1 fellow for a group session');
       }
@@ -571,22 +564,17 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
-                          <span className="text-3xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                             {sess.session_type.replace('_', ' ')}
                           </span>
-                          {sess.target_applicant_ids && sess.target_applicant_ids.length === 1 ? (
-                            <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                              <UserCheck className="w-2.5 h-2.5" />
-                              1-on-1
-                            </span>
-                          ) : sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
-                            <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
-                              <Users className="w-2.5 h-2.5" />
-                              Group ({sess.target_applicant_ids.length} fellows)
+                          {sess.target_applicant_ids && sess.target_applicant_ids.length > 0 ? (
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              Group ({sess.target_applicant_ids.length} {sess.target_applicant_ids.length === 1 ? 'fellow' : 'fellows'})
                             </span>
                           ) : null}
                           {sess.track_name && tracks.length > 0 && (
-                            <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
                               {sess.track_name}
                             </span>
                           )}
@@ -788,23 +776,24 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center">
-                  <Calendar className="w-4 h-4" />
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center">
+                  <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
+                  <h3 className="text-xl font-bold text-slate-900">
                     {editingSession ? 'Edit Fellowship Session' : 'Schedule Fellowship Session'}
                   </h3>
-                  <p className="text-2xs text-slate-500">Coordinate cohort live lectures, workshops, or syncs</p>
+                  <p className="text-sm text-slate-500 mt-0.5">Coordinate cohort live lectures, workshops, or syncs</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="btn btn-sm btn-ghost btn-circle text-slate-400 hover:text-slate-700"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -816,7 +805,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               className="space-y-4"
             >
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Session Title *
                 </label>
                 <input
@@ -825,118 +814,112 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   placeholder="e.g. Distributed Systems Architecture & Sync"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="input input-sm input-bordered w-full rounded-xl text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white"
                 />
               </div>
 
               {/* Target Audience Selector */}
               <div className="space-y-2.5">
-                <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Target Audience *
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => {
                       setFormAudience('all');
                       setSelectedFellowIds([]);
                     }}
-                    className={`py-2 px-2.5 rounded-xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
                       formAudience === 'all'
-                        ? 'border-kulkul-purple bg-purple-50/60 ring-2 ring-purple-100'
+                        ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <Users className={`w-3.5 h-3.5 ${formAudience === 'all' ? 'text-kulkul-purple' : 'text-slate-400'}`} />
-                      <span className="text-2xs font-extrabold text-slate-900">All Fellows</span>
+                    <div
+                      className={`p-2 rounded-xl shrink-0 ${
+                        formAudience === 'all'
+                          ? 'bg-kulkul-purple text-white'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
                     </div>
-                    <span className="text-3xs text-slate-500">
-                      {tracks.length > 0 ? 'Cohort or track' : 'Cohort-wide'}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormAudience('1_on_1');
-                      setFormType('1_on_1');
-                      if (selectedFellowIds.length > 1) {
-                        setSelectedFellowIds(selectedFellowIds.slice(0, 1));
-                      }
-                    }}
-                    className={`py-2 px-2.5 rounded-xl border text-left flex flex-col gap-1 transition cursor-pointer ${
-                      formAudience === '1_on_1'
-                        ? 'border-kulkul-purple bg-purple-50/60 ring-2 ring-purple-100'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <UserCheck className={`w-3.5 h-3.5 ${formAudience === '1_on_1' ? 'text-kulkul-purple' : 'text-slate-400'}`} />
-                      <span className="text-2xs font-extrabold text-slate-900">1-on-1 Session</span>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">All Fellows</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {tracks.length > 0 ? 'Cohort or track-wide' : 'Cohort-wide'}
+                      </div>
                     </div>
-                    <span className="text-3xs text-slate-500">
-                      {selectedFellowIds.length === 1 ? '1 fellow selected' : 'Pick 1 fellow'}
-                    </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
                       setFormAudience('group');
-                      setFormType('group_sync');
+                      if (formType === 'live_lecture') {
+                        setFormType('group_sync');
+                      }
                     }}
-                    className={`py-2 px-2.5 rounded-xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
                       formAudience === 'group'
-                        ? 'border-kulkul-purple bg-purple-50/60 ring-2 ring-purple-100'
+                        ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <Users className={`w-3.5 h-3.5 ${formAudience === 'group' ? 'text-kulkul-purple' : 'text-slate-400'}`} />
-                      <span className="text-2xs font-extrabold text-slate-900">Group Session</span>
+                    <div
+                      className={`p-2 rounded-xl shrink-0 ${
+                        formAudience === 'group'
+                          ? 'bg-kulkul-purple text-white'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
                     </div>
-                    <span className="text-3xs text-slate-500">
-                      {selectedFellowIds.length > 0 ? `${selectedFellowIds.length} selected` : 'Pick group'}
-                    </span>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">Group Session</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {selectedFellowIds.length > 0
+                          ? `${selectedFellowIds.length} fellow${selectedFellowIds.length > 1 ? 's' : ''} selected`
+                          : 'Select specific fellows'}
+                      </div>
+                    </div>
                   </button>
                 </div>
 
-                {formAudience !== 'all' && (
-                  <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                {formAudience === 'group' && (
+                  <div className="space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
                           placeholder={tracks.length > 0 ? "Search fellows by name, email, or track..." : "Search fellows by name or email..."}
                           value={fellowSearch}
                           onChange={(e) => setFellowSearch(e.target.value)}
-                          className="input input-xs input-bordered w-full pl-8 text-xs rounded-xl bg-white"
+                          className="w-full pl-9 pr-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 bg-white"
                         />
                       </div>
-                      {formAudience === 'group' && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFellowIds(allFellows.map((f) => f.id))}
-                            className="text-3xs font-extrabold text-kulkul-purple hover:underline cursor-pointer"
-                          >
-                            Select All
-                          </button>
-                          <span className="text-slate-300">|</span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFellowIds([])}
-                            className="text-3xs font-extrabold text-slate-500 hover:underline cursor-pointer"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFellowIds(allFellows.map((f) => f.id))}
+                          className="text-xs font-semibold text-kulkul-purple hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFellowIds([])}
+                          className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                       {filteredFellows.length === 0 ? (
                         <div className="text-center py-4 text-xs text-slate-400">
                           No fellows found matching "{fellowSearch}"
@@ -947,41 +930,32 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           return (
                             <label
                               key={fellow.id}
-                              className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition ${
+                              className={`flex items-center justify-between p-2.5 rounded-xl border text-sm cursor-pointer transition ${
                                 isChecked
                                   ? 'bg-purple-50/70 border-purple-200'
                                   : 'bg-white border-slate-200 hover:bg-slate-50'
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="flex items-center gap-3 min-w-0">
                                 <input
-                                  type={formAudience === '1_on_1' ? 'radio' : 'checkbox'}
-                                  name="sessionFellowTarget"
+                                  type="checkbox"
                                   checked={isChecked}
                                   onChange={(e) => {
-                                    if (formAudience === '1_on_1') {
-                                      setSelectedFellowIds([fellow.id]);
+                                    if (e.target.checked) {
+                                      setSelectedFellowIds((prev) => [...prev, fellow.id]);
                                     } else {
-                                      if (e.target.checked) {
-                                        setSelectedFellowIds((prev) => [...prev, fellow.id]);
-                                      } else {
-                                        setSelectedFellowIds((prev) => prev.filter((id) => id !== fellow.id));
-                                      }
+                                      setSelectedFellowIds((prev) => prev.filter((id) => id !== fellow.id));
                                     }
                                   }}
-                                  className={
-                                    formAudience === '1_on_1'
-                                      ? 'radio radio-xs radio-primary'
-                                      : 'checkbox checkbox-xs checkbox-primary rounded'
-                                  }
+                                  className="checkbox checkbox-sm checkbox-primary rounded"
                                 />
                                 <div className="truncate">
-                                  <span className="font-bold text-slate-900">{fellow.full_name}</span>
-                                  <span className="text-slate-400 text-3xs ml-1.5">({fellow.email})</span>
+                                  <span className="font-semibold text-slate-900">{fellow.full_name}</span>
+                                  <span className="text-slate-400 text-xs ml-1.5">({fellow.email})</span>
                                 </div>
                               </div>
                               {fellow.track_name && tracks.length > 0 && (
-                                <span className="text-3xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0 font-medium ml-2">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 font-medium ml-2">
                                   {fellow.track_name}
                                 </span>
                               )}
@@ -990,12 +964,25 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         })
                       )}
                     </div>
+
+                    <div className="text-xs text-slate-500 font-medium flex items-center justify-between pt-1">
+                      <span>
+                        {selectedFellowIds.length === 0
+                          ? 'No fellows selected (must select at least 1)'
+                          : `${selectedFellowIds.length} fellow${selectedFellowIds.length > 1 ? 's' : ''} selected`}
+                      </span>
+                      {selectedFellowIds.length > 0 && (
+                        <span className="text-kulkul-purple font-semibold">
+                          {selectedFellowIds.length} / {allFellows.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Session Type
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1004,7 +991,6 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       { id: 'live_lecture', label: 'Live Lecture' },
                       { id: 'workshop', label: 'Workshop' },
                       { id: 'mentorship_sync', label: 'Mentor Sync' },
-                      { id: '1_on_1', label: '1-on-1' },
                       { id: 'group_sync', label: 'Group Sync' },
                       { id: 'demo_day', label: 'Demo Day' },
                     ] as const
@@ -1013,10 +999,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       key={t.id}
                       type="button"
                       onClick={() => setFormType(t.id)}
-                      className={`py-2 px-3 rounded-xl text-2xs font-bold border transition ${
+                      className={`py-2 px-3 rounded-xl text-sm font-medium border transition cursor-pointer ${
                         formType === t.id
-                          ? 'bg-kulkul-purple text-white border-kulkul-purple shadow-xs'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          ? 'bg-kulkul-purple text-white border-kulkul-purple shadow-xs font-semibold'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
                       {t.label}
@@ -1027,7 +1013,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                     Start Date &amp; Time *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1036,20 +1022,20 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formStartDate}
                       onChange={(e) => setFormStartDate(e.target.value)}
-                      className="input input-sm input-bordered w-full rounded-xl text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     />
                     <input
                       type="time"
                       required
                       value={formStartTime}
                       onChange={(e) => setFormStartTime(e.target.value)}
-                      className="input input-sm input-bordered w-full rounded-xl text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                     End Date &amp; Time *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1058,32 +1044,32 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formEndDate}
                       onChange={(e) => setFormEndDate(e.target.value)}
-                      className="input input-sm input-bordered w-full rounded-xl text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     />
                     <input
                       type="time"
                       required
                       value={formEndTime}
                       onChange={(e) => setFormEndTime(e.target.value)}
-                      className="input input-sm input-bordered w-full rounded-xl text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Meeting URL (Google Meet / Zoom) *
                 </label>
                 <div className="relative">
-                  <Video className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Video className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="url"
                     required
                     placeholder="https://meet.google.com/xyz-abcd-efg"
                     value={formMeetingUrl}
                     onChange={(e) => setFormMeetingUrl(e.target.value)}
-                    className="input input-sm input-bordered w-full pl-9 rounded-xl text-xs"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white"
                   />
                 </div>
               </div>
@@ -1091,13 +1077,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {tracks.length > 0 && (
                   <div>
-                    <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Assigned Track (Optional)
                     </label>
                     <select
                       value={formTrackId}
                       onChange={(e) => setFormTrackId(e.target.value)}
-                      className="select select-sm select-bordered w-full rounded-xl text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     >
                       <option value="">All Cohort Fellows</option>
                       {tracks.map((t) => (
@@ -1111,13 +1097,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
                 {mentors.length > 0 && (
                   <div>
-                    <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Session Host / Mentor
                     </label>
                     <select
                       value={formMentorId}
                       onChange={(e) => setFormMentorId(e.target.value)}
-                      className="select select-sm select-bordered w-full rounded-xl text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     >
                       <option value="">Select Mentor</option>
                       {mentors.map((m) => (
@@ -1131,34 +1117,34 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-600 tracking-wider mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Description / Agenda (Optional)
                 </label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   placeholder="Outline topics covered, pre-read assignments, or prerequisites..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  className="textarea textarea-bordered w-full rounded-xl text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white resize-y"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="btn btn-sm btn-ghost text-slate-600"
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saveSessionMutation.isPending}
-                  className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-kulkul-purple hover:bg-[#250d43] text-white shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {saveSessionMutation.isPending ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Saving...</span>
                     </>
                   ) : (

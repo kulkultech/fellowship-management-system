@@ -678,17 +678,17 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
       <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div>
-            <h3 className="text-lg font-black text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900">
               {existing ? 'Edit Assignment' : 'Create New Cohort Assignment'}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-slate-500 mt-0.5">
               Assign deliverables, due dates, and starter code to your fellowship cohort.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -696,7 +696,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Assignment Title *
             </label>
             <input
@@ -705,20 +705,20 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               placeholder="e.g. Sprint 1: Concurrency Pipeline in Go"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="input input-bordered w-full text-xs font-semibold rounded-xl"
+              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white"
             />
           </div>
 
           <div className={tracks.length > 0 ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : ""}>
             {tracks.length > 0 && (
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Target Track
                 </label>
                 <select
                   value={trackId}
                   onChange={(e) => setTrackId(e.target.value)}
-                  className="select select-bordered w-full text-xs font-semibold rounded-xl"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                 >
                   <option value="">All Fellows (Program-Wide)</option>
                   {tracks.map((t) => (
@@ -731,7 +731,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
             )}
 
             <div>
-              <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Max Score (Points)
               </label>
               <input
@@ -740,28 +740,28 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                 max={1000}
                 value={maxScore}
                 onChange={(e) => setMaxScore(Number(e.target.value))}
-                className="input input-bordered w-full text-xs font-semibold rounded-xl"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
               />
             </div>
           </div>
 
           {/* Target Audience Selector */}
-          <div className="space-y-3 pt-1">
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider">
+          <div className="space-y-2.5 pt-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Target Audience
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setTargetAudience('all')}
-                className={`p-3 rounded-2xl border text-left flex items-start gap-2.5 transition cursor-pointer ${
+                className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
                   targetAudience === 'all'
                     ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
                 }`}
               >
                 <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+                  className={`p-2 rounded-xl shrink-0 ${
                     targetAudience === 'all'
                       ? 'bg-kulkul-purple text-white'
                       : 'bg-slate-100 text-slate-500'
@@ -770,8 +770,8 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-900">All Fellows</div>
-                  <div className="text-3xs text-slate-500">
+                  <div className="text-sm font-bold text-slate-900">All Fellows</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
                     {tracks.length > 0 ? 'Cohort or track-wide' : 'Cohort-wide'}
                   </div>
                 </div>
@@ -780,14 +780,14 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               <button
                 type="button"
                 onClick={() => setTargetAudience('specific')}
-                className={`p-3 rounded-2xl border text-left flex items-start gap-2.5 transition cursor-pointer ${
+                className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
                   targetAudience === 'specific'
                     ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
                 }`}
               >
                 <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+                  className={`p-2 rounded-xl shrink-0 ${
                     targetAudience === 'specific'
                       ? 'bg-kulkul-purple text-white'
                       : 'bg-slate-100 text-slate-500'
@@ -796,10 +796,10 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                   <UserCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-900">Specific Fellows / Group</div>
-                  <div className="text-3xs text-slate-500">
+                  <div className="text-sm font-bold text-slate-900">Specific Fellows / Group</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
                     {selectedFellowIds.length > 0
-                      ? `${selectedFellowIds.length} selected`
+                      ? `${selectedFellowIds.length} fellow${selectedFellowIds.length > 1 ? 's' : ''} selected`
                       : 'Assign to 1 or small group'}
                   </div>
                 </div>
@@ -807,23 +807,23 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
             </div>
 
             {targetAudience === 'specific' && (
-              <div className="space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+              <div className="space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       placeholder={tracks.length > 0 ? "Search fellows by name, email, or track..." : "Search fellows by name or email..."}
                       value={fellowSearch}
                       onChange={(e) => setFellowSearch(e.target.value)}
-                      className="input input-xs input-bordered w-full pl-8 text-xs rounded-xl bg-white"
+                      className="w-full pl-9 pr-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 bg-white"
                     />
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedFellowIds(allFellows.map((f) => f.id))}
-                      className="text-3xs font-extrabold text-kulkul-purple hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-kulkul-purple hover:underline cursor-pointer"
                     >
                       Select All
                     </button>
@@ -831,14 +831,14 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setSelectedFellowIds([])}
-                      className="text-3xs font-extrabold text-slate-500 hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
                     >
                       Clear
                     </button>
                   </div>
                 </div>
 
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {filteredFellows.length === 0 ? (
                     <div className="text-center py-4 text-xs text-slate-400">
                       No fellows found matching "{fellowSearch}"
@@ -849,13 +849,13 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                       return (
                         <label
                           key={fellow.id}
-                          className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition ${
+                          className={`flex items-center justify-between p-2.5 rounded-xl border text-sm cursor-pointer transition ${
                             isChecked
                               ? 'bg-purple-50/70 border-purple-200'
                               : 'bg-white border-slate-200 hover:bg-slate-50'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
                             <input
                               type="checkbox"
                               checked={isChecked}
@@ -866,15 +866,15 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                                   setSelectedFellowIds((prev) => prev.filter((id) => id !== fellow.id));
                                 }
                               }}
-                              className="checkbox checkbox-xs checkbox-primary rounded"
+                              className="checkbox checkbox-sm checkbox-primary rounded"
                             />
                             <div className="truncate">
-                              <span className="font-bold text-slate-900">{fellow.full_name}</span>
-                              <span className="text-slate-400 text-3xs ml-1.5">({fellow.email})</span>
+                              <span className="font-semibold text-slate-900">{fellow.full_name}</span>
+                              <span className="text-slate-400 text-xs ml-1.5">({fellow.email})</span>
                             </div>
                           </div>
                           {fellow.track_name && tracks.length > 0 && (
-                            <span className="text-3xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 ml-2">
                               {fellow.track_name}
                             </span>
                           )}
@@ -884,7 +884,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                   )}
                 </div>
 
-                <div className="text-3xs text-slate-500 font-semibold flex items-center justify-between pt-1">
+                <div className="text-xs text-slate-500 font-medium flex items-center justify-between pt-1">
                   <span>
                     {selectedFellowIds.length === 0
                       ? 'No fellows selected (must select at least 1)'
@@ -893,7 +893,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                       : `${selectedFellowIds.length} fellows selected (Group assignment)`}
                   </span>
                   {selectedFellowIds.length > 0 && (
-                    <span className="text-kulkul-purple font-bold">
+                    <span className="text-kulkul-purple font-semibold">
                       {selectedFellowIds.length} / {allFellows.length}
                     </span>
                   )}
@@ -904,25 +904,25 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Submission Due Date &amp; Time
               </label>
               <input
                 type="datetime-local"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="input input-bordered w-full text-xs font-semibold rounded-xl"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Publication Status
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className="select select-bordered w-full text-xs font-semibold rounded-xl"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
               >
                 <option value="published">Published (Visible to Fellows)</option>
                 <option value="draft">Draft (Hidden)</option>
@@ -931,7 +931,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Instructions &amp; Requirements
             </label>
             <textarea
@@ -939,18 +939,18 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               placeholder="Outline project deliverables, edge cases, grading criteria, and required repository structure..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="textarea textarea-bordered w-full text-xs font-normal rounded-xl leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white leading-relaxed resize-y"
             />
           </div>
 
           {/* Starter Attachment Upload */}
           <div>
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Starter Materials / Template File (Optional)
             </label>
             {attachmentUrl ? (
-              <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-kulkul-purple truncate">
+              <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-kulkul-purple truncate">
                   <FileText className="w-4 h-4 shrink-0" />
                   <span className="truncate">{attachmentName || 'Attachment Uploaded'}</span>
                 </div>
@@ -960,13 +960,13 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                     setAttachmentUrl('');
                     setAttachmentName('');
                   }}
-                  className="text-xs text-rose-600 hover:underline font-bold"
+                  className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
                 >
                   Remove
                 </button>
               </div>
             ) : (
-              <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:border-kulkul-purple transition">
+              <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-5 text-center hover:border-kulkul-purple transition cursor-pointer">
                 <input
                   type="file"
                   onChange={handleFileUpload}
@@ -979,10 +979,10 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                   ) : (
                     <UploadCloud className="w-6 h-6 text-kulkul-purple" />
                   )}
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-sm font-semibold text-slate-700">
                     {isUploading ? 'Uploading starter archive...' : 'Upload starter .zip, .pdf, or template'}
                   </span>
-                  <span className="text-3xs text-slate-400">Up to 100MB supported</span>
+                  <span className="text-xs text-slate-400">Up to 100MB supported</span>
                 </div>
               </div>
             )}
@@ -993,14 +993,14 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={mutation.isPending}
-              className="btn btn-sm btn-ghost rounded-xl font-bold text-slate-600"
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={mutation.isPending || isUploading}
-              className="btn btn-sm bg-kulkul-purple hover:bg-[#431970] text-white font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-kulkul-purple hover:bg-[#431970] text-white shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
             >
               {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               <span>{existing ? 'Save Changes' : 'Publish Assignment'}</span>
@@ -1094,17 +1094,17 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
       <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div>
-            <h3 className="text-lg font-black text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900">
               {existing ? 'Edit / Resubmit Assignment' : 'Submit Assignment'}
             </h3>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-sm text-slate-500 mt-0.5">
               {assignment.title} &bull; Max {assignment.max_score} pts
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1113,7 +1113,7 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* File Upload Area */}
           <div>
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1.5">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Upload Work Deliverable (.zip, .pdf, .tar.gz, code files)
             </label>
             {fileUrl ? (
@@ -1121,8 +1121,8 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                 <div className="flex items-center gap-2.5 truncate">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                   <div className="truncate">
-                    <p className="text-xs font-bold text-slate-900 truncate">{fileName || 'Uploaded Deliverable'}</p>
-                    {fileSize > 0 && <p className="text-3xs text-slate-500">{formatBytes(fileSize)}</p>}
+                    <p className="text-sm font-semibold text-slate-900 truncate">{fileName || 'Uploaded Deliverable'}</p>
+                    {fileSize > 0 && <p className="text-xs text-slate-500">{formatBytes(fileSize)}</p>}
                   </div>
                 </div>
                 <button
@@ -1132,7 +1132,7 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                     setFileName('');
                     setFileSize(0);
                   }}
-                  className="text-xs text-rose-600 hover:underline font-bold ml-2 shrink-0"
+                  className="text-xs text-rose-600 hover:underline font-semibold ml-2 shrink-0 cursor-pointer"
                 >
                   Change File
                 </button>
@@ -1151,10 +1151,10 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                   ) : (
                     <UploadCloud className="w-7 h-7 text-emerald-600 group-hover:scale-110 transition-transform" />
                   )}
-                  <span className="text-xs font-bold text-slate-800">
+                  <span className="text-sm font-semibold text-slate-800">
                     {isUploading ? 'Uploading deliverable...' : 'Click or drag files here to upload'}
                   </span>
-                  <span className="text-3xs text-slate-400">Supports .zip, .tar.gz, .pdf, .docx, code archives up to 100MB</span>
+                  <span className="text-xs text-slate-400">Supports .zip, .tar.gz, .pdf, .docx, code archives up to 100MB</span>
                 </div>
               </div>
             )}
@@ -1162,11 +1162,11 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
 
           {/* GitHub Repository URL */}
           <div>
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               GitHub / Code Repository URL (Optional)
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <Github className="w-4 h-4" />
               </div>
               <input
@@ -1174,14 +1174,14 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                 placeholder="https://github.com/username/project-repo"
                 value={githubUrl}
                 onChange={(e) => setGithubUrl(e.target.value)}
-                className="input input-bordered w-full pl-9 text-xs font-semibold rounded-xl"
+                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
               />
             </div>
           </div>
 
           {/* Fellow Notes */}
           <div>
-            <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Submission Notes / Remarks to Mentor
             </label>
             <textarea
@@ -1189,7 +1189,7 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
               placeholder="Explain how you approached the challenge, key engineering trade-offs, or instructions to run your code..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="textarea textarea-bordered w-full text-xs rounded-xl leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white leading-relaxed resize-y"
             />
           </div>
 
@@ -1198,14 +1198,14 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={mutation.isPending}
-              className="btn btn-sm btn-ghost rounded-xl font-bold text-slate-600"
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={mutation.isPending || isUploading}
-              className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
             >
               {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
               <span>{existing ? 'Confirm Resubmission' : 'Submit Assignment'}</span>
@@ -1433,7 +1433,7 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                 {/* Grade & Feedback Form */}
                 <form onSubmit={handleSaveGrade} className="space-y-4">
                   <div>
-                    <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Assigned Score (Max {assignment.max_score} pts) *
                     </label>
                     <input
@@ -1445,12 +1445,12 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       placeholder={`0 - ${assignment.max_score}`}
                       value={scoreInput}
                       onChange={(e) => setScoreInput(e.target.value)}
-                      className="input input-bordered w-full text-xs font-semibold rounded-xl"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-2xs font-extrabold uppercase text-slate-700 tracking-wider mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Mentor Feedback &amp; Suggestions
                     </label>
                     <textarea
@@ -1458,7 +1458,7 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       placeholder="Highlight strong architectural choices, concurrency safety, clean code principles, and areas for improvement..."
                       value={feedbackInput}
                       onChange={(e) => setFeedbackInput(e.target.value)}
-                      className="textarea textarea-bordered w-full text-xs rounded-xl leading-relaxed"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white leading-relaxed resize-y"
                     />
                   </div>
 
@@ -1466,7 +1466,7 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                     <button
                       type="submit"
                       disabled={gradeMutation.isPending}
-                      className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+                      className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
                     >
                       {gradeMutation.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
