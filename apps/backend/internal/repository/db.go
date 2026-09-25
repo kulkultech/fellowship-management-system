@@ -322,6 +322,7 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		checked_in_at TIMESTAMPTZ,
 		marked_by UUID REFERENCES users(id) ON DELETE SET NULL,
 		notes TEXT NOT NULL DEFAULT '',
+		proof_image_url TEXT NOT NULL DEFAULT '',
 		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 		CONSTRAINT uq_session_attendance UNIQUE (session_id, applicant_id)
@@ -376,6 +377,8 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 
 	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS target_applicant_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
 	CREATE INDEX IF NOT EXISTS idx_program_sessions_target_applicants ON program_sessions USING gin (target_applicant_ids);
+
+	ALTER TABLE session_attendances ADD COLUMN IF NOT EXISTS proof_image_url TEXT NOT NULL DEFAULT '';
 	`
 
 	if _, err := pool.Exec(ctx, schema); err != nil {

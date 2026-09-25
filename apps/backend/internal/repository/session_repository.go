@@ -224,7 +224,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			COALESCE(att_stats.late_count, 0),
 			COALESCE(att_stats.absent_count, 0),
 			COALESCE(att_stats.excused_count, 0),
-			fa.id, fa.status, fa.checked_in_at, fa.marked_by, COALESCE(fa.notes, '')
+			fa.id, fa.status, fa.checked_in_at, fa.marked_by, COALESCE(fa.notes, ''), COALESCE(fa.proof_image_url, '')
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
 		LEFT JOIN users u ON s.mentor_id = u.id
@@ -265,6 +265,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 		var faCheckedInAt *time.Time
 		var faMarkedBy *uuid.UUID
 		var faNotes string
+		var faProofImageURL string
 
 		if err := rows.Scan(
 			&s.ID, &s.ProgramID, &s.TrackID, &s.TrackName, &s.Title, &s.Description, &s.SessionType,
@@ -272,7 +273,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			&rawTargets,
 			&s.CreatedAt, &s.UpdatedAt,
 			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount,
-			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes,
+			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes, &faProofImageURL,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan list by program: %w", err)
 		}
@@ -290,13 +291,14 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 
 		if faID != nil && faStatus != nil && fellowApplicantID != nil {
 			s.FellowAttendance = &model.SessionAttendance{
-				ID:          *faID,
-				SessionID:   s.ID,
-				ApplicantID: *fellowApplicantID,
-				Status:      model.AttendanceStatus(*faStatus),
-				CheckedInAt: faCheckedInAt,
-				MarkedBy:    faMarkedBy,
-				Notes:       faNotes,
+				ID:            *faID,
+				SessionID:     s.ID,
+				ApplicantID:   *fellowApplicantID,
+				Status:        model.AttendanceStatus(*faStatus),
+				CheckedInAt:   faCheckedInAt,
+				MarkedBy:      faMarkedBy,
+				Notes:         faNotes,
+				ProofImageURL: faProofImageURL,
 			}
 		}
 
@@ -457,6 +459,7 @@ func (r *SessionRepository) GetSessionAttendanceList(ctx context.Context, sessio
 			att.checked_in_at,
 			att.marked_by,
 			COALESCE(att.notes, '') as notes,
+			COALESCE(att.proof_image_url, '') as proof_image_url,
 			COALESCE(att.created_at, now()) as created_at,
 			COALESCE(att.updated_at, now()) as updated_at
 		FROM applicants a
@@ -482,7 +485,7 @@ func (r *SessionRepository) GetSessionAttendanceList(ctx context.Context, sessio
 		var statusStr string
 		if err := rows.Scan(
 			&item.ApplicantID, &item.FellowName, &item.FellowEmail, &item.TrackName,
-			&item.ID, &statusStr, &item.CheckedInAt, &item.MarkedBy, &item.Notes,
+			&item.ID, &statusStr, &item.CheckedInAt, &item.MarkedBy, &item.Notes, &item.ProofImageURL,
 			&item.CreatedAt, &item.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan attendance list: %w", err)
@@ -544,7 +547,7 @@ func (r *SessionRepository) BatchUpdateAttendance(ctx context.Context, sessionID
 	return nil
 }
 
-func (r *SessionRepository) FellowCheckIn(ctx context.Context, sessionID uuid.UUID, applicantID uuid.UUID) (*model.SessionAttendance, error) {
+func (r *SessionRepository) FellowCheckIn(ctx context.Context, sessionID uuid.UUID, applicantID uuid.UUID, proofImageURL string, notes string) (*model.SessionAttendance, error) {
 	session, err := r.GetSessionByID(ctx, sessionID)
 	if err != nil {
 		return nil, err
@@ -567,18 +570,26 @@ func (r *SessionRepository) FellowCheckIn(ctx context.Context, sessionID uuid.UU
 			if existing.CheckedInAt == nil {
 				existing.CheckedInAt = &now
 			}
+			if proofImageURL != "" {
+				existing.ProofImageURL = proofImageURL
+			}
+			if notes != "" {
+				existing.Notes = notes
+			}
 			existing.UpdatedAt = now
 			cp := *existing
 			return &cp, nil
 		}
 		newAtt := &model.SessionAttendance{
-			ID:          uuid.New(),
-			SessionID:   sessionID,
-			ApplicantID: applicantID,
-			Status:      status,
-			CheckedInAt: &now,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:            uuid.New(),
+			SessionID:     sessionID,
+			ApplicantID:   applicantID,
+			Status:        status,
+			CheckedInAt:   &now,
+			ProofImageURL: proofImageURL,
+			Notes:         notes,
+			CreatedAt:     now,
+			UpdatedAt:     now,
 		}
 		r.memAttendances[key] = newAtt
 		cp := *newAtt
@@ -587,19 +598,21 @@ func (r *SessionRepository) FellowCheckIn(ctx context.Context, sessionID uuid.UU
 
 	query := `
 		INSERT INTO session_attendances (
-			session_id, applicant_id, status, checked_in_at, updated_at
-		) VALUES ($1, $2, $3, $4, now())
+			session_id, applicant_id, status, checked_in_at, proof_image_url, notes, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, now())
 		ON CONFLICT (session_id, applicant_id)
 		DO UPDATE SET
 			status = CASE WHEN session_attendances.status = 'excused' THEN 'excused' ELSE EXCLUDED.status END,
 			checked_in_at = COALESCE(session_attendances.checked_in_at, EXCLUDED.checked_in_at),
+			proof_image_url = CASE WHEN EXCLUDED.proof_image_url <> '' THEN EXCLUDED.proof_image_url ELSE session_attendances.proof_image_url END,
+			notes = CASE WHEN EXCLUDED.notes <> '' THEN EXCLUDED.notes ELSE session_attendances.notes END,
 			updated_at = now()
-		RETURNING id, session_id, applicant_id, status, checked_in_at, marked_by, notes, created_at, updated_at
+		RETURNING id, session_id, applicant_id, status, checked_in_at, marked_by, notes, COALESCE(proof_image_url, ''), created_at, updated_at
 	`
 	var res model.SessionAttendance
 	var statusStr string
-	err = r.pool.QueryRow(ctx, query, sessionID, applicantID, string(status), now).Scan(
-		&res.ID, &res.SessionID, &res.ApplicantID, &statusStr, &res.CheckedInAt, &res.MarkedBy, &res.Notes, &res.CreatedAt, &res.UpdatedAt,
+	err = r.pool.QueryRow(ctx, query, sessionID, applicantID, string(status), now, proofImageURL, notes).Scan(
+		&res.ID, &res.SessionID, &res.ApplicantID, &statusStr, &res.CheckedInAt, &res.MarkedBy, &res.Notes, &res.ProofImageURL, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: fellow check in: %w", err)

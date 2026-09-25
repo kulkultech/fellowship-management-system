@@ -703,6 +703,7 @@ export interface SessionAttendance {
   checked_in_at?: string;
   marked_by?: string;
   notes?: string;
+  proof_image_url?: string;
   created_at?: string;
   updated_at?: string;
   fellow_name?: string;

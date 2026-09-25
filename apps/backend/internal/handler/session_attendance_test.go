@@ -169,9 +169,31 @@ func TestSessionAndAttendance_Flow(t *testing.T) {
 		}
 	})
 
-	// Test 3: Fellow Self Check-In
-	t.Run("Fellow self checks in to session", func(t *testing.T) {
+	// Test 3: Fellow Self Check-In Requires Screenshot Proof
+	t.Run("Fellow check-in rejected without screenshot proof", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/programs/%s/sessions/%s/check-in", program.ID, createdSessionID), nil)
+		claims := &auth.Claims{
+			UserID: uuid.New(),
+			Email:  fellow1.Email,
+			Role:   model.RoleCandidate,
+		}
+		req = req.WithContext(middleware.WithUser(req.Context(), claims))
+		rec := httptest.NewRecorder()
+
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 Bad Request when screenshot proof is missing, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("Fellow self checks in to session with screenshot proof", func(t *testing.T) {
+		payload := map[string]any{
+			"proof_image_url": "https://storage.kulkul.tech/attendance/proof-alice-meet.png",
+			"notes":           "Joined via Google Meet on laptop",
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/programs/%s/sessions/%s/check-in", program.ID, createdSessionID), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
 		claims := &auth.Claims{
 			UserID: uuid.New(),
 			Email:  fellow1.Email,
@@ -197,6 +219,9 @@ func TestSessionAndAttendance_Flow(t *testing.T) {
 		}
 		if res.Attendance.Status != model.AttendanceStatusPresent {
 			t.Errorf("expected status 'present', got '%s'", res.Attendance.Status)
+		}
+		if res.Attendance.ProofImageURL != "https://storage.kulkul.tech/attendance/proof-alice-meet.png" {
+			t.Errorf("expected proof_image_url to match, got '%s'", res.Attendance.ProofImageURL)
 		}
 	})
 

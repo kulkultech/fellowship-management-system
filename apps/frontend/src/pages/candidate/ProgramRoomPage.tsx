@@ -25,9 +25,16 @@ import {
   Award,
   FileText,
   UserCheck,
+  Upload,
+  Image as ImageIcon,
+  Eye,
+  X,
+  Camera,
+  ShieldCheck,
 } from 'lucide-react';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
-import type { SessionType } from '@/services/types';
+import { uploadService } from '@/services/uploadService';
+import type { SessionType, ProgramSession, SessionAttendance } from '@/services/types';
 
 interface FellowSession {
   id: string;
@@ -50,6 +57,14 @@ export const ProgramRoomPage: React.FC = () => {
     authUser?.role === 'org_admin' ||
     authUser?.role === 'superadmin'
   );
+
+  // Check-In with Proof State
+  const [checkInSession, setCheckInSession] = useState<ProgramSession | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string>('');
+  const [checkInNotes, setCheckInNotes] = useState<string>('');
+  const [isUploadingProof, setIsUploadingProof] = useState<boolean>(false);
+  const [viewProofAttendance, setViewProofAttendance] = useState<SessionAttendance | null>(null);
 
   // 1. Fetch Program Info
   const { data: progData, isLoading: isLoadingProg } = useQuery({
@@ -87,12 +102,15 @@ export const ProgramRoomPage: React.FC = () => {
 
   // Check-In Mutation
   const checkInMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
+    mutationFn: async (payload: { sessionId: string; proof_image_url: string; notes?: string }) => {
       if (!program?.id) return;
-      return sessionService.fellowCheckIn(program.id, sessionId);
+      return sessionService.fellowCheckIn(program.id, payload.sessionId, {
+        proof_image_url: payload.proof_image_url,
+        notes: payload.notes,
+      });
     },
     onSuccess: (data) => {
-      toast.success(data?.message || 'Attendance check-in confirmed!');
+      toast.success(data?.message || 'Attendance check-in confirmed with proof!');
       queryClient.invalidateQueries({ queryKey: ['candidate-program-sessions', program?.id] });
     },
     onError: (err: any) => {
@@ -114,6 +132,60 @@ export const ProgramRoomPage: React.FC = () => {
     const status = rate >= 80 ? 'Good' : rate >= 65 ? 'Warning' : 'At Risk';
     return { total, attended, rate, status };
   }, [realSessions]);
+
+  const handleProofFileSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (PNG, JPG, WEBP)');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be less than 10MB');
+      return;
+    }
+    setProofFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setProofPreviewUrl(objectUrl);
+  };
+
+  const handlePasteProof = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          handleProofFileSelect(file);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
+  const handlePerformCheckIn = async () => {
+    if (!checkInSession || !proofFile || !program?.id) {
+      toast.error('Screenshot proof is required to validate attendance');
+      return;
+    }
+
+    try {
+      setIsUploadingProof(true);
+      const uploadRes = await uploadService.uploadFile(proofFile, 'attendance');
+      await checkInMutation.mutateAsync({
+        sessionId: checkInSession.id,
+        proof_image_url: uploadRes.url,
+        notes: checkInNotes.trim(),
+      });
+      setCheckInSession(null);
+      setProofFile(null);
+      setProofPreviewUrl('');
+      setCheckInNotes('');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err.message || 'Failed to upload proof and check in');
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
 
   const isLoading = isLoadingProg || isLoadingCand;
 
@@ -452,12 +524,24 @@ export const ProgramRoomPage: React.FC = () => {
 
                           <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
                             {isCheckedIn ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                <span>
-                                  Checked In ({sess.fellow_attendance?.status === 'late' ? 'Late' : 'Present'})
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                  <span>
+                                    Checked In ({sess.fellow_attendance?.status === 'late' ? 'Late' : 'Present'})
+                                  </span>
                                 </span>
-                              </span>
+                                {sess.fellow_attendance?.proof_image_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewProofAttendance(sess.fellow_attendance!)}
+                                    className="btn btn-sm btn-ghost text-emerald-800 hover:bg-emerald-100 font-bold flex items-center gap-1.5 border border-emerald-200"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>View Proof</span>
+                                  </button>
+                                )}
+                              </div>
                             ) : isExcused ? (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
                                 <span>Excused</span>
@@ -465,15 +549,15 @@ export const ProgramRoomPage: React.FC = () => {
                             ) : (
                               <button
                                 type="button"
-                                disabled={checkInMutation.isPending}
-                                onClick={() => checkInMutation.mutate(sess.id)}
+                                onClick={() => {
+                                  setCheckInSession(sess);
+                                  setProofFile(null);
+                                  setProofPreviewUrl('');
+                                  setCheckInNotes('');
+                                }}
                                 className="btn btn-sm btn-outline text-emerald-800 border-emerald-400 hover:bg-emerald-50 font-bold flex items-center gap-1.5"
                               >
-                                {checkInMutation.isPending ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                )}
+                                <Camera className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>Check-in Attendance</span>
                               </button>
                             )}
@@ -483,12 +567,6 @@ export const ProgramRoomPage: React.FC = () => {
                                 href={sess.meeting_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                onClick={() => {
-                                  // Auto check-in if not yet checked in
-                                  if (!isCheckedIn && !isExcused) {
-                                    checkInMutation.mutate(sess.id);
-                                  }
-                                }}
                                 className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
                               >
                                 <Video className="w-3.5 h-3.5" />
@@ -624,6 +702,234 @@ export const ProgramRoomPage: React.FC = () => {
                 </div>
                 <button className="btn btn-xs btn-outline">Open GitHub</button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Check-In with Proof Screenshot Modal */}
+        {checkInSession && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
+            onPaste={handlePasteProof}
+          >
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Attendance Validation</h3>
+                    <p className="text-xs text-slate-500 line-clamp-1">{checkInSession.title}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckInSession(null);
+                    setProofFile(null);
+                    setProofPreviewUrl('');
+                    setCheckInNotes('');
+                  }}
+                  className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Requirement Notice */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <Camera className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Screenshot proof required: </span>
+                  Please upload a screenshot of your live meeting screen (Google Meet / Zoom) showing your presence to validate your attendance.
+                </div>
+              </div>
+
+              {/* Screenshot Upload / Drop / Paste Area */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Meeting Screenshot</span>
+                  <span className="text-3xs font-semibold text-slate-400">PNG, JPG, or WEBP (Max 10MB)</span>
+                </label>
+
+                {proofPreviewUrl ? (
+                  <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
+                    <div className="relative rounded-xl overflow-hidden max-h-56 bg-black/5 flex items-center justify-center border border-slate-100">
+                      <img
+                        src={proofPreviewUrl}
+                        alt="Screenshot proof preview"
+                        className="object-contain max-h-56 w-full"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <ImageIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="text-xs font-medium text-slate-700 truncate">
+                          {proofFile?.name || 'pasted-screenshot.png'}
+                        </span>
+                        {proofFile?.size && (
+                          <span className="text-3xs text-slate-400 shrink-0">
+                            ({(proofFile.size / 1024).toFixed(0)} KB)
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProofFile(null);
+                          setProofPreviewUrl('');
+                        }}
+                        className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const droppedFile = e.dataTransfer.files?.[0];
+                      if (droppedFile) handleProofFileSelect(droppedFile);
+                    }}
+                    className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/30 rounded-2xl p-6 cursor-pointer transition text-center group"
+                  >
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleProofFileSelect(file);
+                      }}
+                      className="hidden"
+                    />
+                    <div className="w-12 h-12 rounded-2xl bg-white text-slate-400 group-hover:text-emerald-600 flex items-center justify-center shadow-xs border border-slate-200 group-hover:border-emerald-200 mb-2 transition">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-extrabold text-slate-800 group-hover:text-emerald-700">
+                      Click to upload or drag &amp; drop screenshot
+                    </span>
+                    <span className="text-2xs text-slate-500 mt-1">
+                      Tip: You can also paste directly with <kbd className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-3xs">Ctrl+V</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-3xs">⌘+V</kbd>
+                    </span>
+                  </label>
+                )}
+              </div>
+
+              {/* Optional Notes */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Notes / Remarks <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  value={checkInNotes}
+                  onChange={(e) => setCheckInNotes(e.target.value)}
+                  placeholder="e.g. Joined from secondary device, mic muted due to noise..."
+                  rows={2}
+                  className="textarea textarea-bordered w-full rounded-2xl text-xs resize-none"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isUploadingProof || checkInMutation.isPending}
+                  onClick={() => {
+                    setCheckInSession(null);
+                    setProofFile(null);
+                    setProofPreviewUrl('');
+                    setCheckInNotes('');
+                  }}
+                  className="btn btn-sm btn-ghost text-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!proofFile || isUploadingProof || checkInMutation.isPending}
+                  onClick={handlePerformCheckIn}
+                  className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                >
+                  {isUploadingProof || checkInMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Validating Proof...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Submit Attendance Proof</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Submitted Proof Modal */}
+        {viewProofAttendance && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900">Attendance Validation Proof</h3>
+                    <p className="text-2xs text-slate-500">
+                      Status: <span className="font-bold text-emerald-700 uppercase">{viewProofAttendance.status}</span>
+                      {viewProofAttendance.checked_in_at && ` • ${new Date(viewProofAttendance.checked_in_at).toLocaleString()}`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewProofAttendance(null)}
+                  className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {viewProofAttendance.proof_image_url ? (
+                <div className="space-y-3">
+                  <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900/5 max-h-[70vh] flex items-center justify-center">
+                    <img
+                      src={viewProofAttendance.proof_image_url}
+                      alt="Uploaded Attendance Proof"
+                      className="object-contain max-h-[60vh] w-full"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    {viewProofAttendance.notes ? (
+                      <p className="text-slate-600 italic">
+                        <span className="font-semibold not-italic text-slate-800">Fellow Note: </span>
+                        {viewProofAttendance.notes}
+                      </p>
+                    ) : (
+                      <span className="text-slate-400">No additional notes submitted.</span>
+                    )}
+                    <a
+                      href={viewProofAttendance.proof_image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-xs btn-outline font-bold flex items-center gap-1 shrink-0 ml-3"
+                    >
+                      <span>Full Resolution</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-slate-400">
+                  <p className="text-xs">No screenshot proof recorded for this attendance record.</p>
+                </div>
+              )}
             </div>
           </div>
         )}

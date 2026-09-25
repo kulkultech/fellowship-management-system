@@ -62,10 +62,11 @@ type SessionAttendance struct {
 	SessionID   uuid.UUID        `json:"session_id"`
 	ApplicantID uuid.UUID        `json:"applicant_id"`
 	Status      AttendanceStatus `json:"status"`
-	CheckedInAt *time.Time       `json:"checked_in_at,omitempty"`
-	MarkedBy    *uuid.UUID       `json:"marked_by,omitempty"`
-	Notes       string           `json:"notes,omitempty"`
-	CreatedAt   time.Time        `json:"created_at"`
+	CheckedInAt   *time.Time       `json:"checked_in_at,omitempty"`
+	MarkedBy      *uuid.UUID       `json:"marked_by,omitempty"`
+	Notes         string           `json:"notes,omitempty"`
+	ProofImageURL string           `json:"proof_image_url,omitempty"`
+	CreatedAt     time.Time        `json:"created_at"`
 	UpdatedAt   time.Time        `json:"updated_at"`
 
 	// Joined Fellow Info

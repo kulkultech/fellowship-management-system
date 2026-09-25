@@ -30,6 +30,8 @@ import {
   Sparkles,
   Award,
   AlertTriangle,
+  Eye,
+  Camera,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -95,8 +97,23 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
   // Local Attendance State for Check Sheet (optimistic batch editing)
   const [attendanceSheet, setAttendanceSheet] = useState<
-    Array<{ applicant_id: string; status: AttendanceStatus; notes: string; fellow_name: string; track_name: string }>
+    Array<{
+      applicant_id: string;
+      status: AttendanceStatus;
+      notes: string;
+      fellow_name: string;
+      track_name: string;
+      proof_image_url?: string;
+    }>
   >([]);
+
+  // Mentor Screenshot Proof Lightbox State
+  const [previewProof, setPreviewProof] = useState<{
+    fellow_name: string;
+    proof_image_url: string;
+    notes?: string;
+    status: string;
+  } | null>(null);
 
   // Sync attendanceSheet when sessionAttendanceList loads
   React.useEffect(() => {
@@ -108,6 +125,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
           notes: a.notes || '',
           fellow_name: a.fellow_name || 'Fellow',
           track_name: a.track_name || '',
+          proof_image_url: a.proof_image_url || '',
         }))
       );
     }
@@ -1224,6 +1242,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       <th className="px-4 py-3">Fellow</th>
                       {tracks.length > 0 && <th className="px-3 py-3">Track</th>}
                       <th className="px-4 py-3 text-center">Attendance Status</th>
+                      <th className="px-4 py-3 text-center">Proof Screenshot</th>
                       <th className="px-4 py-3">Notes / Remarks</th>
                     </tr>
                   </thead>
@@ -1257,6 +1276,34 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                               </button>
                             ))}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {item.proof_image_url ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewProof({
+                                  fellow_name: item.fellow_name,
+                                  proof_image_url: item.proof_image_url!,
+                                  notes: item.notes,
+                                  status: item.status,
+                                })
+                              }
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 text-3xs font-extrabold transition shadow-2xs group"
+                            >
+                              <div className="w-5 h-5 rounded-md overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
+                                <img
+                                  src={item.proof_image_url}
+                                  alt="Proof thumbnail"
+                                  className="w-full h-full object-cover group-hover:scale-110 transition"
+                                />
+                              </div>
+                              <Eye className="w-3 h-3 text-purple-600" />
+                              <span>View Proof</span>
+                            </button>
+                          ) : (
+                            <span className="text-3xs text-slate-400 font-medium italic">No screenshot</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <input
@@ -1306,6 +1353,62 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mentor Proof Screenshot Lightbox Modal */}
+      {previewProof && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">{previewProof.fellow_name}</h3>
+                  <p className="text-2xs text-slate-500">
+                    Attendance Status: <span className="font-bold text-slate-800 uppercase">{previewProof.status}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewProof(null)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900/5 max-h-[65vh] flex items-center justify-center">
+              <img
+                src={previewProof.proof_image_url}
+                alt={`Proof by ${previewProof.fellow_name}`}
+                className="object-contain max-h-[60vh] w-full"
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1">
+              {previewProof.notes ? (
+                <p className="text-slate-600 italic">
+                  <span className="font-semibold not-italic text-slate-800">Remark: </span>
+                  {previewProof.notes}
+                </p>
+              ) : (
+                <span className="text-slate-400">No remarks provided.</span>
+              )}
+              <a
+                href={previewProof.proof_image_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-xs btn-outline font-bold flex items-center gap-1.5 shrink-0 ml-3"
+              >
+                <span>Open Full Size</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
           </div>
         </div>

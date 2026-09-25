@@ -53,9 +53,10 @@ export const sessionService = {
 
   fellowCheckIn: async (
     programId: string,
-    sessionId: string
+    sessionId: string,
+    payload: { proof_image_url: string; notes?: string }
   ): Promise<{ message: string; attendance: SessionAttendance }> => {
-    const res = await apiClient.post(`/programs/${programId}/sessions/${sessionId}/check-in`);
+    const res = await apiClient.post(`/programs/${programId}/sessions/${sessionId}/check-in`, payload);
     return res.data;
   },
 

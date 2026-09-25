@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -418,6 +419,12 @@ func (h *SessionHandler) BatchUpdateAttendance(w http.ResponseWriter, r *http.Re
 	httpx.JSON(w, http.StatusOK, map[string]string{"message": "attendance updated successfully"})
 }
 
+// FellowCheckInRequest payload
+type FellowCheckInRequest struct {
+	ProofImageURL string `json:"proof_image_url"`
+	Notes         string `json:"notes,omitempty"`
+}
+
 // FellowCheckIn handles POST /api/v1/programs/{programId}/sessions/{sessionId}/check-in
 func (h *SessionHandler) FellowCheckIn(w http.ResponseWriter, r *http.Request) {
 	programIDStr := chi.URLParam(r, "programId")
@@ -482,7 +489,18 @@ func (h *SessionHandler) FellowCheckIn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	att, err := h.sessionRepo.FellowCheckIn(r.Context(), sessionID, acceptedApp.ID)
+	var req FellowCheckInRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	proofURL := strings.TrimSpace(req.ProofImageURL)
+	if proofURL == "" {
+		httpx.Error(w, http.StatusBadRequest, "screenshot proof is required to validate attendance")
+		return
+	}
+
+	att, err := h.sessionRepo.FellowCheckIn(r.Context(), sessionID, acceptedApp.ID, proofURL, strings.TrimSpace(req.Notes))
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to check in: "+err.Error())
 		return
