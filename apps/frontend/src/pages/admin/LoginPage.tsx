@@ -34,7 +34,7 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogleSignIn = () => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-    window.location.href = `${apiBase}/auth/oauth/google?return_to=/admin/dashboard`;
+    window.location.href = `${apiBase}/auth/oauth/google`;
   };
 
   const handlePasswordLogin = async (e: React.FormEvent) => {

@@ -5,7 +5,6 @@ import {
   X,
   LogOut,
   User as UserIcon,
-  Building2,
   ShieldCheck,
   ChevronDown,
   ChevronRight,
@@ -180,15 +179,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </Link>
             )}
 
-            {user?.role === 'superadmin' && portalType === 'superadmin' && (
-              <Link
-                to="/admin/dashboard"
-                className="btn btn-md btn-outline whitespace-nowrap"
-              >
-                <Building2 className="w-4 h-4 text-kulkul-purple" />
-                <span>Company Workspace</span>
-              </Link>
-            )}
 
             {/* Sign Out Button (Only shown when logged in) */}
             {((portalType === 'candidate' && Boolean(candidateEmail)) || (portalType !== 'candidate' && Boolean(user))) && (

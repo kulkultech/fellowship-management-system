@@ -13,7 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
@@ -549,10 +548,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	var orgIDStr *string
 	var orgInfo *OrganizationInfo
 	targetOrgID := user.OrganizationID
-	if targetOrgID == nil && claims.Role == model.RoleSuperadmin {
-		primaryID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-		targetOrgID = &primaryID
-	}
 
 	if targetOrgID != nil {
 		s := targetOrgID.String()

@@ -254,13 +254,13 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			redirectURL = "/admin/dashboard"
 		}
 	} else if user.Role == "superadmin" {
-		if returnTo != "" && !strings.Contains(returnTo, "candidate") {
+		if returnTo != "" && !strings.Contains(returnTo, "candidate") && returnTo != "/admin/dashboard" && returnTo != "/admin/login" && returnTo != "/login" {
 			redirectURL = returnTo
 		} else {
 			redirectURL = "/superadmin/dashboard"
 		}
 	} else if user.Role == "mentor" {
-		if returnTo != "" && !strings.Contains(returnTo, "candidate") {
+		if returnTo != "" && !strings.Contains(returnTo, "candidate") && returnTo != "/admin/dashboard" && returnTo != "/admin/login" && returnTo != "/login" {
 			redirectURL = returnTo
 		} else {
 			redirectURL = "/mentor/dashboard"

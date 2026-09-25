@@ -224,6 +224,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   }, [user, navigate]);
 
+  // Guard: Superadmin without an impersonated org_id should land on superadmin console
+  useEffect(() => {
+    if (user && user.role === 'superadmin' && !impersonatedOrgId) {
+      navigate('/superadmin/dashboard', { replace: true });
+    }
+  }, [user, impersonatedOrgId, navigate]);
+
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
   // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions'
   const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions'>(initialView);

@@ -52,7 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Link
               to={
                 showAdminNav
-                  ? user?.role === 'mentor'
+                  ? user?.role === 'superadmin'
+                    ? '/superadmin/dashboard'
+                    : user?.role === 'mentor'
                     ? '/mentor/dashboard'
                     : '/admin/dashboard'
                   : '/'
