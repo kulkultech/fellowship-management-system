@@ -12,6 +12,7 @@ import {
   Mail,
   Lock,
   Sparkles,
+  Clock,
 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -158,6 +159,7 @@ export const CompanyRegisterPage: React.FC = () => {
       }
       await queryClient.invalidateQueries({ queryKey: ['auth'] });
       setIsSuccess(true);
+      toast.success('Application submitted! Awaiting administrator approval.');
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Registration failed. Please check the inputs.');
     } finally {
@@ -238,22 +240,21 @@ export const CompanyRegisterPage: React.FC = () => {
             </div>
           </div>
         ) : isSuccess ? (
-          /* WORKSPACE READY CONFIRMATION (Pre-verified Google OAuth) */
-          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-slate-100">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-8 h-8" />
+          /* REGISTRATION SUBMITTED - PENDING APPROVAL CONFIRMATION */
+          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-amber-200">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
+              <Clock className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-                Workspace Active &middot; Ready to Launch
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                Registration Submitted &middot; Pending Review
               </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-4">
-                Welcome to FellowHire, {companyName}!
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-3">
+                Application Received!
               </h2>
               <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-md mx-auto leading-relaxed">
-                Your company workspace is active. Your administrator account{' '}
-                <span className="font-semibold text-slate-900">{adminEmail}</span> is authenticated and ready to launch fellowship programs.
+                Thank you for registering <strong>{companyName}</strong>. Your company registration has been submitted and is currently pending approval by the platform administrator.
               </p>
             </div>
 
@@ -267,30 +268,35 @@ export const CompanyRegisterPage: React.FC = () => {
                 <span className="font-mono text-kulkul-purple font-bold">{companySlug}</span>
               </div>
               <div className="flex items-center justify-between font-medium">
-                <span className="text-slate-500">Admin Account:</span>
+                <span className="text-slate-500">Administrator:</span>
                 <span className="font-mono text-slate-900 font-bold">{adminEmail}</span>
               </div>
               <div className="flex items-center justify-between font-medium">
-                <span className="text-slate-500">Role:</span>
-                <span className="text-xs font-bold text-kulkul-purple">
-                  Company Administrator (org_admin)
+                <span className="text-slate-500">Current Status:</span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  <Clock className="w-3 h-3 text-amber-600" />
+                  <span>Pending Approval</span>
                 </span>
               </div>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              You will receive an email confirmation once the administrator approves your company application. Once approved, you can log in to access your dashboard.
+            </p>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to="/admin/dashboard"
-                className="w-full sm:w-auto btn btn-lg btn-primary shadow-md hover:shadow-lg"
+                to="/admin/login"
+                className="w-full sm:w-auto btn btn-md btn-outline"
               >
-                <span>Open Admin Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
+                Go to Sign In
               </Link>
               <Link
                 to="/"
-                className="w-full sm:w-auto btn btn-lg btn-outline text-center"
+                className="w-full sm:w-auto btn btn-md btn-primary"
               >
-                Back to Homepage
+                <span>Return to Homepage</span>
+                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>

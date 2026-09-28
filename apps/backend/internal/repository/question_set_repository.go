@@ -221,7 +221,7 @@ func (r *QuestionSetRepository) List(ctx context.Context, programID *uuid.UUID, 
 	argIdx := 1
 
 	if orgID != nil {
-		conditions = append(conditions, fmt.Sprintf("(qs.organization_id = $%d OR qs.organization_id IS NULL)", argIdx))
+		conditions = append(conditions, fmt.Sprintf("qs.organization_id = $%d", argIdx))
 		args = append(args, *orgID)
 		argIdx++
 	}

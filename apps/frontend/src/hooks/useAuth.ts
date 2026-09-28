@@ -26,8 +26,8 @@ export function useAuth() {
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       authService.login(email, password),
     onSuccess: (data) => {
-      setUser(data.user);
-      queryClient.setQueryData(['auth', 'me'], data.user);
+      setUser(data.user ?? null);
+      queryClient.setQueryData(['auth', 'me'], data.user ?? null);
     },
   });
 

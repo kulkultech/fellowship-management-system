@@ -262,8 +262,8 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Create Organization in approved status so admin can access workspace once activated
-	org, err := h.orgRepo.Register(r.Context(), req.CompanySlug, req.CompanyName, req.ContactEmail, req.LogoURL, model.OrgStatusApproved)
+	// 1. Create Organization in pending_approval status so superadmin must approve before company can access workspace
+	org, err := h.orgRepo.Register(r.Context(), req.CompanySlug, req.CompanyName, req.ContactEmail, req.LogoURL, model.OrgStatusPendingApproval)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to register company")
 		return
@@ -360,6 +360,22 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 		LogoURL:      org.LogoURL,
 		ContactEmail: org.ContactEmail,
 		Status:       string(org.Status),
+	}
+
+	if org.Status == model.OrgStatusPendingApproval {
+		msg := "Company registered successfully! Your application has been submitted and is pending approval by the platform administrator."
+		if requiresActivation {
+			msg = "Company registered successfully! Please check your email to activate your account. Your application will be reviewed by the platform administrator."
+		}
+		httpx.JSON(w, http.StatusCreated, map[string]any{
+			"message":             msg,
+			"status":              string(org.Status),
+			"requires_approval":   true,
+			"requires_activation": requiresActivation,
+			"company":             orgInfo,
+			"admin_email":         user.Email,
+		})
+		return
 	}
 
 	if requiresActivation {
@@ -472,10 +488,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 				Status:       string(org.Status),
 			}
 
-			// Reject login only if company registration was declined
-			if org.Status == model.OrgStatusRejected {
-				httpx.Error(w, http.StatusForbidden, "Your company registration request was declined. Please contact support.")
-				return
+			// Block login for company accounts that are not approved
+			if user.Role != "superadmin" {
+				if org.Status == model.OrgStatusPendingApproval {
+					httpx.Error(w, http.StatusForbidden, "Your company registration is pending approval by the platform administrator. You will receive an email once approved.")
+					return
+				}
+				if org.Status == model.OrgStatusRejected {
+					httpx.Error(w, http.StatusForbidden, "Your company registration request was declined. Please contact support.")
+					return
+				}
+				if org.Status != model.OrgStatusApproved {
+					httpx.Error(w, http.StatusForbidden, "Your company account is inactive. Please contact support.")
+					return
+				}
 			}
 		}
 	}
@@ -704,23 +730,10 @@ func (h *AuthHandler) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	// Self-heal organization link and admin status
 	user, _ = h.userRepo.SyncUserOrgStatus(r.Context(), user)
 
-	sessionToken, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to issue session token")
-		return
-	}
-
-	csrfToken, err := auth.GenerateCSRFToken()
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to issue csrf token")
-		return
-	}
-
-	auth.SetAuthCookies(w, sessionToken, csrfToken, h.cookieOpts)
-
 	var orgInfo *OrganizationInfo
+	var org *model.Organization
 	if user.OrganizationID != nil {
-		org, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
+		org, err = h.orgRepo.GetByID(r.Context(), *user.OrganizationID)
 		if err == nil && org != nil {
 			orgInfo = &OrganizationInfo{
 				ID:           org.ID.String(),
@@ -738,6 +751,44 @@ func (h *AuthHandler) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		s := user.OrganizationID.String()
 		orgIDStr = &s
 	}
+
+	// If company registration is pending approval or rejected, do NOT issue session tokens
+	if user.Role != "superadmin" && org != nil && org.Status != model.OrgStatusApproved {
+		msg := "Email verified successfully! Your company application is pending approval by the platform administrator."
+		if org.Status == model.OrgStatusRejected {
+			msg = "Email verified, but your company registration request was declined."
+		}
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"message":           msg,
+			"status":            string(org.Status),
+			"requires_approval": true,
+			"user": UserResponse{
+				ID:             user.ID.String(),
+				OrganizationID: orgIDStr,
+				Organization:   orgInfo,
+				Email:          user.Email,
+				Name:           user.Name,
+				AvatarURL:      user.AvatarURL,
+				Role:           user.Role,
+				EmailVerified:  user.EmailVerified,
+			},
+		})
+		return
+	}
+
+	sessionToken, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to issue session token")
+		return
+	}
+
+	csrfToken, err := auth.GenerateCSRFToken()
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to issue csrf token")
+		return
+	}
+
+	auth.SetAuthCookies(w, sessionToken, csrfToken, h.cookieOpts)
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message": "Account activated successfully!",

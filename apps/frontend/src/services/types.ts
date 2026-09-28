@@ -416,8 +416,11 @@ export interface UpdateProfilePayload {
 }
 
 export interface AuthResponse {
-  user: User;
-  csrf_token: string;
+  user?: User;
+  csrf_token?: string;
+  message?: string;
+  requires_approval?: boolean;
+  status?: string;
 }
 
 export interface CandidateRegistrationPayload {
@@ -429,6 +432,7 @@ export interface CandidateRegistrationPayload {
 export interface RegistrationResponse {
   message: string;
   requires_activation?: boolean;
+  requires_approval?: boolean;
   email?: string;
   status?: string;
   company?: Organization;

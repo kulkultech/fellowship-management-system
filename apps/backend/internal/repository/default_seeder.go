@@ -35,11 +35,11 @@ type OptionItem struct {
 
 // SeedDefaultAssessmentPrograms populates standard assessment question banks into PostgreSQL.
 func SeedDefaultAssessmentPrograms(ctx context.Context, pool *pgxpool.Pool, targetOrgID string, logger *slog.Logger) error {
-	if pool == nil || targetOrgID == "" {
+	if pool == nil || targetOrgID != "00000000-0000-0000-0000-000000000001" {
 		return nil
 	}
 
-	_, _ = pool.Exec(ctx, "UPDATE question_sets SET organization_id = $1::uuid WHERE id IN ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000023')", targetOrgID)
+	_, _ = pool.Exec(ctx, "UPDATE question_sets SET organization_id = '00000000-0000-0000-0000-000000000001'::uuid WHERE id IN ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000023')")
 
 	var data QuestionBankData
 	if err := json.Unmarshal(defaultQuestionsJSON, &data); err != nil {

@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/authService';
-import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, RefreshCw, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const LoginPage: React.FC = () => {
   const { user, isAuthenticated, isLoading, login, isLoggingIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const oauthError = searchParams.get('error');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authTab, setAuthTab] = useState<'google' | 'password'>('google');
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [pendingApprovalMsg, setPendingApprovalMsg] = useState<string | null>(
+    oauthError === 'pending_approval'
+      ? 'Your company registration is pending approval by the platform administrator. You will receive an email once approved.'
+      : oauthError === 'rejected'
+      ? 'Your company registration request was declined. Please contact support.'
+      : null
+  );
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
 
@@ -27,6 +36,9 @@ export const LoginPage: React.FC = () => {
       } else if (user.role === 'mentor') {
         navigate('/mentor/dashboard', { replace: true });
       } else if (user.role === 'org_admin' || user.role === 'reviewer') {
+        if (user.organization?.status === 'pending_approval') {
+          return;
+        }
         navigate('/admin/dashboard', { replace: true });
       }
     }
@@ -59,11 +71,15 @@ export const LoginPage: React.FC = () => {
         navigate('/admin/dashboard', { replace: true });
       }
     } catch (err: any) {
+      const errMsg = err?.response?.data?.error || '';
       if (err?.response?.data?.requires_activation) {
         setUnverifiedEmail(err.response.data.email || email.trim().toLowerCase());
         toast.error('Account not activated yet. Please verify your email.');
+      } else if (errMsg.includes('pending approval') || errMsg.includes('declined') || errMsg.includes('inactive')) {
+        setPendingApprovalMsg(errMsg);
+        toast.error(errMsg);
       } else {
-        toast.error(err?.response?.data?.error || 'Invalid email or password');
+        toast.error(errMsg || 'Invalid email or password');
       }
     }
   };
@@ -98,6 +114,18 @@ export const LoginPage: React.FC = () => {
                 Sign in to manage your fellowship programs, question banks, and candidate scorecards.
               </p>
             </div>
+
+            {pendingApprovalMsg && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left text-xs sm:text-sm text-amber-900 space-y-1 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 font-bold text-amber-800">
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Approval Notice</span>
+                </div>
+                <p className="text-amber-700 leading-relaxed text-xs">
+                  {pendingApprovalMsg}
+                </p>
+              </div>
+            )}
 
             {/* Login Method Tabs */}
             <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600">

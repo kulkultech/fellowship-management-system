@@ -86,6 +86,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	oauthHandler := handler.NewOAuthHandler(
 		googleOAuth,
 		userRepo,
+		orgRepo,
 		authSvc,
 		cfg.JWTTTL,
 		cfg.CookieSecure,

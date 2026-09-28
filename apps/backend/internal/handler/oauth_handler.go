@@ -11,12 +11,14 @@ import (
 
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/httpx"
+	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
 )
 
 type OAuthHandler struct {
 	google     *auth.GoogleOAuth
 	userRepo   *repository.UserRepository
+	orgRepo    *repository.OrgRepository
 	authSvc    *auth.Service
 	jwtTTL     time.Duration
 	cookieSec  bool
@@ -28,6 +30,7 @@ type OAuthHandler struct {
 func NewOAuthHandler(
 	google *auth.GoogleOAuth,
 	userRepo *repository.UserRepository,
+	orgRepo *repository.OrgRepository,
 	authSvc *auth.Service,
 	jwtTTL time.Duration,
 	cookieSec bool,
@@ -38,6 +41,7 @@ func NewOAuthHandler(
 	return &OAuthHandler{
 		google:     google,
 		userRepo:   userRepo,
+		orgRepo:    orgRepo,
 		authSvc:    authSvc,
 		jwtTTL:     jwtTTL,
 		cookieSec:  cookieSec,
@@ -226,6 +230,24 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Auto-heal organization affiliation and admin role
 	user, _ = h.userRepo.SyncUserOrgStatus(r.Context(), user)
+
+	// Block Google OAuth sign-in for unapproved or rejected companies
+	if user.Role != "superadmin" && user.OrganizationID != nil && h.orgRepo != nil {
+		if org, err := h.orgRepo.GetByID(r.Context(), *user.OrganizationID); err == nil && org != nil {
+			if org.Status == model.OrgStatusPendingApproval {
+				http.Redirect(w, r, "/login?error=pending_approval", http.StatusFound)
+				return
+			}
+			if org.Status == model.OrgStatusRejected {
+				http.Redirect(w, r, "/login?error=rejected", http.StatusFound)
+				return
+			}
+			if org.Status != model.OrgStatusApproved {
+				http.Redirect(w, r, "/login?error=inactive_company", http.StatusFound)
+				return
+			}
+		}
+	}
 
 	token, err := h.authSvc.GenerateToken(user.ID, user.OrganizationID, user.Email, user.Role)
 	if err != nil {

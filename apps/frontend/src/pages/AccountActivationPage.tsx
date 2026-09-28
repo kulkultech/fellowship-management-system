@@ -9,6 +9,7 @@ import {
   Loader2,
   Building2,
   User,
+  Clock,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -26,6 +27,7 @@ export const AccountActivationPage: React.FC = () => {
   const [loading, setLoading] = useState(Boolean(tokenParam));
   const [error, setError] = useState('');
   const [activatedUser, setActivatedUser] = useState<any>(null);
+  const [isPendingApproval, setIsPendingApproval] = useState(false);
 
   // Resend state
   const [resendEmail, setResendEmail] = useState('');
@@ -48,9 +50,16 @@ export const AccountActivationPage: React.FC = () => {
           if (res.user) {
             setUser(res.user);
             setActivatedUser(res.user);
+            if (res.requires_approval || res.user?.organization?.status === 'pending_approval') {
+              setIsPendingApproval(true);
+            }
           }
           await queryClient.invalidateQueries({ queryKey: ['auth'] });
-          toast.success('Account activated successfully!');
+          if (res.requires_approval || res.user?.organization?.status === 'pending_approval') {
+            toast.success('Email verified! Company application awaiting approval.');
+          } else {
+            toast.success('Account activated successfully!');
+          }
         }
       } catch (err: any) {
         if (isMounted) {
@@ -114,6 +123,60 @@ export const AccountActivationPage: React.FC = () => {
                 <p className="text-body-sm mt-2">
                   Verifying your security credentials and initializing your platform access...
                 </p>
+              </div>
+            </div>
+          ) : isPendingApproval && activatedUser ? (
+            /* Pending Approval State */
+            <div className="stitch-card bg-white p-8 sm:p-10 border border-amber-200 shadow-xl rounded-3xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
+                <Clock className="w-8 h-8" />
+              </div>
+
+              <div>
+                <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                  Email Verified &middot; Awaiting Approval
+                </span>
+                <h1 className="text-2xl font-black text-slate-900 mt-3">
+                  Email Confirmed!
+                </h1>
+                <p className="text-body-sm mt-2 text-slate-600">
+                  Hello <strong className="text-slate-900">{activatedUser.name || activatedUser.email}</strong>, your email has been confirmed. Your company application for <strong>{activatedUser.organization?.name || 'your company'}</strong> is pending approval by the platform administrator.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Company Status:</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <Clock className="w-3 h-3 text-amber-600" />
+                    <span>Pending Superadmin Approval</span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Verified Email:</span>
+                  <span className="font-mono text-slate-700">{activatedUser.email}</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                You will receive an email notification as soon as the administrator approves your company. Once approved, you can log in to your dashboard.
+              </p>
+
+              <div className="pt-2 flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/login')}
+                  className="w-full btn btn-lg btn-outline"
+                >
+                  Go to Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="w-full btn btn-md btn-ghost text-slate-600"
+                >
+                  Return to Homepage
+                </button>
               </div>
             </div>
           ) : activatedUser ? (

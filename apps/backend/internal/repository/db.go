@@ -431,17 +431,6 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		_ = pool.QueryRow(ctx, seedSampleOrgQuery).Scan(&sampleOrgID)
 	}
 
-	if sampleOrgID != "" {
-		// Seed default MCQ Question Banks into PostgreSQL only if this org has 0 question sets
-		var qsCount int
-		_ = pool.QueryRow(ctx, "SELECT count(*) FROM question_sets WHERE organization_id = $1", sampleOrgID).Scan(&qsCount)
-		if qsCount == 0 {
-			if err := SeedDefaultAssessmentPrograms(ctx, pool, sampleOrgID, logger); err != nil {
-				logger.Warn("automigrate: seed default question bank error", slog.Any("error", err))
-			}
-		}
-	}
-
 	// Automatic database self-healing on startup:
 	// 1. If an organization was registered with a user's contact/admin email, ensure user has org_admin role and organization_id set
 	// 2. Ensure any user linked to a company organization has role org_admin (recovers from previous demotion bugs)
