@@ -434,15 +434,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             <span className="text-2xs font-extrabold uppercase tracking-wider">Attendance Health</span>
             <Award className="w-4 h-4 text-[#fe900d]" />
           </div>
-          <div className="flex items-center gap-2 pt-0.5">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <div className="flex items-center gap-3 pt-0.5 text-2xs font-bold">
+            <span className="text-emerald-700">
               {cohortMetrics.goodCount} Good
             </span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            <span className="text-amber-700">
               {cohortMetrics.warningCount} Warn
             </span>
             {cohortMetrics.atRiskCount > 0 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="text-rose-700">
                 {cohortMetrics.atRiskCount} Risk
               </span>
             )}
@@ -564,17 +564,17 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
-                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                             {sess.session_type.replace('_', ' ')}
                           </span>
                           {sess.target_applicant_ids && sess.target_applicant_ids.length > 0 ? (
-                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
-                              <Users className="w-3 h-3" />
+                            <span className="text-xs font-bold text-indigo-700 flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5" />
                               Group ({sess.target_applicant_ids.length} {sess.target_applicant_ids.length === 1 ? 'fellow' : 'fellows'})
                             </span>
                           ) : null}
                           {sess.track_name && tracks.length > 0 && (
-                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
+                            <span className="text-xs font-bold text-kulkul-purple">
                               {sess.track_name}
                             </span>
                           )}
@@ -618,15 +618,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           </span>
                           {sess.attendance_rate !== undefined && (
                             <span
-                              className={`ml-1 px-1.5 py-0.2 rounded text-3xs font-black ${
+                              className={`ml-1 text-3xs font-extrabold ${
                                 sess.attendance_rate >= 80
-                                  ? 'bg-emerald-100 text-emerald-800'
+                                  ? 'text-emerald-700'
                                   : sess.attendance_rate >= 65
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
+                                  ? 'text-amber-700'
+                                  : 'text-rose-700'
                               }`}
                             >
-                              {sess.attendance_rate}%
+                              ({sess.attendance_rate}%)
                             </span>
                           )}
                         </span>
@@ -748,12 +748,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-3xs font-extrabold uppercase tracking-wider ${
+                            className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
                               s.status === 'Good'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                ? 'text-emerald-700'
                                 : s.status === 'Warning'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                ? 'text-amber-700'
+                                : 'text-rose-700'
                             }`}
                           >
                             {s.status === 'Good' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}

@@ -225,7 +225,7 @@ export const MentorDashboardPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-2xl font-black text-slate-900">Room</span>
-                <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-kulkul-purple uppercase">
+                <span className="text-3xs font-extrabold text-kulkul-purple uppercase">
                   Phase 2
                 </span>
               </div>
@@ -242,7 +242,7 @@ export const MentorDashboardPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-2xl font-black text-slate-900">Badges</span>
-                <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase">
+                <span className="text-3xs font-extrabold text-blue-700 uppercase">
                   Phase 5
                 </span>
               </div>
@@ -292,15 +292,15 @@ export const MentorDashboardPage: React.FC = () => {
                     className="bg-white rounded-3xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between overflow-hidden group"
                   >
                     <div className="p-6 space-y-4">
-                      {/* Top badges */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-black uppercase tracking-wider bg-purple-50 text-kulkul-purple border border-purple-100">
-                          <Building2 className="w-3 h-3" />
+                      {/* Top metadata */}
+                      <div className="flex items-center justify-between gap-2 text-2xs font-extrabold">
+                        <span className="inline-flex items-center gap-1.5 uppercase tracking-wider text-kulkul-purple">
+                          <Building2 className="w-3.5 h-3.5" />
                           <span>{prog.org_name}</span>
                         </span>
 
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <Users className="w-3 h-3" />
+                        <span className="inline-flex items-center gap-1 text-emerald-700">
+                          <Users className="w-3.5 h-3.5 text-emerald-600" />
                           <span>{prog.fellow_count} Fellow{prog.fellow_count !== 1 ? 's' : ''}</span>
                         </span>
                       </div>
@@ -471,7 +471,7 @@ export const MentorDashboardPage: React.FC = () => {
                         {hasTracks && (
                           <td className="py-3.5 px-6 whitespace-nowrap">
                             {fellow.track_name ? (
-                              <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-100">
+                              <span className="text-2xs font-extrabold text-kulkul-purple">
                                 {fellow.track_name}
                               </span>
                             ) : (
@@ -482,12 +482,12 @@ export const MentorDashboardPage: React.FC = () => {
 
                         <td className="py-3.5 px-6 whitespace-nowrap">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-2xs font-bold capitalize ${
+                            className={`text-2xs font-bold capitalize ${
                               fellow.current_stage === 'accepted'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'text-emerald-700'
                                 : fellow.current_stage === 'rejected'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-amber-100 text-amber-800'
+                                ? 'text-rose-700'
+                                : 'text-amber-700'
                             }`}
                           >
                             {fellow.current_stage?.replace(/_/g, ' ') || 'Submitted'}

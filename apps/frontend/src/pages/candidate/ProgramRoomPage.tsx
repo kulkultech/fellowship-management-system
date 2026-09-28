@@ -388,12 +388,12 @@ export const ProgramRoomPage: React.FC = () => {
                       Your Attendance Record
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-3xs font-extrabold uppercase tracking-wider ${
+                      className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
                         fellowStats.status === 'Good'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          ? 'text-emerald-700'
                           : fellowStats.status === 'Warning'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          ? 'text-amber-700'
+                          : 'text-rose-700'
                       }`}
                     >
                       <Award className="w-3 h-3" />
@@ -437,7 +437,7 @@ export const ProgramRoomPage: React.FC = () => {
                     Attend scheduled cohort workshops, technical syncs, and orientation sessions.
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>Real-Time Check-In Active</span>
                 </div>
@@ -482,22 +482,22 @@ export const ProgramRoomPage: React.FC = () => {
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
-                                <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                                <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
                                   {sess.session_type.replace('_', ' ')}
                                 </span>
                                 {sess.target_applicant_ids && sess.target_applicant_ids.length === 1 ? (
-                                  <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                  <span className="text-3xs font-extrabold text-amber-700 flex items-center gap-1">
                                     <UserCheck className="w-2.5 h-2.5" />
                                     1-on-1 Session
                                   </span>
                                 ) : sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
-                                  <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                                  <span className="text-3xs font-extrabold text-indigo-700 flex items-center gap-1">
                                     <Users className="w-2.5 h-2.5" />
                                     Group Session
                                   </span>
                                 ) : null}
                                 {sess.track_name && Boolean(program?.tracks && program.tracks.length > 0) && (
-                                  <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-purple-50 text-kulkul-purple border border-purple-200">
+                                  <span className="text-3xs font-extrabold text-kulkul-purple">
                                     {sess.track_name}
                                   </span>
                                 )}
@@ -525,7 +525,7 @@ export const ProgramRoomPage: React.FC = () => {
                           <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
                             {isCheckedIn ? (
                               <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                   <span>
                                     Checked In ({sess.fellow_attendance?.status === 'late' ? 'Late' : 'Present'})
@@ -543,7 +543,7 @@ export const ProgramRoomPage: React.FC = () => {
                                 )}
                               </div>
                             ) : isExcused ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500">
                                 <span>Excused</span>
                               </span>
                             ) : (
@@ -592,7 +592,7 @@ export const ProgramRoomPage: React.FC = () => {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
-                              <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                              <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
                                 {sess.type.replace('_', ' ')}
                               </span>
                             </div>
@@ -630,7 +630,7 @@ export const ProgramRoomPage: React.FC = () => {
                               </button>
                             </>
                           ) : (
-                            <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-xl">
+                            <span className="text-xs font-semibold text-slate-500">
                               Upcoming Session
                             </span>
                           )}

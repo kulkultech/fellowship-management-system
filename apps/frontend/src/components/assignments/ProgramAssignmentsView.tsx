@@ -129,12 +129,12 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                 Assignment Completion Status
               </span>
               <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-3xs font-extrabold uppercase tracking-wider ${
+                className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
                   fellowStats.completionRate >= 100
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    ? 'text-emerald-700'
                     : fellowStats.completionRate >= 50
-                    ? 'bg-purple-50 text-kulkul-purple border border-purple-200'
-                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    ? 'text-kulkul-purple'
+                    : 'text-amber-700'
                 }`}
               >
                 <FileCheck className="w-3 h-3" />
@@ -286,28 +286,28 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                           {assignment.title}
                         </h4>
                         {assignment.track_name ? (
-                          <span className="text-3xs font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-kulkul-purple border border-purple-200 uppercase tracking-wider">
+                          <span className="text-3xs font-extrabold text-kulkul-purple uppercase tracking-wider">
                             {assignment.track_name}
                           </span>
                         ) : tracks && tracks.length > 0 ? (
-                          <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
+                          <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider">
                             All Tracks
                           </span>
                         ) : null}
                         {assignment.target_applicant_ids && assignment.target_applicant_ids.length === 1 ? (
-                          <span className="text-3xs font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider flex items-center gap-1">
+                          <span className="text-3xs font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1">
                             <User className="w-2.5 h-2.5" />
                             {isMentorOrAdmin ? '1-on-1 Target' : '1-on-1 Assigned to You'}
                           </span>
                         ) : assignment.target_applicant_ids && assignment.target_applicant_ids.length > 1 ? (
-                          <span className="text-3xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider flex items-center gap-1">
+                          <span className="text-3xs font-extrabold text-indigo-700 uppercase tracking-wider flex items-center gap-1">
                             <Users className="w-2.5 h-2.5" />
                             {isMentorOrAdmin
                               ? `Group (${assignment.target_applicant_ids.length} fellows)`
                               : 'Group Assignment'}
                           </span>
                         ) : null}
-                        <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        <span className="text-3xs font-bold text-slate-500">
                           Max: {assignment.max_score} pts
                         </span>
                       </div>
@@ -1348,11 +1348,11 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                           {sub.fellow_name || sub.fellow_email || 'Fellow'}
                         </span>
                         {isGraded ? (
-                          <span className="text-3xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                          <span className="text-3xs font-extrabold text-emerald-700 shrink-0">
                             {sub.score}/{assignment.max_score}
                           </span>
                         ) : (
-                          <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 shrink-0">
+                          <span className="text-3xs font-bold text-amber-700 shrink-0">
                             Pending
                           </span>
                         )}
@@ -1383,10 +1383,10 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       <p className="text-xs text-slate-500">{selectedSub.fellow_email}</p>
                     </div>
                     <span
-                      className={`text-2xs font-extrabold uppercase px-2.5 py-1 rounded-full ${
+                      className={`text-2xs font-extrabold uppercase ${
                         selectedSub.status === 'graded'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'text-emerald-700'
+                          : 'text-amber-700'
                       }`}
                     >
                       {selectedSub.status}
