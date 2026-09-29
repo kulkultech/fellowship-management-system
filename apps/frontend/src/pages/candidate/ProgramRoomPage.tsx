@@ -31,6 +31,7 @@ import {
   X,
   Camera,
   ShieldCheck,
+  Code2,
 } from 'lucide-react';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 import { uploadService } from '@/services/uploadService';
@@ -609,6 +610,15 @@ export const ProgramRoomPage: React.FC = () => {
                                 <span>Check-in Attendance</span>
                               </button>
                             )}
+
+                            <Link
+                              to={`/programs/${orgSlug}/${programSlug}/sessions/${sess.id}/room`}
+                              className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
+                              title="Open Live Code Workspace"
+                            >
+                              <Code2 className="w-3.5 h-3.5" />
+                              <span>Code Workspace</span>
+                            </Link>
 
                             {sess.meeting_url && (
                               <a

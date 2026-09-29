@@ -264,6 +264,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				s.Post("/{sessionId}/check-in", sessionHandler.FellowCheckIn)
 			})
 			protected.Get("/programs/{programId}/attendance-summary", sessionHandler.GetAttendanceSummary)
+			protected.Get("/sessions/{sessionId}", sessionHandler.GetSession)
 
 			// Fellowship Cohort Assignments & Submissions
 			protected.Route("/programs/{programId}/assignments", func(a chi.Router) {

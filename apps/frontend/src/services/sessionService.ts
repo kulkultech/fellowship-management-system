@@ -21,6 +21,11 @@ export const sessionService = {
     return res.data;
   },
 
+  getSessionDirect: async (sessionId: string): Promise<ProgramSession> => {
+    const res = await apiClient.get(`/sessions/${sessionId}`);
+    return res.data;
+  },
+
   createSession: async (programId: string, payload: CreateSessionPayload): Promise<ProgramSession> => {
     const res = await apiClient.post(`/programs/${programId}/sessions`, payload);
     return res.data;

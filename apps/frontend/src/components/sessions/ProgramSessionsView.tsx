@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sessionService } from '@/services/sessionService';
 import { mentorService } from '@/services/mentorService';
@@ -31,6 +32,7 @@ import {
   AlertTriangle,
   Eye,
   Camera,
+  Code2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -685,6 +687,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1.5">
+                        <Link
+                          to={`/sessions/${sess.id}/room`}
+                          className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
+                          title="Enter Live Code Workspace"
+                        >
+                          <Code2 className="w-3.5 h-3.5" />
+                          <span>Code Workspace</span>
+                        </Link>
+
                         <button
                           onClick={() => {
                             setActiveAttendanceSession(sess);
