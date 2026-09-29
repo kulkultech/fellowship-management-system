@@ -2,6 +2,7 @@ import { apiClient } from './apiClient';
 import type {
   ProgramSession,
   SessionAttendance,
+  AttendanceStatus,
   FellowAttendanceSummary,
   CreateSessionPayload,
   BatchAttendanceUpdatePayload,
@@ -57,6 +58,19 @@ export const sessionService = {
     payload: { proof_image_url: string; notes?: string }
   ): Promise<{ message: string; attendance: SessionAttendance }> => {
     const res = await apiClient.post(`/programs/${programId}/sessions/${sessionId}/check-in`, payload);
+    return res.data;
+  },
+
+  validateAttendance: async (
+    programId: string,
+    sessionId: string,
+    applicantId: string,
+    payload: { status: AttendanceStatus; notes?: string }
+  ): Promise<{ message: string; attendance: SessionAttendance }> => {
+    const res = await apiClient.post(
+      `/programs/${programId}/sessions/${sessionId}/attendance/${applicantId}/validate`,
+      payload
+    );
     return res.data;
   },
 

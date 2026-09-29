@@ -180,6 +180,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 				late := 0
 				absent := 0
 				excused := 0
+				pending := 0
 				for key, att := range r.memAttendances {
 					if att.SessionID == s.ID {
 						total++
@@ -192,6 +193,8 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 							absent++
 						case model.AttendanceStatusExcused:
 							excused++
+						case model.AttendanceStatusPendingValidation:
+							pending++
 						}
 					}
 					if fellowApplicantID != nil && key == fmt.Sprintf("%s:%s", s.ID, *fellowApplicantID) {
@@ -204,6 +207,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 				cp.LateCount = late
 				cp.AbsentCount = absent
 				cp.ExcusedCount = excused
+				cp.PendingCount = pending
 				if total > 0 {
 					cp.AttendanceRate = int(math.Round(float64(present+late) / float64(total) * 100))
 				}
@@ -224,6 +228,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			COALESCE(att_stats.late_count, 0),
 			COALESCE(att_stats.absent_count, 0),
 			COALESCE(att_stats.excused_count, 0),
+			COALESCE(att_stats.pending_count, 0),
 			fa.id, fa.status, fa.checked_in_at, fa.marked_by, COALESCE(fa.notes, ''), COALESCE(fa.proof_image_url, '')
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
@@ -234,7 +239,8 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 				COUNT(*) FILTER (WHERE status = 'present') as present_count,
 				COUNT(*) FILTER (WHERE status = 'late') as late_count,
 				COUNT(*) FILTER (WHERE status = 'absent') as absent_count,
-				COUNT(*) FILTER (WHERE status = 'excused') as excused_count
+				COUNT(*) FILTER (WHERE status = 'excused') as excused_count,
+				COUNT(*) FILTER (WHERE status = 'pending_validation') as pending_count
 			FROM session_attendances
 			GROUP BY session_id
 		) att_stats ON s.id = att_stats.session_id
@@ -272,7 +278,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			&s.StartTime, &s.EndTime, &s.MeetingURL, &s.RecordingURL, &s.MentorID, &s.MentorName,
 			&rawTargets,
 			&s.CreatedAt, &s.UpdatedAt,
-			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount,
+			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount, &s.PendingCount,
 			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes, &faProofImageURL,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan list by program: %w", err)
@@ -548,17 +554,14 @@ func (r *SessionRepository) BatchUpdateAttendance(ctx context.Context, sessionID
 }
 
 func (r *SessionRepository) FellowCheckIn(ctx context.Context, sessionID uuid.UUID, applicantID uuid.UUID, proofImageURL string, notes string) (*model.SessionAttendance, error) {
-	session, err := r.GetSessionByID(ctx, sessionID)
+	_, err := r.GetSessionByID(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	now := time.Now()
-	status := model.AttendanceStatusPresent
-	// If fellow checks in more than 15 minutes after session start time, record as late
-	if now.After(session.StartTime.Add(15 * time.Minute)) {
-		status = model.AttendanceStatusLate
-	}
+	// Candidate submits proof of attendance; enters pending_validation awaiting mentor review
+	status := model.AttendanceStatusPendingValidation
 
 	if r.pool == nil {
 		r.mu.Lock()
@@ -621,6 +624,68 @@ func (r *SessionRepository) FellowCheckIn(ctx context.Context, sessionID uuid.UU
 	return &res, nil
 }
 
+func (r *SessionRepository) ValidateAttendance(ctx context.Context, sessionID uuid.UUID, applicantID uuid.UUID, status model.AttendanceStatus, notes string, markedBy uuid.UUID) (*model.SessionAttendance, error) {
+	now := time.Now()
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		key := fmt.Sprintf("%s:%s", sessionID, applicantID)
+		existing, ok := r.memAttendances[key]
+		if ok {
+			existing.Status = status
+			existing.MarkedBy = &markedBy
+			if notes != "" {
+				existing.Notes = notes
+			}
+			existing.UpdatedAt = now
+			if (status == model.AttendanceStatusPresent || status == model.AttendanceStatusLate) && existing.CheckedInAt == nil {
+				existing.CheckedInAt = &now
+			}
+			cp := *existing
+			return &cp, nil
+		}
+		newAtt := &model.SessionAttendance{
+			ID:          uuid.New(),
+			SessionID:   sessionID,
+			ApplicantID: applicantID,
+			Status:      status,
+			MarkedBy:    &markedBy,
+			Notes:       notes,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		if status == model.AttendanceStatusPresent || status == model.AttendanceStatusLate {
+			newAtt.CheckedInAt = &now
+		}
+		r.memAttendances[key] = newAtt
+		cp := *newAtt
+		return &cp, nil
+	}
+
+	query := `
+		INSERT INTO session_attendances (
+			session_id, applicant_id, status, marked_by, notes, updated_at
+		) VALUES ($1, $2, $3, $4, $5, now())
+		ON CONFLICT (session_id, applicant_id)
+		DO UPDATE SET
+			status = EXCLUDED.status,
+			marked_by = EXCLUDED.marked_by,
+			notes = CASE WHEN EXCLUDED.notes <> '' THEN EXCLUDED.notes ELSE session_attendances.notes END,
+			updated_at = now()
+		RETURNING id, session_id, applicant_id, status, checked_in_at, marked_by, notes, COALESCE(proof_image_url, ''), created_at, updated_at
+	`
+	var res model.SessionAttendance
+	var statusStr string
+	err := r.pool.QueryRow(ctx, query, sessionID, applicantID, string(status), markedBy, notes).Scan(
+		&res.ID, &res.SessionID, &res.ApplicantID, &statusStr, &res.CheckedInAt, &res.MarkedBy, &res.Notes, &res.ProofImageURL, &res.CreatedAt, &res.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("session_repo: validate attendance: %w", err)
+	}
+	res.Status = model.AttendanceStatus(statusStr)
+	return &res, nil
+}
+
 func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, programID uuid.UUID) ([]model.FellowAttendanceSummary, error) {
 	if r.pool == nil {
 		r.mu.RLock()
@@ -656,6 +721,7 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 				late := 0
 				absent := 0
 				excused := 0
+				pending := 0
 				for _, att := range r.memAttendances {
 					if att.ApplicantID == f.ID {
 						switch att.Status {
@@ -667,6 +733,8 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 							absent++
 						case model.AttendanceStatusExcused:
 							excused++
+						case model.AttendanceStatusPendingValidation:
+							pending++
 						}
 					}
 				}
@@ -690,6 +758,7 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 					LateCount:      late,
 					AbsentCount:    absent,
 					ExcusedCount:   excused,
+					PendingCount:   pending,
 					AttendanceRate: rate,
 					Status:         statusLabel,
 				})
@@ -724,7 +793,8 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 			COUNT(att.id) FILTER (WHERE att.status = 'present') as present_count,
 			COUNT(att.id) FILTER (WHERE att.status = 'late') as late_count,
 			COUNT(att.id) FILTER (WHERE att.status = 'absent') as absent_count,
-			COUNT(att.id) FILTER (WHERE att.status = 'excused') as excused_count
+			COUNT(att.id) FILTER (WHERE att.status = 'excused') as excused_count,
+			COUNT(att.id) FILTER (WHERE att.status = 'pending_validation') as pending_count
 		FROM accepted_fellows f
 		LEFT JOIN session_attendances att ON att.applicant_id = f.id
 		GROUP BY f.id, f.full_name, f.email, f.track_id, f.track_name
@@ -741,7 +811,7 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 		var s model.FellowAttendanceSummary
 		if err := rows.Scan(
 			&s.ApplicantID, &s.FullName, &s.Email, &s.TrackName,
-			&s.TotalSessions, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount,
+			&s.TotalSessions, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount, &s.PendingCount,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan summary: %w", err)
 		}

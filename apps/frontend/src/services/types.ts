@@ -697,7 +697,7 @@ export type SessionType =
   | 'general'
   | '1_on_1'
   | 'group_sync';
-export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused' | 'pending_validation';
 
 export interface SessionAttendance {
   id: string;
@@ -737,6 +737,7 @@ export interface ProgramSession {
   late_count?: number;
   absent_count?: number;
   excused_count?: number;
+  pending_count?: number;
   attendance_rate?: number;
   fellow_attendance?: SessionAttendance;
 }
@@ -751,6 +752,7 @@ export interface FellowAttendanceSummary {
   late_count: number;
   absent_count: number;
   excused_count: number;
+  pending_count?: number;
   attendance_rate: number;
   status: 'Good' | 'Warning' | 'At Risk' | string;
 }

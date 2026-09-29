@@ -21,10 +21,11 @@ const (
 type AttendanceStatus string
 
 const (
-	AttendanceStatusPresent AttendanceStatus = "present"
-	AttendanceStatusLate    AttendanceStatus = "late"
-	AttendanceStatusAbsent  AttendanceStatus = "absent"
-	AttendanceStatusExcused AttendanceStatus = "excused"
+	AttendanceStatusPresent           AttendanceStatus = "present"
+	AttendanceStatusLate              AttendanceStatus = "late"
+	AttendanceStatusAbsent            AttendanceStatus = "absent"
+	AttendanceStatusExcused           AttendanceStatus = "excused"
+	AttendanceStatusPendingValidation AttendanceStatus = "pending_validation"
 )
 
 type ProgramSession struct {
@@ -51,6 +52,7 @@ type ProgramSession struct {
 	LateCount      int `json:"late_count,omitempty"`
 	AbsentCount    int `json:"absent_count,omitempty"`
 	ExcusedCount   int `json:"excused_count,omitempty"`
+	PendingCount   int `json:"pending_count,omitempty"`
 	AttendanceRate int `json:"attendance_rate,omitempty"`
 
 	// Current fellow status (when queried in fellow/candidate context)
@@ -85,6 +87,7 @@ type FellowAttendanceSummary struct {
 	LateCount      int       `json:"late_count"`
 	AbsentCount    int       `json:"absent_count"`
 	ExcusedCount   int       `json:"excused_count"`
+	PendingCount   int       `json:"pending_count,omitempty"`
 	AttendanceRate int       `json:"attendance_rate"` // 0-100 percentage
 	Status         string    `json:"status"`          // "Good", "Warning", "At Risk"
 }

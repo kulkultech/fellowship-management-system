@@ -110,7 +110,7 @@ export const ProgramRoomPage: React.FC = () => {
       });
     },
     onSuccess: (data) => {
-      toast.success(data?.message || 'Attendance check-in confirmed with proof!');
+      toast.success(data?.message || 'Attendance proof submitted! Awaiting mentor validation.');
       queryClient.invalidateQueries({ queryKey: ['candidate-program-sessions', program?.id] });
     },
     onError: (err: any) => {
@@ -123,14 +123,17 @@ export const ProgramRoomPage: React.FC = () => {
     if (realSessions.length === 0) return null;
     const total = realSessions.length;
     let attended = 0;
+    let pending = 0;
     realSessions.forEach((s) => {
       if (s.fellow_attendance?.status === 'present' || s.fellow_attendance?.status === 'late') {
         attended++;
+      } else if (s.fellow_attendance?.status === 'pending_validation') {
+        pending++;
       }
     });
     const rate = Math.round((attended / total) * 100);
     const status = rate >= 80 ? 'Good' : rate >= 65 ? 'Warning' : 'At Risk';
-    return { total, attended, rate, status };
+    return { total, attended, pending, rate, status };
   }, [realSessions]);
 
   const handleProofFileSelect = (file: File) => {
@@ -404,7 +407,11 @@ export const ProgramRoomPage: React.FC = () => {
                     {fellowStats.rate}% Attendance Rate
                   </h4>
                   <p className="text-xs text-slate-500">
-                    Attended <strong>{fellowStats.attended}</strong> of <strong>{fellowStats.total}</strong> cohort sessions. Maintaining &ge;80% attendance is required for graduation.
+                    Attended <strong>{fellowStats.attended}</strong> of <strong>{fellowStats.total}</strong> cohort sessions
+                    {fellowStats.pending > 0 && (
+                      <span className="text-amber-700 font-bold"> ({fellowStats.pending} awaiting mentor validation)</span>
+                    )}
+                    . Maintaining &ge;80% attendance is required for graduation.
                   </p>
                 </div>
 
@@ -452,11 +459,15 @@ export const ProgramRoomPage: React.FC = () => {
                 <div className="space-y-4">
                   {realSessions.length > 0 ? (
                     realSessions.map((sess) => {
-                      const isCheckedIn = Boolean(
+                      const isPendingValidation = sess.fellow_attendance?.status === 'pending_validation';
+                      const isVerified = Boolean(
                         sess.fellow_attendance?.status === 'present' ||
                         sess.fellow_attendance?.status === 'late'
                       );
                       const isExcused = sess.fellow_attendance?.status === 'excused';
+                      const isRejectedProof = Boolean(
+                        sess.fellow_attendance?.status === 'absent' && sess.fellow_attendance?.proof_image_url
+                      );
 
                       const startDate = new Date(sess.start_time);
                       const endDate = new Date(sess.end_time);
@@ -486,18 +497,18 @@ export const ProgramRoomPage: React.FC = () => {
                                   {sess.session_type.replace('_', ' ')}
                                 </span>
                                 {sess.target_applicant_ids && sess.target_applicant_ids.length === 1 ? (
-                                  <span className="text-3xs font-extrabold text-amber-700 flex items-center gap-1">
-                                    <UserCheck className="w-2.5 h-2.5" />
+                                  <span className="text-2xs font-bold text-amber-700 flex items-center gap-1">
+                                    <UserCheck className="w-3 h-3" />
                                     1-on-1 Session
                                   </span>
                                 ) : sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
-                                  <span className="text-3xs font-extrabold text-indigo-700 flex items-center gap-1">
-                                    <Users className="w-2.5 h-2.5" />
+                                  <span className="text-2xs font-bold text-indigo-700 flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
                                     Group Session
                                   </span>
                                 ) : null}
                                 {sess.track_name && Boolean(program?.tracks && program.tracks.length > 0) && (
-                                  <span className="text-3xs font-extrabold text-kulkul-purple">
+                                  <span className="text-2xs font-bold text-kulkul-purple">
                                     {sess.track_name}
                                   </span>
                                 )}
@@ -523,24 +534,61 @@ export const ProgramRoomPage: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
-                            {isCheckedIn ? (
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                            {isPendingValidation ? (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                                  <span>Attendance Submitted &bull; Awaiting Validation</span>
+                                </span>
+                                {sess.fellow_attendance?.proof_image_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewProofAttendance(sess.fellow_attendance!)}
+                                    className="btn btn-sm btn-outline text-slate-700 hover:bg-slate-100 font-bold flex items-center gap-1.5"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>View Proof</span>
+                                  </button>
+                                )}
+                              </div>
+                            ) : isVerified ? (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                   <span>
-                                    Checked In ({sess.fellow_attendance?.status === 'late' ? 'Late' : 'Present'})
+                                    Verified {sess.fellow_attendance?.status === 'late' ? 'Late' : 'Present'}
                                   </span>
                                 </span>
                                 {sess.fellow_attendance?.proof_image_url && (
                                   <button
                                     type="button"
                                     onClick={() => setViewProofAttendance(sess.fellow_attendance!)}
-                                    className="btn btn-sm btn-ghost text-emerald-800 hover:bg-emerald-100 font-bold flex items-center gap-1.5 border border-emerald-200"
+                                    className="btn btn-sm btn-outline text-slate-700 hover:bg-slate-100 font-bold flex items-center gap-1.5"
                                   >
-                                    <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                    <Eye className="w-3.5 h-3.5 text-slate-500" />
                                     <span>View Proof</span>
                                   </button>
                                 )}
+                              </div>
+                            ) : isRejectedProof ? (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Attendance Not Validated</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCheckInSession(sess);
+                                    setProofFile(null);
+                                    setProofPreviewUrl('');
+                                    setCheckInNotes('');
+                                  }}
+                                  className="btn btn-sm btn-outline text-rose-700 border-rose-300 hover:bg-rose-50 font-bold flex items-center gap-1"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  <span>Re-submit Proof</span>
+                                </button>
                               </div>
                             ) : isExcused ? (
                               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500">
@@ -687,7 +735,7 @@ export const ProgramRoomPage: React.FC = () => {
                     <p className="text-2xs text-slate-500">Daily discussions &amp; peer troubleshooting</p>
                   </div>
                 </div>
-                <button className="btn btn-xs btn-outline">Join Channel</button>
+                <button className="btn btn-sm btn-outline text-slate-700 font-bold">Join Channel</button>
               </div>
 
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
@@ -700,7 +748,7 @@ export const ProgramRoomPage: React.FC = () => {
                     <p className="text-2xs text-slate-500">Starter repositories &amp; code assignments</p>
                   </div>
                 </div>
-                <button className="btn btn-xs btn-outline">Open GitHub</button>
+                <button className="btn btn-sm btn-outline text-slate-700 font-bold">Open GitHub</button>
               </div>
             </div>
           </div>
@@ -742,7 +790,7 @@ export const ProgramRoomPage: React.FC = () => {
                 <Camera className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold">Screenshot proof required: </span>
-                  Please upload a screenshot of your live meeting screen (Google Meet / Zoom) showing your presence to validate your attendance.
+                  Please upload a screenshot of your live meeting screen (Google Meet / Zoom) showing your presence. Your mentor will review and validate whether you attended before attendance is officially verified.
                 </div>
               </div>
 
@@ -918,10 +966,10 @@ export const ProgramRoomPage: React.FC = () => {
                       href={viewProofAttendance.proof_image_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-xs btn-outline font-bold flex items-center gap-1 shrink-0 ml-3"
+                      className="btn btn-sm btn-outline font-bold flex items-center gap-1 shrink-0 ml-3"
                     >
                       <span>Full Resolution</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </div>

@@ -507,7 +507,73 @@ func (h *SessionHandler) FellowCheckIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"message":    "check-in recorded successfully",
+		"message":    "attendance proof submitted successfully, awaiting mentor validation",
+		"attendance": att,
+	})
+}
+
+// ValidateAttendanceRequest payload
+type ValidateAttendanceRequest struct {
+	Status model.AttendanceStatus `json:"status"`
+	Notes  string                 `json:"notes,omitempty"`
+}
+
+// ValidateAttendance handles POST /api/v1/programs/{programId}/sessions/{sessionId}/attendance/{applicantId}/validate
+func (h *SessionHandler) ValidateAttendance(w http.ResponseWriter, r *http.Request) {
+	programIDStr := chi.URLParam(r, "programId")
+	programID, err := uuid.Parse(programIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	sessionIDStr := chi.URLParam(r, "sessionId")
+	sessionID, err := uuid.Parse(sessionIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+
+	applicantIDStr := chi.URLParam(r, "applicantId")
+	applicantID, err := uuid.Parse(applicantIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+
+	if !h.canManageSessions(r, programID) {
+		httpx.Error(w, http.StatusForbidden, "unauthorized to validate attendance for this program")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	markedBy := claims.UserID
+
+	var req ValidateAttendanceRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	if req.Status == "" {
+		req.Status = model.AttendanceStatusPresent
+	}
+
+	switch req.Status {
+	case model.AttendanceStatusPresent, model.AttendanceStatusLate, model.AttendanceStatusAbsent, model.AttendanceStatusExcused:
+		// valid
+	default:
+		httpx.Error(w, http.StatusBadRequest, "invalid attendance status: must be present, late, absent, or excused")
+		return
+	}
+
+	att, err := h.sessionRepo.ValidateAttendance(r.Context(), sessionID, applicantID, req.Status, strings.TrimSpace(req.Notes), markedBy)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to validate attendance: "+err.Error())
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":    "attendance validated successfully",
 		"attendance": att,
 	})
 }

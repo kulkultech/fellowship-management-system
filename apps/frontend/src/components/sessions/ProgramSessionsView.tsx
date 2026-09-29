@@ -108,6 +108,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
   // Mentor Screenshot Proof Lightbox State
   const [previewProof, setPreviewProof] = useState<{
+    applicant_id: string;
     fellow_name: string;
     proof_image_url: string;
     notes?: string;
@@ -291,6 +292,51 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err.message || 'Failed to update attendance');
+    },
+  });
+
+  // Single Fellow Attendance Validation Mutation (Mentor Validation)
+  const validateAttendanceMutation = useMutation({
+    mutationFn: async ({
+      applicantId,
+      status,
+      notes,
+    }: {
+      applicantId: string;
+      status: AttendanceStatus;
+      notes?: string;
+    }) => {
+      if (!activeAttendanceSession) return;
+      return sessionService.validateAttendance(programId, activeAttendanceSession.id, applicantId, {
+        status,
+        notes,
+      });
+    },
+    onSuccess: (_, variables) => {
+      const statusLabel =
+        variables.status === 'present'
+          ? 'Present'
+          : variables.status === 'late'
+          ? 'Late'
+          : variables.status === 'absent'
+          ? 'Absent'
+          : 'Excused';
+      toast.success(`Attendance validated as ${statusLabel}!`);
+      // Update local check sheet table immediately
+      setAttendanceSheet((prev) =>
+        prev.map((item) =>
+          item.applicant_id === variables.applicantId
+            ? { ...item, status: variables.status, notes: variables.notes !== undefined ? variables.notes : item.notes }
+            : item
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['program-sessions', programId] });
+      queryClient.invalidateQueries({ queryKey: ['program-attendance-summary', programId] });
+      queryClient.invalidateQueries({ queryKey: ['session-attendance', programId, activeAttendanceSession?.id] });
+      setPreviewProof(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err.message || 'Failed to validate attendance');
     },
   });
 
@@ -610,15 +656,21 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
                     {/* Right Action & Attendance Stat */}
                     <div className="flex items-center gap-3 shrink-0 self-start lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 w-full lg:w-auto justify-between lg:justify-end">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700">
-                          <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <div className="flex items-center gap-3">
+                        {sess.pending_count !== undefined && sess.pending_count > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 animate-pulse">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{sess.pending_count} Pending Review</span>
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-700">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
                           <span>
                             {sess.present_count || 0} / {sess.total_fellows || cohortMetrics.totalFellows} Present
                           </span>
                           {sess.attendance_rate !== undefined && (
                             <span
-                              className={`ml-1 text-3xs font-extrabold ${
+                              className={`ml-1 text-xs font-extrabold ${
                                 sess.attendance_rate >= 80
                                   ? 'text-emerald-700'
                                   : sess.attendance_rate >= 65
@@ -706,6 +758,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       <th className="px-3 py-3 text-center">Sessions</th>
                       <th className="px-3 py-3 text-center">Present</th>
                       <th className="px-3 py-3 text-center">Late</th>
+                      <th className="px-3 py-3 text-center">Pending</th>
                       <th className="px-3 py-3 text-center">Absent</th>
                       <th className="px-3 py-3 text-center">Excused</th>
                       <th className="px-4 py-3 text-center">Rate (%)</th>
@@ -727,6 +780,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         <td className="px-3 py-3.5 text-center font-bold text-slate-700">{s.total_sessions}</td>
                         <td className="px-3 py-3.5 text-center font-bold text-emerald-700">{s.present_count}</td>
                         <td className="px-3 py-3.5 text-center font-bold text-amber-600">{s.late_count}</td>
+                        <td className="px-3 py-3.5 text-center font-bold text-amber-700">
+                          {s.pending_count !== undefined && s.pending_count > 0 ? (
+                            <span className="text-amber-700 font-extrabold">{s.pending_count}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
                         <td className="px-3 py-3.5 text-center font-bold text-rose-600">{s.absent_count}</td>
                         <td className="px-3 py-3.5 text-center font-bold text-slate-500">{s.excused_count}</td>
                         <td className="px-4 py-3.5 text-center">
@@ -955,8 +1015,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                                 </div>
                               </div>
                               {fellow.track_name && tracks.length > 0 && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 font-medium ml-2">
-                                  {fellow.track_name}
+                                <span className="text-xs text-slate-500 shrink-0 font-medium ml-2">
+                                  ({fellow.track_name})
                                 </span>
                               )}
                             </label>
@@ -1165,10 +1225,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             <div className="flex items-start justify-between pb-4 border-b border-slate-100">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-3xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Attendance Check Sheet
                   </span>
-                  <span className="text-3xs font-bold text-slate-400">
+                  <span className="text-xs text-slate-400">&bull;</span>
+                  <span className="text-xs font-medium text-slate-400">
                     {formatDateTime(activeAttendanceSession.start_time)}
                   </span>
                 </div>
@@ -1240,27 +1301,35 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           <td className="px-3 py-3 text-slate-500">{item.track_name || 'General'}</td>
                         )}
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {(['present', 'late', 'absent', 'excused'] as const).map((st) => (
-                              <button
-                                key={st}
-                                type="button"
-                                onClick={() => handleToggleFellowStatus(item.applicant_id, st)}
-                                className={`px-2.5 py-1 rounded-xl text-3xs font-black uppercase tracking-wider transition ${
-                                  item.status === st
-                                    ? st === 'present'
-                                      ? 'bg-emerald-600 text-white shadow-2xs'
-                                      : st === 'late'
-                                      ? 'bg-amber-500 text-white shadow-2xs'
-                                      : st === 'absent'
-                                      ? 'bg-rose-600 text-white shadow-2xs'
-                                      : 'bg-slate-700 text-white shadow-2xs'
-                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                }`}
-                              >
-                                {st}
-                              </button>
-                            ))}
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            {item.status === 'pending_validation' && (
+                              <span className="text-2xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-amber-600 animate-pulse" />
+                                Awaiting Validation
+                              </span>
+                            )}
+                            <div className="flex items-center justify-center gap-1.5">
+                              {(['present', 'late', 'absent', 'excused'] as const).map((st) => (
+                                <button
+                                  key={st}
+                                  type="button"
+                                  onClick={() => handleToggleFellowStatus(item.applicant_id, st)}
+                                  className={`px-2.5 py-1 rounded-xl text-3xs font-black uppercase tracking-wider transition ${
+                                    item.status === st
+                                      ? st === 'present'
+                                        ? 'bg-emerald-600 text-white shadow-2xs'
+                                        : st === 'late'
+                                        ? 'bg-amber-500 text-white shadow-2xs'
+                                        : st === 'absent'
+                                        ? 'bg-rose-600 text-white shadow-2xs'
+                                        : 'bg-slate-700 text-white shadow-2xs'
+                                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {st}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -1269,26 +1338,24 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                               type="button"
                               onClick={() =>
                                 setPreviewProof({
+                                  applicant_id: item.applicant_id,
                                   fellow_name: item.fellow_name,
                                   proof_image_url: item.proof_image_url!,
                                   notes: item.notes,
                                   status: item.status,
                                 })
                               }
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 text-3xs font-extrabold transition shadow-2xs group"
+                              className={`btn btn-xs font-bold flex items-center gap-1.5 mx-auto ${
+                                item.status === 'pending_validation'
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
+                                  : 'btn-outline text-slate-700 hover:bg-slate-100'
+                              }`}
                             >
-                              <div className="w-5 h-5 rounded-md overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
-                                <img
-                                  src={item.proof_image_url}
-                                  alt="Proof thumbnail"
-                                  className="w-full h-full object-cover group-hover:scale-110 transition"
-                                />
-                              </div>
-                              <Eye className="w-3 h-3 text-purple-600" />
-                              <span>View Proof</span>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>{item.status === 'pending_validation' ? 'Review Proof' : 'View Proof'}</span>
                             </button>
                           ) : (
-                            <span className="text-3xs text-slate-400 font-medium italic">No screenshot</span>
+                            <span className="text-xs text-slate-400 italic">No screenshot</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -1390,11 +1457,78 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 href={previewProof.proof_image_url}
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-xs btn-outline font-bold flex items-center gap-1.5 shrink-0 ml-3"
+                className="btn btn-sm btn-outline font-bold flex items-center gap-1.5 shrink-0 ml-3"
               >
                 <span>Open Full Size</span>
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
+            </div>
+
+            {/* Mentor Validation Action Panel */}
+            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mentor Validation:</span>
+                {previewProof.status === 'pending_validation' ? (
+                  <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 animate-pulse" />
+                    Awaiting Validation
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold text-slate-700 capitalize">
+                    Current: {previewProof.status}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  disabled={validateAttendanceMutation.isPending}
+                  onClick={() =>
+                    validateAttendanceMutation.mutate({
+                      applicantId: previewProof.applicant_id,
+                      status: 'present',
+                      notes: previewProof.notes,
+                    })
+                  }
+                  className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Validate as Present</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={validateAttendanceMutation.isPending}
+                  onClick={() =>
+                    validateAttendanceMutation.mutate({
+                      applicantId: previewProof.applicant_id,
+                      status: 'late',
+                      notes: previewProof.notes,
+                    })
+                  }
+                  className="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Clock className="w-4 h-4" />
+                  <span>Validate as Late</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={validateAttendanceMutation.isPending}
+                  onClick={() =>
+                    validateAttendanceMutation.mutate({
+                      applicantId: previewProof.applicant_id,
+                      status: 'absent',
+                      notes: previewProof.notes ? `${previewProof.notes} (Proof rejected)` : 'Proof rejected by mentor',
+                    })
+                  }
+                  className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Reject Proof (Absent)</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

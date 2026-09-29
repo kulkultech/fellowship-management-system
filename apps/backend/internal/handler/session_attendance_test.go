@@ -97,6 +97,7 @@ func TestSessionAndAttendance_Flow(t *testing.T) {
 		s.Delete("/{sessionId}", sessionHandler.DeleteSession)
 		s.Get("/{sessionId}/attendance", sessionHandler.GetSessionAttendance)
 		s.Post("/{sessionId}/attendance", sessionHandler.BatchUpdateAttendance)
+		s.Post("/{sessionId}/attendance/{applicantId}/validate", sessionHandler.ValidateAttendance)
 		s.Post("/{sessionId}/check-in", sessionHandler.FellowCheckIn)
 	})
 
@@ -217,11 +218,46 @@ func TestSessionAndAttendance_Flow(t *testing.T) {
 		if res.Attendance.ApplicantID != fellow1.ID {
 			t.Errorf("expected applicant_id %s, got %s", fellow1.ID, res.Attendance.ApplicantID)
 		}
-		if res.Attendance.Status != model.AttendanceStatusPresent {
-			t.Errorf("expected status 'present', got '%s'", res.Attendance.Status)
+		if res.Attendance.Status != model.AttendanceStatusPendingValidation {
+			t.Errorf("expected status 'pending_validation', got '%s'", res.Attendance.Status)
 		}
 		if res.Attendance.ProofImageURL != "https://storage.kulkul.tech/attendance/proof-alice-meet.png" {
 			t.Errorf("expected proof_image_url to match, got '%s'", res.Attendance.ProofImageURL)
+		}
+	})
+
+	// Test 3b: Mentor Validates Fellow Attendance
+	t.Run("Mentor validates fellow attendance proof", func(t *testing.T) {
+		payload := map[string]any{
+			"status": "present",
+			"notes":  "Validated attendance via screenshot proof",
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/programs/%s/sessions/%s/attendance/%s/validate", program.ID, createdSessionID, fellow1.ID), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		claims := &auth.Claims{
+			UserID:         mentorUser.ID,
+			Email:          mentorUser.Email,
+			Role:           model.RoleMentor,
+			OrganizationID: &org.ID,
+		}
+		req = req.WithContext(middleware.WithUser(req.Context(), claims))
+		rec := httptest.NewRecorder()
+
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var res struct {
+			Message    string                  `json:"message"`
+			Attendance model.SessionAttendance `json:"attendance"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+			t.Fatalf("failed to decode: %v", err)
+		}
+		if res.Attendance.Status != model.AttendanceStatusPresent {
+			t.Errorf("expected validated status 'present', got '%s'", res.Attendance.Status)
 		}
 	})
 

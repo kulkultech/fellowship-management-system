@@ -260,6 +260,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				s.Delete("/{sessionId}", sessionHandler.DeleteSession)
 				s.Get("/{sessionId}/attendance", sessionHandler.GetSessionAttendance)
 				s.Post("/{sessionId}/attendance", sessionHandler.BatchUpdateAttendance)
+				s.Post("/{sessionId}/attendance/{applicantId}/validate", sessionHandler.ValidateAttendance)
 				s.Post("/{sessionId}/check-in", sessionHandler.FellowCheckIn)
 			})
 			protected.Get("/programs/{programId}/attendance-summary", sessionHandler.GetAttendanceSummary)
