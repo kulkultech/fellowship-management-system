@@ -33,8 +33,11 @@ import {
   Eye,
   Camera,
   Code2,
+  CalendarDays,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { IndonesianCalendarView } from './IndonesianCalendarView';
+import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
 
 interface ProgramSessionsViewProps {
   programId: string;
@@ -52,7 +55,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   mentors = [],
 }) => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'sessions' | 'summary'>('sessions');
+  const [activeTab, setActiveTab] = useState<'sessions' | 'calendar' | 'summary'>('sessions');
 
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -146,6 +149,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const [formTrackId, setFormTrackId] = useState<string>('');
   const [formMentorId, setFormMentorId] = useState<string>('');
 
+  // Indonesian Holiday Validation for selected dates
+  const startHolidayInfo = useMemo(() => getIndonesianHoliday(formStartDate), [formStartDate]);
+  const endHolidayInfo = useMemo(() => getIndonesianHoliday(formEndDate), [formEndDate]);
+  const isHolidaySelected = startHolidayInfo.isHoliday || endHolidayInfo.isHoliday;
+
   // Student targeting for sessions
   const { data: fellowsData } = useQuery({
     queryKey: ['program-fellows-for-sessions', programId],
@@ -169,7 +177,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     );
   }, [allFellows, fellowSearch]);
 
-  const openCreateModal = () => {
+  const openCreateModal = (initialDate?: string) => {
     setEditingSession(null);
     setFormTitle('');
     setFormDescription('');
@@ -177,10 +185,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormAudience('all');
     setSelectedFellowIds([]);
     setFellowSearch('');
-    const today = new Date().toISOString().split('T')[0];
-    setFormStartDate(today);
+    const targetDate = initialDate || new Date().toISOString().split('T')[0];
+    setFormStartDate(targetDate);
     setFormStartTime('19:00');
-    setFormEndDate(today);
+    setFormEndDate(targetDate);
     setFormEndTime('20:30');
     setFormMeetingUrl('https://meet.google.com/');
     setFormRecordingUrl('');
@@ -224,6 +232,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     mutationFn: async () => {
       if (formAudience === 'group' && selectedFellowIds.length === 0) {
         throw new Error('Please select at least 1 fellow for a group session');
+      }
+
+      if (isHolidaySelected) {
+        const holidayName = startHolidayInfo.name || endHolidayInfo.name || 'Public Holiday';
+        throw new Error(`Cannot schedule session on Indonesian national holiday: ${holidayName}`);
       }
 
       const startDateTime = new Date(`${formStartDate}T${formStartTime}:00`).toISOString();
@@ -521,6 +534,18 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('calendar')}
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+                activeTab === 'calendar'
+                  ? 'bg-kulkul-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>Calendar &amp; Holidays</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('summary')}
               className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
                 activeTab === 'summary'
@@ -535,7 +560,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={openCreateModal}
+              onClick={() => openCreateModal()}
               className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-1.5 shadow-sm"
             >
               <Plus className="w-4 h-4" />
@@ -593,7 +618,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
                   Get your cohort underway by scheduling live lectures, technical workshops, or weekly mentor syncs.
                 </p>
-                <button onClick={openCreateModal} className="btn btn-sm btn-outline text-kulkul-purple mt-2">
+                <button onClick={() => openCreateModal()} className="btn btn-sm btn-outline text-kulkul-purple mt-2">
                   <Plus className="w-4 h-4 mr-1" />
                   Schedule First Session
                 </button>
@@ -734,7 +759,23 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
           </div>
         )}
 
-        {/* Tab 2: Attendance Summary & Risk Monitor */}
+        {/* Tab 2: Indonesian Calendar & Public Holidays */}
+        {activeTab === 'calendar' && (
+          <div className="space-y-4">
+            <IndonesianCalendarView
+              sessions={sessions}
+              onSelectDateToSchedule={(dateStr) => {
+                openCreateModal(dateStr);
+              }}
+              onSelectSession={(session) => {
+                openEditModal(session);
+              }}
+              isMentorOrAdmin={true}
+            />
+          </div>
+        )}
+
+        {/* Tab 3: Attendance Summary & Risk Monitor */}
         {activeTab === 'summary' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1093,7 +1134,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formStartDate}
                       onChange={(e) => setFormStartDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border transition bg-white ${
+                        startHolidayInfo.isHoliday
+                          ? 'border-rose-400 bg-rose-50/30 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
+                          : 'border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20'
+                      }`}
                     />
                     <input
                       type="time"
@@ -1115,7 +1160,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formEndDate}
                       onChange={(e) => setFormEndDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border transition bg-white ${
+                        endHolidayInfo.isHoliday
+                          ? 'border-rose-400 bg-rose-50/30 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
+                          : 'border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20'
+                      }`}
                     />
                     <input
                       type="time"
@@ -1127,6 +1176,27 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Public Holiday Warning Alert */}
+              {isHolidaySelected && (
+                <div className="p-3.5 rounded-2xl border border-rose-300 bg-rose-50 text-rose-800 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <div className="font-extrabold text-rose-900">
+                      Indonesian Public Holiday Detected
+                    </div>
+                    <div className="text-rose-700">
+                      {startHolidayInfo.isHoliday && (
+                        <span>Starts: <strong>{startHolidayInfo.name}</strong>. </span>
+                      )}
+                      {endHolidayInfo.isHoliday && endHolidayInfo.name !== startHolidayInfo.name && (
+                        <span>Ends: <strong>{endHolidayInfo.name}</strong>. </span>
+                      )}
+                      Mentors cannot schedule cohort sessions on official Indonesian public holidays. Please select another business day.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -1204,14 +1274,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  className="btn btn-sm btn-ghost text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saveSessionMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-kulkul-purple hover:bg-[#250d43] text-white shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  disabled={saveSessionMutation.isPending || isHolidaySelected}
+                  title={isHolidaySelected ? 'Cannot schedule on an Indonesian national holiday' : undefined}
+                  className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saveSessionMutation.isPending ? (
                     <>

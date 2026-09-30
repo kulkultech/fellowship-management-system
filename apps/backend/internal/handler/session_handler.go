@@ -3,12 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/kulkul/backend/internal/holiday"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
@@ -167,6 +170,11 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if isHoliday, holidayName := holiday.IsIndonesianHoliday(startTime); isHoliday {
+		httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
+		return
+	}
+
 	sessionType := req.SessionType
 	if sessionType == "" {
 		sessionType = model.SessionTypeLiveLecture
@@ -268,14 +276,28 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		existing.SessionType = req.SessionType
 	}
 	if req.StartTime != "" {
-		if st, err := time.Parse(time.RFC3339, req.StartTime); err == nil {
-			existing.StartTime = st
+		st, err := time.Parse(time.RFC3339, req.StartTime)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid start_time format: "+err.Error())
+			return
 		}
+		if isHoliday, holidayName := holiday.IsIndonesianHoliday(st); isHoliday {
+			httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
+			return
+		}
+		existing.StartTime = st
 	}
 	if req.EndTime != "" {
-		if et, err := time.Parse(time.RFC3339, req.EndTime); err == nil {
-			existing.EndTime = et
+		et, err := time.Parse(time.RFC3339, req.EndTime)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid end_time format: "+err.Error())
+			return
 		}
+		existing.EndTime = et
+	}
+	if existing.EndTime.Before(existing.StartTime) {
+		httpx.Error(w, http.StatusBadRequest, "end_time must be after start_time")
+		return
 	}
 	existing.MeetingURL = req.MeetingURL
 	existing.RecordingURL = req.RecordingURL
@@ -605,3 +627,17 @@ func (h *SessionHandler) GetAttendanceSummary(w http.ResponseWriter, r *http.Req
 		"summaries": summaries,
 	})
 }
+
+// GetHolidays handles GET /api/v1/holidays?year=2026
+func (h *SessionHandler) GetHolidays(w http.ResponseWriter, r *http.Request) {
+	yearStr := r.URL.Query().Get("year")
+	year := time.Now().Year()
+	if yearStr != "" {
+		if y, err := strconv.Atoi(yearStr); err == nil {
+			year = y
+		}
+	}
+	holidays := holiday.GetHolidays(year)
+	httpx.JSON(w, http.StatusOK, holidays)
+}
+

@@ -83,4 +83,10 @@ export const sessionService = {
     const res = await apiClient.get(`/programs/${programId}/attendance-summary`);
     return res.data.summaries || [];
   },
+
+  getHolidays: async (year?: number): Promise<{ date: string; name: string; type: string }[]> => {
+    const params = year ? { year } : {};
+    const res = await apiClient.get('/holidays', { params });
+    return res.data || [];
+  },
 };
