@@ -418,7 +418,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
             <div className="flex items-center gap-2.5">
               <span className="w-3 h-3 rounded-full bg-kulkul-purple shrink-0" />
               <span>
-                <strong>Active Cohort Sessions:</strong> Click a session chip to view attendance check sheet or open Code Studio.
+                <strong>Active Cohort Sessions:</strong> Click a session chip to view details or launch the Workspace (Code Studio, Whiteboard, &amp; Notes).
               </span>
             </div>
             <div className="flex items-center gap-2.5">

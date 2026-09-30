@@ -12,7 +12,7 @@ import {
   FileCode,
   Loader2,
   X,
-  Code2,
+  PenTool,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Navbar } from '@/components/Navbar';
@@ -20,6 +20,7 @@ import { Footer } from '@/components/Footer';
 import { sessionService } from '@/services/sessionService';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { LiveCodeEditor } from '@/components/sessions/LiveCodeEditor';
+import { LiveWhiteboard } from '@/components/sessions/LiveWhiteboard';
 import type { AttendanceStatus } from '@/services/types';
 
 export const SessionWorkspacePage: React.FC = () => {
@@ -37,7 +38,7 @@ export const SessionWorkspacePage: React.FC = () => {
     user?.role === 'mentor' || user?.role === 'org_admin' || user?.role === 'superadmin';
 
   // Active top navigation tab
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'editor' | 'scratchpad'>('editor');
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'editor' | 'whiteboard' | 'scratchpad'>('whiteboard');
   // Live attendance drawer (for mentors)
   const [isAttendanceDrawerOpen, setIsAttendanceDrawerOpen] = useState<boolean>(false);
   // Scratchpad notes
@@ -195,40 +196,40 @@ export const SessionWorkspacePage: React.FC = () => {
           </Link>
         </div>
 
-        {/* Hero Card */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#250d43] via-[#33125d] to-[#1c0834] text-white p-6 sm:p-10 shadow-xl border border-purple-900/40 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-2xs font-extrabold uppercase tracking-wider text-purple-200 bg-white/10 px-2.5 py-1 rounded-full">
+        {/* Standardized Header Card */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-xs font-bold text-kulkul-purple bg-purple-50 px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
                 {session.session_type.replace('_', ' ')}
               </span>
-              <span className="text-purple-300/40">&bull;</span>
-              <span className="text-xs font-medium text-purple-200 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-purple-300" />
+              <span className="text-slate-300">&bull;</span>
+              <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-slate-400" />
                 {formatDateTime(session.start_time)}
               </span>
               {session.mentor_name && (
                 <>
-                  <span className="text-purple-300/40">&bull;</span>
-                  <span className="text-xs font-medium text-purple-200">
-                    Lead: <strong className="text-white">{session.mentor_name}</strong>
+                  <span className="text-slate-300">&bull;</span>
+                  <span className="text-xs font-medium text-slate-500">
+                    Lead: <strong className="text-slate-900 font-bold">{session.mentor_name}</strong>
                   </span>
                 </>
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
               {session.title}
             </h1>
 
             {session.description && (
-              <p className="text-xs text-purple-200/80 max-w-2xl leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
                 {session.description}
               </p>
             )}
           </div>
 
-          {/* Action Buttons in Hero */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-2.5 flex-wrap shrink-0">
             {session.meeting_url && (
               <a
@@ -236,11 +237,11 @@ export const SessionWorkspacePage: React.FC = () => {
                 target="_blank"
                 rel="noreferrer"
                 className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
-                title="Open Google Meet or Zoom live video call"
+                title="Open live video call"
               >
                 <Video className="w-4 h-4" />
                 <span>Join Live Call</span>
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
 
@@ -248,49 +249,55 @@ export const SessionWorkspacePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAttendanceDrawerOpen(true)}
-                className="btn btn-sm bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold flex items-center gap-1.5"
+                className="btn btn-sm btn-outline border-slate-300 text-slate-700 hover:bg-slate-50 font-bold flex items-center gap-1.5"
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-4 h-4 text-slate-500" />
                 <span>Attendance Roster</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Workspace Mode Switcher Tabs */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveWorkspaceTab('editor')}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition ${
-                activeWorkspaceTab === 'editor'
-                  ? 'bg-kulkul-purple text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <FileCode className="w-4 h-4" />
-              <span>Code Editor</span>
-            </button>
+        {/* Standard Tab Navigation */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-1 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveWorkspaceTab('whiteboard')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeWorkspaceTab === 'whiteboard'
+                ? 'bg-kulkul-purple text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <PenTool className="w-4 h-4" />
+            <span>Whiteboard</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveWorkspaceTab('scratchpad')}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition ${
-                activeWorkspaceTab === 'scratchpad'
-                  ? 'bg-kulkul-purple text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Scratchpad &amp; Notes</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveWorkspaceTab('editor')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeWorkspaceTab === 'editor'
+                ? 'bg-kulkul-purple text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <FileCode className="w-4 h-4" />
+            <span>Code Studio</span>
+          </button>
 
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <Code2 className="w-3.5 h-3.5 text-kulkul-purple" />
-            <span>Interactive Code Environment</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveWorkspaceTab('scratchpad')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeWorkspaceTab === 'scratchpad'
+                ? 'bg-kulkul-purple text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Scratchpad &amp; Notes</span>
+          </button>
         </div>
 
         {/* Main Content Area */}
@@ -299,6 +306,16 @@ export const SessionWorkspacePage: React.FC = () => {
             <LiveCodeEditor
               initialLanguage="java"
               sessionTitle={session.title}
+            />
+          </div>
+        )}
+
+        {activeWorkspaceTab === 'whiteboard' && (
+          <div className="space-y-4">
+            <LiveWhiteboard
+              sessionId={session.id}
+              sessionTitle={session.title}
+              isMentor={isMentorOrAdmin}
             />
           </div>
         )}

@@ -715,10 +715,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         <Link
                           to={`/sessions/${sess.id}/room`}
                           className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
-                          title="Enter Live Code Workspace"
+                          title="Enter Live Workspace (Code Studio, Excalidraw Whiteboard, Notes)"
                         >
                           <Code2 className="w-3.5 h-3.5" />
-                          <span>Code Workspace</span>
+                          <span>Live Workspace</span>
                         </Link>
 
                         <button
