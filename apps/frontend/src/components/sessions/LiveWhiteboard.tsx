@@ -472,7 +472,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
                 },
                 loadScene: true,
                 saveToActiveFile: false,
-                theme: true,
+                toggleTheme: true,
               },
             }}
           >
