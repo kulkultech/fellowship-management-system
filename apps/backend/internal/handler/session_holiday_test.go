@@ -163,4 +163,52 @@ func TestSessionHolidayValidation(t *testing.T) {
 			t.Fatalf("expected at least 15 holidays in 2026, got %d", len(list))
 		}
 	})
+
+	// Test 5: Scheduling on Indonesian holiday when sync_indonesian_calendar = false must SUCCEED (International mode)
+	t.Run("Can schedule on 17 August 2026 when sync_indonesian_calendar is false", func(t *testing.T) {
+		start := time.Date(2026, 8, 17, 10, 0, 0, 0, holiday.WIBLocation).UTC().Format(time.RFC3339)
+		end := time.Date(2026, 8, 17, 12, 0, 0, 0, holiday.WIBLocation).UTC().Format(time.RFC3339)
+		syncFalse := false
+
+		payload := map[string]any{
+			"title":                    "Global Cohort Workshop",
+			"session_type":             "workshop",
+			"start_time":               start,
+			"end_time":                 end,
+			"meeting_url":              "https://meet.google.com/test-global",
+			"sync_indonesian_calendar": syncFalse,
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/programs/%s/sessions", program.ID), bytes.NewReader(body))
+		req = req.WithContext(middleware.WithUser(req.Context(), adminClaims))
+		rec := httptest.NewRecorder()
+
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("expected 201 Created for international mode, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	// Test 6: Updating session to holiday when sync_indonesian_calendar = false must SUCCEED (International mode)
+	t.Run("Can update session to 25 December 2026 when sync_indonesian_calendar is false", func(t *testing.T) {
+		xmasStart := time.Date(2026, 12, 25, 10, 0, 0, 0, holiday.WIBLocation).UTC().Format(time.RFC3339)
+		xmasEnd := time.Date(2026, 12, 25, 12, 0, 0, 0, holiday.WIBLocation).UTC().Format(time.RFC3339)
+		syncFalse := false
+
+		payload := map[string]any{
+			"start_time":               xmasStart,
+			"end_time":                 xmasEnd,
+			"sync_indonesian_calendar": syncFalse,
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/programs/%s/sessions/%s", program.ID, normalSessionID), bytes.NewReader(body))
+		req = req.WithContext(middleware.WithUser(req.Context(), adminClaims))
+		rec := httptest.NewRecorder()
+
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for international mode update, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
 }
+

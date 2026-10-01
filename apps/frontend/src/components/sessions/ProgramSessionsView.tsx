@@ -149,10 +149,21 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const [formTrackId, setFormTrackId] = useState<string>('');
   const [formMentorId, setFormMentorId] = useState<string>('');
 
+  // Indonesian Calendar Sync Toggle state
+  const [syncIndonesianCalendar, setSyncIndonesianCalendar] = useState<boolean>(() => {
+    const saved = localStorage.getItem(`sync_indonesian_calendar_${programId}`);
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const handleToggleIndonesianSync = (val: boolean) => {
+    setSyncIndonesianCalendar(val);
+    localStorage.setItem(`sync_indonesian_calendar_${programId}`, String(val));
+  };
+
   // Indonesian Holiday Validation for selected dates
   const startHolidayInfo = useMemo(() => getIndonesianHoliday(formStartDate), [formStartDate]);
   const endHolidayInfo = useMemo(() => getIndonesianHoliday(formEndDate), [formEndDate]);
-  const isHolidaySelected = startHolidayInfo.isHoliday || endHolidayInfo.isHoliday;
+  const isHolidaySelected = syncIndonesianCalendar && (startHolidayInfo.isHoliday || endHolidayInfo.isHoliday);
 
   // Student targeting for sessions
   const { data: fellowsData } = useQuery({
@@ -234,7 +245,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         throw new Error('Please select at least 1 fellow for a group session');
       }
 
-      if (isHolidaySelected) {
+      if (syncIndonesianCalendar && isHolidaySelected) {
         const holidayName = startHolidayInfo.name || endHolidayInfo.name || 'Public Holiday';
         throw new Error(`Cannot schedule session on Indonesian national holiday: ${holidayName}`);
       }
@@ -253,6 +264,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         track_id: formTrackId || undefined,
         mentor_id: formMentorId || undefined,
         target_applicant_ids: formAudience !== 'all' ? selectedFellowIds : [],
+        sync_indonesian_calendar: syncIndonesianCalendar,
       };
 
       if (editingSession) {
@@ -513,17 +525,17 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm p-4 sm:p-6 space-y-6">
         <div className="flex items-center justify-between text-xs text-slate-500 font-bold pb-1">
           <span>Cohort Program: <strong className="text-slate-900">{programName}</strong></span>
         </div>
 
         {/* Tab & Controls Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
             <button
               onClick={() => setActiveTab('sessions')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'sessions'
                   ? 'bg-kulkul-purple text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -535,19 +547,19 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
             <button
               onClick={() => setActiveTab('calendar')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'calendar'
                   ? 'bg-kulkul-purple text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <CalendarDays className="w-4 h-4" />
-              <span>Calendar &amp; Holidays</span>
+              <span>{syncIndonesianCalendar ? 'Calendar & ID Holidays' : 'Calendar & Schedule'}</span>
             </button>
 
             <button
               onClick={() => setActiveTab('summary')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
                 activeTab === 'summary'
                   ? 'bg-kulkul-purple text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -558,10 +570,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => openCreateModal()}
-              className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-1.5 shadow-sm"
+              className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               <span>Schedule New Session</span>
@@ -628,7 +640,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 {filteredSessions.map((sess) => (
                   <div
                     key={sess.id}
-                    className="p-5 rounded-2xl border border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50/50 transition shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50/50 transition shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
                     <div className="flex items-start gap-3.5">
                       <div className="w-11 h-11 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-100">
@@ -682,7 +694,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     </div>
 
                     {/* Right Action & Attendance Stat */}
-                    <div className="flex items-center gap-3 shrink-0 self-start lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 w-full lg:w-auto justify-between lg:justify-end">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0 self-stretch lg:self-auto pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 w-full lg:w-auto justify-between lg:justify-end">
                       <div className="flex items-center gap-3">
                         {sess.pending_count !== undefined && sess.pending_count > 0 && (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 animate-pulse">
@@ -711,7 +723,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
                         <Link
                           to={`/sessions/${sess.id}/room`}
                           className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
@@ -771,6 +783,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 openEditModal(session);
               }}
               isMentorOrAdmin={true}
+              syncIndonesianCalendar={syncIndonesianCalendar}
+              onToggleSyncIndonesianCalendar={handleToggleIndonesianSync}
             />
           </div>
         )}
@@ -802,7 +816,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[700px]">
                   <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
                     <tr>
                       <th className="px-5 py-3">Fellow</th>
@@ -886,8 +900,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
       {/* MODAL 1: Schedule / Edit Session */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center">
@@ -1123,6 +1137,50 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </div>
               </div>
 
+              {/* Indonesian Calendar Sync Switch for Admin / Mentor */}
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
+                    <span>Sync with Indonesian Calendar</span>
+                    {syncIndonesianCalendar ? (
+                      <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-700">
+                        Off (International)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-2xs text-slate-500">
+                    {syncIndonesianCalendar
+                      ? 'National holidays are detected and session scheduling is restricted.'
+                      : 'International mode: Schedule freely without Indonesian national holiday restrictions.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={syncIndonesianCalendar}
+                  onClick={() => handleToggleIndonesianSync(!syncIndonesianCalendar)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    syncIndonesianCalendar ? 'bg-kulkul-purple' : 'bg-slate-300'
+                  }`}
+                  title={
+                    syncIndonesianCalendar
+                      ? 'Click to disable Indonesian calendar holiday restriction'
+                      : 'Click to enable Indonesian calendar holiday restriction'
+                  }
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      syncIndonesianCalendar ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -1135,7 +1193,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       value={formStartDate}
                       onChange={(e) => setFormStartDate(e.target.value)}
                       className={`w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border transition bg-white ${
-                        startHolidayInfo.isHoliday
+                        syncIndonesianCalendar && startHolidayInfo.isHoliday
                           ? 'border-rose-400 bg-rose-50/30 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
                           : 'border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20'
                       }`}
@@ -1161,7 +1219,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       value={formEndDate}
                       onChange={(e) => setFormEndDate(e.target.value)}
                       className={`w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border transition bg-white ${
-                        endHolidayInfo.isHoliday
+                        syncIndonesianCalendar && endHolidayInfo.isHoliday
                           ? 'border-rose-400 bg-rose-50/30 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
                           : 'border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20'
                       }`}
@@ -1178,7 +1236,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
 
               {/* Public Holiday Warning Alert */}
-              {isHolidaySelected && (
+              {syncIndonesianCalendar && isHolidaySelected && (
                 <div className="p-3.5 rounded-2xl border border-rose-300 bg-rose-50 text-rose-800 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
@@ -1192,7 +1250,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       {endHolidayInfo.isHoliday && endHolidayInfo.name !== startHolidayInfo.name && (
                         <span>Ends: <strong>{endHolidayInfo.name}</strong>. </span>
                       )}
-                      Mentors cannot schedule cohort sessions on official Indonesian public holidays. Please select another business day.
+                      Mentors cannot schedule cohort sessions on official Indonesian public holidays. You can disable Indonesian Calendar sync above if this cohort is international.
                     </div>
                   </div>
                 </div>
@@ -1280,8 +1338,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={saveSessionMutation.isPending || isHolidaySelected}
-                  title={isHolidaySelected ? 'Cannot schedule on an Indonesian national holiday' : undefined}
+                  disabled={saveSessionMutation.isPending || (syncIndonesianCalendar && isHolidaySelected)}
+                  title={syncIndonesianCalendar && isHolidaySelected ? 'Cannot schedule on an Indonesian national holiday' : undefined}
                   className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saveSessionMutation.isPending ? (
@@ -1301,8 +1359,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
       {/* MODAL 2: Interactive Attendance Check Sheet */}
       {activeAttendanceSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[92vh] flex flex-col justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[92vh] flex flex-col justify-between">
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-slate-100">
               <div className="space-y-1">
@@ -1354,7 +1412,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </div>
 
             {/* Attendance Table */}
-            <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
+            <div className="flex-1 overflow-y-auto overflow-x-auto border border-slate-200 rounded-2xl">
               {isLoadingAttendance ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
@@ -1365,7 +1423,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   <p className="text-xs font-bold">No accepted fellows found for this cohort.</p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[580px]">
                   <thead className="bg-slate-100/70 text-slate-600 font-extrabold sticky top-0 border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3">Fellow</th>

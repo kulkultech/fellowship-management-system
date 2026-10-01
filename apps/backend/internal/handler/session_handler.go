@@ -116,16 +116,17 @@ func (h *SessionHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 
 // CreateSessionRequest payload
 type CreateSessionRequest struct {
-	TrackID            *uuid.UUID        `json:"track_id,omitempty"`
-	Title              string            `json:"title"`
-	Description        string            `json:"description"`
-	SessionType        model.SessionType `json:"session_type"`
-	StartTime          string            `json:"start_time"`
-	EndTime            string            `json:"end_time"`
-	MeetingURL         string            `json:"meeting_url"`
-	RecordingURL       string            `json:"recording_url,omitempty"`
-	MentorID           *uuid.UUID        `json:"mentor_id,omitempty"`
-	TargetApplicantIDs []uuid.UUID       `json:"target_applicant_ids,omitempty"`
+	TrackID                *uuid.UUID        `json:"track_id,omitempty"`
+	Title                  string            `json:"title"`
+	Description            string            `json:"description"`
+	SessionType            model.SessionType `json:"session_type"`
+	StartTime              string            `json:"start_time"`
+	EndTime                string            `json:"end_time"`
+	MeetingURL             string            `json:"meeting_url"`
+	RecordingURL           string            `json:"recording_url,omitempty"`
+	MentorID               *uuid.UUID        `json:"mentor_id,omitempty"`
+	TargetApplicantIDs     []uuid.UUID       `json:"target_applicant_ids,omitempty"`
+	SyncIndonesianCalendar *bool             `json:"sync_indonesian_calendar,omitempty"`
 }
 
 // CreateSession handles POST /api/v1/programs/{programId}/sessions
@@ -170,9 +171,16 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if isHoliday, holidayName := holiday.IsIndonesianHoliday(startTime); isHoliday {
-		httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
-		return
+	syncIndonesian := true
+	if req.SyncIndonesianCalendar != nil {
+		syncIndonesian = *req.SyncIndonesianCalendar
+	}
+
+	if syncIndonesian {
+		if isHoliday, holidayName := holiday.IsIndonesianHoliday(startTime); isHoliday {
+			httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
+			return
+		}
 	}
 
 	sessionType := req.SessionType
@@ -281,9 +289,15 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusBadRequest, "invalid start_time format: "+err.Error())
 			return
 		}
-		if isHoliday, holidayName := holiday.IsIndonesianHoliday(st); isHoliday {
-			httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
-			return
+		syncIndonesian := true
+		if req.SyncIndonesianCalendar != nil {
+			syncIndonesian = *req.SyncIndonesianCalendar
+		}
+		if syncIndonesian {
+			if isHoliday, holidayName := holiday.IsIndonesianHoliday(st); isHoliday {
+				httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
+				return
+			}
 		}
 		existing.StartTime = st
 	}

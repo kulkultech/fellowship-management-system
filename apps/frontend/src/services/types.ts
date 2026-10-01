@@ -768,6 +768,7 @@ export interface CreateSessionPayload {
   track_id?: string;
   mentor_id?: string;
   target_applicant_ids?: string[];
+  sync_indonesian_calendar?: boolean;
 }
 
 export interface BatchAttendanceUpdatePayload {
