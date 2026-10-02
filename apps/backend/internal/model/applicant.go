@@ -16,6 +16,7 @@ const (
 	StageAIInterviewInvited   ApplicantStage = "ai_interview_invited"
 	StageAIInterviewCompleted ApplicantStage = "ai_interview_completed"
 	StageApprovedForLive      ApplicantStage = "approved_for_live"
+	StageCompleted            ApplicantStage = "completed"
 	StageRejected             ApplicantStage = "rejected"
 )
 

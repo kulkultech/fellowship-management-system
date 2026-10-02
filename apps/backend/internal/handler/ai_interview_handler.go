@@ -196,7 +196,7 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	displayName := "LIT 2026 Engineering Fellowship"
+	displayName := "Engineering Fellowship Program"
 	program, err := h.programRepo.GetByID(r.Context(), aiSession.ProgramID)
 	if err == nil && program != nil {
 		displayName = program.Name

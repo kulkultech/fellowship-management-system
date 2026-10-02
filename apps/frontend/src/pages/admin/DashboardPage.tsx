@@ -35,9 +35,10 @@ import { TeamManagementView } from '@/components/admin/TeamManagementView';
 import { ProgramEmailTemplatesView } from '@/components/admin/ProgramEmailTemplatesView';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { exportCandidatesToExcel } from '@/utils/candidateExcelExporter';
+import { credentialService } from '@/services/credentialService';
 
-const DEFAULT_LIT_RUBRIC: AIInterviewRubric = {
-  name: 'LIT 2026 Engineering Fellowship - AI Interview Rubric',
+const DEFAULT_FELLOWSHIP_RUBRIC: AIInterviewRubric = {
+  name: 'Engineering Fellowship - AI Technical Interview Rubric',
   instructions:
     'Evaluate responses according to the structured 5-question rubric. Do not penalize Indonesian regional accent if communication is clear. Scoring Scale: 80–100 Strong (clear communication, confident, concise, handles unexpected questions well), 70–79 Suitable (answers reasonably well, occasional hesitation, acceptable clarity), 60–69 Borderline (struggles to articulate ideas, frequent pauses, lacks structure), <60 Below expected standard (poor vocabulary, very difficult to understand, fails to address prompt).',
   scoring_guideline:
@@ -239,7 +240,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
-  const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile'>('answers');
+  const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile' | 'credentials'>('answers');
   const [applicantToDelete, setApplicantToDelete] = useState<{ id: string; name: string; email: string } | null>(null);
 
   // Candidate Table Column Customization State
@@ -321,7 +322,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // AI Interview Rubric Editor State
   const [rubricTargetProgram, setRubricTargetProgram] = useState<Program | null>(null);
-  const [rubricForm, setRubricForm] = useState<AIInterviewRubric>(DEFAULT_LIT_RUBRIC);
+  const [rubricForm, setRubricForm] = useState<AIInterviewRubric>(DEFAULT_FELLOWSHIP_RUBRIC);
 
   const handleOpenRubricPage = (targetProg: Program) => {
     setRubricTargetProgram(targetProg);
@@ -329,7 +330,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     if (targetProg.ai_interview_rubric && targetProg.ai_interview_rubric.questions?.length > 0) {
       setRubricForm(targetProg.ai_interview_rubric);
     } else {
-      setRubricForm(DEFAULT_LIT_RUBRIC);
+      setRubricForm(DEFAULT_FELLOWSHIP_RUBRIC);
     }
     setCurrentView('ai_rubric');
   };
@@ -641,10 +642,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     enabled: !!selectedApplicantId,
   });
 
-  // Auto-focus AI Interview tab if applicant completed/invited to AI interview or has no MCQ submission
+  // Load Single Applicant Credentials & Badges
+  const { data: applicantCredentials, refetch: refetchApplicantCredentials } = useQuery({
+    queryKey: ['admin-applicant-credentials', selectedApplicantId],
+    queryFn: () => credentialService.getApplicantCredentials(selectedApplicantId!),
+    enabled: !!selectedApplicantId,
+  });
+
+  // Auto-focus AI Interview tab or Credentials tab based on stage
   useEffect(() => {
     if (applicantDetail) {
-      if (
+      if (applicantDetail.applicant?.current_stage === 'completed') {
+        setActiveDrawerTab('credentials');
+      } else if (
         (!applicantDetail.submission && applicantDetail.ai_screen) ||
         applicantDetail.applicant?.current_stage === 'ai_interview_completed' ||
         applicantDetail.applicant?.current_stage === 'ai_interview_invited'
@@ -1654,10 +1664,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const updateStageMutation = useMutation({
     mutationFn: ({ applicantId, stage }: { applicantId: string; stage: string }) =>
       adminService.updateApplicantStage(applicantId, stage),
-    onSuccess: () => {
-      toast.success('Applicant stage updated');
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.stage === 'completed'
+          ? 'Candidate graduated! Completion badge awarded & certificate auto-generated.'
+          : 'Applicant stage updated'
+      );
       queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
       queryClient.invalidateQueries({ queryKey: ['admin-applicant-detail', selectedApplicantId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-applicant-credentials', selectedApplicantId] });
     },
     onError: () => toast.error('Failed to update stage'),
   });
@@ -1680,14 +1695,50 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const inviteProgramRoomMutation = useMutation({
     mutationFn: (applicantId: string) => adminService.inviteApplicantToProgramRoom(applicantId),
     onSuccess: (data) => {
-      toast.success(data?.message || 'Program Room invitation sent successfully!');
+      toast.success(data?.message || 'Program Room invitation sent successfully! Member badge awarded.');
       queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
       if (selectedApplicantId) {
         queryClient.invalidateQueries({ queryKey: ['admin-applicant-detail', selectedApplicantId] });
+        queryClient.invalidateQueries({ queryKey: ['admin-applicant-credentials', selectedApplicantId] });
       }
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to send Program Room invitation');
+    },
+  });
+
+  const generateCertMutation = useMutation({
+    mutationFn: async ({ sendEmail }: { sendEmail: boolean }) => {
+      if (!selectedApplicantId) return;
+      return await credentialService.generateCertificate(selectedApplicantId, { send_email: sendEmail });
+    },
+    onSuccess: (data) => {
+      toast.success(
+        data?.certificate?.email_sent_at
+          ? 'Certificate generated and emailed to fellow successfully!'
+          : 'Certificate generated successfully!'
+      );
+      refetchApplicantCredentials();
+      queryClient.invalidateQueries({ queryKey: ['admin-applicant-credentials', selectedApplicantId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-applicant-detail', selectedApplicantId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to generate certificate');
+    },
+  });
+
+  const sendCertEmailMutation = useMutation({
+    mutationFn: async (certId: string) => {
+      return await credentialService.sendCertificateEmail(certId);
+    },
+    onSuccess: () => {
+      toast.success('Certificate email sent to candidate!');
+      refetchApplicantCredentials();
+      queryClient.invalidateQueries({ queryKey: ['admin-applicant-credentials', selectedApplicantId] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to send certificate email');
     },
   });
 
@@ -1981,6 +2032,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-emerald-700">AI Evaluated</span>;
       case 'approved_for_live':
         return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-emerald-600">Accepted / Live</span>;
+      case 'completed':
+      case 'graduated':
+        return (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+            <Award className="w-3 h-3 text-purple-600" />
+            <span>Graduated / Completed</span>
+          </span>
+        );
       case 'rejected':
         return <span className="inline-flex whitespace-nowrap text-xs font-semibold text-red-700">Rejected</span>;
       default:
@@ -5203,6 +5262,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 >
                   Candidate Profile
                 </button>
+
+                <button
+                  onClick={() => setActiveDrawerTab('credentials')}
+                  className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 ${
+                    activeDrawerTab === 'credentials'
+                      ? 'border-kulkul-purple text-kulkul-purple'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Badges & Certificate</span>
+                  {applicantCredentials?.certificate ? (
+                    <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      Certified
+                    </span>
+                  ) : applicantCredentials?.badges && applicantCredentials.badges.length > 0 ? (
+                    <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                      {applicantCredentials.badges.length} {applicantCredentials.badges.length === 1 ? 'Badge' : 'Badges'}
+                    </span>
+                  ) : null}
+                </button>
               </div>
 
               {/* Drawer Content */}
@@ -5491,6 +5571,158 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       Candidate has not started the AI interview yet.
                     </div>
                   )
+                ) : activeDrawerTab === 'credentials' ? (
+                  <div className="space-y-6">
+                    {/* Certificate Management Card */}
+                    <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                          <h4 className="text-sm font-extrabold text-slate-900">
+                            Fellowship Certificate
+                          </h4>
+                        </div>
+                        {applicantCredentials?.certificate ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                            Generated & Active
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-200 text-slate-700">
+                            Not Yet Generated
+                          </span>
+                        )}
+                      </div>
+
+                      {applicantCredentials?.certificate ? (
+                        <div className="space-y-3 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <span className="text-slate-400 block font-medium">Certificate Number</span>
+                              <span className="font-mono font-bold text-slate-900 text-sm">
+                                {applicantCredentials.certificate.certificate_number}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block font-medium">Verification Hash</span>
+                              <span className="font-mono font-bold text-emerald-600">
+                                {applicantCredentials.certificate.verification_code}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block font-medium">Date of Issue</span>
+                              <span className="font-bold text-slate-900">
+                                {new Date(applicantCredentials.certificate.issue_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block font-medium">Email Dispatch Status</span>
+                              <span className="font-semibold text-slate-700">
+                                {applicantCredentials.certificate.email_sent_at
+                                  ? `Dispatched on ${new Date(applicantCredentials.certificate.email_sent_at).toLocaleDateString()}`
+                                  : 'Not yet emailed'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center gap-3">
+                            <a
+                              href={`/verify/certificate/${applicantCredentials.certificate.certificate_number}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-sm btn-primary inline-flex items-center gap-1.5"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>View Public Certificate</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => sendCertEmailMutation.mutate(applicantCredentials.certificate!.id)}
+                              disabled={sendCertEmailMutation.isPending}
+                              className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-kulkul-purple" />
+                              <span>{sendCertEmailMutation.isPending ? 'Sending...' : 'Send Certificate to Email'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            No certificate has been generated yet for this candidate. You can generate one automatically now or when marking them as completed/graduated.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => generateCertMutation.mutate({ sendEmail: true })}
+                              disabled={generateCertMutation.isPending}
+                              className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+                              <span>{generateCertMutation.isPending ? 'Generating...' : 'Generate & Email Certificate'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => generateCertMutation.mutate({ sendEmail: false })}
+                              disabled={generateCertMutation.isPending}
+                              className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+                            >
+                              <span>Generate Only (No Email)</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Open Badges Card */}
+                    <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <Award className="w-5 h-5 text-purple-600" />
+                          <h4 className="text-sm font-extrabold text-slate-900">
+                            Earned Open Badges (v2.0)
+                          </h4>
+                        </div>
+                        <span className="text-xs text-slate-500 font-mono">
+                          {applicantCredentials?.badges?.length || 0} badges
+                        </span>
+                      </div>
+
+                      {applicantCredentials?.badges && applicantCredentials.badges.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {applicantCredentials.badges.map((b) => (
+                            <div
+                              key={b.id}
+                              className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3"
+                            >
+                              <div className="w-12 h-12 bg-slate-900 rounded-xl p-1 border border-slate-800 shrink-0 flex items-center justify-center">
+                                <img src={b.image_url} alt={b.name} className="w-full h-full object-contain" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-3xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                                  {b.badge_type === 'member' ? 'Member Badge' : 'Graduate Badge'}
+                                </span>
+                                <h5 className="text-xs font-bold text-slate-900 truncate mt-0.5">{b.name}</h5>
+                                <div className="text-3xs text-slate-400">Awarded {new Date(b.issued_at).toLocaleDateString()}</div>
+                              </div>
+                              <a
+                                href={`/verify/badge/${b.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-purple-600 transition"
+                                title="View Badge Assertion"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic">
+                          No Open Badges awarded yet. Member badge is awarded when candidate is accepted into the cohort.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
@@ -5733,19 +5965,49 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {applicantDetail?.applicant.current_stage === 'approved_for_live' ? (
+                  {applicantDetail?.applicant.current_stage === 'completed' ? (
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-purple-50 border border-purple-300 text-purple-800 text-xs font-bold shadow-2xs">
+                        <Award className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Fellowship Graduated</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveDrawerTab('credentials')}
+                        className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
+                        <span>Manage Certificate</span>
+                      </button>
+                    </div>
+                  ) : applicantDetail?.applicant.current_stage === 'approved_for_live' ? (
                     <>
                       {applicantDetail.applicant.program_room_invited_at ? (
                         <div className="flex items-center gap-2">
-                          <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold shadow-2xs">
+                          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold shadow-2xs">
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Invited to Program Room</span>
+                            <span>In Program Room</span>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateStageMutation.mutate({
+                                applicantId: selectedApplicantId!,
+                                stage: 'completed',
+                              })
+                            }
+                            disabled={updateStageMutation.isPending}
+                            className="btn btn-sm btn-secondary inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                            title="Mark fellow as completed/graduated: awards completion badge and auto-generates certificate"
+                          >
+                            <Award className="w-3.5 h-3.5" />
+                            <span>Graduate Fellow</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
                             disabled={inviteProgramRoomMutation.isPending}
-                            className="px-4 py-2 rounded-full border border-purple-200 text-kulkul-purple hover:bg-purple-50 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
+                            className="btn btn-sm btn-outline inline-flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
                             title="Resend Program Room invitation email"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${inviteProgramRoomMutation.isPending ? 'animate-spin' : ''}`} />
@@ -5778,6 +6040,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
                             )}
                             <span>Invite to Program Room</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateStageMutation.mutate({
+                                applicantId: selectedApplicantId!,
+                                stage: 'completed',
+                              })
+                            }
+                            disabled={updateStageMutation.isPending}
+                            className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-60"
+                          >
+                            <Award className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Graduate</span>
                           </button>
                         </div>
                       )}

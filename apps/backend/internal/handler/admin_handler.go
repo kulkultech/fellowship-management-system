@@ -35,6 +35,7 @@ type AdminHandler struct {
 	userRepo        *repository.UserRepository
 	invitationRepo  *repository.InvitationRepository
 	mentorRepo      *repository.MentorRepository
+	credentialRepo  *repository.CredentialRepository
 	emailSvc        email.Service
 	frontendURL     string
 }
@@ -80,6 +81,12 @@ func (h *AdminHandler) SetInvitationRepo(repo *repository.InvitationRepository) 
 func (h *AdminHandler) SetMentorRepo(repo *repository.MentorRepository) {
 	if repo != nil {
 		h.mentorRepo = repo
+	}
+}
+
+func (h *AdminHandler) SetCredentialRepo(repo *repository.CredentialRepository) {
+	if repo != nil {
+		h.credentialRepo = repo
 	}
 }
 
@@ -411,24 +418,45 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if h.emailSvc != nil {
-		if req.Stage == model.StageApprovedForLive {
-			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
-			if err == nil && applicant != nil && applicant.Email != "" {
-				progName := "KulKul Fellowship"
-				var customTmpl *model.EmailTemplateConfig
-				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
-					progName = prog.Name
-					if prog.EmailTemplates != nil {
-						customTmpl = prog.EmailTemplates.FinalInterview
-					}
+	if req.Stage == model.StageApprovedForLive {
+		applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+		if err == nil && applicant != nil {
+			progName := "KulKul Fellowship"
+			var customTmpl *model.EmailTemplateConfig
+			if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+				progName = prog.Name
+				if prog.EmailTemplates != nil {
+					customTmpl = prog.EmailTemplates.FinalInterview
 				}
-				trackName := ""
-				if applicant.TrackID != nil {
-					if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
-						trackName = tr.Name
-					}
+			}
+			trackName := ""
+			if applicant.TrackID != nil {
+				if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+					trackName = tr.Name
 				}
+			}
+
+			// Auto-award Member Badge
+			if h.credentialRepo != nil {
+				scheme := "https"
+				if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
+					scheme = "http"
+				}
+				baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+				_, _ = h.credentialRepo.AwardBadge(r.Context(), &model.Badge{
+					ApplicantID:    applicant.ID,
+					ProgramID:      applicant.ProgramID,
+					OrganizationID: applicant.OrganizationID,
+					BadgeType:      model.BadgeTypeMember,
+					Name:           fmt.Sprintf("%s Member Badge", progName),
+					Description:    fmt.Sprintf("Recognizes official admission into the %s fellowship cohort.", progName),
+					ImageURL:       fmt.Sprintf("%s/api/v1/badges/images/member.svg", baseURL),
+					CriteriaURL:    fmt.Sprintf("%s/api/v1/badges/classes/cohort-member.json", baseURL),
+					IssuedAt:       time.Now(),
+				})
+			}
+
+			if h.emailSvc != nil && applicant.Email != "" {
 				dashboardURL := fmt.Sprintf("%s", h.frontendURL)
 				_ = h.emailSvc.SendCustomFinalInterviewInvitationEmail(
 					applicant.Email,
@@ -440,7 +468,100 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 					customTmpl,
 				)
 			}
-		} else if req.Stage == model.StageAIInterviewInvited {
+		}
+	} else if req.Stage == model.StageCompleted {
+		applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+		if err == nil && applicant != nil {
+			progName := "KulKul Fellowship"
+			if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+				progName = prog.Name
+			}
+			trackName := ""
+			if applicant.TrackID != nil {
+				if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+					trackName = tr.Name
+				}
+			}
+			orgName := "KulKul Tech"
+			if org, err := h.orgRepo.GetByID(r.Context(), applicant.OrganizationID); err == nil && org != nil {
+				orgName = org.Name
+			}
+
+			scheme := "https"
+			if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
+				scheme = "http"
+			}
+			baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+
+			if h.credentialRepo != nil {
+				now := time.Now()
+				// 1. Award Completion Badge
+				completionBadge, _ := h.credentialRepo.AwardBadge(r.Context(), &model.Badge{
+					ApplicantID:    applicant.ID,
+					ProgramID:      applicant.ProgramID,
+					OrganizationID: applicant.OrganizationID,
+					BadgeType:      model.BadgeTypeCompletion,
+					Name:           fmt.Sprintf("%s Graduate Badge", progName),
+					Description:    fmt.Sprintf("Recognizes the successful graduation and completion of the %s cohort.", progName),
+					ImageURL:       fmt.Sprintf("%s/api/v1/badges/images/completion.svg", baseURL),
+					CriteriaURL:    fmt.Sprintf("%s/api/v1/badges/classes/program-graduate.json", baseURL),
+					IssuedAt:       now,
+				})
+
+				// Also ensure Member Badge is awarded
+				_, _ = h.credentialRepo.AwardBadge(r.Context(), &model.Badge{
+					ApplicantID:    applicant.ID,
+					ProgramID:      applicant.ProgramID,
+					OrganizationID: applicant.OrganizationID,
+					BadgeType:      model.BadgeTypeMember,
+					Name:           fmt.Sprintf("%s Member Badge", progName),
+					Description:    fmt.Sprintf("Recognizes official admission into the %s fellowship cohort.", progName),
+					ImageURL:       fmt.Sprintf("%s/api/v1/badges/images/member.svg", baseURL),
+					CriteriaURL:    fmt.Sprintf("%s/api/v1/badges/classes/cohort-member.json", baseURL),
+					IssuedAt:       applicant.CreatedAt,
+				})
+
+				// 2. Generate Certificate
+				certNumber := fmt.Sprintf("CERT-%d-%s", now.Year(), strings.ToUpper(uuid.New().String()[:8]))
+				verificationCode := strings.ReplaceAll(uuid.New().String(), "-", "")
+				cert, err := h.credentialRepo.CreateOrUpdateCertificate(r.Context(), &model.Certificate{
+					CertificateNumber: certNumber,
+					ApplicantID:       applicant.ID,
+					ProgramID:         applicant.ProgramID,
+					OrganizationID:    applicant.OrganizationID,
+					RecipientName:     applicant.FullName,
+					RecipientEmail:    applicant.Email,
+					ProgramName:       progName,
+					TrackName:         trackName,
+					IssueDate:         now,
+					CompletionDate:    now,
+					Status:            model.CertificateStatusIssued,
+					VerificationCode:  verificationCode,
+					OrganizationName:  orgName,
+				})
+
+				// 3. Dispatch Certificate email to fellow
+				if err == nil && cert != nil && h.emailSvc != nil && applicant.Email != "" {
+					certURL := fmt.Sprintf("%s/verify/certificate/%s", h.frontendURL, cert.CertificateNumber)
+					badgeURL := ""
+					if completionBadge != nil {
+						badgeURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, completionBadge.ID.String())
+					}
+					_ = h.emailSvc.SendCertificateEmail(
+						applicant.Email,
+						applicant.FullName,
+						progName,
+						trackName,
+						cert.CertificateNumber,
+						certURL,
+						badgeURL,
+						cert.IssueDate,
+					)
+					_ = h.credentialRepo.RecordCertificateEmailSent(r.Context(), cert.ID, now)
+				}
+			}
+		}
+	} else if req.Stage == model.StageAIInterviewInvited {
 			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
 			if err == nil && applicant != nil && applicant.Email != "" {
 				progName := "KulKul Fellowship"
@@ -515,7 +636,6 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 				)
 			}
 		}
-	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message": "Applicant stage updated successfully",
@@ -612,9 +732,9 @@ func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *ht
 		}
 	}
 
-	// Candidate must be approved for live cohort
-	if applicant.CurrentStage != model.StageApprovedForLive {
-		httpx.Error(w, http.StatusBadRequest, "applicant must be in approved_for_live stage to be invited to program room")
+	// Candidate must be approved for live cohort or completed
+	if applicant.CurrentStage != model.StageApprovedForLive && applicant.CurrentStage != model.StageCompleted {
+		httpx.Error(w, http.StatusBadRequest, "applicant must be in approved_for_live or completed stage to be invited to program room")
 		return
 	}
 
@@ -622,6 +742,30 @@ func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *ht
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to record program room invitation")
 		return
+	}
+
+	// Auto-award Member Badge if not already awarded
+	if h.credentialRepo != nil {
+		progName := "KulKul Fellowship"
+		if prog, err := h.programRepo.GetByID(r.Context(), updated.ProgramID); err == nil && prog != nil {
+			progName = prog.Name
+		}
+		scheme := "https"
+		if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
+			scheme = "http"
+		}
+		baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+		_, _ = h.credentialRepo.AwardBadge(r.Context(), &model.Badge{
+			ApplicantID:    updated.ID,
+			ProgramID:      updated.ProgramID,
+			OrganizationID: updated.OrganizationID,
+			BadgeType:      model.BadgeTypeMember,
+			Name:           fmt.Sprintf("%s Member Badge", progName),
+			Description:    fmt.Sprintf("Recognizes official admission into the %s fellowship cohort.", progName),
+			ImageURL:       fmt.Sprintf("%s/api/v1/badges/images/member.svg", baseURL),
+			CriteriaURL:    fmt.Sprintf("%s/api/v1/badges/classes/cohort-member.json", baseURL),
+			IssuedAt:       time.Now(),
+		})
 	}
 
 	// Send branded Program Room invitation email

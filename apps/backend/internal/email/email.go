@@ -30,6 +30,7 @@ type Service interface {
 	SendPasswordResetEmail(recipientEmail, userName, resetURL string) error
 	SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error
 	SendProgramRoomInvitationEmail(recipientEmail, candidateName, programName, trackName, roomURL string) error
+	SendCertificateEmail(recipientEmail, candidateName, programName, trackName, certificateNumber, certificateURL, badgeURL string, issueDate time.Time) error
 
 	SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error
 	SendCustomLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string, customTmpl *model.EmailTemplateConfig) error
@@ -334,6 +335,16 @@ func (s *SESService) SendProgramRoomInvitationEmail(recipientEmail, candidateNam
 		roomURL = s.frontendURL + "/candidate/dashboard"
 	}
 	subject, html, text := buildProgramRoomInvitationEmail(candidateName, programName, trackName, roomURL, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// 10. SendCertificateEmail
+func (s *SESService) SendCertificateEmail(recipientEmail, candidateName, programName, trackName, certificateNumber, certificateURL, badgeURL string, issueDate time.Time) error {
+	if certificateURL == "" {
+		certificateURL = fmt.Sprintf("%s/verify/certificate/%s", s.frontendURL, certificateNumber)
+	}
+	subject, html, text := buildCertificateEmail(candidateName, programName, trackName, certificateNumber, certificateURL, badgeURL, issueDate, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

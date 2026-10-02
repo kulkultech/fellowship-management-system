@@ -24,7 +24,11 @@ import {
   RefreshCw,
   Sparkles,
   GraduationCap,
+  Award,
+  Share2,
+  ShieldCheck,
 } from 'lucide-react';
+import { credentialService } from '@/services/credentialService';
 
 interface CandidateApplicationItem {
   applicant_id: string;
@@ -60,7 +64,7 @@ interface CandidateApplicationItem {
 export const CandidateDashboardPage: React.FC = () => {
   const { user: authUser, logout: authLogout, login } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'program_room'>('applications');
+  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'program_room' | 'credentials'>('applications');
 
   // Candidate Auth Form States (when unauthenticated)
   const [candidateAuthMode, setCandidateAuthMode] = useState<'signin' | 'register'>('signin');
@@ -79,6 +83,18 @@ export const CandidateDashboardPage: React.FC = () => {
     queryFn: async () => {
       const res = await apiClient.get('/candidate/applications');
       return res.data;
+    },
+    enabled: Boolean(authUser?.email),
+  });
+
+  const { data: credentialsData } = useQuery({
+    queryKey: ['candidate-credentials', authUser?.email],
+    queryFn: async () => {
+      try {
+        return await credentialService.getMyCredentials();
+      } catch (e) {
+        return { badges: [], certificate: null };
+      }
     },
     enabled: Boolean(authUser?.email),
   });
@@ -624,6 +640,13 @@ export const CandidateDashboardPage: React.FC = () => {
       badge: applications.filter((a) => a.interview_token).length || undefined,
       badgeColor: 'bg-purple-100 text-kulkul-purple',
     },
+    {
+      id: 'credentials',
+      label: 'Badges & Certificates',
+      icon: Award,
+      badge: credentialsData?.badges?.length || (credentialsData?.certificate ? 1 : undefined),
+      badgeColor: 'bg-amber-100 text-amber-800',
+    },
   ];
 
   return (
@@ -1047,6 +1070,184 @@ export const CandidateDashboardPage: React.FC = () => {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5: CREDENTIALS & OPEN BADGES */}
+          {/* ========================================================================= */}
+          {activeTab === 'credentials' && (
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple border border-purple-100 flex items-center justify-center shrink-0">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="badge badge-sm bg-purple-100 text-kulkul-purple">
+                          Verified Credentials
+                        </span>
+                        <span className="badge badge-sm bg-slate-100 text-slate-600 font-mono">
+                          Open Badges v2.0
+                        </span>
+                      </div>
+                      <h2 className="heading-page text-xl sm:text-2xl">Your Digital Credentials & Badges</h2>
+                      <p className="text-body text-xs sm:text-sm mt-1 max-w-2xl">
+                        FellowHire credentials comply with 1EdTech / IMS Global Open Badges specifications. Your achievements are cryptographically signed and publicly shareable.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Certificate Section */}
+              <div className="space-y-4">
+                <h3 className="heading-section text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span>Official Certificate of Completion</span>
+                </h3>
+
+                {credentialsData?.certificate ? (
+                  <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs hover:shadow-md transition">
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
+                          <Award className="w-8 h-8 text-amber-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="badge badge-sm bg-emerald-100 text-emerald-800">
+                              Issued & Verified
+                            </span>
+                            <span className="text-xs text-slate-500 font-mono">
+                              ID: {credentialsData.certificate.certificate_number}
+                            </span>
+                          </div>
+                          <h4 className="heading-card text-xl text-slate-900 mt-1">
+                            {credentialsData.certificate.title || 'Certificate of Completion'}
+                          </h4>
+                          <p className="text-body mt-1">
+                            Awarded to <strong className="text-slate-900">{credentialsData.certificate.recipient_name}</strong> for completing{' '}
+                            <strong className="text-slate-900">{credentialsData.certificate.program_name}</strong>.
+                          </p>
+                          <div className="text-caption mt-2">
+                            Issued on {new Date(credentialsData.certificate.issue_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto shrink-0">
+                        <Link
+                          to={`/verify/certificate/${credentialsData.certificate.certificate_number}`}
+                          className="btn btn-md btn-primary flex-1 sm:flex-none"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>View Certificate</span>
+                        </Link>
+                        {credentialsData.certificate.linked_in_url && (
+                          <a
+                            href={credentialsData.certificate.linked_in_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-md bg-[#0a66c2] hover:bg-[#084e96] text-white flex-1 sm:flex-none shadow-sm"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            <span>Add to LinkedIn</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 rounded-3xl border border-dashed border-slate-300 p-8 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-200/80 text-slate-500 mx-auto flex items-center justify-center mb-3">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <h4 className="heading-card text-base text-slate-800">Certificate In Progress</h4>
+                    <p className="text-body-sm text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                      Your official Certificate of Completion will be generated automatically upon graduating and completing your fellowship program benchmarks.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Open Badges Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="heading-section text-slate-900 flex items-center gap-2">
+                    <Award className="w-5 h-5 text-kulkul-purple" />
+                    <span>Earned Open Badges (v2.0)</span>
+                  </h3>
+                  <span className="text-caption font-semibold">
+                    1EdTech / IMS Global Compatible
+                  </span>
+                </div>
+
+                {credentialsData?.badges && credentialsData.badges.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {credentialsData.badges.map((badge) => (
+                      <div
+                        key={badge.id}
+                        className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs hover:shadow-md transition flex flex-col justify-between"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-20 h-20 bg-purple-50/70 border border-purple-100 rounded-2xl p-2 flex items-center justify-center shrink-0 shadow-2xs">
+                            <img src={badge.image_url} alt={badge.name} className="w-full h-full object-contain filter drop-shadow-sm" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className={`badge badge-sm mb-1 ${
+                              badge.badge_type === 'member'
+                                ? 'bg-purple-100 text-kulkul-purple'
+                                : 'bg-amber-100 text-amber-900'
+                            }`}>
+                              {badge.badge_type === 'member' ? 'Cohort Member' : 'Program Graduate'}
+                            </span>
+                            <h4 className="heading-card text-base text-slate-900 truncate">{badge.name}</h4>
+                            <p className="text-body-sm text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                              {badge.description}
+                            </p>
+                            <div className="text-caption mt-2">
+                              Awarded {new Date(badge.issued_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                          <Link
+                            to={`/verify/badge/${badge.id}`}
+                            className="btn btn-sm btn-outline"
+                          >
+                            <span>Verify Badge</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                          <a
+                            href={badge.image_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            className="btn btn-sm btn-ghost text-slate-600"
+                          >
+                            Download Vector SVG
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 rounded-3xl border border-dashed border-slate-300 p-8 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-100 text-kulkul-purple mx-auto flex items-center justify-center mb-3">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <h4 className="heading-card text-base text-slate-800">No Badges Awarded Yet</h4>
+                    <p className="text-body-sm text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                      You will earn your <strong>Cohort Member Badge</strong> upon formal acceptance into a fellowship cohort, and your <strong>Program Graduate Badge</strong> upon completion!
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

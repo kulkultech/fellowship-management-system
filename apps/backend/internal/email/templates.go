@@ -1013,5 +1013,72 @@ func buildProgramRoomInvitationEmail(candidateName, programName, trackName, room
 	return
 }
 
+// buildCertificateEmail generates branded HTML and plain-text email for certificate & badge issuance
+func buildCertificateEmail(candidateName, programName, trackName, certNumber, certURL, badgeURL string, issueDate time.Time, frontendURL, supportEmail string) (subject, html, text string) {
+	trackDisplay := trackName
+	if trackDisplay == "" {
+		trackDisplay = "Fellowship Track"
+	}
+	subject = fmt.Sprintf("🎓 Official Certificate of Completion: %s - %s", programName, candidateName)
+
+	dateFormatted := issueDate.Format("January 02, 2006")
+
+	body := fmt.Sprintf(`
+    <span class="badge badge-purple" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Official Credential Issued</span>
+    <h2>Congratulations on Your Graduation! 🎓</h2>
+    <p>Dear <strong>%s</strong>,</p>
+    <p>We are delighted to congratulate you on successfully completing and graduating from <strong>%s</strong> (%s)!</p>
+    
+    <div style="background: linear-gradient(135deg, #2b0d52 0%%, #401b70 50%%, #1e0939 100%%); border-radius: 16px; padding: 24px; color: #ffffff; text-align: center; margin: 24px 0; border: 2px solid #f59e0b; box-shadow: 0 10px 25px -5px rgba(51, 18, 93, 0.3);">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #fde68a; font-weight: 800;">Fellowship Certificate of Completion</div>
+      <div style="font-size: 20px; font-weight: 900; margin: 10px 0 4px 0; color: #ffffff;">%s</div>
+      <div style="font-size: 13px; color: #e9d5ff;">has successfully completed all requirements for</div>
+      <div style="font-size: 16px; font-weight: 800; color: #fbbf24; margin: 6px 0;">%s</div>
+      <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.12); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #f3e8ff; margin-top: 8px;">
+        Credential ID: <strong style="color: #ffffff; letter-spacing: 0.5px;">%s</strong> &bull; %s
+      </div>
+    </div>
+
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 20px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Recipient</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Program</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s (%s)</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Certificate ID</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Status</td>
+          <td style="padding: 12px 18px; color: #047857; font-size: 13px; font-weight: 700; text-align: right;">Verified &amp; Active</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Your official verifiable certificate and Open Badges (1EdTech / IMS Global Open Badges compliant) are now published and accessible online. You can view, download as PDF, print, and share your credential directly on LinkedIn.</p>
+
+    <div class="btn-container">
+      <a href="%s" class="btn" style="background-color: #33125d; color: #ffffff;">View &amp; Download Certificate</a>
+    </div>
+
+    <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 16px;">
+      You can also access your earned badges and certificate anytime directly from your <a href="%s/candidate/dashboard" style="color: #33125d; font-weight: 600;">Candidate Dashboard</a>.
+    </p>
+  `, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
+		template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(certNumber), dateFormatted,
+		template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay), template.HTMLEscapeString(certNumber),
+		certURL, frontendURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Congratulations %s!\n\nYou have officially graduated from %s (%s)!\n\nCertificate ID: %s\nIssue Date: %s\n\nView and download your official certificate:\n%s\n\nAccess your badges & credentials anytime from your Candidate Dashboard:\n%s/candidate/dashboard\n\nWarm regards,\nFellowHire & KulKul Fellowship Board",
+		candidateName, programName, trackDisplay, certNumber, dateFormatted, certURL, frontendURL)
+	return
+}
+
 
 

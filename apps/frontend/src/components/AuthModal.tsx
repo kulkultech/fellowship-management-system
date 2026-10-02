@@ -253,7 +253,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="p-3.5 bg-kulkul-orange-light border border-kulkul-orange/20 rounded-2xl text-xs text-slate-800 flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 shrink-0 text-kulkul-orange mt-0.5" />
                 <div>
-                  <span className="font-bold">LIT 2026 Candidate Portal:</span> Enter your email to begin or resume your timed assessment & AI screening.
+                  <span className="font-bold">Fellowship Candidate Portal:</span> Enter your email to begin or resume your timed assessment & AI screening.
                 </div>
               </div>
 

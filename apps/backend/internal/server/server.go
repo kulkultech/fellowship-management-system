@@ -58,6 +58,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	invitationRepo := repository.NewInvitationRepository(pool)
 	mentorRepo := repository.NewMentorRepository(pool)
 	sessionRepo := repository.NewSessionRepository(pool, applicantRepo)
+	credentialRepo := repository.NewCredentialRepository(pool)
 	healthHandler := handler.NewHealthHandler(pool, cfg.AppEnv)
 	authHandler := handler.NewAuthHandler(userRepo, orgRepo, authSvc, emailSvc, cfg.JWTTTL, cfg.CookieSecure, cfg.CookieDomain, cfg.SES.FrontendURL)
 	authHandler.SetInvitationRepo(invitationRepo)
@@ -69,11 +70,13 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	adminHandler := handler.NewAdminHandler(applicantRepo, submissionRepo, mcqRepo, questionSetRepo, trackRepo, aiInterviewRepo, programRepo, orgRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	adminHandler.SetInvitationRepo(invitationRepo)
 	adminHandler.SetMentorRepo(mentorRepo)
+	adminHandler.SetCredentialRepo(credentialRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -232,6 +235,20 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		})
 
 
+		// Open Badges v2.0 Standard Specification Endpoints
+		api.Route("/badges", func(b chi.Router) {
+			b.Get("/assertions/{id}", credentialHandler.GetBadgeAssertionJSON)
+			b.Get("/classes/{slug}", credentialHandler.GetBadgeClassJSON)
+			b.Get("/issuer.json", credentialHandler.GetBadgeIssuerJSON)
+			b.Get("/images/{type}", credentialHandler.GetBadgeImageSVG)
+			b.Get("/verify/{id}", credentialHandler.VerifyBadgePublic)
+		})
+
+		// Public Certificate Verification
+		api.Route("/certificates", func(c chi.Router) {
+			c.Get("/verify/{certificateNumber}", credentialHandler.VerifyCertificatePublic)
+		})
+
 		// Protected Reviewer / Admin / Superadmin / Candidate Routes
 		api.Group(func(protected chi.Router) {
 			protected.Use(middleware.Authenticator(authSvc))
@@ -241,6 +258,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Put("/auth/profile", authHandler.UpdateProfile)
 			protected.Get("/candidate/applications", candidateHandler.GetCandidateApplications)
 			protected.Delete("/candidate/applications/{id}", candidateHandler.DeleteCandidateApplication)
+
+			// Candidate Portal Credentials (Open Badges & Certificates)
+			protected.Get("/candidate/my-credentials", credentialHandler.GetMyCredentials)
 
 			// Mentor Portal
 			protected.Route("/mentor", func(m chi.Router) {
@@ -278,6 +298,12 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				a.Post("/{assignmentId}/submit", assignmentHandler.SubmitAssignment)
 				a.Post("/{assignmentId}/submissions/{submissionId}/grade", assignmentHandler.GradeSubmission)
 			})
+
+			// Program & Applicant Credentials Management
+			protected.Get("/programs/{programId}/certificates", credentialHandler.ListProgramCertificates)
+			protected.Get("/applicants/{applicantId}/credentials", credentialHandler.GetApplicantCredentials)
+			protected.Post("/applicants/{applicantId}/certificate", credentialHandler.GenerateOrUpdateCertificate)
+			protected.Post("/certificates/{certificateId}/send-email", credentialHandler.SendCertificateEmail)
 
 			protected.Route("/admin", func(adm chi.Router) {
 				// Require org_admin or reviewer (superadmin auto-allowed)

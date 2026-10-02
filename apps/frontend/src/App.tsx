@@ -23,6 +23,8 @@ import { SuperadminDashboardPage } from '@/pages/admin/SuperadminDashboardPage';
 import { MentorDashboardPage } from '@/pages/mentor/MentorDashboardPage';
 import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
 import { TermsOfServicePage } from '@/pages/legal/TermsOfServicePage';
+import { CertificateVerificationPage } from '@/pages/credentials/CertificateVerificationPage';
+import { BadgeVerificationPage } from '@/pages/credentials/BadgeVerificationPage';
 import { useUiStore } from '@/hooks/useUiStore';
 import { initFirebaseAnalytics } from '@/lib/firebase';
 import { useFirebasePageTracking } from '@/hooks/useFirebasePageTracking';
@@ -100,6 +102,10 @@ export function App() {
           {/* Candidate Dashboard & Portal */}
           <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />
           <Route path="/candidate/portal" element={<CandidateDashboardPage />} />
+
+          {/* Public Credential Verification & Open Badges */}
+          <Route path="/verify/certificate/:certificateNumber" element={<CertificateVerificationPage />} />
+          <Route path="/verify/badge/:badgeId" element={<BadgeVerificationPage />} />
 
           {/* Candidate Funnel: LIT 2026 & Generic AI Interview */}
           <Route path="/lit2026/apply" element={<ApplyPage />} />

@@ -855,4 +855,90 @@ export interface GradeSubmissionPayload {
   feedback: string;
 }
 
+// ==================== Credentials & Open Badges ====================
+
+export type BadgeType = 'member' | 'completion';
+export type CertificateStatus = 'issued' | 'revoked';
+
+export interface Badge {
+  id: string;
+  applicant_id: string;
+  program_id: string;
+  organization_id: string;
+  badge_type: BadgeType;
+  name: string;
+  description: string;
+  image_url: string;
+  criteria_url: string;
+  issued_at: string;
+  revoked_at?: string | null;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  recipient_name?: string;
+  recipient_email?: string;
+  program_name?: string;
+  organization_name?: string;
+  assertion_url?: string;
+  verification_url?: string;
+}
+
+export interface Certificate {
+  id: string;
+  applicant_id: string;
+  program_id: string;
+  organization_id: string;
+  certificate_number: string;
+  title: string;
+  recipient_name: string;
+  recipient_email: string;
+  program_name: string;
+  track_name?: string;
+  organization_name: string;
+  issue_date: string;
+  verification_code: string;
+  status: CertificateStatus;
+  email_sent_at?: string | null;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  verification_url?: string;
+  linked_in_url?: string;
+}
+
+export interface PublicCertificateVerification {
+  valid: boolean;
+  status: string;
+  certificate_number: string;
+  recipient_name: string;
+  program_name: string;
+  track_name?: string;
+  organization_name: string;
+  issue_date: string;
+  verification_code: string;
+  verification_url: string;
+  linked_in_url: string;
+  badges: Badge[];
+}
+
+export interface PublicBadgeVerification {
+  valid: boolean;
+  status: string;
+  badge: Badge;
+  assertion_url: string;
+  issuer_url: string;
+}
+
+export interface CandidateCredentialsResponse {
+  badges: Badge[];
+  certificate?: Certificate | null;
+  candidate_name?: string;
+  program_name?: string;
+  track_name?: string;
+}
+
+export interface GenerateCertificatePayload {
+  send_email?: boolean;
+}
+
 
