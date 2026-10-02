@@ -248,21 +248,22 @@ export const ApplyPage: React.FC = () => {
     }
   }, [user, location.search]);
 
-  const previewStorageKey = `kulkul_preview_${orgSlug}_${programSlug}`;
-  const paramPreview = queryParams.get('preview') || '';
-  if (paramPreview) {
-    try {
-      sessionStorage.setItem(previewStorageKey, paramPreview);
-    } catch (_) {}
-  }
-  const storedPreview = (() => {
+  const initialPreviewToken = useMemo(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const paramPreview = queryParams.get('preview') || '';
+    const previewStorageKey = `kulkul_preview_${orgSlug}_${programSlug}`;
+    if (paramPreview) {
+      try {
+        sessionStorage.setItem(previewStorageKey, paramPreview);
+      } catch (_) {}
+      return paramPreview;
+    }
     try {
       return sessionStorage.getItem(previewStorageKey) || '';
     } catch (_) {
       return '';
     }
-  })();
-  const initialPreviewToken = paramPreview || storedPreview || '';
+  }, [orgSlug, programSlug, location.search]);
 
   const { data: programData } = useQuery({
     queryKey: ['program', orgSlug, programSlug, initialPreviewToken],
@@ -298,14 +299,22 @@ export const ApplyPage: React.FC = () => {
   const program = programData?.program;
   const tracks = program?.tracks || [];
 
-  const openDate = program?.open_date ? new Date(program.open_date) : null;
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const openDate = useMemo(() => (program?.open_date ? new Date(program.open_date) : null), [program?.open_date]);
 
-  const isBeforeOpen = openDate ? now < openDate.getTime() : false;
+  const [isOpeningSoon, setIsOpeningSoon] = useState<boolean>(() => {
+    if (!openDate) return false;
+    return Date.now() < openDate.getTime();
+  });
+
+  useEffect(() => {
+    if (!openDate) {
+      setIsOpeningSoon(false);
+      return;
+    }
+    setIsOpeningSoon(Date.now() < openDate.getTime());
+  }, [openDate]);
+
+  const isBeforeOpen = isOpeningSoon;
 
   const isCandidateInEvaluation = !!(
     candidateStatusData?.authenticated && (
@@ -592,7 +601,7 @@ export const ApplyPage: React.FC = () => {
                   targetDate={openDate}
                   variant="boxes"
                   size="lg"
-                  onExpire={() => setNow(Date.now())}
+                  onExpire={() => setIsOpeningSoon(false)}
                 />
               )}
             </div>

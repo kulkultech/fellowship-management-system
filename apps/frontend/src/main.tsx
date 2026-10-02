@@ -21,6 +21,28 @@ function getSentryDsn(): string {
 
 const sentryDsn = getSentryDsn();
 
+if (typeof window !== 'undefined') {
+  // Gracefully handle benign browser/navigation fetch aborts so they do not trigger uncaught rejection errors
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    if (reason && typeof reason === 'object') {
+      const r = reason as { name?: string; code?: string; message?: string };
+      if (
+        r.name === 'AbortError' ||
+        r.name === 'CanceledError' ||
+        r.code === 'ERR_CANCELED' ||
+        (typeof r.message === 'string' &&
+          (r.message.includes('The operation was aborted') ||
+            r.message.includes('AbortError') ||
+            r.message.includes('canceled') ||
+            r.message.includes('cancelled')))
+      ) {
+        event.preventDefault();
+      }
+    }
+  });
+}
+
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
@@ -32,6 +54,40 @@ if (sentryDsn) {
         blockAllMedia: false,
       }),
     ],
+    // Benign errors that are normal browser lifecycle events (e.g. user navigation, tab unmount)
+    ignoreErrors: [
+      'AbortError',
+      'The operation was aborted',
+      'The operation was aborted.',
+      'Fetch is aborted',
+      'Request was aborted',
+      'CanceledError',
+      'canceled',
+      'cancelled',
+      'ResizeObserver loop completed with undelivered notifications.',
+      'ResizeObserver loop limit exceeded',
+      'Network request failed',
+      'Load failed',
+    ],
+    beforeSend(event, hint) {
+      const error = hint?.originalException;
+      if (error && typeof error === 'object') {
+        const errObj = error as { name?: string; code?: string; message?: string };
+        if (
+          errObj.name === 'AbortError' ||
+          errObj.name === 'CanceledError' ||
+          errObj.code === 'ERR_CANCELED' ||
+          (typeof errObj.message === 'string' &&
+            (errObj.message.includes('The operation was aborted') ||
+              errObj.message.includes('AbortError') ||
+              errObj.message.includes('canceled') ||
+              errObj.message.includes('cancelled')))
+        ) {
+          return null; // Suppress benign browser aborts
+        }
+      }
+      return event;
+    },
     // Tracing: 25% sampling rate for performance monitoring
     tracesSampleRate: 0.25,
     // Session Replay: 25% sampling rate for normal sessions, 100% on error

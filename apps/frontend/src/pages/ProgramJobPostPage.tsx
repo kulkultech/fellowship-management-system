@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
@@ -19,29 +19,23 @@ import {
 export const ProgramJobPostPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
   const navigate = useNavigate();
-  const [now, setNow] = useState(Date.now());
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const queryParams = new URLSearchParams(window.location.search);
-  const previewStorageKey = `kulkul_preview_${orgSlug}_${programSlug}`;
-  const paramPreview = queryParams.get('preview') || '';
-  if (paramPreview) {
-    try {
-      sessionStorage.setItem(previewStorageKey, paramPreview);
-    } catch (_) {}
-  }
-  const storedPreview = (() => {
+  const previewToken = useMemo(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const paramPreview = queryParams.get('preview') || '';
+    const previewStorageKey = `kulkul_preview_${orgSlug}_${programSlug}`;
+    if (paramPreview) {
+      try {
+        sessionStorage.setItem(previewStorageKey, paramPreview);
+      } catch (_) {}
+      return paramPreview;
+    }
     try {
       return sessionStorage.getItem(previewStorageKey) || '';
     } catch (_) {
       return '';
     }
-  })();
-  const previewToken = paramPreview || storedPreview || '';
+  }, [orgSlug, programSlug]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['program-post', orgSlug, programSlug, previewToken],
@@ -52,13 +46,26 @@ export const ProgramJobPostPage: React.FC = () => {
   const org = data?.organization;
   const tracks = program?.tracks || [];
 
-  const openDate = program?.open_date ? new Date(program.open_date) : null;
+  const openDate = useMemo(() => (program?.open_date ? new Date(program.open_date) : null), [program?.open_date]);
   const isPreviewMode = !!(
     (previewToken && program?.preview_token && previewToken === program.preview_token) ||
     (previewToken && previewToken.length >= 16)
   );
-  const isBeforeOpen = openDate ? (now < openDate.getTime() && !isPreviewMode) : false;
 
+  const [isOpeningSoon, setIsOpeningSoon] = useState<boolean>(() => {
+    if (!openDate || isPreviewMode) return false;
+    return Date.now() < openDate.getTime();
+  });
+
+  useEffect(() => {
+    if (!openDate || isPreviewMode) {
+      setIsOpeningSoon(false);
+      return;
+    }
+    setIsOpeningSoon(Date.now() < openDate.getTime());
+  }, [openDate, isPreviewMode]);
+
+  const isBeforeOpen = isOpeningSoon && !isPreviewMode;
 
   const handleApplyTrack = (trackSlug: string) => {
     const previewQuery = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
@@ -117,6 +124,8 @@ export const ProgramJobPostPage: React.FC = () => {
             <img
               src={programImage}
               alt={program.name}
+              loading="lazy"
+              decoding="async"
               className="w-full h-auto max-h-[460px] sm:max-h-[500px] object-cover block"
             />
 
@@ -236,7 +245,7 @@ export const ProgramJobPostPage: React.FC = () => {
                         variant="compact"
                         size="md"
                         onExpire={() => {
-                          setNow(Date.now());
+                          setIsOpeningSoon(false);
                           refetch();
                         }}
                       />

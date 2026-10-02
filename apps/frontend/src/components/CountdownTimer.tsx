@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 export interface CountdownTimerProps {
   targetDate: string | Date;
@@ -55,20 +55,46 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
 }) => {
   const target = useMemo(() => new Date(targetDate), [targetDate]);
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft(target));
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+  const hasExpiredRef = useRef(false);
 
   useEffect(() => {
-    const update = () => {
+    hasExpiredRef.current = false;
+    let timerId: ReturnType<typeof setInterval> | null = null;
+
+    const tick = () => {
       const updated = calculateTimeLeft(target);
       setTimeLeft(updated);
-      if (updated.isExpired && onExpire) {
-        onExpire();
+      if (updated.isExpired) {
+        if (timerId) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+        if (!hasExpiredRef.current) {
+          hasExpiredRef.current = true;
+          onExpireRef.current?.();
+        }
       }
     };
 
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [target, onExpire]);
+    const initial = calculateTimeLeft(target);
+    setTimeLeft(initial);
+    if (initial.isExpired) {
+      if (!hasExpiredRef.current) {
+        hasExpiredRef.current = true;
+        onExpireRef.current?.();
+      }
+      return;
+    }
+
+    timerId = setInterval(tick, 1000);
+    return () => {
+      if (timerId) {
+        clearInterval(timerId);
+      }
+    };
+  }, [target]);
 
   const pad = (n: number) => n.toString().padStart(2, '0');
 

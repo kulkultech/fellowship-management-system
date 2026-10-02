@@ -12,8 +12,8 @@ export const credentialService = {
   /**
    * Fetch credentials and badges for current candidate
    */
-  async getMyCredentials(): Promise<CandidateCredentialsResponse> {
-    const res = await apiClient.get<CandidateCredentialsResponse>('/candidate/my-credentials');
+  async getMyCredentials(signal?: AbortSignal): Promise<CandidateCredentialsResponse> {
+    const res = await apiClient.get<CandidateCredentialsResponse>('/candidate/my-credentials', { signal });
     return res.data;
   },
 

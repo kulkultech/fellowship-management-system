@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { apiClient, resolveMediaUrl } from '@/services/apiClient';
 import { authService } from '@/services/authService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
@@ -80,19 +81,29 @@ export const CandidateDashboardPage: React.FC = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['candidate-applications', authUser?.email],
-    queryFn: async () => {
-      const res = await apiClient.get('/candidate/applications');
-      return res.data;
+    queryFn: async ({ signal }) => {
+      try {
+        const res = await apiClient.get('/candidate/applications', { signal });
+        return res.data;
+      } catch (err: any) {
+        if (axios.isCancel(err) || err?.name === 'AbortError' || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
+          return { applications: [] };
+        }
+        throw err;
+      }
     },
     enabled: Boolean(authUser?.email),
   });
 
   const { data: credentialsData } = useQuery({
     queryKey: ['candidate-credentials', authUser?.email],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        return await credentialService.getMyCredentials();
-      } catch (e) {
+        return await credentialService.getMyCredentials(signal);
+      } catch (e: any) {
+        if (axios.isCancel(e) || e?.name === 'AbortError' || e?.name === 'CanceledError' || e?.code === 'ERR_CANCELED') {
+          return { badges: [], certificate: null };
+        }
         return { badges: [], certificate: null };
       }
     },
