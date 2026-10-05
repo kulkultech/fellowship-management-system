@@ -2076,7 +2076,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       id: 'programs',
       label: 'Programs',
       icon: Layers,
-      badge: allPrograms.length,
       onClick: () => {
         setCurrentView('programs');
       },

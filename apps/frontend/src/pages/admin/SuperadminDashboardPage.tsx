@@ -174,7 +174,6 @@ export const SuperadminDashboardPage: React.FC = () => {
       id: 'programs',
       label: 'All System Programs',
       icon: Layers,
-      badge: allPrograms.length,
     },
     {
       id: 'telemetry',

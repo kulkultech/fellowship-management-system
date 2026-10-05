@@ -104,7 +104,6 @@ export const MentorDashboardPage: React.FC = () => {
       id: 'programs',
       label: 'My Programs',
       icon: BookOpen,
-      badge: totalPrograms > 0 ? totalPrograms : undefined,
       onClick: () => setActiveNavId('programs'),
     },
     {
