@@ -18,6 +18,7 @@ import (
 
 	"github.com/kulkul/backend/internal/ai"
 	"github.com/kulkul/backend/internal/auth"
+	"github.com/kulkul/backend/internal/calendar"
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/handler"
@@ -73,7 +74,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	adminHandler.SetCredentialRepo(credentialRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo)
-	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	calendarSvc := calendar.NewService(calendar.Config{
+		CalendarID:         cfg.GoogleCalendar.CalendarID,
+		ServiceAccountJSON: cfg.GoogleCalendar.ServiceAccountJSON,
+	}, logger)
+	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)

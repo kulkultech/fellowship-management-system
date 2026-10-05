@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kulkul/backend/internal/calendar"
 	"github.com/kulkul/backend/internal/model"
 )
 
@@ -65,12 +66,12 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 		INSERT INTO program_sessions (
 			id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
-			target_applicant_ids,
+			target_applicant_ids, google_calendar_event_id, google_calendar_html_link,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
-			target_applicant_ids,
+			target_applicant_ids, COALESCE(google_calendar_event_id, ''), COALESCE(google_calendar_html_link, ''),
 			created_at, updated_at
 	`
 	var res model.ProgramSession
@@ -78,12 +79,12 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 	err := r.pool.QueryRow(ctx, query,
 		s.ID, s.ProgramID, s.TrackID, s.Title, s.Description, string(s.SessionType),
 		s.StartTime, s.EndTime, s.MeetingURL, s.RecordingURL, s.MentorID,
-		rawTargets,
+		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink,
 		s.CreatedAt, s.UpdatedAt,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
-		&resRawTargets,
+		&resRawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
@@ -117,6 +118,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 		SELECT s.id, s.program_id, s.track_id, COALESCE(t.name, ''), s.title, s.description, s.session_type,
 			s.start_time, s.end_time, s.meeting_url, s.recording_url, s.mentor_id, COALESCE(u.name, ''),
 			COALESCE(s.target_applicant_ids, '[]'::jsonb),
+			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''),
 			s.created_at, s.updated_at
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
@@ -128,7 +130,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.TrackName, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID, &res.MentorName,
-		&rawTargets,
+		&rawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -222,6 +224,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 		SELECT s.id, s.program_id, s.track_id, COALESCE(t.name, ''), s.title, s.description, s.session_type,
 			s.start_time, s.end_time, s.meeting_url, s.recording_url, s.mentor_id, COALESCE(u.name, ''),
 			COALESCE(s.target_applicant_ids, '[]'::jsonb),
+			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''),
 			s.created_at, s.updated_at,
 			COALESCE(att_stats.total_fellows, 0),
 			COALESCE(att_stats.present_count, 0),
@@ -277,6 +280,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			&s.ID, &s.ProgramID, &s.TrackID, &s.TrackName, &s.Title, &s.Description, &s.SessionType,
 			&s.StartTime, &s.EndTime, &s.MeetingURL, &s.RecordingURL, &s.MentorID, &s.MentorName,
 			&rawTargets,
+			&s.GoogleCalendarEventID, &s.GoogleCalendarHTMLLink,
 			&s.CreatedAt, &s.UpdatedAt,
 			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount, &s.PendingCount,
 			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes, &faProofImageURL,
@@ -350,22 +354,24 @@ func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramS
 		UPDATE program_sessions
 		SET title = $2, description = $3, session_type = $4, start_time = $5, end_time = $6,
 			meeting_url = $7, recording_url = $8, mentor_id = $9, track_id = $10,
-			target_applicant_ids = $11, updated_at = now()
+			target_applicant_ids = $11, google_calendar_event_id = $12, google_calendar_html_link = $13,
+			updated_at = now()
 		WHERE id = $1
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
-			target_applicant_ids, created_at, updated_at
+			target_applicant_ids, COALESCE(google_calendar_event_id, ''), COALESCE(google_calendar_html_link, ''),
+			created_at, updated_at
 	`
 	var res model.ProgramSession
 	var resRawTargets []byte
 	err := r.pool.QueryRow(ctx, query,
 		s.ID, s.Title, s.Description, string(s.SessionType), s.StartTime, s.EndTime,
 		s.MeetingURL, s.RecordingURL, s.MentorID, s.TrackID,
-		rawTargets,
+		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
-		&resRawTargets,
+		&resRawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -828,4 +834,75 @@ func (r *SessionRepository) GetFellowAttendanceSummary(ctx context.Context, prog
 		summaries = append(summaries, s)
 	}
 	return summaries, rows.Err()
+}
+
+// GetSessionInvitedAttendees resolves the list of fellows and mentors who are invited to a session.
+func (r *SessionRepository) GetSessionInvitedAttendees(
+	ctx context.Context,
+	programID uuid.UUID,
+	trackID *uuid.UUID,
+	targetApplicantIDs []uuid.UUID,
+	mentorID *uuid.UUID,
+) ([]calendar.Attendee, error) {
+	var attendees []calendar.Attendee
+
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, id := range targetApplicantIDs {
+			attendees = append(attendees, calendar.Attendee{
+				ID:    id,
+				Name:  "Fellow " + id.String()[:6],
+				Email: fmt.Sprintf("fellow-%s@example.com", id.String()[:6]),
+				Role:  "fellow",
+			})
+		}
+		if mentorID != nil {
+			attendees = append(attendees, calendar.Attendee{
+				ID:    *mentorID,
+				Name:  "Assigned Mentor",
+				Email: "mentor@example.com",
+				Role:  "mentor",
+			})
+		}
+		return attendees, nil
+	}
+
+	query := `
+		SELECT a.id, a.full_name, a.email, COALESCE(t.name, '')
+		FROM applicants a
+		LEFT JOIN program_tracks t ON a.track_id = t.id
+		WHERE a.program_id = $1
+			AND a.current_stage = 'approved_for_live'
+			AND a.deleted_at IS NULL
+			AND ($2::uuid IS NULL OR a.track_id IS NULL OR a.track_id = $2::uuid)
+			AND ($3::uuid[] IS NULL OR cardinality($3::uuid[]) = 0 OR a.id = ANY($3::uuid[]))
+		ORDER BY a.full_name ASC
+	`
+	rows, err := r.pool.Query(ctx, query, programID, trackID, targetApplicantIDs)
+	if err != nil {
+		return nil, fmt.Errorf("session_repo: get session invited attendees: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var att calendar.Attendee
+		att.Role = "fellow"
+		if err := rows.Scan(&att.ID, &att.Name, &att.Email, &att.TrackName); err != nil {
+			return nil, fmt.Errorf("session_repo: scan attendee: %w", err)
+		}
+		attendees = append(attendees, att)
+	}
+
+	if mentorID != nil {
+		var mentorAtt calendar.Attendee
+		mentorAtt.Role = "mentor"
+		mentorQuery := `SELECT id, name, email FROM users WHERE id = $1`
+		err := r.pool.QueryRow(ctx, mentorQuery, *mentorID).Scan(&mentorAtt.ID, &mentorAtt.Name, &mentorAtt.Email)
+		if err == nil && mentorAtt.Email != "" {
+			attendees = append(attendees, mentorAtt)
+		}
+	}
+
+	return attendees, nil
 }

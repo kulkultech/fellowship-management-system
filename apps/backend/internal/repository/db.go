@@ -377,6 +377,8 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 
 	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS target_applicant_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
 	CREATE INDEX IF NOT EXISTS idx_program_sessions_target_applicants ON program_sessions USING gin (target_applicant_ids);
+	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS google_calendar_event_id VARCHAR(255) NOT NULL DEFAULT '';
+	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS google_calendar_html_link TEXT NOT NULL DEFAULT '';
 
 	ALTER TABLE session_attendances ADD COLUMN IF NOT EXISTS proof_image_url TEXT NOT NULL DEFAULT '';
 

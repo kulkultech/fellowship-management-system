@@ -1080,5 +1080,136 @@ func buildCertificateEmail(candidateName, programName, trackName, certNumber, ce
 	return
 }
 
+// buildSessionInvitationEmail generates the calendar invitation email with Google Meet and Google Calendar links.
+func buildSessionInvitationEmail(
+	recipientName, programName, trackName string,
+	session *model.ProgramSession,
+	googleCalURL string,
+	frontendURL, supportEmail string,
+) (subject string, html string, text string) {
+	subject = fmt.Sprintf("Calendar Invitation: %s - %s", session.Title, programName)
+
+	trackBadge := ""
+	if trackName != "" {
+		trackBadge = fmt.Sprintf(`<span style="display: inline-block; padding: 4px 10px; background-color: #f3e8ff; color: #6b21a8; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-left: 8px;">%s Track</span>`, template.HTMLEscapeString(trackName))
+	}
+
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+	startTimeWIB := session.StartTime.In(loc).Format("Monday, 02 Jan 2006, 15:04")
+	endTimeWIB := session.EndTime.In(loc).Format("15:04 WIB")
+	timeStr := fmt.Sprintf("%s – %s", startTimeWIB, endTimeWIB)
+
+	meetURL := session.MeetingURL
+	if meetURL == "" {
+		meetURL = "https://meet.google.com"
+	}
+
+	workspaceURL := fmt.Sprintf("%s/sessions/%s/room", frontendURL, session.ID)
+
+	typeLabel := "Live Lecture"
+	switch session.SessionType {
+	case model.SessionTypeWorkshop:
+		typeLabel = "Interactive Workshop"
+	case model.SessionTypeMentorshipSync:
+		typeLabel = "Mentorship Sync"
+	case model.SessionTypeGroupSync:
+		typeLabel = "Group Sync"
+	case model.SessionTypeDemoDay:
+		typeLabel = "Demo Day Presentation"
+	case model.SessionType1On1:
+		typeLabel = "1-on-1 Mentoring"
+	}
+
+	mentorRow := ""
+	if session.MentorName != "" {
+		mentorRow = fmt.Sprintf(`
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Session Host</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>`, template.HTMLEscapeString(session.MentorName))
+	}
+
+	agendaSection := ""
+	if session.Description != "" {
+		agendaSection = fmt.Sprintf(`
+      <div style="margin: 24px 0; padding: 18px; background-color: #f8fafc; border-left: 4px solid #33125d; border-radius: 0 12px 12px 0;">
+        <h4 style="margin: 0 0 8px 0; font-size: 13px; font-weight: 800; color: #33125d; text-transform: uppercase; letter-spacing: 0.5px;">Agenda &amp; Topics</h4>
+        <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #334155; white-space: pre-wrap;">%s</p>
+      </div>`, template.HTMLEscapeString(session.Description))
+	}
+
+	body := fmt.Sprintf(`
+    <div style="margin-bottom: 20px;">
+      <span class="badge badge-purple">Cohort Session Invitation</span>
+      %s
+    </div>
+
+    <h2>You're invited to %s</h2>
+    <p>Dear <strong>%s</strong>,</p>
+    <p>A live cohort session has been scheduled for <strong>%s</strong>. Join your mentors and fellow cohort members on Google Meet.</p>
+
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 40%%;">Session Title</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Session Type</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Schedule (WIB)</td>
+          <td style="padding: 12px 18px; color: #33125d; font-size: 13px; font-weight: 800; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>
+        %s
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Google Meet</td>
+          <td style="padding: 12px 18px; color: #2563eb; font-size: 13px; font-weight: 700; text-align: right;">
+            <a href="%s" style="color: #2563eb; text-decoration: underline;">%s</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    %s
+
+    <div style="text-align: center; margin: 32px 0 16px 0;">
+      <a href="%s" style="display: inline-block; background-color: #33125d; color: #ffffff !important; padding: 14px 28px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(51, 18, 93, 0.25); margin: 0 6px 10px 6px;">
+        Join Google Meet &rarr;
+      </a>
+      <a href="%s" target="_blank" style="display: inline-block; background-color: #ffffff; color: #33125d !important; border: 2px solid #33125d; padding: 12px 24px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; margin: 0 6px 10px 6px;">
+        📅 Add to Google Calendar
+      </a>
+    </div>
+
+    <div style="text-align: center; margin-top: 12px;">
+      <a href="%s" style="font-size: 12px; color: #64748b; text-decoration: underline;">
+        Open FellowHire Live Workspace (Code Editor &amp; Whiteboard)
+      </a>
+    </div>
+`,
+		trackBadge, template.HTMLEscapeString(session.Title), template.HTMLEscapeString(recipientName), template.HTMLEscapeString(programName),
+		template.HTMLEscapeString(session.Title), template.HTMLEscapeString(typeLabel), timeStr, mentorRow,
+		meetURL, meetURL, agendaSection,
+		meetURL, googleCalURL, workspaceURL,
+	)
+
+	var err error
+	html, err = renderHTML(subject, frontendURL, supportEmail, body)
+	if err != nil {
+		html = body
+	}
+
+	text = fmt.Sprintf(
+		"Dear %s,\n\nYou are invited to a live cohort session for %s.\n\nSession: %s\nType: %s\nTime: %s\nGoogle Meet: %s\nAdd to Google Calendar: %s\nLive Workspace: %s\n\nSee you there!\nFellowHire Team",
+		recipientName, programName, session.Title, typeLabel, timeStr, meetURL, googleCalURL, workspaceURL,
+	)
+	return subject, html, text
+}
+
 
 

@@ -21,6 +21,7 @@ type Config struct {
 	CookieSecure       bool
 	CookieDomain       string
 	GoogleOAuth        OAuthConfig
+	GoogleCalendar     GoogleCalendarConfig
 	Storage            StorageConfig
 	Cloudflare         CloudflareConfig
 	SES                SESConfig
@@ -66,6 +67,15 @@ type OAuthConfig struct {
 
 func (o OAuthConfig) Enabled() bool {
 	return o.ClientID != "" && o.ClientSecret != "" && o.RedirectURL != ""
+}
+
+type GoogleCalendarConfig struct {
+	CalendarID         string
+	ServiceAccountJSON string
+}
+
+func (g GoogleCalendarConfig) Enabled() bool {
+	return g.ServiceAccountJSON != ""
 }
 
 type StorageConfig struct {
@@ -126,6 +136,10 @@ func Load() (*Config, error) {
 			ClientSecret:       getString("GOOGLE_CLIENT_SECRET", ""),
 			RedirectURL:        getString("GOOGLE_REDIRECT_URL", defaultRedirectURL),
 			FrontendSuccessURL: getString("OAUTH_FRONTEND_SUCCESS_URL", defaultSuccessURL),
+		},
+		GoogleCalendar: GoogleCalendarConfig{
+			CalendarID:         getString("GOOGLE_CALENDAR_ID", "primary"),
+			ServiceAccountJSON: getString("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
 		},
 		Storage: StorageConfig{
 			Provider:       getString("STORAGE_PROVIDER", "r2"),

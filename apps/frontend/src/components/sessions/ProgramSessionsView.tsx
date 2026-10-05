@@ -38,6 +38,7 @@ import {
 import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
+import { getGoogleCalendarUrl, generateClientGoogleMeetLink } from '@/utils/googleCalendar';
 
 interface ProgramSessionsViewProps {
   programId: string;
@@ -148,6 +149,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const [formRecordingUrl, setFormRecordingUrl] = useState('');
   const [formTrackId, setFormTrackId] = useState<string>('');
   const [formMentorId, setFormMentorId] = useState<string>('');
+  const [formAutoGenerateMeet, setFormAutoGenerateMeet] = useState<boolean>(true);
+  const [formSendCalendarInvites, setFormSendCalendarInvites] = useState<boolean>(true);
 
   // Indonesian Calendar Sync Toggle state
   const [syncIndonesianCalendar, setSyncIndonesianCalendar] = useState<boolean>(() => {
@@ -201,7 +204,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormStartTime('19:00');
     setFormEndDate(targetDate);
     setFormEndTime('20:30');
-    setFormMeetingUrl('https://meet.google.com/');
+    setFormAutoGenerateMeet(true);
+    setFormSendCalendarInvites(true);
+    setFormMeetingUrl(generateClientGoogleMeetLink());
     setFormRecordingUrl('');
     setFormTrackId('');
     setFormMentorId('');
@@ -231,6 +236,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormEndDate(e.toISOString().split('T')[0]);
     setFormEndTime(e.toTimeString().slice(0, 5));
 
+    setFormAutoGenerateMeet(false);
+    setFormSendCalendarInvites(true);
     setFormMeetingUrl(sess.meeting_url || '');
     setFormRecordingUrl(sess.recording_url || '');
     setFormTrackId(sess.track_id || '');
@@ -265,6 +272,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         mentor_id: formMentorId || undefined,
         target_applicant_ids: formAudience !== 'all' ? selectedFellowIds : [],
         sync_indonesian_calendar: syncIndonesianCalendar,
+        auto_generate_meeting: formAutoGenerateMeet,
+        send_calendar_invites: formSendCalendarInvites,
       };
 
       if (editingSession) {
@@ -683,11 +692,29 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                               href={sess.meeting_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-kulkul-purple hover:underline font-bold"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold border border-blue-200 transition text-xs"
                             >
-                              <span>Meeting Link</span>
+                              <Video className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Google Meet</span>
                               <ExternalLink className="w-3 h-3" />
                             </a>
+                          )}
+                          <a
+                            href={getGoogleCalendarUrl(sess)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-kulkul-purple hover:bg-purple-100 font-bold border border-purple-200 transition text-xs"
+                            title="Add to Google Calendar"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
+                            <span>Add to Calendar</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          {sess.google_calendar_event_id && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-2xs font-extrabold border border-emerald-200" title="Synchronized with Google Calendar">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Synced</span>
+                            </span>
                           )}
                         </div>
                       </div>
@@ -1256,10 +1283,98 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </div>
               )}
 
+              {/* Google Meet & Google Calendar Integration Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-blue-50/50 to-indigo-50/50 border border-purple-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-kulkul-purple text-white">
+                      <Video className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>Google Meet &amp; Calendar Automation</span>
+                        <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                          Automatic
+                        </span>
+                      </div>
+                      <div className="text-2xs text-slate-500">
+                        Automatically provisions a Google Meet link and sends Google Calendar invitations to attendees.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-purple-200 transition">
+                    <input
+                      type="checkbox"
+                      checked={formAutoGenerateMeet}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormAutoGenerateMeet(checked);
+                        if (checked && (!formMeetingUrl || formMeetingUrl.includes('meet.google.com'))) {
+                          setFormMeetingUrl(generateClientGoogleMeetLink());
+                        }
+                      }}
+                      className="checkbox checkbox-xs checkbox-primary rounded"
+                    />
+                    <div className="text-xs">
+                      <div className="font-bold text-slate-800">Auto-Generate Google Meet</div>
+                      <div className="text-2xs text-slate-500">Creates a unique Google Meet room</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-purple-200 transition">
+                    <input
+                      type="checkbox"
+                      checked={formSendCalendarInvites}
+                      onChange={(e) => setFormSendCalendarInvites(e.target.checked)}
+                      className="checkbox checkbox-xs checkbox-primary rounded"
+                    />
+                    <div className="text-xs">
+                      <div className="font-bold text-slate-800">Invite Attendees</div>
+                      <div className="text-2xs text-slate-500">Dispatches Google Calendar &amp; email invites</div>
+                    </div>
+                  </label>
+                </div>
+
+                {formSendCalendarInvites && (
+                  <div className="flex items-center justify-between text-2xs text-slate-600 bg-white/80 px-3 py-2 rounded-xl border border-purple-100">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-kulkul-purple" />
+                      <span>
+                        {formAudience === 'all'
+                          ? `Will invite all fellows in this cohort${tracks.length > 0 && formTrackId ? ' (filtered track)' : ''} + assigned mentor`
+                          : `Will invite ${selectedFellowIds.length} selected fellow${selectedFellowIds.length === 1 ? '' : 's'} + assigned mentor`}
+                      </span>
+                    </span>
+                    <span className="font-bold text-kulkul-purple">
+                      {formAudience === 'all'
+                        ? `${allFellows.length + (formMentorId ? 1 : 0)} people`
+                        : `${selectedFellowIds.length + (formMentorId ? 1 : 0)} people`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  Meeting URL (Google Meet / Zoom) *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Meeting URL (Google Meet) *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newLink = generateClientGoogleMeetLink();
+                      setFormMeetingUrl(newLink);
+                      toast.success('Generated new Google Meet link!', { icon: '📹' });
+                    }}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>Generate New Meet Link</span>
+                  </button>
+                </div>
                 <div className="relative">
                   <Video className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input

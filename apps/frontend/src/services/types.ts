@@ -730,6 +730,8 @@ export interface ProgramSession {
   mentor_id?: string;
   mentor_name?: string;
   target_applicant_ids?: string[];
+  google_calendar_event_id?: string;
+  google_calendar_html_link?: string;
   created_at?: string;
   updated_at?: string;
   total_fellows?: number;
@@ -769,6 +771,8 @@ export interface CreateSessionPayload {
   mentor_id?: string;
   target_applicant_ids?: string[];
   sync_indonesian_calendar?: boolean;
+  auto_generate_meeting?: boolean;
+  send_calendar_invites?: boolean;
 }
 
 export interface BatchAttendanceUpdatePayload {

@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/kulkul/backend/internal/calendar"
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/holiday"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
@@ -19,11 +21,14 @@ import (
 )
 
 type SessionHandler struct {
-	sessionRepo   *repository.SessionRepository
-	programRepo   *repository.ProgramRepository
-	applicantRepo *repository.ApplicantRepository
-	mentorRepo    *repository.MentorRepository
-	userRepo      *repository.UserRepository
+	sessionRepo     *repository.SessionRepository
+	programRepo     *repository.ProgramRepository
+	applicantRepo   *repository.ApplicantRepository
+	mentorRepo      *repository.MentorRepository
+	userRepo        *repository.UserRepository
+	calendarService calendar.Service
+	emailService    email.Service
+	frontendURL     string
 }
 
 func NewSessionHandler(
@@ -32,14 +37,31 @@ func NewSessionHandler(
 	applicantRepo *repository.ApplicantRepository,
 	mentorRepo *repository.MentorRepository,
 	userRepo *repository.UserRepository,
+	services ...any,
 ) *SessionHandler {
-	return &SessionHandler{
+	h := &SessionHandler{
 		sessionRepo:   sessionRepo,
 		programRepo:   programRepo,
 		applicantRepo: applicantRepo,
 		mentorRepo:    mentorRepo,
 		userRepo:      userRepo,
+		frontendURL:   "http://localhost:5173",
 	}
+
+	for _, s := range services {
+		switch v := s.(type) {
+		case calendar.Service:
+			h.calendarService = v
+		case email.Service:
+			h.emailService = v
+		case string:
+			if strings.HasPrefix(v, "http") {
+				h.frontendURL = strings.TrimRight(v, "/")
+			}
+		}
+	}
+
+	return h
 }
 
 // canManageSessions checks whether the user is an admin or an assigned mentor
@@ -127,6 +149,8 @@ type CreateSessionRequest struct {
 	MentorID               *uuid.UUID        `json:"mentor_id,omitempty"`
 	TargetApplicantIDs     []uuid.UUID       `json:"target_applicant_ids,omitempty"`
 	SyncIndonesianCalendar *bool             `json:"sync_indonesian_calendar,omitempty"`
+	AutoGenerateMeeting    *bool             `json:"auto_generate_meeting,omitempty"`
+	SendCalendarInvites    *bool             `json:"send_calendar_invites,omitempty"`
 }
 
 // CreateSession handles POST /api/v1/programs/{programId}/sessions
@@ -193,6 +217,19 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		targetIDs = []uuid.UUID{}
 	}
 
+	autoGenMeeting := true
+	if req.AutoGenerateMeeting != nil {
+		autoGenMeeting = *req.AutoGenerateMeeting
+	}
+	meetingURL := strings.TrimSpace(req.MeetingURL)
+	if meetingURL == "" || meetingURL == "https://meet.google.com/" || meetingURL == "https://meet.google.com" || autoGenMeeting {
+		if h.calendarService != nil {
+			meetingURL = h.calendarService.GenerateMeetLink()
+		} else {
+			meetingURL = "https://meet.google.com/" + uuid.NewString()[:12]
+		}
+	}
+
 	sess := &model.ProgramSession{
 		ID:                 uuid.New(),
 		ProgramID:          programID,
@@ -202,16 +239,87 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		SessionType:        sessionType,
 		StartTime:          startTime,
 		EndTime:            endTime,
-		MeetingURL:         req.MeetingURL,
+		MeetingURL:         meetingURL,
 		RecordingURL:       req.RecordingURL,
 		MentorID:           req.MentorID,
 		TargetApplicantIDs: targetIDs,
+	}
+
+	sendInvites := true
+	if req.SendCalendarInvites != nil {
+		sendInvites = *req.SendCalendarInvites
+	}
+
+	var invitedAttendees []calendar.Attendee
+	if h.sessionRepo != nil {
+		attendees, _ := h.sessionRepo.GetSessionInvitedAttendees(r.Context(), programID, req.TrackID, targetIDs, req.MentorID)
+		invitedAttendees = attendees
+	}
+
+	programName := "Fellowship Cohort"
+	if h.programRepo != nil {
+		if prog, pErr := h.programRepo.GetByID(r.Context(), programID); pErr == nil && prog != nil && prog.Name != "" {
+			programName = prog.Name
+		}
+	}
+
+	trackName := ""
+	if len(invitedAttendees) > 0 && invitedAttendees[0].TrackName != "" {
+		trackName = invitedAttendees[0].TrackName
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	organizerEmail := ""
+	organizerName := ""
+	if claims != nil {
+		organizerEmail = claims.Email
+	}
+
+	var calWebURL string
+	if h.calendarService != nil {
+		workspaceURL := fmt.Sprintf("%s/sessions/%s/room", h.frontendURL, sess.ID)
+		evRes, evErr := h.calendarService.CreateEvent(r.Context(), calendar.CreateEventRequest{
+			SessionID:        sess.ID,
+			ProgramID:        programID,
+			ProgramName:      programName,
+			TrackName:        trackName,
+			Title:            req.Title,
+			Description:      req.Description,
+			SessionType:      string(sessionType),
+			StartTime:        startTime,
+			EndTime:          endTime,
+			MeetingURL:       meetingURL,
+			AutoGenerateMeet: autoGenMeeting,
+			Attendees:        invitedAttendees,
+			OrganizerEmail:   organizerEmail,
+			OrganizerName:    organizerName,
+			WorkspaceURL:     workspaceURL,
+		})
+		if evErr == nil && evRes != nil {
+			sess.GoogleCalendarEventID = evRes.EventID
+			sess.GoogleCalendarHTMLLink = evRes.HTMLLink
+			calWebURL = evRes.GoogleCalendarWebURL
+			if evRes.MeetingURL != "" {
+				sess.MeetingURL = evRes.MeetingURL
+			}
+		}
 	}
 
 	created, err := h.sessionRepo.CreateSession(r.Context(), sess)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to create session: "+err.Error())
 		return
+	}
+
+	// Dispatch email invitations asynchronously with Google Meet and Google Calendar link
+	if sendInvites && h.emailService != nil && len(invitedAttendees) > 0 {
+		go func(attendees []calendar.Attendee, sessionCopy *model.ProgramSession, pName, tName, calURL string) {
+			for _, att := range attendees {
+				if att.Email != "" {
+					_ = h.emailService.SendSessionInvitationEmail(att.Email, att.Name, pName, tName, sessionCopy, calURL)
+				}
+			}
+		}(invitedAttendees, created, programName, trackName, calWebURL)
 	}
 
 	httpx.JSON(w, http.StatusCreated, created)
@@ -313,12 +421,35 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "end_time must be after start_time")
 		return
 	}
-	existing.MeetingURL = req.MeetingURL
+	if req.MeetingURL != "" {
+		existing.MeetingURL = req.MeetingURL
+	} else if req.AutoGenerateMeeting != nil && *req.AutoGenerateMeeting && existing.MeetingURL == "" {
+		if h.calendarService != nil {
+			existing.MeetingURL = h.calendarService.GenerateMeetLink()
+		}
+	}
 	existing.RecordingURL = req.RecordingURL
 	existing.MentorID = req.MentorID
 	existing.TrackID = req.TrackID
 	if req.TargetApplicantIDs != nil {
 		existing.TargetApplicantIDs = req.TargetApplicantIDs
+	}
+
+	if h.calendarService != nil && existing.GoogleCalendarEventID != "" {
+		attendees, _ := h.sessionRepo.GetSessionInvitedAttendees(r.Context(), programID, existing.TrackID, existing.TargetApplicantIDs, existing.MentorID)
+		workspaceURL := fmt.Sprintf("%s/sessions/%s/room", h.frontendURL, existing.ID)
+		_, _ = h.calendarService.UpdateEvent(r.Context(), existing.GoogleCalendarEventID, calendar.CreateEventRequest{
+			SessionID:    existing.ID,
+			ProgramID:    programID,
+			Title:        existing.Title,
+			Description:  existing.Description,
+			SessionType:  string(existing.SessionType),
+			StartTime:    existing.StartTime,
+			EndTime:      existing.EndTime,
+			MeetingURL:   existing.MeetingURL,
+			Attendees:    attendees,
+			WorkspaceURL: workspaceURL,
+		})
 	}
 
 	updated, err := h.sessionRepo.UpdateSession(r.Context(), existing)
@@ -349,6 +480,12 @@ func (h *SessionHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	if !h.canManageSessions(r, programID) {
 		httpx.Error(w, http.StatusForbidden, "unauthorized to delete sessions for this program")
 		return
+	}
+
+	if existing, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID); err == nil && existing != nil {
+		if h.calendarService != nil && existing.GoogleCalendarEventID != "" {
+			_ = h.calendarService.DeleteEvent(r.Context(), existing.GoogleCalendarEventID)
+		}
 	}
 
 	if err := h.sessionRepo.DeleteSession(r.Context(), sessionID); err != nil {

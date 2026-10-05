@@ -31,6 +31,7 @@ type Service interface {
 	SendAdminInvitationEmail(recipientEmail, inviterName, role, orgName, inviteURL string) error
 	SendProgramRoomInvitationEmail(recipientEmail, candidateName, programName, trackName, roomURL string) error
 	SendCertificateEmail(recipientEmail, candidateName, programName, trackName, certificateNumber, certificateURL, badgeURL string, issueDate time.Time) error
+	SendSessionInvitationEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL string) error
 
 	SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error
 	SendCustomLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string, customTmpl *model.EmailTemplateConfig) error
@@ -345,6 +346,13 @@ func (s *SESService) SendCertificateEmail(recipientEmail, candidateName, program
 		certificateURL = fmt.Sprintf("%s/verify/certificate/%s", s.frontendURL, certificateNumber)
 	}
 	subject, html, text := buildCertificateEmail(candidateName, programName, trackName, certificateNumber, certificateURL, badgeURL, issueDate, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// 11. SendSessionInvitationEmail
+func (s *SESService) SendSessionInvitationEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL string) error {
+	subject, html, text := buildSessionInvitationEmail(recipientName, programName, trackName, session, googleCalURL, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

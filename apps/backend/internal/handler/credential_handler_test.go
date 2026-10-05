@@ -88,6 +88,9 @@ func (m *mockCredentialEmailService) SendCertificateEmail(recipientEmail, candid
 	})
 	return nil
 }
+func (m *mockCredentialEmailService) SendSessionInvitationEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL string) error {
+	return nil
+}
 
 func setupCredentialTestEnv(t *testing.T) (
 	*repository.CredentialRepository,
