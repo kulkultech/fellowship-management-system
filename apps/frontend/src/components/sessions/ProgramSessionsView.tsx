@@ -384,7 +384,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         status: 'present',
       }))
     );
-    toast.success('All fellows marked Present. Click "Save Attendance" to confirm.', { icon: '✨' });
+    toast.success('All fellows marked Present. Click "Save Attendance" to confirm.');
   };
 
   // Helper: Update Single Fellow Status
@@ -687,33 +687,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           {sess.mentor_name && (
                             <span>&bull; Lead: <strong>{sess.mentor_name}</strong></span>
                           )}
-                          {sess.meeting_url && (
-                            <a
-                              href={sess.meeting_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold border border-blue-200 transition text-xs"
-                            >
-                              <Video className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Google Meet</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                          <a
-                            href={getGoogleCalendarUrl(sess)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-kulkul-purple hover:bg-purple-100 font-bold border border-purple-200 transition text-xs"
-                            title="Add to Google Calendar"
-                          >
-                            <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
-                            <span>Add to Calendar</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
                           {sess.google_calendar_event_id && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-2xs font-extrabold border border-emerald-200" title="Synchronized with Google Calendar">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>Synced</span>
+                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700" title="Synchronized with Google Calendar">
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Calendar Synced</span>
                             </span>
                           )}
                         </div>
@@ -751,6 +728,30 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                        {sess.meeting_url && (
+                          <a
+                            href={sess.meeting_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-sm btn-outline text-blue-700 border-blue-200 hover:bg-blue-50 font-bold flex items-center gap-1.5"
+                            title="Join Google Meet"
+                          >
+                            <Video className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Meet</span>
+                          </a>
+                        )}
+
+                        <a
+                          href={getGoogleCalendarUrl(sess)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-purple-200 font-bold flex items-center gap-1.5"
+                          title="Add to Google Calendar"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
+                          <span>Calendar</span>
+                        </a>
+
                         <Link
                           to={`/sessions/${sess.id}/room`}
                           className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
@@ -1284,28 +1285,24 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               )}
 
               {/* Google Meet & Google Calendar Integration Card */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-blue-50/50 to-indigo-50/50 border border-purple-100 space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-kulkul-purple text-white">
-                      <Video className="w-4 h-4" />
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5 text-kulkul-purple" />
+                      <span>Google Meet &amp; Calendar Integration</span>
+                      <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                        Automatic
+                      </span>
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <span>Google Meet &amp; Calendar Automation</span>
-                        <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                          Automatic
-                        </span>
-                      </div>
-                      <div className="text-2xs text-slate-500">
-                        Automatically provisions a Google Meet link and sends Google Calendar invitations to attendees.
-                      </div>
-                    </div>
+                    <p className="text-2xs text-slate-500">
+                      Provisions a Google Meet link and sends Google Calendar invitations to attendees.
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-purple-200 transition">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
                     <input
                       type="checkbox"
                       checked={formAutoGenerateMeet}
@@ -1316,30 +1313,30 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           setFormMeetingUrl(generateClientGoogleMeetLink());
                         }
                       }}
-                      className="checkbox checkbox-xs checkbox-primary rounded"
+                      className="checkbox checkbox-sm checkbox-primary rounded"
                     />
-                    <div className="text-xs">
-                      <div className="font-bold text-slate-800">Auto-Generate Google Meet</div>
-                      <div className="text-2xs text-slate-500">Creates a unique Google Meet room</div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">Auto-Generate Meet</div>
+                      <div className="text-2xs text-slate-500">Create unique Google Meet room</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-purple-200 transition">
+                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
                     <input
                       type="checkbox"
                       checked={formSendCalendarInvites}
                       onChange={(e) => setFormSendCalendarInvites(e.target.checked)}
-                      className="checkbox checkbox-xs checkbox-primary rounded"
+                      className="checkbox checkbox-sm checkbox-primary rounded"
                     />
-                    <div className="text-xs">
-                      <div className="font-bold text-slate-800">Invite Attendees</div>
-                      <div className="text-2xs text-slate-500">Dispatches Google Calendar &amp; email invites</div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">Invite Attendees</div>
+                      <div className="text-2xs text-slate-500">Send Google Calendar &amp; email invites</div>
                     </div>
                   </label>
                 </div>
 
                 {formSendCalendarInvites && (
-                  <div className="flex items-center justify-between text-2xs text-slate-600 bg-white/80 px-3 py-2 rounded-xl border border-purple-100">
+                  <div className="flex items-center justify-between text-xs text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
                     <span className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-kulkul-purple" />
                       <span>
@@ -1367,12 +1364,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     onClick={() => {
                       const newLink = generateClientGoogleMeetLink();
                       setFormMeetingUrl(newLink);
-                      toast.success('Generated new Google Meet link!', { icon: '📹' });
+                      toast.success('Generated new Google Meet link');
                     }}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="btn btn-xs btn-outline text-slate-700 hover:text-kulkul-purple hover:border-kulkul-purple flex items-center gap-1"
                   >
                     <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Generate New Meet Link</span>
+                    <span>Generate Meet Link</span>
                   </button>
                 </div>
                 <div className="relative">

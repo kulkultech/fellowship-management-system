@@ -1182,7 +1182,7 @@ func buildSessionInvitationEmail(
         Join Google Meet &rarr;
       </a>
       <a href="%s" target="_blank" style="display: inline-block; background-color: #ffffff; color: #33125d !important; border: 2px solid #33125d; padding: 12px 24px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; margin: 0 6px 10px 6px;">
-        📅 Add to Google Calendar
+        Add to Google Calendar
       </a>
     </div>
 

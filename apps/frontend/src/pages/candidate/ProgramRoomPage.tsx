@@ -626,11 +626,11 @@ export const ProgramRoomPage: React.FC = () => {
                                 href={sess.meeting_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                                className="btn btn-sm btn-outline text-blue-700 border-blue-200 hover:bg-blue-50 font-bold flex items-center gap-1.5"
+                                title="Join Google Meet"
                               >
-                                <Video className="w-3.5 h-3.5" />
-                                <span>Google Meet</span>
-                                <ExternalLink className="w-3 h-3" />
+                                <Video className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Meet</span>
                               </a>
                             )}
 
@@ -638,11 +638,11 @@ export const ProgramRoomPage: React.FC = () => {
                               href={getGoogleCalendarUrl(sess)}
                               target="_blank"
                               rel="noreferrer"
-                              className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-purple-300 font-bold flex items-center gap-1.5"
+                              className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-purple-200 font-bold flex items-center gap-1.5"
                               title="Add to Google Calendar"
                             >
                               <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
-                              <span>Add to Calendar</span>
+                              <span>Calendar</span>
                             </a>
                           </div>
                         </div>
