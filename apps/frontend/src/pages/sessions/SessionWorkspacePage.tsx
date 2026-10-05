@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -13,14 +13,17 @@ import {
   Loader2,
   X,
   PenTool,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { sessionService } from '@/services/sessionService';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import { LiveCodeEditor } from '@/components/sessions/LiveCodeEditor';
+import { LiveCodeEditor, SupportedLanguage } from '@/components/sessions/LiveCodeEditor';
 import { LiveWhiteboard } from '@/components/sessions/LiveWhiteboard';
+import { useSessionWorkspaceSocket, WorkspaceInitState } from '@/hooks/useSessionWorkspaceSocket';
+import type { LogItem } from '@/components/sessions/codeRunners';
 import type { AttendanceStatus } from '@/services/types';
 
 export const SessionWorkspacePage: React.FC = () => {
@@ -45,6 +48,134 @@ export const SessionWorkspacePage: React.FC = () => {
   const [scratchpadNotes, setScratchpadNotes] = useState<string>(
     `# Session Scratchpad & Key Takeaways\n\n- Topic: Microservices Architecture & Live Demos\n- Agenda:\n  1. Review distributed transactions & idempotency\n  2. Live coding session (Java backend & HTML/CSS/JS frontend)\n  3. Q&A and assignment brief\n\n### Important Links:\n- Class repo: https://github.com/kulkultech/fellowship-cohort\n- API Documentation: https://docs.fellowhire.org/api`
   );
+  const scratchpadNotesInitializedRef = useRef<boolean>(false);
+  const scratchpadDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Whiteboard sync state
+  const [initialElements, setInitialElements] = useState<any[]>([]);
+  const [initialAppState, setInitialAppState] = useState<any>(null);
+  const [remoteWhiteboard, setRemoteWhiteboard] = useState<{
+    elements: any[];
+    appState?: any;
+    sender?: { name: string; role: string };
+  } | null>(null);
+
+  // Code editor sync state
+  const [initialCodeMap, setInitialCodeMap] = useState<Record<string, string> | undefined>(undefined);
+  const [initialLanguage, setInitialLanguage] = useState<SupportedLanguage>('java');
+  const [remoteCodeUpdate, setRemoteCodeUpdate] = useState<{
+    language: SupportedLanguage;
+    code: string;
+    sender?: { name: string; role: string };
+  } | null>(null);
+  const [remoteLanguageChange, setRemoteLanguageChange] = useState<{
+    language: SupportedLanguage;
+    sender?: { name: string; role: string };
+  } | null>(null);
+  const [remoteCodeRun, setRemoteCodeRun] = useState<{
+    language: SupportedLanguage;
+    logs: LogItem[];
+    sender?: { name: string; role: string };
+  } | null>(null);
+
+  // Follow presenter mode: defaults to true for fellows/candidates, false for mentor
+  const [followMentor, setFollowMentor] = useState<boolean>(!isMentorOrAdmin);
+
+  // Real-time socket callbacks
+  const handleInitState = useCallback((data: WorkspaceInitState) => {
+    if (data.state?.whiteboard?.elements) {
+      setInitialElements(data.state.whiteboard.elements);
+      setInitialAppState(data.state.whiteboard.appState);
+    }
+    if (data.state?.code?.files) {
+      setInitialCodeMap(data.state.code.files);
+    }
+    if (data.state?.code?.language) {
+      setInitialLanguage(data.state.code.language);
+    }
+    if (data.state?.scratchpad) {
+      setScratchpadNotes(data.state.scratchpad);
+      scratchpadNotesInitializedRef.current = true;
+    }
+  }, []);
+
+  const handleRemoteWhiteboardUpdate = useCallback(
+    (payload: { elements: any[]; appState?: any }, sender: { id: string; name: string; role: string }) => {
+      setRemoteWhiteboard({
+        elements: payload.elements,
+        appState: payload.appState,
+        sender,
+      });
+    },
+    []
+  );
+
+  const handleRemoteCodeUpdate = useCallback(
+    (payload: { language: SupportedLanguage; code: string }, sender: { id: string; name: string; role: string }) => {
+      setRemoteCodeUpdate({
+        language: payload.language,
+        code: payload.code,
+        sender,
+      });
+    },
+    []
+  );
+
+  const handleRemoteLanguageChange = useCallback(
+    (payload: { language: SupportedLanguage }, sender: { id: string; name: string; role: string }) => {
+      setRemoteLanguageChange({
+        language: payload.language,
+        sender,
+      });
+    },
+    []
+  );
+
+  const handleRemoteCodeRun = useCallback(
+    (payload: { language: SupportedLanguage; logs: LogItem[] }, sender: { id: string; name: string; role: string }) => {
+      setRemoteCodeRun({
+        language: payload.language,
+        logs: payload.logs,
+        sender,
+      });
+    },
+    []
+  );
+
+  const handleRemoteScratchpadUpdate = useCallback((payload: { notes: string }) => {
+    setScratchpadNotes(payload.notes);
+  }, []);
+
+  const handleRemoteTabChange = useCallback(
+    (payload: { tab: 'editor' | 'whiteboard' | 'scratchpad' }, sender: { id: string; name: string; role: string }) => {
+      if (followMentor && (sender.role === 'mentor' || sender.role === 'org_admin' || sender.role === 'superadmin')) {
+        setActiveWorkspaceTab(payload.tab);
+      }
+    },
+    [followMentor]
+  );
+
+  // Hook for WebSocket real-time collaboration
+  const {
+    isConnected,
+    participants,
+    sendWhiteboardUpdate,
+    sendCodeUpdate,
+    sendLanguageChange,
+    sendCodeRun,
+    sendScratchpadUpdate,
+    sendTabChange,
+  } = useSessionWorkspaceSocket({
+    sessionId,
+    user,
+    onInitState: handleInitState,
+    onWhiteboardUpdate: handleRemoteWhiteboardUpdate,
+    onCodeUpdate: handleRemoteCodeUpdate,
+    onLanguageChange: handleRemoteLanguageChange,
+    onCodeRun: handleRemoteCodeRun,
+    onScratchpadUpdate: handleRemoteScratchpadUpdate,
+    onTabChange: handleRemoteTabChange,
+  });
 
   // 1. Fetch Session Details
   const {
@@ -56,6 +187,45 @@ export const SessionWorkspacePage: React.FC = () => {
     queryFn: () => sessionService.getSessionDirect(sessionId!),
     enabled: Boolean(sessionId),
   });
+
+  // Initialize from session.workspace_state if available from REST
+  useEffect(() => {
+    if (session?.workspace_state) {
+      const ws = session.workspace_state;
+      if (ws.whiteboard?.elements && initialElements.length === 0) {
+        setInitialElements(ws.whiteboard.elements);
+        setInitialAppState(ws.whiteboard.appState);
+      }
+      if (ws.code?.files && !initialCodeMap) {
+        setInitialCodeMap(ws.code.files);
+      }
+      if (ws.code?.language) {
+        setInitialLanguage(ws.code.language);
+      }
+      if (ws.scratchpad && !scratchpadNotesInitializedRef.current) {
+        setScratchpadNotes(ws.scratchpad);
+        scratchpadNotesInitializedRef.current = true;
+      }
+    }
+  }, [session, initialElements.length, initialCodeMap]);
+
+  // Tab switch handler
+  const handleSelectTab = (tab: 'editor' | 'whiteboard' | 'scratchpad') => {
+    setActiveWorkspaceTab(tab);
+    if (isMentorOrAdmin) {
+      sendTabChange(tab);
+    }
+  };
+
+  // Scratchpad edit handler with debounced broadcast
+  const handleScratchpadChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setScratchpadNotes(val);
+    if (scratchpadDebounceRef.current) clearTimeout(scratchpadDebounceRef.current);
+    scratchpadDebounceRef.current = setTimeout(() => {
+      sendScratchpadUpdate(val);
+    }, 120);
+  };
 
   // 2. Fetch Attendance (for mentors/admins)
   const {
@@ -227,6 +397,42 @@ export const SessionWorkspacePage: React.FC = () => {
                 {session.description}
               </p>
             )}
+
+            {/* Real-time Collaboration & Presence Status */}
+            <div className="flex items-center gap-3 pt-1 flex-wrap">
+              {isConnected ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Live Synced</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-xs font-medium">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span>Connecting...</span>
+                </div>
+              )}
+
+              {participants.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-1.5 overflow-hidden">
+                    {participants.slice(0, 6).map((p) => (
+                      <div
+                        key={p.id}
+                        className={`inline-block h-6 w-6 rounded-full ring-2 ring-white flex items-center justify-center text-white text-3xs font-black shadow-2xs ${
+                          p.avatar_color || 'bg-slate-600'
+                        }`}
+                        title={`${p.name} (${p.role})`}
+                      >
+                        {p.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-2xs font-bold text-slate-500">
+                    {participants.length} {participants.length === 1 ? 'member connected' : 'members connected'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -258,54 +464,85 @@ export const SessionWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Standard Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-1 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveWorkspaceTab('whiteboard')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeWorkspaceTab === 'whiteboard'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <PenTool className="w-4 h-4" />
-            <span>Whiteboard</span>
-          </button>
+        {/* Standard Tab Navigation & Follow Presenter */}
+        <div className="flex items-center justify-between border-b border-slate-200 pb-1 flex-wrap gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleSelectTab('whiteboard')}
+              className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+                activeWorkspaceTab === 'whiteboard'
+                  ? 'bg-kulkul-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <PenTool className="w-4 h-4" />
+              <span>Whiteboard</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveWorkspaceTab('editor')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeWorkspaceTab === 'editor'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <FileCode className="w-4 h-4" />
-            <span>Code Studio</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSelectTab('editor')}
+              className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+                activeWorkspaceTab === 'editor'
+                  ? 'bg-kulkul-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <FileCode className="w-4 h-4" />
+              <span>Code Studio</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveWorkspaceTab('scratchpad')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeWorkspaceTab === 'scratchpad'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Scratchpad &amp; Notes</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSelectTab('scratchpad')}
+              className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
+                activeWorkspaceTab === 'scratchpad'
+                  ? 'bg-kulkul-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Scratchpad &amp; Notes</span>
+            </button>
+          </div>
+
+          {!isMentorOrAdmin && (
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none px-2 py-1 rounded-xl hover:bg-slate-100 transition">
+              <input
+                type="checkbox"
+                checked={followMentor}
+                onChange={(e) => setFollowMentor(e.target.checked)}
+                className="rounded border-slate-300 text-kulkul-purple focus:ring-kulkul-purple w-4 h-4 cursor-pointer"
+              />
+              <span className="flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                Follow Presenter View
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Main Content Area */}
         {activeWorkspaceTab === 'editor' && (
           <div className="space-y-4">
             <LiveCodeEditor
-              initialLanguage="java"
+              initialLanguage={initialLanguage}
               sessionTitle={session.title}
+              initialCodeMap={initialCodeMap}
+              onCodeChange={(lang, code) => {
+                sendCodeUpdate(lang, code);
+              }}
+              onLanguageChange={(lang) => {
+                sendLanguageChange(lang);
+              }}
+              onCodeRun={(lang, logs) => {
+                sendCodeRun(lang, logs);
+              }}
+              remoteCodeUpdate={remoteCodeUpdate}
+              remoteLanguageChange={remoteLanguageChange}
+              remoteCodeRun={remoteCodeRun}
+              isConnected={isConnected}
             />
           </div>
         )}
@@ -316,6 +553,13 @@ export const SessionWorkspacePage: React.FC = () => {
               sessionId={session.id}
               sessionTitle={session.title}
               isMentor={isMentorOrAdmin}
+              initialElements={initialElements}
+              initialAppState={initialAppState}
+              onElementsChange={(elements, appState) => {
+                sendWhiteboardUpdate(elements, appState);
+              }}
+              remoteWhiteboardUpdate={remoteWhiteboard}
+              isConnected={isConnected}
             />
           </div>
         )}
@@ -329,21 +573,29 @@ export const SessionWorkspacePage: React.FC = () => {
                   Shared collaborative notes for class instructions, architecture diagrams, and homework references.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(scratchpadNotes);
-                  toast.success('Notes copied to clipboard');
-                }}
-                className="btn btn-sm btn-outline border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
-              >
-                Copy Notes
-              </button>
+              <div className="flex items-center gap-2">
+                {isConnected && (
+                  <span className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Synced
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(scratchpadNotes);
+                    toast.success('Notes copied to clipboard');
+                  }}
+                  className="btn btn-sm btn-outline border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
+                >
+                  Copy Notes
+                </button>
+              </div>
             </div>
 
             <textarea
               value={scratchpadNotes}
-              onChange={(e) => setScratchpadNotes(e.target.value)}
+              onChange={handleScratchpadChange}
               rows={16}
               className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-2xl p-4 font-mono text-xs focus:outline-none focus:border-kulkul-purple resize-none"
               placeholder="Type lecture notes, code snippets, or shared questions here..."

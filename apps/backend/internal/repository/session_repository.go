@@ -119,6 +119,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 			s.start_time, s.end_time, s.meeting_url, s.recording_url, s.mentor_id, COALESCE(u.name, ''),
 			COALESCE(s.target_applicant_ids, '[]'::jsonb),
 			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''),
+			COALESCE(s.workspace_state, '{}'::jsonb),
 			s.created_at, s.updated_at
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
@@ -127,10 +128,12 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	`
 	var res model.ProgramSession
 	var rawTargets []byte
+	var rawWorkspace []byte
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.TrackName, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID, &res.MentorName,
 		&rawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
+		&rawWorkspace,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -144,6 +147,11 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	}
 	if res.TargetApplicantIDs == nil {
 		res.TargetApplicantIDs = []uuid.UUID{}
+	}
+	if len(rawWorkspace) > 0 {
+		res.WorkspaceState = json.RawMessage(rawWorkspace)
+	} else {
+		res.WorkspaceState = json.RawMessage("{}")
 	}
 	return &res, nil
 }
@@ -906,3 +914,63 @@ func (r *SessionRepository) GetSessionInvitedAttendees(
 
 	return attendees, nil
 }
+
+func (r *SessionRepository) UpdateWorkspaceState(ctx context.Context, sessionID uuid.UUID, state json.RawMessage) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if s, ok := r.memSessions[sessionID]; ok {
+			s.WorkspaceState = state
+			s.UpdatedAt = time.Now()
+			return nil
+		}
+		return ErrSessionNotFound
+	}
+
+	query := `
+		UPDATE program_sessions
+		SET workspace_state = $2, updated_at = now()
+		WHERE id = $1
+	`
+	tag, err := r.pool.Exec(ctx, query, sessionID, state)
+	if err != nil {
+		return fmt.Errorf("session_repo: update workspace state: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrSessionNotFound
+	}
+	return nil
+}
+
+func (r *SessionRepository) GetWorkspaceState(ctx context.Context, sessionID uuid.UUID) (json.RawMessage, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		if s, ok := r.memSessions[sessionID]; ok {
+			if len(s.WorkspaceState) == 0 {
+				return json.RawMessage("{}"), nil
+			}
+			return s.WorkspaceState, nil
+		}
+		return nil, ErrSessionNotFound
+	}
+
+	query := `
+		SELECT COALESCE(workspace_state, '{}'::jsonb)
+		FROM program_sessions
+		WHERE id = $1
+	`
+	var raw []byte
+	err := r.pool.QueryRow(ctx, query, sessionID).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("session_repo: get workspace state: %w", err)
+	}
+	if len(raw) == 0 {
+		return json.RawMessage("{}"), nil
+	}
+	return json.RawMessage(raw), nil
+}
+

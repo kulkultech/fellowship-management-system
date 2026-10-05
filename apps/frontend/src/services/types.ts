@@ -742,6 +742,7 @@ export interface ProgramSession {
   pending_count?: number;
   attendance_rate?: number;
   fellow_attendance?: SessionAttendance;
+  workspace_state?: any;
 }
 
 export interface FellowAttendanceSummary {

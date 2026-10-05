@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/calendar"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/holiday"
@@ -18,6 +21,7 @@ import (
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
+	"github.com/kulkul/backend/internal/sessionws"
 )
 
 type SessionHandler struct {
@@ -28,7 +32,9 @@ type SessionHandler struct {
 	userRepo        *repository.UserRepository
 	calendarService calendar.Service
 	emailService    email.Service
+	authService     *auth.Service
 	frontendURL     string
+	wsHub           *sessionws.Hub
 }
 
 func NewSessionHandler(
@@ -54,11 +60,19 @@ func NewSessionHandler(
 			h.calendarService = v
 		case email.Service:
 			h.emailService = v
+		case *auth.Service:
+			h.authService = v
+		case *sessionws.Hub:
+			h.wsHub = v
 		case string:
 			if strings.HasPrefix(v, "http") {
 				h.frontendURL = strings.TrimRight(v, "/")
 			}
 		}
+	}
+
+	if h.wsHub == nil {
+		h.wsHub = sessionws.NewHub(sessionRepo, slog.Default())
 	}
 
 	return h
@@ -791,4 +805,108 @@ func (h *SessionHandler) GetHolidays(w http.ResponseWriter, r *http.Request) {
 	holidays := holiday.GetHolidays(year)
 	httpx.JSON(w, http.StatusOK, holidays)
 }
+
+// HandleWorkspaceWS handles WebSocket connections for real-time Whiteboard & Code Studio collaboration
+func (h *SessionHandler) HandleWorkspaceWS(w http.ResponseWriter, r *http.Request) {
+	sessionIDStr := chi.URLParam(r, "sessionId")
+	sessionID, err := uuid.Parse(sessionIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+
+	// Verify session exists
+	_, err = h.sessionRepo.GetSessionByID(r.Context(), sessionID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	var userID, userName, userRole string
+	claims, ok := middleware.GetUser(r.Context())
+	if !ok || claims == nil {
+		tokenStr := ""
+		if cookie, err := r.Cookie(auth.AuthCookieName); err == nil && cookie.Value != "" {
+			tokenStr = cookie.Value
+		} else if qToken := r.URL.Query().Get("token"); qToken != "" {
+			tokenStr = qToken
+		}
+		if tokenStr != "" && h.authService != nil {
+			if parsedClaims, err := h.authService.ValidateToken(tokenStr); err == nil {
+				claims = parsedClaims
+				ok = true
+			}
+		}
+	}
+
+	if ok && claims != nil {
+		userID = claims.UserID.String()
+		userRole = claims.Role
+		if u, err := h.userRepo.GetByID(r.Context(), claims.UserID); err == nil && u != nil {
+			userName = u.Name
+		} else {
+			userName = claims.Email
+		}
+	} else {
+		userName = r.URL.Query().Get("name")
+		userRole = r.URL.Query().Get("role")
+		userID = r.URL.Query().Get("userId")
+	}
+
+	if userName == "" {
+		userName = "Fellow"
+	}
+	if userRole == "" {
+		userRole = "candidate"
+	}
+	if userID == "" {
+		userID = uuid.New().String()
+	}
+
+	h.wsHub.ServeWebSocket(w, r, sessionID, userID, userName, userRole)
+}
+
+// GetWorkspaceState handles GET /api/v1/sessions/{sessionId}/workspace
+func (h *SessionHandler) GetWorkspaceState(w http.ResponseWriter, r *http.Request) {
+	sessionIDStr := chi.URLParam(r, "sessionId")
+	sessionID, err := uuid.Parse(sessionIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+
+	state, err := h.sessionRepo.GetWorkspaceState(r.Context(), sessionID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "session workspace not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(state)
+}
+
+// UpdateWorkspaceState handles PUT /api/v1/sessions/{sessionId}/workspace
+func (h *SessionHandler) UpdateWorkspaceState(w http.ResponseWriter, r *http.Request) {
+	sessionIDStr := chi.URLParam(r, "sessionId")
+	sessionID, err := uuid.Parse(sessionIDStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "failed to read request body")
+		return
+	}
+
+	if err := h.sessionRepo.UpdateWorkspaceState(r.Context(), sessionID, json.RawMessage(body)); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update workspace state")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 

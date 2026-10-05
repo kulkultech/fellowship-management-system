@@ -78,7 +78,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		CalendarID:         cfg.GoogleCalendar.CalendarID,
 		ServiceAccountJSON: cfg.GoogleCalendar.ServiceAccountJSON,
 	}, logger)
-	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL)
+	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
@@ -253,6 +253,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		api.Route("/certificates", func(c chi.Router) {
 			c.Get("/verify/{certificateNumber}", credentialHandler.VerifyCertificatePublic)
 		})
+
+		// Real-time Session Workspace WebSocket & Collaborative State
+		api.Get("/sessions/{sessionId}/ws", sessionHandler.HandleWorkspaceWS)
+		api.Get("/sessions/{sessionId}/workspace", sessionHandler.GetWorkspaceState)
+		api.Put("/sessions/{sessionId}/workspace", sessionHandler.UpdateWorkspaceState)
 
 		// Protected Reviewer / Admin / Superadmin / Candidate Routes
 		api.Group(func(protected chi.Router) {

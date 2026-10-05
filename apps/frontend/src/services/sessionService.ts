@@ -89,4 +89,14 @@ export const sessionService = {
     const res = await apiClient.get('/holidays', { params });
     return res.data || [];
   },
+
+  getWorkspaceState: async (sessionId: string): Promise<any> => {
+    const res = await apiClient.get(`/sessions/${sessionId}/workspace`);
+    return res.data.workspace_state;
+  },
+
+  updateWorkspaceState: async (sessionId: string, workspaceState: any): Promise<any> => {
+    const res = await apiClient.put(`/sessions/${sessionId}/workspace`, { workspace_state: workspaceState });
+    return res.data;
+  },
 };

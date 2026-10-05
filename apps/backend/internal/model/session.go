@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,10 +44,11 @@ type ProgramSession struct {
 	MentorID           *uuid.UUID  `json:"mentor_id,omitempty"`
 	MentorName         string      `json:"mentor_name,omitempty"`
 	TargetApplicantIDs     []uuid.UUID `json:"target_applicant_ids"`
-	GoogleCalendarEventID  string      `json:"google_calendar_event_id,omitempty"`
-	GoogleCalendarHTMLLink string      `json:"google_calendar_html_link,omitempty"`
-	CreatedAt              time.Time   `json:"created_at"`
-	UpdatedAt              time.Time   `json:"updated_at"`
+	GoogleCalendarEventID  string          `json:"google_calendar_event_id,omitempty"`
+	GoogleCalendarHTMLLink string          `json:"google_calendar_html_link,omitempty"`
+	WorkspaceState         json.RawMessage `json:"workspace_state,omitempty"`
+	CreatedAt              time.Time       `json:"created_at"`
+	UpdatedAt              time.Time       `json:"updated_at"`
 
 	// Attendance stats (computed on queries)
 	TotalFellows   int `json:"total_fellows,omitempty"`

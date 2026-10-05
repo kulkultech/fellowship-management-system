@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Excalidraw,
   convertToExcalidrawElements,
@@ -26,11 +26,21 @@ interface LiveWhiteboardProps {
   sessionId: string;
   sessionTitle: string;
   isMentor?: boolean;
+  initialElements?: any[];
+  initialAppState?: any;
+  onElementsChange?: (elements: any[], appState?: any) => void;
+  remoteWhiteboardUpdate?: { elements: any[]; appState?: any; sender?: { name: string; role: string } } | null;
+  isConnected?: boolean;
 }
 
 export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   sessionId,
   sessionTitle,
+  initialElements,
+  initialAppState,
+  onElementsChange,
+  remoteWhiteboardUpdate,
+  isConnected = false,
 }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -38,9 +48,22 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const storageKey = `excalidraw_session_${sessionId}`;
+  const isApplyingRemoteRef = useRef(false);
+  const lastBroadcastRef = useRef<number>(0);
+  const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load initial data from localStorage if exists
+  // Load initial data from server or localStorage
   const initialData = useMemo(() => {
+    if (initialElements && initialElements.length > 0) {
+      return {
+        elements: initialElements,
+        appState: {
+          viewBackgroundColor: '#ffffff',
+          currentItemFontFamily: 1,
+          ...initialAppState,
+        },
+      };
+    }
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -58,14 +81,57 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
       // ignore storage error
     }
     return null;
-  }, [storageKey]);
+  }, [storageKey, initialElements, initialAppState]);
 
-  // Handle scene change and auto-save
+  // When initialElements arrives after mount, load into canvas
+  useEffect(() => {
+    if (!excalidrawAPI || !initialElements || initialElements.length === 0) return;
+    try {
+      isApplyingRemoteRef.current = true;
+      excalidrawAPI.updateScene({
+        elements: initialElements,
+        appState: initialAppState,
+        commitToHistory: false,
+      });
+    } finally {
+      setTimeout(() => {
+        isApplyingRemoteRef.current = false;
+      }, 50);
+    }
+  }, [excalidrawAPI, initialElements, initialAppState]);
+
+  // Handle incoming remote updates from mentor or peers
+  useEffect(() => {
+    if (!remoteWhiteboardUpdate || !excalidrawAPI) return;
+    try {
+      isApplyingRemoteRef.current = true;
+      excalidrawAPI.updateScene({
+        elements: remoteWhiteboardUpdate.elements || [],
+        appState: remoteWhiteboardUpdate.appState
+          ? {
+              viewBackgroundColor: remoteWhiteboardUpdate.appState.viewBackgroundColor,
+            }
+          : undefined,
+        commitToHistory: false,
+      });
+    } finally {
+      setTimeout(() => {
+        isApplyingRemoteRef.current = false;
+      }, 50);
+    }
+  }, [remoteWhiteboardUpdate, excalidrawAPI]);
+
+  // Handle scene change and auto-save + real-time broadcast
   const handleChange = useCallback(
     (elements: readonly any[], appState: any) => {
+      // Ignore if currently applying remote update
+      if (isApplyingRemoteRef.current) return;
+
+      const nonDeleted = elements.filter((el) => !el.isDeleted);
+
       try {
         const dataToSave = {
-          elements: elements.filter((el) => !el.isDeleted),
+          elements: nonDeleted,
           appState: {
             viewBackgroundColor: appState.viewBackgroundColor,
             theme: appState.theme,
@@ -75,8 +141,23 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
       } catch {
         // storage quota
       }
+
+      // Realtime throttled broadcast to other participants
+      if (onElementsChange) {
+        const now = Date.now();
+        if (now - lastBroadcastRef.current >= 60) {
+          lastBroadcastRef.current = now;
+          onElementsChange(nonDeleted, appState);
+        } else {
+          if (throttleTimeoutRef.current) clearTimeout(throttleTimeoutRef.current);
+          throttleTimeoutRef.current = setTimeout(() => {
+            lastBroadcastRef.current = Date.now();
+            onElementsChange(nonDeleted, appState);
+          }, 60);
+        }
+      }
     },
-    [storageKey]
+    [storageKey, onElementsChange]
   );
 
   // Template 1: Microservices Architecture
@@ -351,10 +432,17 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
               Whiteboard Studio
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-                <Check className="w-3.5 h-3.5" />
-                Auto-saved
-              </span>
+              {isConnected ? (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Synced
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400">
+                  <Check className="w-3.5 h-3.5" />
+                  Auto-saved
+                </span>
+              )}
               <span>&bull;</span>
               <span className="truncate max-w-[140px] sm:max-w-xs">{sessionTitle}</span>
             </div>

@@ -358,22 +358,36 @@ print(f"Sum of sequence: {sum(result)}")`,
 interface LiveCodeEditorProps {
   initialLanguage?: SupportedLanguage;
   sessionTitle?: string;
+  initialCodeMap?: Record<string, string>;
   onCodeChange?: (lang: SupportedLanguage, code: string) => void;
+  onLanguageChange?: (lang: SupportedLanguage) => void;
+  onCodeRun?: (lang: SupportedLanguage, logs: LogItem[]) => void;
+  remoteCodeUpdate?: { language: SupportedLanguage; code: string; sender?: { name: string; role: string } } | null;
+  remoteLanguageChange?: { language: SupportedLanguage; sender?: { name: string; role: string } } | null;
+  remoteCodeRun?: { language: SupportedLanguage; logs: LogItem[]; sender?: { name: string; role: string } } | null;
+  isConnected?: boolean;
 }
 
 export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   initialLanguage = 'java',
   sessionTitle = 'Fellowship Live Session',
+  initialCodeMap,
   onCodeChange,
+  onLanguageChange,
+  onCodeRun,
+  remoteCodeUpdate,
+  remoteLanguageChange,
+  remoteCodeRun,
+  isConnected = false,
 }) => {
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(initialLanguage);
   const [codeMap, setCodeMap] = useState<Record<SupportedLanguage, string>>({
-    java: LANGUAGE_SNIPPET_COLLECTIONS.java[0].code,
-    html: LANGUAGE_SNIPPET_COLLECTIONS.html[0].code,
-    css: LANGUAGE_SNIPPET_COLLECTIONS.css[0].code,
-    javascript: LANGUAGE_SNIPPET_COLLECTIONS.javascript[0].code,
-    typescript: LANGUAGE_SNIPPET_COLLECTIONS.typescript[0].code,
-    python: LANGUAGE_SNIPPET_COLLECTIONS.python[0].code,
+    java: initialCodeMap?.java || LANGUAGE_SNIPPET_COLLECTIONS.java[0].code,
+    html: initialCodeMap?.html || LANGUAGE_SNIPPET_COLLECTIONS.html[0].code,
+    css: initialCodeMap?.css || LANGUAGE_SNIPPET_COLLECTIONS.css[0].code,
+    javascript: initialCodeMap?.javascript || LANGUAGE_SNIPPET_COLLECTIONS.javascript[0].code,
+    typescript: initialCodeMap?.typescript || LANGUAGE_SNIPPET_COLLECTIONS.typescript[0].code,
+    python: initialCodeMap?.python || LANGUAGE_SNIPPET_COLLECTIONS.python[0].code,
   });
 
   const [theme, setTheme] = useState<'vs-dark' | 'light'>('vs-dark');
@@ -406,6 +420,62 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const codeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update initial code map if received after mount
+  useEffect(() => {
+    if (initialCodeMap && Object.keys(initialCodeMap).length > 0) {
+      setCodeMap((prev) => ({
+        ...prev,
+        ...initialCodeMap,
+      }));
+      if (editorRef.current && initialCodeMap[currentLang]) {
+        editorRef.current.setValue(initialCodeMap[currentLang]);
+      }
+    }
+  }, [initialCodeMap]);
+
+  // Handle incoming remote code updates
+  useEffect(() => {
+    if (!remoteCodeUpdate) return;
+    const { language, code } = remoteCodeUpdate;
+    setCodeMap((prev) => ({
+      ...prev,
+      [language]: code,
+    }));
+    if (currentLang === language && editorRef.current) {
+      const cur = editorRef.current.getValue();
+      if (cur !== code) {
+        editorRef.current.setValue(code);
+      }
+    }
+  }, [remoteCodeUpdate, currentLang]);
+
+  // Handle incoming remote language change
+  useEffect(() => {
+    if (!remoteLanguageChange) return;
+    const { language } = remoteLanguageChange;
+    if (language && language !== currentLang) {
+      setCurrentLang(language);
+    }
+  }, [remoteLanguageChange, currentLang]);
+
+  // Handle incoming remote code execution logs
+  useEffect(() => {
+    if (!remoteCodeRun) return;
+    const { logs, language, sender } = remoteCodeRun;
+    setConsoleLogs((prev) => [
+      ...prev,
+      {
+        id: `remote-${Date.now()}`,
+        type: 'info',
+        content: `[Broadcast] ${sender?.name || 'Mentor'} executed ${language.toUpperCase()}:`,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+      ...logs,
+    ]);
+    setRightPanelTab('console');
+  }, [remoteCodeRun]);
 
   // When language changes, auto-set right panel if HTML/CSS
   useEffect(() => {
@@ -425,8 +495,16 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       [currentLang]: val,
     }));
     if (onCodeChange) {
-      onCodeChange(currentLang, val);
+      if (codeDebounceRef.current) clearTimeout(codeDebounceRef.current);
+      codeDebounceRef.current = setTimeout(() => {
+        onCodeChange(currentLang, val);
+      }, 70);
     }
+  };
+
+  const handleSelectLanguage = (lang: SupportedLanguage) => {
+    setCurrentLang(lang);
+    onLanguageChange?.(lang);
   };
 
   // Keyboard shortcut Ctrl/Cmd + Enter to run code
@@ -447,43 +525,45 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     const timeStr = new Date().toLocaleTimeString();
 
     try {
+      let runLogs: LogItem[] = [];
+
       if (currentLang === 'html' || currentLang === 'css') {
         setRightPanelTab('web-preview');
-        setConsoleLogs((prev) => [
-          ...prev,
-          {
-            id: String(Date.now()),
-            type: 'success',
-            content: `Live Web Preview updated with current ${currentLang.toUpperCase()} styles & markup.`,
-            timestamp: timeStr,
-          },
-        ]);
-        return;
-      }
-
-      if (currentLang === 'javascript' || currentLang === 'typescript') {
+        const updateLog: LogItem = {
+          id: String(Date.now()),
+          type: 'success',
+          content: `Live Web Preview updated with current ${currentLang.toUpperCase()} styles & markup.`,
+          timestamp: timeStr,
+        };
+        setConsoleLogs((prev) => [...prev, updateLog]);
+        runLogs = [updateLog];
+      } else if (currentLang === 'javascript' || currentLang === 'typescript') {
         setRightPanelTab('console');
         const res = await runJsOrTsCode(codeMap[currentLang], currentLang);
         setConsoleLogs((prev) => [...prev, ...res.logs]);
+        runLogs = res.logs;
       } else if (currentLang === 'python') {
         setRightPanelTab('console');
         const res = await runPythonCode(codeMap.python);
         setConsoleLogs((prev) => [...prev, ...res.logs]);
+        runLogs = res.logs;
       } else if (currentLang === 'java') {
         setRightPanelTab('console');
         const res = await runJavaCode(codeMap.java);
         setConsoleLogs((prev) => [...prev, ...res.logs]);
+        runLogs = res.logs;
       }
+
+      onCodeRun?.(currentLang, runLogs);
     } catch (err: any) {
-      setConsoleLogs((prev) => [
-        ...prev,
-        {
-          id: String(Date.now()),
-          type: 'error',
-          content: `Execution Exception: ${err.message || String(err)}`,
-          timestamp: timeStr,
-        },
-      ]);
+      const errorLog: LogItem = {
+        id: String(Date.now()),
+        type: 'error',
+        content: `Execution Exception: ${err.message || String(err)}`,
+        timestamp: timeStr,
+      };
+      setConsoleLogs((prev) => [...prev, errorLog]);
+      onCodeRun?.(currentLang, [errorLog]);
     } finally {
       setIsRunning(false);
     }
@@ -586,7 +666,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
               <button
                 key={lang.id}
                 type="button"
-                onClick={() => setCurrentLang(lang.id)}
+                onClick={() => handleSelectLanguage(lang.id)}
                 className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shrink-0 ${
                   isActive
                     ? 'bg-kulkul-purple text-white shadow-xs'
@@ -604,6 +684,13 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
         {/* Right: Actions & Controls */}
         <div className="flex items-center gap-2">
+          {isConnected && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-400 text-3xs font-extrabold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Live Synced</span>
+            </div>
+          )}
+
           {/* Run Code Button */}
           <button
             type="button"
@@ -989,8 +1076,10 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       {/* 4. FOOTER STATUS BAR */}
       <div className="bg-slate-950 px-4 py-1.5 border-t border-slate-800 text-3xs text-slate-500 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="font-medium text-slate-400">Monaco Engine: Ready</span>
+          <span className={`inline-block w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+          <span className="font-medium text-slate-400">
+            {isConnected ? 'Real-Time Sync Active' : 'Monaco Engine: Ready'}
+          </span>
           <span>&bull;</span>
           <span>{sessionTitle}</span>
         </div>
