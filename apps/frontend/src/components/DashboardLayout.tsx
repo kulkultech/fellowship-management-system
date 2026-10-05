@@ -9,6 +9,8 @@ import {
   ChevronDown,
   ChevronRight,
   Pencil,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/services/apiClient';
@@ -83,6 +85,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+  const [isMinimized, setIsMinimized] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('dashboard_sidebar_minimized') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleMinimize = () => {
+    setIsMinimized((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('dashboard_sidebar_minimized', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const { user, logout: authLogout } = useAuth();
   const navigate = useNavigate();
 
@@ -139,7 +159,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* ========================================================================= */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
         <div className="w-full px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-4 h-20 sm:h-24">
-          {/* Left: Hamburger (Mobile) + Logo */}
+          {/* Left: Hamburger (Mobile) + Desktop Sidebar Minimize Toggle + Logo */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <button
               onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
@@ -147,6 +167,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               aria-label="Toggle navigation menu"
             >
               {isMobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleMinimize}
+              className="hidden lg:flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 transition focus:outline-none"
+              title={isMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
+              aria-label={isMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
+            >
+              {isMinimized ? (
+                <PanelLeftOpen className="w-5 h-5 text-kulkul-purple" />
+              ) : (
+                <PanelLeftClose className="w-5 h-5" />
+              )}
             </button>
 
             <Link to="/" className="flex items-center gap-3 group shrink-0">
@@ -209,285 +243,480 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
         {/* LEFT VERTICAL SIDEBAR */}
         <aside
-          className={`fixed lg:sticky top-20 sm:top-24 z-30 w-72 h-[calc(100vh-5rem)] sm:h-[calc(100vh-6rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 ${
+          className={`fixed lg:sticky top-20 sm:top-24 z-30 h-[calc(100vh-5rem)] sm:h-[calc(100vh-6rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-all duration-300 ease-in-out shrink-0 ${
+            isMinimized ? 'w-72 lg:w-20' : 'w-72'
+          } ${
             isMobileSidebarOpen
               ? 'translate-x-0 shadow-2xl'
               : '-translate-x-full lg:translate-x-0'
           }`}
         >
-          {/* Top Section: Navigation Items */}
-          <div className="p-4 sm:p-5 overflow-y-auto space-y-1">
+          {/* Top Section: Quick Collapse Action & Nav List */}
+          <div className="flex flex-col min-h-0 flex-1">
+            {/* Desktop Quick Toggle Header inside Sidebar */}
+            <div className="hidden lg:flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 bg-slate-50/60">
+              {!isMinimized ? (
+                <>
+                  <span className="text-3xs font-extrabold uppercase tracking-wider text-slate-400">
+                    Navigation
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleMinimize}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 text-2xs font-bold transition"
+                    title="Minimize sidebar to icons"
+                  >
+                    <PanelLeftClose className="w-3.5 h-3.5" />
+                    <span>Minimize</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={toggleMinimize}
+                  className="w-full flex items-center justify-center py-1 rounded-lg text-slate-400 hover:text-kulkul-purple hover:bg-purple-50 transition"
+                  title="Expand sidebar"
+                >
+                  <PanelLeftOpen className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
             {/* Nav Items List with Hierarchical Tree Support */}
-            <nav className="space-y-1.5">
-              {navItems.map((item) => {
-                const IconComponent = item.icon;
-                const isActive = activeNavId === item.id;
-                const hasChildren = Boolean(item.children && item.children.length > 0);
-                const isItemExpanded = expandedMap[item.id] !== undefined ? expandedMap[item.id] : (item.isExpanded !== false);
+            <div
+              className={`space-y-1 flex-1 ${
+                isMinimized
+                  ? 'p-2 lg:px-2 lg:py-3 lg:overflow-visible overflow-y-auto'
+                  : 'p-4 sm:p-5 overflow-y-auto'
+              }`}
+            >
+              <nav className="space-y-1.5">
+                {navItems.map((item) => {
+                  const IconComponent = item.icon;
+                  const isActive = activeNavId === item.id;
+                  const hasChildren = Boolean(item.children && item.children.length > 0);
+                  const isItemExpanded =
+                    expandedMap[item.id] !== undefined
+                      ? expandedMap[item.id]
+                      : item.isExpanded !== false;
 
-                return (
-                  <div key={item.id} className="space-y-1">
-                    <div
-                      className={`nav-item-root ${
-                        isActive
-                          ? 'bg-kulkul-purple text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (item.onClick) {
-                            item.onClick();
-                          } else {
-                            onNavChange(item.id);
-                          }
-                          if (!hasChildren) {
-                            setIsMobileSidebarOpen(false);
-                          }
-                        }}
-                        className="flex items-center gap-3 truncate flex-1 text-left py-1"
+                  return (
+                    <div key={item.id} className="space-y-1 relative group">
+                      <div
+                        className={`nav-item-root ${
+                          isMinimized ? 'lg:justify-center lg:px-0' : ''
+                        } ${
+                          isActive
+                            ? 'bg-kulkul-purple text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
                       >
-                        <IconComponent
-                          className={`w-4 h-4 shrink-0 transition ${
-                            isActive
-                              ? 'text-kulkul-orange'
-                              : 'text-slate-400 group-hover:text-kulkul-purple'
-                          }`}
-                        />
-                        <span className="truncate">{item.label}</span>
-                      </button>
-
-                      <div className="flex items-center gap-1 shrink-0 ml-1">
-                        {item.badge !== undefined && (
-                          <span
-                            className={`text-2xs font-bold ${
-                              isActive
-                                ? 'text-white/80'
-                                : 'text-slate-400 group-hover:text-slate-600'
-                            }`}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-
-                        {hasChildren && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpand(item.id, item.isExpanded !== false);
-                            }}
-                            className={`p-1.5 rounded-lg transition ${
-                              isActive
-                                ? 'hover:bg-white/20 text-white/80 hover:text-white'
-                                : 'hover:bg-slate-200 text-slate-400 hover:text-slate-700'
-                            }`}
-                            title={isItemExpanded ? 'Minimize / Collapse' : 'Expand'}
-                          >
-                            {isItemExpanded ? (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isMinimized && hasChildren) {
+                              setIsMinimized(false);
+                              try {
+                                localStorage.setItem('dashboard_sidebar_minimized', 'false');
+                              } catch {}
+                              toggleExpand(item.id, true);
+                            } else {
+                              if (item.onClick) {
+                                item.onClick();
+                              } else {
+                                onNavChange(item.id);
+                              }
+                              if (!hasChildren) {
+                                setIsMobileSidebarOpen(false);
+                              }
+                            }
+                          }}
+                          className={`flex items-center ${
+                            isMinimized ? 'lg:justify-center lg:w-full' : 'gap-3 flex-1 text-left'
+                          } truncate py-1`}
+                          title={isMinimized ? item.label : undefined}
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <IconComponent
+                              className={`w-4 h-4 shrink-0 transition ${
+                                isActive
+                                  ? 'text-kulkul-orange'
+                                  : 'text-slate-400 group-hover:text-kulkul-purple'
+                              }`}
+                            />
+                            {/* Minimized compact badge indicator */}
+                            {isMinimized && item.badge !== undefined && (
+                              <span className="hidden lg:flex absolute -top-2 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-kulkul-orange text-white text-3xs font-extrabold items-center justify-center shadow-xs">
+                                {typeof item.badge === 'number' && item.badge > 99
+                                  ? '99+'
+                                  : item.badge}
+                              </span>
                             )}
-                          </button>
-                        )}
+                          </div>
+                          <span className={`truncate ${isMinimized ? 'lg:hidden' : ''}`}>
+                            {item.label}
+                          </span>
+                        </button>
+
+                        <div
+                          className={`flex items-center gap-1 shrink-0 ml-1 ${
+                            isMinimized ? 'lg:hidden' : ''
+                          }`}
+                        >
+                          {item.badge !== undefined && (
+                            <span
+                              className={`text-2xs font-bold ${
+                                isActive
+                                  ? 'text-white/80'
+                                  : 'text-slate-400 group-hover:text-slate-600'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+
+                          {hasChildren && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(item.id, item.isExpanded !== false);
+                              }}
+                              className={`p-1.5 rounded-lg transition ${
+                                isActive
+                                  ? 'hover:bg-white/20 text-white/80 hover:text-white'
+                                  : 'hover:bg-slate-200 text-slate-400 hover:text-slate-700'
+                              }`}
+                              title={isItemExpanded ? 'Minimize / Collapse' : 'Expand'}
+                            >
+                              {isItemExpanded ? (
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Level 1 Children (Programs under Programs Directory) */}
-                    {hasChildren && isItemExpanded && (
-                      <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-1 py-1">
-                        {item.children!.map((child) => {
-                          const isChildActive = activeNavId === child.id;
-                          const hasSubChildren = Boolean(child.children && child.children.length > 0);
-                          const isChildExpanded = expandedMap[child.id] !== undefined ? expandedMap[child.id] : (child.isExpanded !== false);
-                          const ChildIcon = child.icon;
+                      {/* Minimized Tooltip on Hover (When NO Children) */}
+                      {isMinimized && !hasChildren && (
+                        <div className="hidden lg:group-hover:flex absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 items-center gap-2 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-xl pointer-events-none animate-in fade-in duration-150">
+                          <span>{item.label}</span>
+                          {item.badge !== undefined && (
+                            <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                          return (
-                            <div key={child.id} className="space-y-1">
-                              <div
-                                className={`nav-item-child ${
-                                  isChildActive
-                                    ? 'bg-purple-50 text-kulkul-purple font-bold'
-                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (child.onClick) {
-                                      child.onClick();
-                                    } else {
-                                      onNavChange(child.id);
-                                    }
-                                    if (!hasSubChildren) {
-                                      setIsMobileSidebarOpen(false);
-                                    }
-                                  }}
-                                  className="flex items-center gap-2 truncate flex-1 text-left py-1"
-                                >
-                                  {ChildIcon && (
-                                    <ChildIcon
-                                      className={`w-3.5 h-3.5 shrink-0 ${
-                                        isChildActive ? 'text-kulkul-purple' : 'text-slate-400'
-                                      }`}
-                                    />
-                                  )}
-                                  <span className="truncate">{child.label}</span>
-                                </button>
+                      {/* Minimized Flyout Submenu on Hover (When HAS Children) */}
+                      {isMinimized && hasChildren && (
+                        <div className="hidden lg:group-hover:block absolute left-full top-0 ml-3 z-50 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                            <span className="text-xs font-black text-slate-900">{item.label}</span>
+                            {item.badge !== undefined && (
+                              <span className="text-3xs font-bold px-1.5 py-0.5 rounded-md bg-purple-50 text-kulkul-purple">
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                          <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                            {item.children!.map((child) => {
+                              const isChildActive = activeNavId === child.id;
+                              const ChildIcon = child.icon;
+                              const hasSubChildren = Boolean(
+                                child.children && child.children.length > 0
+                              );
 
-                                <div className="flex items-center gap-1 shrink-0 ml-1">
-                                  {child.badge !== undefined && (
-                                    <span className="text-2xs font-bold text-slate-400">
-                                      {child.badge}
-                                    </span>
-                                  )}
-                                  {hasSubChildren && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleExpand(child.id, child.isExpanded !== false);
-                                      }}
-                                      className="p-1 rounded-lg hover:bg-purple-100 text-slate-400 hover:text-kulkul-purple transition"
-                                      title={isChildExpanded ? 'Minimize / Collapse' : 'Expand'}
-                                    >
-                                      {isChildExpanded ? (
-                                        <ChevronDown className="w-3.5 h-3.5 text-kulkul-purple" />
-                                      ) : (
-                                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Level 2 Sub-Children (Tracks under a Program) */}
-                              {hasSubChildren && isChildExpanded && (
-                                <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-0.5 py-0.5">
-                                  {child.children!.map((sub) => {
-                                    const isSubActive = activeNavId === sub.id;
-                                    const SubIcon = sub.icon;
-
-                                    return (
-                                      <button
-                                        key={sub.id}
-                                        type="button"
-                                        onClick={() => {
-                                          if (sub.onClick) {
-                                            sub.onClick();
-                                          } else {
-                                            onNavChange(sub.id);
-                                          }
-                                          setIsMobileSidebarOpen(false);
-                                        }}
-                                        className={`nav-item-subchild ${
-                                          isSubActive
-                                            ? 'bg-purple-100 text-kulkul-purple font-bold'
-                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                              return (
+                                <div key={child.id} className="space-y-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (child.onClick) child.onClick();
+                                      else onNavChange(child.id);
+                                    }}
+                                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-bold transition text-left ${
+                                      isChildActive
+                                        ? 'bg-kulkul-purple text-white shadow-2xs'
+                                        : 'text-slate-700 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      {ChildIcon && <ChildIcon className="w-3.5 h-3.5 shrink-0" />}
+                                      <span className="truncate">{child.label}</span>
+                                    </div>
+                                    {child.badge !== undefined && (
+                                      <span
+                                        className={`text-2xs font-bold ${
+                                          isChildActive ? 'text-white/80' : 'text-slate-400'
                                         }`}
                                       >
-                                        <div className="flex items-center gap-2 truncate">
-                                          {SubIcon && (
-                                            <SubIcon
-                                              className={`w-3 h-3 shrink-0 ${
-                                                isSubActive ? 'text-kulkul-purple' : 'text-slate-400'
-                                              }`}
-                                            />
-                                          )}
-                                          <span className="truncate">{sub.label}</span>
-                                        </div>
+                                        {child.badge}
+                                      </span>
+                                    )}
+                                  </button>
 
-                                        {sub.badge !== undefined && (
-                                          <span className="text-2xs font-bold text-slate-400">
-                                            {sub.badge}
-                                          </span>
+                                  {hasSubChildren && (
+                                    <div className="pl-3 ml-2 border-l border-slate-200 space-y-0.5 py-0.5">
+                                      {child.children!.map((sub) => {
+                                        const isSubActive = activeNavId === sub.id;
+                                        const SubIcon = sub.icon;
+                                        return (
+                                          <button
+                                            key={sub.id}
+                                            type="button"
+                                            onClick={() => {
+                                              if (sub.onClick) sub.onClick();
+                                              else onNavChange(sub.id);
+                                            }}
+                                            className={`w-full flex items-center justify-between px-2 py-1 rounded-lg text-2xs font-medium transition text-left ${
+                                              isSubActive
+                                                ? 'bg-purple-100 text-kulkul-purple font-bold'
+                                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-1.5 truncate">
+                                              {SubIcon && <SubIcon className="w-3 h-3 shrink-0" />}
+                                              <span className="truncate">{sub.label}</span>
+                                            </div>
+                                            {sub.badge !== undefined && (
+                                              <span className="text-3xs font-bold text-slate-400">
+                                                {sub.badge}
+                                              </span>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Level 1 Children (Programs under Programs Directory) */}
+                      {hasChildren && isItemExpanded && (
+                        <div
+                          className={`pl-3 ml-3 border-l-2 border-slate-100 space-y-1 py-1 ${
+                            isMinimized ? 'lg:hidden' : ''
+                          }`}
+                        >
+                          {item.children!.map((child) => {
+                            const isChildActive = activeNavId === child.id;
+                            const hasSubChildren = Boolean(child.children && child.children.length > 0);
+                            const isChildExpanded = expandedMap[child.id] !== undefined ? expandedMap[child.id] : (child.isExpanded !== false);
+                            const ChildIcon = child.icon;
+
+                            return (
+                              <div key={child.id} className="space-y-1">
+                                <div
+                                  className={`nav-item-child ${
+                                    isChildActive
+                                      ? 'bg-purple-50 text-kulkul-purple font-bold'
+                                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (child.onClick) {
+                                        child.onClick();
+                                      } else {
+                                        onNavChange(child.id);
+                                      }
+                                      if (!hasSubChildren) {
+                                        setIsMobileSidebarOpen(false);
+                                      }
+                                    }}
+                                    className="flex items-center gap-2 truncate flex-1 text-left py-1"
+                                  >
+                                    {ChildIcon && (
+                                      <ChildIcon
+                                        className={`w-3.5 h-3.5 shrink-0 ${
+                                          isChildActive ? 'text-kulkul-purple' : 'text-slate-400'
+                                        }`}
+                                      />
+                                    )}
+                                    <span className="truncate">{child.label}</span>
+                                  </button>
+
+                                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                                    {child.badge !== undefined && (
+                                      <span className="text-2xs font-bold text-slate-400">
+                                        {child.badge}
+                                      </span>
+                                    )}
+                                    {hasSubChildren && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleExpand(child.id, child.isExpanded !== false);
+                                        }}
+                                        className="p-1 rounded-lg hover:bg-purple-100 text-slate-400 hover:text-kulkul-purple transition"
+                                        title={isChildExpanded ? 'Minimize / Collapse' : 'Expand'}
+                                      >
+                                        {isChildExpanded ? (
+                                          <ChevronDown className="w-3.5 h-3.5 text-kulkul-purple" />
+                                        ) : (
+                                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                                         )}
                                       </button>
-                                    );
-                                  })}
+                                    )}
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </nav>
+
+                                {/* Level 2 Sub-Children (Tracks under a Program) */}
+                                {hasSubChildren && isChildExpanded && (
+                                  <div className="pl-3 ml-3 border-l-2 border-slate-100 space-y-0.5 py-0.5">
+                                    {child.children!.map((sub) => {
+                                      const isSubActive = activeNavId === sub.id;
+                                      const SubIcon = sub.icon;
+
+                                      return (
+                                        <button
+                                          key={sub.id}
+                                          type="button"
+                                          onClick={() => {
+                                            if (sub.onClick) {
+                                              sub.onClick();
+                                            } else {
+                                              onNavChange(sub.id);
+                                            }
+                                            setIsMobileSidebarOpen(false);
+                                          }}
+                                          className={`nav-item-subchild ${
+                                            isSubActive
+                                              ? 'bg-purple-100 text-kulkul-purple font-bold'
+                                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2 truncate">
+                                            {SubIcon && (
+                                              <SubIcon
+                                                className={`w-3 h-3 shrink-0 ${
+                                                  isSubActive ? 'text-kulkul-purple' : 'text-slate-400'
+                                                }`}
+                                              />
+                                            )}
+                                            <span className="truncate">{sub.label}</span>
+                                          </div>
+
+                                          {sub.badge !== undefined && (
+                                            <span className="text-2xs font-bold text-slate-400">
+                                              {sub.badge}
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </nav>
+            </div>
           </div>
 
           {/* Bottom Section: Footer / User Identity & Profile (Clickable to Edit Profile) */}
-          <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50/70">
-            <button
-              type="button"
-              onClick={handleOpenEditProfile}
-              className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-white border border-transparent hover:border-slate-200/80 shadow-2xs hover:shadow-sm transition-all group text-left relative cursor-pointer"
-              title="Click to edit your profile and settings"
-            >
-              {/* Avatar / Logo with hover edit badge */}
-              <div className="relative shrink-0">
-                <div className="w-10 h-10 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden border border-kulkul-purple/20">
-                  {user?.avatar_url ? (
-                    <img
-                      src={resolveMediaUrl(user.avatar_url)}
-                      alt={displayName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : portalType === 'company_admin' && companyLogoUrl ? (
-                    <img
-                      src={resolveMediaUrl(companyLogoUrl)}
-                      alt={companyName || 'Company'}
-                      className="w-full h-full object-contain bg-white p-0.5"
-                    />
-                  ) : portalType === 'superadmin' ? (
-                    <ShieldCheck className="w-5 h-5 text-kulkul-orange" />
-                  ) : displayName && displayName !== 'My Profile' ? (
-                    <span className="text-sm font-black text-white">
-                      {displayName.charAt(0).toUpperCase()}
-                    </span>
-                  ) : (
-                    <UserIcon className="w-5 h-5 text-kulkul-orange" />
-                  )}
-                </div>
-                {/* Sleek Edit Pencil Badge */}
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-kulkul-purple text-white rounded-full flex items-center justify-center border border-white shadow-xs group-hover:scale-110 group-hover:bg-kulkul-orange transition">
-                  <Pencil className="w-2.5 h-2.5" />
-                </span>
-              </div>
-
-              {/* Name & Subtitle / Context */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-sm font-bold text-slate-900 truncate group-hover:text-kulkul-purple transition">
-                    {displayName}
+          <div
+            className={`border-t border-slate-100 bg-slate-50/70 transition-all ${
+              isMinimized ? 'p-2 lg:p-2' : 'p-3 sm:p-4'
+            }`}
+          >
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={handleOpenEditProfile}
+                className={`w-full flex items-center ${
+                  isMinimized ? 'lg:justify-center p-1' : 'gap-3 p-2'
+                } rounded-2xl hover:bg-white border border-transparent hover:border-slate-200/80 shadow-2xs hover:shadow-sm transition-all group text-left relative cursor-pointer`}
+                title={
+                  isMinimized
+                    ? `${displayName} - Click to edit profile`
+                    : 'Click to edit your profile and settings'
+                }
+              >
+                {/* Avatar / Logo with hover edit badge */}
+                <div className="relative shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden border border-kulkul-purple/20">
+                    {user?.avatar_url ? (
+                      <img
+                        src={resolveMediaUrl(user.avatar_url)}
+                        alt={displayName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : portalType === 'company_admin' && companyLogoUrl ? (
+                      <img
+                        src={resolveMediaUrl(companyLogoUrl)}
+                        alt={companyName || 'Company'}
+                        className="w-full h-full object-contain bg-white p-0.5"
+                      />
+                    ) : portalType === 'superadmin' ? (
+                      <ShieldCheck className="w-5 h-5 text-kulkul-orange" />
+                    ) : displayName && displayName !== 'My Profile' ? (
+                      <span className="text-sm font-black text-white">
+                        {displayName.charAt(0).toUpperCase()}
+                      </span>
+                    ) : (
+                      <UserIcon className="w-5 h-5 text-kulkul-orange" />
+                    )}
+                  </div>
+                  {/* Sleek Edit Pencil Badge */}
+                  <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-kulkul-purple text-white rounded-full flex items-center justify-center border border-white shadow-xs group-hover:scale-110 group-hover:bg-kulkul-orange transition">
+                    <Pencil className="w-2.5 h-2.5" />
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 font-normal truncate flex items-center gap-1 mt-0.5">
-                  {portalType === 'company_admin' && (
-                    <span className="truncate">{companyName || user?.organization?.name || 'Company Admin'}</span>
-                  )}
-                  {portalType === 'superadmin' && (
-                    <span className="text-kulkul-purple font-bold">Platform Superadmin</span>
-                  )}
-                  {portalType === 'mentor' && (
-                    <span className="text-kulkul-purple font-bold">Program Mentor</span>
-                  )}
-                  {portalType === 'candidate' && (
-                    <span className="truncate">{candidateEmail || user?.email || 'Candidate'}</span>
-                  )}
-                  {portalType !== 'company_admin' && portalType !== 'superadmin' && portalType !== 'mentor' && portalType !== 'candidate' && (
-                    <span className="truncate">{user?.role || 'Active Session'}</span>
-                  )}
+
+                {/* Name & Subtitle / Context (hidden on desktop when minimized) */}
+                <div className={`min-w-0 flex-1 ${isMinimized ? 'lg:hidden' : ''}`}>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-bold text-slate-900 truncate group-hover:text-kulkul-purple transition">
+                      {displayName}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 font-normal truncate flex items-center gap-1 mt-0.5">
+                    {portalType === 'company_admin' && (
+                      <span className="truncate">{companyName || user?.organization?.name || 'Company Admin'}</span>
+                    )}
+                    {portalType === 'superadmin' && (
+                      <span className="text-kulkul-purple font-bold">Platform Superadmin</span>
+                    )}
+                    {portalType === 'mentor' && (
+                      <span className="text-kulkul-purple font-bold">Program Mentor</span>
+                    )}
+                    {portalType === 'candidate' && (
+                      <span className="truncate">{candidateEmail || user?.email || 'Candidate'}</span>
+                    )}
+                    {portalType !== 'company_admin' && portalType !== 'superadmin' && portalType !== 'mentor' && portalType !== 'candidate' && (
+                      <span className="truncate">{user?.role || 'Active Session'}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+
+              {/* Tooltip on hover when minimized */}
+              {isMinimized && (
+                <div className="hidden lg:group-hover:flex absolute left-full bottom-2 ml-3 z-50 flex-col gap-0.5 px-3 py-2 bg-slate-900 text-white text-xs rounded-xl whitespace-nowrap shadow-2xl pointer-events-none animate-in fade-in duration-150">
+                  <span className="font-bold">{displayName}</span>
+                  <span className="text-3xs text-slate-400">Click to edit profile</span>
+                </div>
+              )}
+            </div>
           </div>
         </aside>
 
