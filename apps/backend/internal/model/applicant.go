@@ -43,6 +43,8 @@ type Applicant struct {
 	CurrentStage   ApplicantStage         `json:"current_stage"`
 	FormSubmitted  bool                   `json:"form_submitted"`
 	Notes          string                 `json:"notes,omitempty"`
+	ReviewerMark   *float64               `json:"reviewer_mark,omitempty"`
+	ReviewerNotes  string                 `json:"reviewer_notes,omitempty"`
 	ProgramRoomInvitedAt *time.Time       `json:"program_room_invited_at,omitempty"`
 	ProgramRoomInvitedBy *uuid.UUID       `json:"program_room_invited_by,omitempty"`
 	CreatedAt      time.Time              `json:"created_at"`

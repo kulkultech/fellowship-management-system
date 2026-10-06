@@ -67,6 +67,9 @@ describe('candidateExcelExporter', () => {
       ai_executive_summary: 'Budi demonstrated deep understanding of ML architecture.',
       ai_completed_at: '2026-02-03 14:30',
       ai_recording_url: 'https://storage.example.com/recordings/budi.webm',
+      // Reviewer Evaluation
+      reviewer_mark: 92.5,
+      reviewer_notes: 'Strong analytical skills, recommended for final cohort.',
     },
     {
       id: 'app-2',
@@ -111,6 +114,8 @@ describe('candidateExcelExporter', () => {
     expect(headerValues).toContain('Logic MCQ Score (%)');
     expect(headerValues).toContain('AI Scorecard (0-100)');
     expect(headerValues).toContain('Tech Acumen (1-10)');
+    expect(headerValues).toContain('Reviewer Mark');
+    expect(headerValues).toContain('Reviewer Notes');
 
     // Row 5 is the first candidate (Budi)
     const budiRow = masterSheet!.getRow(5);
@@ -120,6 +125,8 @@ describe('candidateExcelExporter', () => {
     expect(budiValues).toContain(90); // mcq_score
     expect(budiValues).toContain(88); // ai_score
     expect(budiValues).toContain('Passed'); // mcq_passed
+    expect(budiValues).toContain(92.5); // reviewer_mark
+    expect(budiValues).toContain('Strong analytical skills, recommended for final cohort.'); // reviewer_notes
 
     // Check summary sheet
     const summaryHeaderRow = summarySheet!.getRow(4);
@@ -128,6 +135,8 @@ describe('candidateExcelExporter', () => {
     expect(summaryHeaders).toContain('Logic Score (%)');
     expect(summaryHeaders).toContain('AI Score (0-100)');
     expect(summaryHeaders).toContain('AI Recommendation');
+    expect(summaryHeaders).toContain('Reviewer Mark');
+    expect(summaryHeaders).toContain('Reviewer Notes');
 
     const summaryBudiRow = summarySheet!.getRow(5);
     const summaryBudiValues = summaryBudiRow.values as any[];
@@ -135,6 +144,8 @@ describe('candidateExcelExporter', () => {
     expect(summaryBudiValues).toContain('90%');
     expect(summaryBudiValues).toContain('88 / 100');
     expect(summaryBudiValues).toContain('Strong communication readiness');
+    expect(summaryBudiValues).toContain(92.5);
+    expect(summaryBudiValues).toContain('Strong analytical skills, recommended for final cohort.');
   });
 
   it('handles empty applicants list without error', async () => {

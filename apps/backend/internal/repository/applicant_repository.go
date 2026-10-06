@@ -118,6 +118,7 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
 			created_at, updated_at,
 			(xmax = 0) AS is_inserted
 	`
@@ -136,12 +137,16 @@ func (r *ApplicantRepository) CreateOrGet(ctx context.Context, a *model.Applican
 		&res.Semester, &res.ReferralSource,
 		&res.CurrentStage, &res.FormSubmitted, &res.Notes,
 		&rawCustomResponses,
+		&res.ReviewerMark, &res.ReviewerNotes,
 		&res.CreatedAt, &res.UpdatedAt, &isInserted,
 	)
 	if err != nil {
 		return nil, false, fmt.Errorf("applicant_repo: create or get: %w", err)
 	}
 	_ = json.Unmarshal(rawCustomResponses, &res.CustomResponses)
+	if res.ReviewerNotes == "" && res.Notes != "" {
+		res.ReviewerNotes = res.Notes
+	}
 	return &res, isInserted, nil
 }
 
@@ -164,6 +169,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
 			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
@@ -179,6 +185,7 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 		&rawCustomResponses,
+		&a.ReviewerMark, &a.ReviewerNotes,
 		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
@@ -189,6 +196,9 @@ func (r *ApplicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*model
 		return nil, fmt.Errorf("applicant_repo: get by id: %w", err)
 	}
 	_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+	if a.ReviewerNotes == "" && a.Notes != "" {
+		a.ReviewerNotes = a.Notes
+	}
 	return &a, nil
 }
 
@@ -269,6 +279,7 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
 			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
@@ -285,6 +296,7 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 		&rawCustomResponses,
+		&a.ReviewerMark, &a.ReviewerNotes,
 		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
@@ -295,6 +307,9 @@ func (r *ApplicantRepository) GetByProgramAndEmail(ctx context.Context, programI
 		return nil, fmt.Errorf("applicant_repo: get by program and email: %w", err)
 	}
 	_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+	if a.ReviewerNotes == "" && a.Notes != "" {
+		a.ReviewerNotes = a.Notes
+	}
 	return &a, nil
 }
 
@@ -321,6 +336,7 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
 			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
@@ -345,12 +361,16 @@ func (r *ApplicantRepository) ListByProgram(ctx context.Context, programID uuid.
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 			&rawCustomResponses,
+			&a.ReviewerMark, &a.ReviewerNotes,
 			&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan: %w", err)
 		}
 		_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+		if a.ReviewerNotes == "" && a.Notes != "" {
+			a.ReviewerNotes = a.Notes
+		}
 		list = append(list, a)
 	}
 	return list, rows.Err()
@@ -378,6 +398,7 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
 			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 		FROM applicants
@@ -402,12 +423,16 @@ func (r *ApplicantRepository) ListByEmail(ctx context.Context, email string) ([]
 			&a.Semester, &a.ReferralSource,
 			&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 			&rawCustomResponses,
+			&a.ReviewerMark, &a.ReviewerNotes,
 			&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 			&a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("applicant_repo: scan by email: %w", err)
 		}
 		_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+		if a.ReviewerNotes == "" && a.Notes != "" {
+			a.ReviewerNotes = a.Notes
+		}
 		list = append(list, a)
 	}
 	return list, rows.Err()
@@ -441,6 +466,7 @@ func (r *ApplicantRepository) InviteToProgramRoom(ctx context.Context, id uuid.U
 			COALESCE(semester, ''), COALESCE(referral_source, ''),
 			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
 			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
 			program_room_invited_at, program_room_invited_by,
 			created_at, updated_at
 	`
@@ -454,6 +480,7 @@ func (r *ApplicantRepository) InviteToProgramRoom(ctx context.Context, id uuid.U
 		&a.Semester, &a.ReferralSource,
 		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
 		&rawCustomResponses,
+		&a.ReviewerMark, &a.ReviewerNotes,
 		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
 		&a.CreatedAt, &a.UpdatedAt,
 	)
@@ -464,6 +491,70 @@ func (r *ApplicantRepository) InviteToProgramRoom(ctx context.Context, id uuid.U
 		return nil, fmt.Errorf("applicant_repo: invite to program room: %w", err)
 	}
 	_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+	if a.ReviewerNotes == "" && a.Notes != "" {
+		a.ReviewerNotes = a.Notes
+	}
+	return &a, nil
+}
+
+func (r *ApplicantRepository) UpdateReview(ctx context.Context, id uuid.UUID, reviewerMark *float64, reviewerNotes string) (*model.Applicant, error) {
+	reviewerNotes = strings.TrimSpace(reviewerNotes)
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		app, ok := r.memApplicants[id]
+		if !ok || app.DeletedAt != nil {
+			return nil, ErrApplicantNotFound
+		}
+		app.ReviewerMark = reviewerMark
+		app.ReviewerNotes = reviewerNotes
+		app.Notes = reviewerNotes
+		app.UpdatedAt = time.Now()
+		return app, nil
+	}
+
+	query := `
+		UPDATE applicants
+		SET reviewer_mark = $2,
+		    reviewer_notes = $3,
+		    notes = $3,
+		    updated_at = now()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id, organization_id, program_id, track_id, email, full_name,
+			COALESCE(first_name, ''), COALESCE(last_name, ''), COALESCE(date_of_birth, ''),
+			COALESCE(phone, ''), COALESCE(github_url, ''), COALESCE(linkedin_url, ''),
+			COALESCE(resume_url, ''), COALESCE(profile_picture_url, ''), COALESCE(university, ''), COALESCE(major, ''),
+			COALESCE(semester, ''), COALESCE(referral_source, ''),
+			current_stage, COALESCE(form_submitted, false), COALESCE(notes, ''),
+			COALESCE(custom_responses, '{}'::jsonb),
+			reviewer_mark, COALESCE(reviewer_notes, ''),
+			program_room_invited_at, program_room_invited_by,
+			created_at, updated_at
+	`
+	var a model.Applicant
+	var rawCustomResponses []byte
+	err := r.pool.QueryRow(ctx, query, id, reviewerMark, reviewerNotes).Scan(
+		&a.ID, &a.OrganizationID, &a.ProgramID, &a.TrackID, &a.Email, &a.FullName,
+		&a.FirstName, &a.LastName, &a.DateOfBirth,
+		&a.Phone, &a.GitHubURL, &a.LinkedInURL,
+		&a.ResumeURL, &a.ProfilePictureURL, &a.University, &a.Major,
+		&a.Semester, &a.ReferralSource,
+		&a.CurrentStage, &a.FormSubmitted, &a.Notes,
+		&rawCustomResponses,
+		&a.ReviewerMark, &a.ReviewerNotes,
+		&a.ProgramRoomInvitedAt, &a.ProgramRoomInvitedBy,
+		&a.CreatedAt, &a.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrApplicantNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("applicant_repo: update review: %w", err)
+	}
+	_ = json.Unmarshal(rawCustomResponses, &a.CustomResponses)
+	if a.ReviewerNotes == "" && a.Notes != "" {
+		a.ReviewerNotes = a.Notes
+	}
 	return &a, nil
 }
 

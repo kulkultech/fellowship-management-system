@@ -499,6 +499,9 @@ export interface ApplicantListItem {
   ai_areas_for_growth?: string[];
   ai_executive_summary?: string;
   program_room_invited_at?: string | null;
+  notes?: string;
+  reviewer_mark?: number | null;
+  reviewer_notes?: string;
   created_at: string;
 }
 
@@ -534,6 +537,8 @@ export interface ApplicantDetailResponse {
     referral_source?: string;
     current_stage: string;
     notes?: string;
+    reviewer_mark?: number | null;
+    reviewer_notes?: string;
     custom_responses?: Record<string, any>;
     custom_field_labels?: Record<string, string>;
     program_room_invited_at?: string | null;

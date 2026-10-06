@@ -190,6 +190,9 @@ export async function exportCandidatesToExcel({
     'Executive Summary',
     'AI Interview Completed At',
     'AI Recording Link',
+    // Reviewer Evaluation
+    'Reviewer Mark',
+    'Reviewer Notes',
   ];
 
   const masterHeaderRow = masterSheet.addRow(masterHeaders);
@@ -275,6 +278,8 @@ export async function exportCandidatesToExcel({
     rowValues.push(app.ai_executive_summary || '-');
     rowValues.push(app.ai_completed_at || '-');
     rowValues.push(app.ai_recording_url || '-');
+    rowValues.push(app.reviewer_mark !== undefined && app.reviewer_mark !== null ? app.reviewer_mark : '-');
+    rowValues.push(app.reviewer_notes || app.notes || '-');
 
     const row = masterSheet.addRow(rowValues);
     row.height = 22;
@@ -368,6 +373,8 @@ export async function exportCandidatesToExcel({
     'Areas for Growth',
     'Executive Summary',
     'Interview Recording',
+    'Reviewer Mark',
+    'Reviewer Notes',
   ];
 
   const summaryHeaderRow = summarySheet.addRow(summaryHeaders);
@@ -397,6 +404,8 @@ export async function exportCandidatesToExcel({
       app.ai_areas_for_growth && app.ai_areas_for_growth.length > 0 ? app.ai_areas_for_growth.join('; ') : '-',
       app.ai_executive_summary || '-',
       app.ai_recording_url || '-',
+      app.reviewer_mark !== undefined && app.reviewer_mark !== null ? app.reviewer_mark : '-',
+      app.reviewer_notes || app.notes || '-',
     ];
 
     const sRow = summarySheet.addRow(sRowValues);

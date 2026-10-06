@@ -31,6 +31,8 @@ export const DEFAULT_VISIBLE_COLUMNS: string[] = [
   'mcq_score',
   'ai_score',
   'ai_recommendation',
+  'reviewer_mark',
+  'reviewer_notes',
   'actions',
 ];
 
@@ -79,6 +81,20 @@ export function getAllAvailableColumns(
       label: 'AI Recommendation',
       category: 'assessment',
       description: 'AI recommendation verdict (Recommended, Considered, etc.)',
+      removable: true,
+    },
+    {
+      id: 'reviewer_mark',
+      label: 'Reviewer Mark',
+      category: 'assessment',
+      description: 'Reviewer evaluation mark / quantitative benchmark score',
+      removable: true,
+    },
+    {
+      id: 'reviewer_notes',
+      label: 'Reviewer Notes',
+      category: 'assessment',
+      description: 'Reviewer evaluation notes, feedback, and qualitative remarks',
       removable: true,
     },
     {

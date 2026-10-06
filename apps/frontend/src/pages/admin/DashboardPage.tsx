@@ -159,6 +159,7 @@ import {
   Mail,
   Sparkles,
   RefreshCw,
+  Edit3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -240,8 +241,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
-  const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile' | 'credentials'>('answers');
+  const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile' | 'credentials' | 'review'>('answers');
   const [applicantToDelete, setApplicantToDelete] = useState<{ id: string; name: string; email: string } | null>(null);
+
+  // Reviewer mark and notes modal state
+  const [reviewModalApplicant, setReviewModalApplicant] = useState<ApplicantListItem | null>(null);
+  const [reviewMarkInput, setReviewMarkInput] = useState<string>('');
+  const [reviewNotesInput, setReviewNotesInput] = useState<string>('');
+
+  // Drawer reviewer evaluation state
+  const [drawerReviewMark, setDrawerReviewMark] = useState<string>('');
+  const [drawerReviewNotes, setDrawerReviewNotes] = useState<string>('');
 
   // Candidate Table Column Customization State
   const [isColumnCustomizerOpen, setIsColumnCustomizerOpen] = useState(false);
@@ -664,6 +674,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   }, [applicantDetail]);
 
+  // Synchronize reviewer mark and notes in drawer when applicant details change
+  useEffect(() => {
+    if (applicantDetail?.applicant) {
+      setDrawerReviewMark(
+        applicantDetail.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null
+          ? String(applicantDetail.applicant.reviewer_mark)
+          : ''
+      );
+      setDrawerReviewNotes(
+        applicantDetail.applicant.reviewer_notes || applicantDetail.applicant.notes || ''
+      );
+    }
+  }, [applicantDetail?.applicant]);
+
   // Synchronize candidate table columns when active program changes
   useEffect(() => {
     if (!activeProgramSlug) return;
@@ -811,6 +835,59 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           </td>
         );
 
+      case 'reviewer_mark':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openReviewModal(app);
+              }}
+              className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition hover:border-kulkul-purple hover:bg-purple-50 text-slate-700 bg-white shadow-2xs"
+              title="Click to edit reviewer mark & notes"
+            >
+              {app.reviewer_mark !== undefined && app.reviewer_mark !== null ? (
+                <span className="font-extrabold text-kulkul-purple">
+                  {app.reviewer_mark}
+                </span>
+              ) : (
+                <span className="text-slate-400 group-hover:text-kulkul-purple">+ Add Mark</span>
+              )}
+              <Edit3 className="w-3 h-3 text-slate-400 group-hover:text-kulkul-purple ml-0.5 opacity-60" />
+            </button>
+          </td>
+        );
+
+      case 'reviewer_notes':
+        return (
+          <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openReviewModal(app);
+              }}
+              className="text-left w-full group"
+              title="Click to edit reviewer notes & mark"
+            >
+              {(app.reviewer_notes || app.notes) ? (
+                <div className="flex items-start gap-1.5">
+                  <span className="text-xs text-slate-700 line-clamp-2 group-hover:text-kulkul-purple group-hover:underline">
+                    {app.reviewer_notes || app.notes}
+                  </span>
+                  <Edit3 className="w-3 h-3 text-slate-400 opacity-60 shrink-0 mt-0.5 group-hover:text-kulkul-purple" />
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400 group-hover:text-kulkul-purple">
+                  + Add Notes
+                  <Edit3 className="w-3 h-3 opacity-60" />
+                </span>
+              )}
+            </button>
+          </td>
+        );
+
       case 'applied_date':
         return (
           <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
@@ -949,6 +1026,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         return (
           <td key={colId} className="px-6 py-4 align-middle text-right whitespace-nowrap">
             <div className="flex items-center justify-end gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openReviewModal(app);
+                }}
+                className="p-2 rounded-xl hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple transition"
+                title="Review candidate mark & notes"
+              >
+                <Award className="w-4 h-4" />
+              </button>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1707,6 +1795,79 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     },
   });
 
+  const updateApplicantReviewMutation = useMutation({
+    mutationFn: ({
+      applicantId,
+      reviewer_mark,
+      reviewer_notes,
+    }: {
+      applicantId: string;
+      reviewer_mark: number | null;
+      reviewer_notes: string;
+    }) =>
+      adminService.updateApplicantReview(applicantId, {
+        reviewer_mark,
+        reviewer_notes,
+      }),
+    onSuccess: (_, variables) => {
+      toast.success('Reviewer evaluation saved successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-applicant-detail', variables.applicantId] });
+      setReviewModalApplicant(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to update reviewer evaluation');
+    },
+  });
+
+  const openReviewModal = (app: ApplicantListItem) => {
+    setReviewModalApplicant(app);
+    setReviewMarkInput(
+      app.reviewer_mark !== undefined && app.reviewer_mark !== null
+        ? String(app.reviewer_mark)
+        : ''
+    );
+    setReviewNotesInput(app.reviewer_notes || app.notes || '');
+  };
+
+  const handleSaveQuickReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewModalApplicant) return;
+    const markStr = reviewMarkInput.trim();
+    let markVal: number | null = null;
+    if (markStr !== '') {
+      markVal = Number(markStr);
+      if (isNaN(markVal)) {
+        toast.error('Reviewer mark must be a valid number');
+        return;
+      }
+    }
+    updateApplicantReviewMutation.mutate({
+      applicantId: reviewModalApplicant.id,
+      reviewer_mark: markVal,
+      reviewer_notes: reviewNotesInput.trim(),
+    });
+  };
+
+  const handleSaveDrawerReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedApplicantId) return;
+    const markStr = drawerReviewMark.trim();
+    let markVal: number | null = null;
+    if (markStr !== '') {
+      markVal = Number(markStr);
+      if (isNaN(markVal)) {
+        toast.error('Reviewer mark must be a valid number');
+        return;
+      }
+    }
+    updateApplicantReviewMutation.mutate({
+      applicantId: selectedApplicantId,
+      reviewer_mark: markVal,
+      reviewer_notes: drawerReviewNotes.trim(),
+    });
+  };
+
   const generateCertMutation = useMutation({
     mutationFn: async ({ sendEmail }: { sendEmail: boolean }) => {
       if (!selectedApplicantId) return;
@@ -1824,6 +1985,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       case 'resume_url': {
         const url = (app.resume_url || '').trim();
         return url.length > 0 ? url.toLowerCase() : null;
+      }
+      case 'reviewer_mark':
+        return app.reviewer_mark !== undefined && app.reviewer_mark !== null ? Number(app.reviewer_mark) : null;
+      case 'reviewer_notes': {
+        const notes = (app.reviewer_notes || app.notes || '').trim();
+        return notes.length > 0 ? notes.toLowerCase() : null;
       }
       default: {
         if (colId.startsWith('custom_')) {
@@ -5282,6 +5449,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     </span>
                   ) : null}
                 </button>
+
+                <button
+                  onClick={() => setActiveDrawerTab('review')}
+                  className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 ${
+                    activeDrawerTab === 'review'
+                      ? 'border-kulkul-purple text-kulkul-purple'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Reviewer Evaluation</span>
+                  {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
+                    <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                      {applicantDetail.applicant.reviewer_mark}
+                    </span>
+                  )}
+                </button>
               </div>
 
               {/* Drawer Content */}
@@ -5722,8 +5906,147 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       )}
                     </div>
                   </div>
+                ) : activeDrawerTab === 'review' ? (
+                  <div className="space-y-6">
+                    {/* Reviewer Evaluation Panel */}
+                    <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-5">
+                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-kulkul-purple shrink-0">
+                            <Award className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-extrabold text-slate-900">Reviewer Evaluation</h4>
+                            <p className="text-xs text-slate-500">
+                              Assess candidate performance, record interview score, and add qualitative remarks.
+                            </p>
+                          </div>
+                        </div>
+                        {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
+                          <div className="text-right">
+                            <span className="text-3xs uppercase font-extrabold tracking-wider text-slate-400 block">
+                              Recorded Score
+                            </span>
+                            <span className="text-lg font-black text-kulkul-purple">
+                              {applicantDetail.applicant.reviewer_mark}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <form onSubmit={handleSaveDrawerReview} className="space-y-5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Reviewer Mark / Score
+                          </label>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="1000"
+                              value={drawerReviewMark}
+                              onChange={(e) => setDrawerReviewMark(e.target.value)}
+                              placeholder="e.g. 85 or 90.5"
+                              className="w-full sm:max-w-xs px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 bg-white"
+                            />
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-3xs font-bold uppercase text-slate-400 mr-1">Presets:</span>
+                              {[70, 75, 80, 85, 90, 95, 100].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setDrawerReviewMark(String(preset))}
+                                  className={`px-2.5 py-1 rounded-lg text-2xs font-bold border transition ${
+                                    drawerReviewMark === String(preset)
+                                      ? 'bg-kulkul-purple text-white border-kulkul-purple'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-kulkul-purple hover:text-kulkul-purple'
+                                  }`}
+                                >
+                                  {preset}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-3xs text-slate-400 mt-1.5">
+                            Set a numerical mark or evaluation score reflecting the candidate's interview and technical performance.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Reviewer Notes / Feedback
+                          </label>
+                          <textarea
+                            rows={6}
+                            value={drawerReviewNotes}
+                            onChange={(e) => setDrawerReviewNotes(e.target.value)}
+                            placeholder="Write comprehensive reviewer feedback, interview observations, technical depth, strengths, red flags, or recommendation notes..."
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 resize-none leading-relaxed bg-white"
+                          />
+                          <p className="text-3xs text-slate-400 mt-1">
+                            Notes are shared across program reviewers and admissions administrators.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                          <button
+                            type="submit"
+                            disabled={updateApplicantReviewMutation.isPending}
+                            className="px-6 py-2.5 rounded-xl bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {updateApplicantReviewMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Saving Evaluation...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4" />
+                                <span>Save Evaluation</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Reviewer Evaluation Summary Card in Profile Tab */}
+                    <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200/80 flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-300 flex items-center justify-center text-kulkul-purple shrink-0 mt-0.5">
+                          <Award className="w-4 h-4" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider">
+                              Reviewer Evaluation
+                            </span>
+                            {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
+                              <span className="px-2 py-0.5 rounded-full text-2xs font-black bg-kulkul-purple text-white">
+                                Mark: {applicantDetail.applicant.reviewer_mark}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-700 leading-relaxed">
+                            {applicantDetail?.applicant.reviewer_notes || applicantDetail?.applicant.notes || (
+                              <span className="italic text-slate-400">No reviewer notes added yet.</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveDrawerTab('review')}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-purple-200 text-kulkul-purple hover:bg-purple-100 text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-2xs"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Edit Review</span>
+                      </button>
+                    </div>
+
                     <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
                       <div className="border-b border-slate-200 pb-2">
                         <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider">
@@ -6788,6 +7111,109 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Review Candidate Modal */}
+        {reviewModalApplicant && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 space-y-5">
+              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-kulkul-purple shrink-0">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Review Candidate</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {reviewModalApplicant.full_name} &bull; <span className="font-mono text-slate-400">{reviewModalApplicant.email}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewModalApplicant(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-slate-500">Track:</span>
+                <span className="font-bold text-kulkul-purple bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                  {reviewModalApplicant.track_name || 'General'}
+                </span>
+                <span className="text-slate-300">|</span>
+                <span className="font-bold text-slate-500">Stage:</span>
+                {renderStageBadge(reviewModalApplicant.current_stage)}
+              </div>
+
+              <form onSubmit={handleSaveQuickReview} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Reviewer Mark / Score
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1000"
+                    value={reviewMarkInput}
+                    onChange={(e) => setReviewMarkInput(e.target.value)}
+                    placeholder="e.g. 85 or 92.5"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900"
+                  />
+                  <p className="text-3xs text-slate-400 mt-1">
+                    Enter the numerical mark or score evaluated by the reviewer (e.g. out of 100).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Reviewer Notes / Feedback
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={reviewNotesInput}
+                    onChange={(e) => setReviewNotesInput(e.target.value)}
+                    placeholder="Write candidate assessment notes, strengths, weaknesses, interview findings, or evaluation comments..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 resize-none leading-relaxed"
+                  />
+                  <p className="text-3xs text-slate-400 mt-1">
+                    Qualitative feedback visible to program reviewers and administrators.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled={updateApplicantReviewMutation.isPending}
+                    onClick={() => setReviewModalApplicant(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updateApplicantReviewMutation.isPending}
+                    className="px-5 py-2 rounded-xl bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {updateApplicantReviewMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Review</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

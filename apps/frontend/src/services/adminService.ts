@@ -290,6 +290,14 @@ export const adminService = {
     return data;
   },
 
+  updateApplicantReview: async (
+    applicantId: string,
+    review: { reviewer_mark?: number | null; reviewer_notes?: string; notes?: string }
+  ): Promise<{ success: boolean; applicant: { id: string; reviewer_mark?: number | null; reviewer_notes: string; notes: string } }> => {
+    const { data } = await apiClient.put(`/admin/applicants/${applicantId}/review`, review);
+    return data;
+  },
+
   deleteApplicant: async (applicantId: string): Promise<void> => {
     await apiClient.delete(`/admin/applicants/${applicantId}`);
   },

@@ -127,7 +127,10 @@ type ApplicantListItem struct {
 	AIAreasForGrowth   []string               `json:"ai_areas_for_growth,omitempty"`
 	AIExecutiveSummary *string                `json:"ai_executive_summary,omitempty"`
 	ProgramRoomInvitedAt *string              `json:"program_room_invited_at,omitempty"`
-	CreatedAt          string                 `json:"created_at"`
+	Notes                string               `json:"notes,omitempty"`
+	ReviewerMark         *float64             `json:"reviewer_mark,omitempty"`
+	ReviewerNotes        string               `json:"reviewer_notes,omitempty"`
+	CreatedAt            string               `json:"created_at"`
 }
 
 func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
@@ -191,6 +194,9 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			TrackName:            trackName,
 			CurrentStage:         a.CurrentStage,
 			ProgramRoomInvitedAt: roomInvitedAt,
+			Notes:                a.Notes,
+			ReviewerMark:         a.ReviewerMark,
+			ReviewerNotes:        a.ReviewerNotes,
 			CreatedAt:            a.CreatedAt.Format("2006-01-02 15:04"),
 		}
 
@@ -380,6 +386,8 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 			"referral_source":     applicant.ReferralSource,
 			"current_stage":       applicant.CurrentStage,
 			"notes":               applicant.Notes,
+			"reviewer_mark":       applicant.ReviewerMark,
+			"reviewer_notes":      applicant.ReviewerNotes,
 			"custom_responses":    applicant.CustomResponses,
 			"custom_field_labels": customFieldLabels,
 			"program_room_invited_at": applicant.ProgramRoomInvitedAt,
@@ -640,6 +648,69 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message": "Applicant stage updated successfully",
 		"stage":   req.Stage,
+	})
+}
+
+type UpdateApplicantReviewRequest struct {
+	ReviewerMark  *float64 `json:"reviewer_mark"`
+	ReviewerNotes string   `json:"reviewer_notes"`
+	Notes         string   `json:"notes"`
+}
+
+func (h *AdminHandler) UpdateApplicantReview(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	applicantID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "applicant not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to load applicant")
+		return
+	}
+
+	if claims.Role != model.RoleSuperadmin && (claims.OrganizationID == nil || *claims.OrganizationID != applicant.OrganizationID) {
+		httpx.Error(w, http.StatusForbidden, "cannot review applicant of another organization")
+		return
+	}
+
+	var req UpdateApplicantReviewRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	notes := req.ReviewerNotes
+	if notes == "" && req.Notes != "" {
+		notes = req.Notes
+	}
+
+	updated, err := h.applicantRepo.UpdateReview(r.Context(), applicantID, req.ReviewerMark, notes)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update applicant review")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message": "Applicant review saved successfully",
+		"applicant": map[string]any{
+			"id":             updated.ID.String(),
+			"reviewer_mark":  updated.ReviewerMark,
+			"reviewer_notes": updated.ReviewerNotes,
+			"notes":          updated.Notes,
+		},
 	})
 }
 
