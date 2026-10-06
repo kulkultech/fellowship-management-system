@@ -3372,10 +3372,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
 
             {/* Candidates Table */}
-            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
+            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
+              <div className="overflow-auto max-h-[calc(100vh-270px)] min-h-[360px] relative scrollbar-thin">
                 <table className="w-full text-left text-sm text-slate-700 min-w-[960px]">
-                  <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <thead className="sticky top-0 z-20 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider shadow-2xs">
                     <tr>
                       {activeColumns.map((colId) => {
                         const colDef = allAvailableColumnsMap.get(colId) || {
@@ -3392,11 +3392,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <th
                             key={colId}
                             onClick={() => isSortable && handleSort(colId)}
-                            className={`px-6 py-4 whitespace-nowrap group select-none ${
+                            className={`sticky top-0 z-20 px-6 py-4 whitespace-nowrap group select-none shadow-[inset_0_-1px_0_#e2e8f0] ${
+                              isCurrentSorted
+                                ? 'bg-purple-50 text-kulkul-purple font-black'
+                                : 'bg-slate-50 text-slate-600'
+                            } ${
                               isSortable ? 'cursor-pointer hover:bg-slate-100/90 transition-colors' : ''
-                            } ${colId === 'actions' ? 'text-right' : ''} ${
-                              isCurrentSorted ? 'bg-purple-50/70 text-kulkul-purple' : ''
-                            }`}
+                            } ${colId === 'actions' ? 'text-right' : ''}`}
                             title={
                               !isSortable
                                 ? undefined
