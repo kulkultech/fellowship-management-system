@@ -252,6 +252,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   // Drawer reviewer evaluation state
   const [drawerReviewMark, setDrawerReviewMark] = useState<string>('');
   const [drawerReviewNotes, setDrawerReviewNotes] = useState<string>('');
+  const isDrawerBackdropMouseDown = useRef(false);
+
+  // Close candidate details drawer or modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedApplicantId) {
+          setSelectedApplicantId(null);
+        }
+        if (reviewModalApplicant) {
+          setReviewModalApplicant(null);
+        }
+        if (applicantToDelete) {
+          setApplicantToDelete(null);
+        }
+      }
+    };
+    if (selectedApplicantId || reviewModalApplicant || applicantToDelete) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedApplicantId, reviewModalApplicant, applicantToDelete]);
 
   // Candidate Table Column Customization State
   const [isColumnCustomizerOpen, setIsColumnCustomizerOpen] = useState(false);
@@ -5305,8 +5329,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
 
         {selectedApplicantId && (
-          <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end">
-            <div className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
+          <div
+            onMouseDown={(e) => {
+              isDrawerBackdropMouseDown.current = e.target === e.currentTarget;
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && isDrawerBackdropMouseDown.current) {
+                setSelectedApplicantId(null);
+              }
+            }}
+            className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end cursor-pointer"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200 cursor-default"
+            >
               {/* Drawer Header */}
               <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
                 <div>
@@ -7059,8 +7096,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         {/* Modal: Confirm Delete Applicant Application Data */}
         {applicantToDelete && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !deleteApplicantMutation.isPending) {
+                setApplicantToDelete(null);
+              }
+            }}
+            className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200 cursor-default"
+            >
               <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
                 <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-200 shadow-2xs shrink-0">
                   <Trash2 className="w-5 h-5" />
@@ -7117,8 +7164,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         {/* Quick Review Candidate Modal */}
         {reviewModalApplicant && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 space-y-5">
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !updateApplicantReviewMutation.isPending) {
+                setReviewModalApplicant(null);
+              }
+            }}
+            className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 space-y-5 cursor-default"
+            >
               <div className="flex items-start justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-kulkul-purple shrink-0">
