@@ -5,6 +5,32 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          if (typeof window !== 'undefined') {
+            if (!window.webkit) {
+              window.webkit = {};
+            }
+            if (!window.webkit.messageHandlers) {
+              var dummyHandler = { postMessage: function() {} };
+              window.webkit.messageHandlers = typeof Proxy !== 'undefined'
+                ? new Proxy({}, { get: function() { return dummyHandler; } })
+                : {};
+            }
+            window.addEventListener('error', function(e) {
+              if (
+                e &&
+                e.message &&
+                (e.message.indexOf('messageHandlers') !== -1 || e.message.indexOf('window.webkit') !== -1)
+              ) {
+                e.preventDefault();
+              }
+            });
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>FellowHire &ndash; Fellowship Management & AI Assessment Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

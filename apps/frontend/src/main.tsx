@@ -22,6 +22,22 @@ function getSentryDsn(): string {
 const sentryDsn = getSentryDsn();
 
 if (typeof window !== 'undefined') {
+  // Gracefully initialize webkit.messageHandlers if missing (iOS in-app browsers / WebViews)
+  try {
+    const win = window as unknown as { webkit?: { messageHandlers?: unknown } };
+    if (!win.webkit) {
+      win.webkit = {};
+    }
+    if (!win.webkit.messageHandlers) {
+      const dummyHandler = { postMessage: () => {} };
+      win.webkit.messageHandlers = typeof Proxy !== 'undefined'
+        ? new Proxy({}, { get: () => dummyHandler })
+        : {};
+    }
+  } catch {
+    // Ignore restricted environments
+  }
+
   // Gracefully handle benign browser/navigation fetch aborts so they do not trigger uncaught rejection errors
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason;
@@ -55,6 +71,7 @@ if (sentryDsn) {
       }),
     ],
     // Benign errors that are normal browser lifecycle events (e.g. user navigation, tab unmount)
+    // or third-party in-app browser injected scripts (e.g. iOS WebKit messageHandlers)
     ignoreErrors: [
       'AbortError',
       'The operation was aborted',
@@ -68,6 +85,9 @@ if (sentryDsn) {
       'ResizeObserver loop limit exceeded',
       'Network request failed',
       'Load failed',
+      "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+      /window\.webkit\.messageHandlers/i,
+      /messageHandlers/i,
     ],
     beforeSend(event, hint) {
       const error = hint?.originalException;
@@ -81,10 +101,25 @@ if (sentryDsn) {
             (errObj.message.includes('The operation was aborted') ||
               errObj.message.includes('AbortError') ||
               errObj.message.includes('canceled') ||
-              errObj.message.includes('cancelled')))
+              errObj.message.includes('cancelled') ||
+              errObj.message.includes('messageHandlers') ||
+              errObj.message.includes('window.webkit')))
         ) {
-          return null; // Suppress benign browser aborts
+          return null; // Suppress benign browser aborts & third-party in-app browser webview errors
         }
+      }
+      const eventMsg = typeof event.message === 'string' ? event.message : '';
+      if (eventMsg.includes('messageHandlers') || eventMsg.includes('window.webkit')) {
+        return null;
+      }
+      if (
+        event.exception?.values?.some(
+          (val) =>
+            typeof val.value === 'string' &&
+            (val.value.includes('messageHandlers') || val.value.includes('window.webkit')),
+        )
+      ) {
+        return null;
       }
       return event;
     },

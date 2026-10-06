@@ -13,4 +13,7 @@ interface ImportMeta {
 interface Window {
   __ENV__?: Record<string, string>;
   testSentry?: () => void;
+  webkit?: {
+    messageHandlers?: Record<string, { postMessage?: (message: unknown) => void }>;
+  };
 }
