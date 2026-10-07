@@ -163,12 +163,10 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`h-10 inline-flex items-center gap-2.5 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-bold border transition active:scale-[0.98] shadow-2xs whitespace-nowrap cursor-pointer ${
+          className={`h-10 inline-flex items-center gap-2.5 px-3.5 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold border transition active:scale-[0.98] shadow-2xs whitespace-nowrap cursor-pointer ${
             isOpen
-              ? 'bg-purple-50 text-kulkul-purple border-kulkul-purple ring-2 ring-kulkul-purple/20'
-              : currentOrgId
-              ? 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100 hover:border-amber-400'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300 hover:bg-slate-50'
+              ? 'bg-slate-100 text-slate-900 border-slate-300 ring-2 ring-slate-400/20'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
           }`}
           title="Switch Company Workspace (Superadmin)"
           aria-expanded={isOpen}
@@ -179,7 +177,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
             <Menu className="w-3.5 h-3.5" />
           </div>
 
-          <div className="w-6 h-6 rounded-lg bg-white text-kulkul-purple border border-slate-200 flex items-center justify-center font-bold shrink-0 overflow-hidden shadow-2xs">
+          <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold shrink-0 overflow-hidden shadow-2xs">
             {activeCompany?.logo_url ? (
               <img
                 src={resolveMediaUrl(activeCompany.logo_url)}
@@ -190,29 +188,17 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                 }}
               />
             ) : (
-              <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
+              <Building2 className="w-3.5 h-3.5 text-slate-600" />
             )}
           </div>
 
-          <div className="flex flex-col text-left min-w-0 leading-tight">
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] uppercase font-black tracking-wider text-slate-500">
-                Switch Company
-              </span>
-              {currentOrgId && (
-                <span className="px-1 py-0.2 rounded text-[8px] font-black bg-amber-200/80 text-amber-900 shrink-0">
-                  Active
-                </span>
-              )}
-            </div>
-            <span className="font-extrabold truncate max-w-[110px] sm:max-w-[160px] text-slate-900">
-              {displayCompanyName}
-            </span>
-          </div>
+          <span className="font-bold text-xs sm:text-sm truncate max-w-[130px] sm:max-w-[200px] text-slate-800">
+            {displayCompanyName}
+          </span>
 
           <ChevronDown
             className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${
-              isOpen ? 'rotate-180 text-kulkul-purple' : ''
+              isOpen ? 'rotate-180 text-slate-700' : ''
             }`}
           />
         </button>
@@ -366,9 +352,9 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                 setIsOpen(false);
                 navigate('/superadmin/dashboard');
               }}
-              className="px-3 py-1.5 rounded-xl text-kulkul-purple hover:bg-purple-50 transition text-2xs font-bold flex items-center gap-1.5 border border-purple-200 bg-white"
+              className="px-3 py-1.5 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition text-2xs font-bold flex items-center gap-1.5 border border-slate-200 bg-white"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-600" />
               <span>Superadmin Console</span>
             </button>
           </div>

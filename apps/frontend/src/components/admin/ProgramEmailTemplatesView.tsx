@@ -275,7 +275,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto pb-16">
+    <div className="space-y-6 pb-16">
       {/* Top Actions Bar */}
       <div className="flex items-center justify-end gap-3">
         <button

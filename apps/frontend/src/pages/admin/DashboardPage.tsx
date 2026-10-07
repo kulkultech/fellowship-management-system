@@ -5604,12 +5604,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               Candidate Video Assessment Recording
                             </span>
                           </div>
-                          {applicantDetail.ai_screen.recording_url ? (
-                            <span className="text-3xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              Stored in Database
-                            </span>
-                          ) : applicantDetail.ai_screen.status === 'in_progress' ? (
+                          {applicantDetail.ai_screen.recording_url ? null : applicantDetail.ai_screen.status === 'in_progress' ? (
                             <span className="text-3xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
                               Chamber In Progress
@@ -5956,9 +5951,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </div>
                           <div>
                             <h4 className="text-sm font-extrabold text-slate-900">Reviewer Evaluation</h4>
-                            <p className="text-xs text-slate-500">
-                              Assess candidate performance, record interview score, and add qualitative remarks.
-                            </p>
                           </div>
                         </div>
                         {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
@@ -5989,23 +5981,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               placeholder="e.g. 85 or 90.5"
                               className="w-full sm:max-w-xs px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 bg-white"
                             />
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-3xs font-bold uppercase text-slate-400 mr-1">Presets:</span>
-                              {[70, 75, 80, 85, 90, 95, 100].map((preset) => (
-                                <button
-                                  key={preset}
-                                  type="button"
-                                  onClick={() => setDrawerReviewMark(String(preset))}
-                                  className={`px-2.5 py-1 rounded-lg text-2xs font-bold border transition ${
-                                    drawerReviewMark === String(preset)
-                                      ? 'bg-kulkul-purple text-white border-kulkul-purple'
-                                      : 'bg-white text-slate-600 border-slate-200 hover:border-kulkul-purple hover:text-kulkul-purple'
-                                  }`}
-                                >
-                                  {preset}
-                                </button>
-                              ))}
-                            </div>
                           </div>
                           <p className="text-3xs text-slate-400 mt-1.5">
                             Set a numerical mark or evaluation score reflecting the candidate's interview and technical performance.

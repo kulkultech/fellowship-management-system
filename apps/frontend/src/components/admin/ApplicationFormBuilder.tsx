@@ -226,7 +226,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 pb-16">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">

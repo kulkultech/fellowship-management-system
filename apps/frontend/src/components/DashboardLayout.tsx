@@ -197,9 +197,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="btn btn-md bg-purple-50 text-kulkul-purple border border-purple-200 hover:bg-purple-100 shadow-2xs whitespace-nowrap"
+                className="btn btn-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 shadow-2xs whitespace-nowrap"
               >
-                <ShieldCheck className="w-4 h-4 text-kulkul-orange" />
+                <ShieldCheck className="w-4 h-4 text-slate-600" />
                 <span>Superadmin Console</span>
               </Link>
             )}

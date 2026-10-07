@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Video, ExternalLink, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 import { resolveMediaUrl } from '@/services/apiClient';
 
 interface AssessmentVideoPlayerProps {
@@ -94,11 +94,7 @@ export const AssessmentVideoPlayer: React.FC<AssessmentVideoPlayerProps> = ({ ur
         )}
       </div>
 
-      <div className="flex items-center justify-between text-2xs text-slate-400 pt-1 flex-wrap gap-2">
-        <span className="flex items-center gap-1.5 text-slate-400">
-          <Video className="w-3.5 h-3.5 text-purple-400" />
-          <span>HTML5 Range-Streamed Assessment Video</span>
-        </span>
+      <div className="flex items-center justify-end text-2xs text-slate-400 pt-1 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <a
             href={resolvedUrl}

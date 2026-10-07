@@ -823,9 +823,6 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-extrabold text-slate-900">Cohort Attendance Health</h4>
-                <p className="text-xs text-slate-500">
-                  Real-time attendance rates across all scheduled sessions with completion risk alerts.
-                </p>
               </div>
             </div>
 
@@ -1167,25 +1164,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
               {/* Indonesian Calendar Sync Switch for Admin / Mentor */}
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="space-y-0.5">
-                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
-                    <span>Sync with Indonesian Calendar</span>
-                    {syncIndonesianCalendar ? (
-                      <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-700">
-                        Off (International)
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-2xs text-slate-500">
-                    {syncIndonesianCalendar
-                      ? 'National holidays are detected and session scheduling is restricted.'
-                      : 'International mode: Schedule freely without Indonesian national holiday restrictions.'}
-                  </p>
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <span>Sync with Indonesian Calendar</span>
                 </div>
                 <button
                   type="button"
@@ -1287,17 +1268,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               {/* Google Meet & Google Calendar Integration Card */}
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Video className="w-3.5 h-3.5 text-kulkul-purple" />
-                      <span>Google Meet &amp; Calendar Integration</span>
-                      <span className="text-2xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                        Automatic
-                      </span>
-                    </div>
-                    <p className="text-2xs text-slate-500">
-                      Provisions a Google Meet link and sends Google Calendar invitations to attendees.
-                    </p>
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-kulkul-purple" />
+                    <span>Google Meet &amp; Calendar Integration</span>
                   </div>
                 </div>
 

@@ -137,7 +137,6 @@ export const MentorDashboardPage: React.FC = () => {
     <DashboardLayout
       portalType="mentor"
       title="Mentor Dashboard"
-      subtitle="Guide and empower fellowship cohorts with real-world technical expertise."
       navItems={navItems}
       activeNavId={activeNavId}
       onNavChange={setActiveNavId}
@@ -380,9 +379,6 @@ export const MentorDashboardPage: React.FC = () => {
                   <Users className="w-5 h-5 text-kulkul-purple" />
                   <span>Cohort Fellows Directory</span>
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Review applicant profiles{hasTracks ? ', tracks,' : ''} and contact details of candidates in your programs.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
