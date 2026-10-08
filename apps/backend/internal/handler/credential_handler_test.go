@@ -290,3 +290,85 @@ func TestOpenBadgesAndCertificateFlow(t *testing.T) {
 		t.Errorf("expected 2 badges (Member and Completion), got: %d", len(badges))
 	}
 }
+
+func TestGenerateCertificateWithSignatories(t *testing.T) {
+	_, _, _, _, credHandler, _, orgID, _, applicant := setupCredentialTestEnv(t)
+
+	post := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/v1/applicants/%s/certificate", applicant.ID.String()), strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		ctx := middleware.WithUser(req.Context(), &auth.Claims{
+			UserID:         uuid.New(),
+			Email:          "admin@kulkul.org",
+			Role:           "org_admin",
+			OrganizationID: &orgID,
+		})
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("applicantId", applicant.ID.String())
+		req = req.WithContext(context.WithValue(ctx, chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+		credHandler.GenerateOrUpdateCertificate(w, req)
+		return w
+	}
+	decode := func(w *httptest.ResponseRecorder) (model.Certificate, []model.CertificateSignatory) {
+		t.Helper()
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+		var cert model.Certificate
+		if err := json.Unmarshal(w.Body.Bytes(), &cert); err != nil {
+			t.Fatalf("failed to unmarshal certificate: %v", err)
+		}
+		raw, _ := json.Marshal(cert.Metadata[model.CertMetaSignatories])
+		var signatories []model.CertificateSignatory
+		_ = json.Unmarshal(raw, &signatories)
+		return cert, signatories
+	}
+
+	sig := "data:image/png;base64,iVBORw0KGgo="
+	cert, signatories := decode(post(fmt.Sprintf(`{
+		"send_email": false,
+		"recipient_name": "Rear Admiral Grace Hopper",
+		"intro_text": "  This is to certify that ",
+		"description_text": "has completed the Compiler Engineering track of",
+		"signatories": [
+			{"name": " Ada Lovelace ", "role": "Program Director", "signature_image": %q},
+			{"name": "Alan Turing", "role": "CEO"},
+			{"name": "", "role": "", "signature_image": ""}
+		]
+	}`, sig)))
+	if cert.RecipientName != "Rear Admiral Grace Hopper" {
+		t.Errorf("expected custom recipient name, got: %s", cert.RecipientName)
+	}
+	if cert.Metadata[model.CertMetaIntroText] != "This is to certify that" ||
+		cert.Metadata[model.CertMetaDescriptionText] != "has completed the Compiler Engineering track of" {
+		t.Errorf("unexpected certificate text metadata: %v / %v", cert.Metadata[model.CertMetaIntroText], cert.Metadata[model.CertMetaDescriptionText])
+	}
+	if len(signatories) != 2 {
+		t.Fatalf("expected 2 signatories (empty entry dropped), got %d: %v", len(signatories), signatories)
+	}
+	if signatories[0].Name != "Ada Lovelace" || signatories[0].Role != "Program Director" || signatories[0].SignatureImage != sig {
+		t.Errorf("unexpected first signatory: %+v", signatories[0])
+	}
+	if signatories[1].Name != "Alan Turing" || signatories[1].Role != "CEO" {
+		t.Errorf("unexpected second signatory: %+v", signatories[1])
+	}
+
+	// Regenerating without the fields keeps the earlier customizations
+	cert, signatories = decode(post(`{"send_email": false}`))
+	if cert.RecipientName != "Rear Admiral Grace Hopper" || len(signatories) != 2 || cert.Metadata[model.CertMetaDescriptionText] == nil {
+		t.Errorf("expected customizations preserved, got name=%s signatories=%v", cert.RecipientName, signatories)
+	}
+
+	// Invalid input is rejected
+	for name, body := range map[string]string{
+		"non-image signature": `{"signatories": [{"name": "X", "signature_image": "data:text/html;base64,PHNjcmlwdD4="}]}`,
+		"missing name":        `{"signatories": [{"role": "CEO"}]}`,
+		"description too long": fmt.Sprintf(`{"description_text": %q}`, strings.Repeat("x", 1001)),
+		"too many":            `{"signatories": [{"name":"a"},{"name":"b"},{"name":"c"},{"name":"d"},{"name":"e"}]}`,
+	} {
+		if w := post(body); w.Code != http.StatusBadRequest {
+			t.Errorf("%s: expected 400, got %d", name, w.Code)
+		}
+	}
+}

@@ -929,6 +929,7 @@ export interface PublicCertificateVerification {
   verification_url: string;
   linked_in_url: string;
   badges: Badge[];
+  certificate?: Certificate | null;
 }
 
 export interface PublicBadgeVerification {
@@ -949,6 +950,48 @@ export interface CandidateCredentialsResponse {
 
 export interface GenerateCertificatePayload {
   send_email?: boolean;
+  /** Name printed on the certificate (defaults to the applicant's full name) */
+  recipient_name?: string;
+  /** Line above the recipient name; empty uses the default */
+  intro_text?: string;
+  /** Paragraph below the recipient name; empty uses the default */
+  description_text?: string;
+  /** Replaces the full signatory list; an empty list clears it */
+  signatories?: CertificateSignatory[];
+}
+
+/** Person signing the certificate (e.g. Program Director), stored in certificate metadata */
+export interface CertificateSignatory {
+  name: string;
+  role: string;
+  /** PNG/JPEG/WebP data URL */
+  signature_image?: string;
+}
+
+export const CERTIFICATE_DEFAULT_INTRO_TEXT = 'This acknowledges and certifies that';
+export const CERTIFICATE_DEFAULT_DESCRIPTION_TEXT =
+  'has demonstrated software engineering rigor, successfully satisfied programmatic milestones, and fulfilled all graduation requirements for';
+
+/** Custom certificate body text stored in metadata ('' when not customized) */
+export function getCertificateText(cert?: Pick<Certificate, 'metadata'> | null): {
+  intro_text: string;
+  description_text: string;
+} {
+  const meta = cert?.metadata || {};
+  return {
+    intro_text: typeof meta.intro_text === 'string' ? meta.intro_text : '',
+    description_text: typeof meta.description_text === 'string' ? meta.description_text : '',
+  };
+}
+
+export function getCertificateSignatories(cert?: Pick<Certificate, 'metadata'> | null): CertificateSignatory[] {
+  const list = cert?.metadata?.signatories;
+  if (!Array.isArray(list)) return [];
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  return list
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
+    .map((s) => ({ name: str(s.name), role: str(s.role), signature_image: str(s.signature_image) }))
+    .filter((s) => s.name);
 }
 
 

@@ -307,6 +307,15 @@ func (r *CredentialRepository) CreateOrUpdateCertificate(ctx context.Context, c 
 				if c.EmailSentAt == nil {
 					c.EmailSentAt = existing.EmailSentAt
 				}
+				// Merge metadata so keys not provided in this update are preserved
+				merged := make(map[string]interface{}, len(existing.Metadata)+len(c.Metadata))
+				for k, v := range existing.Metadata {
+					merged[k] = v
+				}
+				for k, v := range c.Metadata {
+					merged[k] = v
+				}
+				c.Metadata = merged
 				break
 			}
 		}
@@ -336,7 +345,7 @@ func (r *CredentialRepository) CreateOrUpdateCertificate(ctx context.Context, c 
 		    program_name = EXCLUDED.program_name,
 		    track_name = EXCLUDED.track_name,
 		    completion_date = EXCLUDED.completion_date,
-		    metadata = EXCLUDED.metadata,
+		    metadata = COALESCE(certificates.metadata, '{}'::jsonb) || EXCLUDED.metadata,
 		    updated_at = now()
 		RETURNING id, certificate_number, applicant_id, program_id, organization_id,
 		          recipient_name, recipient_email, program_name, track_name,

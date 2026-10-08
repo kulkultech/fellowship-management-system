@@ -416,6 +416,66 @@ func (h *CredentialHandler) VerifyBadgePublic(w http.ResponseWriter, r *http.Req
 
 type GenerateCertificateRequest struct {
 	SendEmail bool `json:"send_email"`
+
+	// Optional display details. Nil means "leave unchanged"; an empty list clears the signatories.
+	RecipientName   *string                       `json:"recipient_name,omitempty"`
+	IntroText       *string                       `json:"intro_text,omitempty"`
+	DescriptionText *string                       `json:"description_text,omitempty"`
+	Signatories     *[]model.CertificateSignatory `json:"signatories,omitempty"`
+}
+
+// maxSignatureImageBytes caps each signature data URL stored in certificate metadata.
+const maxSignatureImageBytes = 512 * 1024
+
+// maxCertificateSignatories caps how many signatories fit on the certificate.
+const maxCertificateSignatories = 4
+
+var allowedSignatureImagePrefixes = []string{
+	"data:image/png;base64,",
+	"data:image/jpeg;base64,",
+	"data:image/webp;base64,",
+}
+
+func validateSignatureImage(img string) error {
+	if img == "" {
+		return nil
+	}
+	if len(img) > maxSignatureImageBytes {
+		return fmt.Errorf("signature image is too large (max %d KB)", maxSignatureImageBytes/1024)
+	}
+	for _, prefix := range allowedSignatureImagePrefixes {
+		if strings.HasPrefix(img, prefix) {
+			return nil
+		}
+	}
+	return errors.New("signature image must be a PNG, JPEG, or WebP data URL")
+}
+
+// normalizeSignatories trims and validates signatories, dropping fully empty entries.
+func normalizeSignatories(in []model.CertificateSignatory) ([]model.CertificateSignatory, error) {
+	out := make([]model.CertificateSignatory, 0, len(in))
+	for _, s := range in {
+		s.Name = strings.TrimSpace(s.Name)
+		s.Role = strings.TrimSpace(s.Role)
+		s.SignatureImage = strings.TrimSpace(s.SignatureImage)
+		if s.Name == "" && s.Role == "" && s.SignatureImage == "" {
+			continue
+		}
+		if s.Name == "" {
+			return nil, errors.New("each signatory needs a name")
+		}
+		if len(s.Name) > 255 || len(s.Role) > 255 {
+			return nil, errors.New("signatory name and role must be at most 255 characters")
+		}
+		if err := validateSignatureImage(s.SignatureImage); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	if len(out) > maxCertificateSignatories {
+		return nil, fmt.Errorf("a certificate can have at most %d signatories", maxCertificateSignatories)
+	}
+	return out, nil
 }
 
 // GenerateOrUpdateCertificate handles POST /api/v1/applicants/{applicantId}/certificate
@@ -443,7 +503,46 @@ func (h *CredentialHandler) GenerateOrUpdateCertificate(w http.ResponseWriter, r
 	}
 
 	var req GenerateCertificateRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(&req)
+
+	if req.RecipientName != nil && len(strings.TrimSpace(*req.RecipientName)) > 255 {
+		httpx.Error(w, http.StatusBadRequest, "recipient name must be at most 255 characters")
+		return
+	}
+
+	if req.IntroText != nil && len(strings.TrimSpace(*req.IntroText)) > 255 {
+		httpx.Error(w, http.StatusBadRequest, "intro text must be at most 255 characters")
+		return
+	}
+	if req.DescriptionText != nil && len(strings.TrimSpace(*req.DescriptionText)) > 1000 {
+		httpx.Error(w, http.StatusBadRequest, "description must be at most 1000 characters")
+		return
+	}
+
+	metadata := map[string]interface{}{}
+	if req.IntroText != nil {
+		metadata[model.CertMetaIntroText] = strings.TrimSpace(*req.IntroText)
+	}
+	if req.DescriptionText != nil {
+		metadata[model.CertMetaDescriptionText] = strings.TrimSpace(*req.DescriptionText)
+	}
+	if req.Signatories != nil {
+		signatories, err := normalizeSignatories(*req.Signatories)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		metadata[model.CertMetaSignatories] = signatories
+	}
+
+	// Recipient name shown on the certificate: explicit input > existing certificate > applicant name
+	recipientName := applicant.FullName
+	if existing, _ := h.credentialRepo.GetCertificateByApplicantAndProgram(r.Context(), applicant.ID, applicant.ProgramID); existing != nil && existing.RecipientName != "" {
+		recipientName = existing.RecipientName
+	}
+	if req.RecipientName != nil && strings.TrimSpace(*req.RecipientName) != "" {
+		recipientName = strings.TrimSpace(*req.RecipientName)
+	}
 
 	program, _ := h.programRepo.GetByID(r.Context(), applicant.ProgramID)
 	programName := "Fellowship Program"
@@ -507,7 +606,7 @@ func (h *CredentialHandler) GenerateOrUpdateCertificate(w http.ResponseWriter, r
 		ApplicantID:       applicant.ID,
 		ProgramID:         applicant.ProgramID,
 		OrganizationID:    applicant.OrganizationID,
-		RecipientName:     applicant.FullName,
+		RecipientName:     recipientName,
 		RecipientEmail:    applicant.Email,
 		ProgramName:       programName,
 		TrackName:         trackName,
@@ -515,6 +614,7 @@ func (h *CredentialHandler) GenerateOrUpdateCertificate(w http.ResponseWriter, r
 		CompletionDate:    now,
 		Status:            model.CertificateStatusIssued,
 		VerificationCode:  verificationCode,
+		Metadata:          metadata,
 		OrganizationName:  orgName,
 	})
 	if err != nil {
@@ -534,7 +634,7 @@ func (h *CredentialHandler) GenerateOrUpdateCertificate(w http.ResponseWriter, r
 		}
 		_ = h.emailSvc.SendCertificateEmail(
 			applicant.Email,
-			applicant.FullName,
+			cert.RecipientName,
 			programName,
 			trackName,
 			cert.CertificateNumber,

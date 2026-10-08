@@ -12,7 +12,14 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { credentialService } from '@/services/credentialService';
-import type { PublicCertificateVerification } from '@/services/types';
+import {
+  CERTIFICATE_DEFAULT_DESCRIPTION_TEXT,
+  CERTIFICATE_DEFAULT_INTRO_TEXT,
+  getCertificateSignatories,
+  getCertificateText,
+  type CertificateSignatory,
+  type PublicCertificateVerification,
+} from '@/services/types';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 
@@ -90,6 +97,34 @@ export const CertificateVerificationPage: React.FC = () => {
       </div>
     );
   }
+
+  const certText = getCertificateText(data.certificate);
+  const signatories = getCertificateSignatories(data.certificate);
+  // A single signatory sits in the bottom row; several get their own row above it
+  const inlineSignatory: CertificateSignatory | null =
+    signatories.length === 0
+      ? { name: 'Fellowship Governing Board', role: 'Authorized Signatory' }
+      : signatories.length === 1
+        ? signatories[0]
+        : null;
+  const isDefaultSignatory = signatories.length === 0;
+
+  const renderSignatory = (s: CertificateSignatory, align: 'center' | 'right', isDefault = false) => (
+    <div className={align === 'right' ? 'text-center sm:text-right' : 'text-center'}>
+      {s.signature_image && (
+        <img
+          src={s.signature_image}
+          alt={`Signature of ${s.name}`}
+          className={`h-16 w-full max-w-[220px] object-contain -mb-1 ${align === 'right' ? 'mx-auto sm:mr-0 sm:ml-auto' : 'mx-auto'}`}
+        />
+      )}
+      <div className={isDefault ? 'italic font-serif text-base text-slate-800' : 'text-sm font-bold text-slate-900'}>
+        {s.name}
+      </div>
+      <div className="h-0.5 bg-gradient-to-r from-transparent via-slate-300 to-transparent my-1" />
+      <div className="text-2xs uppercase tracking-wider text-slate-500 font-bold">{s.role || 'Signatory'}</div>
+    </div>
+  );
 
   const formattedDate = new Date(data.issue_date).toLocaleDateString('en-US', {
     month: 'long',
@@ -198,7 +233,7 @@ export const CertificateVerificationPage: React.FC = () => {
             </h1>
 
             <p className="text-body text-slate-500 font-medium italic mb-4 max-w-xl">
-              This acknowledges and certifies that
+              {certText.intro_text || CERTIFICATE_DEFAULT_INTRO_TEXT}
             </p>
 
             {/* Recipient Name */}
@@ -206,9 +241,8 @@ export const CertificateVerificationPage: React.FC = () => {
               {data.recipient_name}
             </div>
 
-            <p className="text-body text-slate-600 max-w-2xl leading-relaxed mb-6 font-normal">
-              has demonstrated software engineering rigor, successfully satisfied programmatic milestones,
-              and fulfilled all graduation requirements for
+            <p className="text-body text-slate-600 max-w-2xl leading-relaxed mb-6 font-normal whitespace-pre-line">
+              {certText.description_text || CERTIFICATE_DEFAULT_DESCRIPTION_TEXT}
             </p>
 
             {/* Program Name & Track Box */}
@@ -223,8 +257,21 @@ export const CertificateVerificationPage: React.FC = () => {
               )}
             </div>
 
-            {/* Signature & Seal Row */}
-            <div className="w-full grid grid-cols-1 sm:grid-cols-3 items-end justify-between gap-6 pt-8 mt-6 border-t border-slate-200">
+            {/* Signatories Row (when there are several) */}
+            {!inlineSignatory && (
+              <div
+                className={`w-full grid grid-cols-1 sm:grid-cols-2 ${signatories.length === 3 ? 'lg:grid-cols-3' : signatories.length >= 4 ? 'lg:grid-cols-4' : ''} items-end gap-8 pt-8 mt-6 border-t border-slate-200`}
+              >
+                {signatories.map((sig, i) => (
+                  <React.Fragment key={i}>{renderSignatory(sig, 'center')}</React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {/* Date, Seal & Signatory Row */}
+            <div
+              className={`w-full grid grid-cols-1 sm:grid-cols-3 items-end justify-between gap-6 pt-8 mt-6 ${inlineSignatory ? 'border-t border-slate-200' : ''}`}
+            >
               {/* Issue Date & ID */}
               <div className="text-center sm:text-left">
                 <div className="text-sm font-bold text-slate-900">{formattedDate}</div>
@@ -245,13 +292,9 @@ export const CertificateVerificationPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Signatory */}
+              {/* Signatory (single) or verification hash */}
               <div className="text-center sm:text-right">
-                <div className="italic font-serif text-base text-slate-800">
-                  Fellowship Governing Board
-                </div>
-                <div className="h-0.5 bg-gradient-to-r from-transparent via-slate-300 to-transparent my-1" />
-                <div className="text-2xs uppercase tracking-wider text-slate-500 font-bold">Authorized Signatory</div>
+                {inlineSignatory && renderSignatory(inlineSignatory, 'right', isDefaultSignatory)}
                 <div className="text-3xs font-mono text-slate-400 mt-0.5">Hash: {data.verification_code}</div>
               </div>
             </div>

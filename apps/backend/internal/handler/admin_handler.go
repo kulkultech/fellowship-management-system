@@ -532,12 +532,17 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 				// 2. Generate Certificate
 				certNumber := fmt.Sprintf("CERT-%d-%s", now.Year(), strings.ToUpper(uuid.New().String()[:8]))
 				verificationCode := strings.ReplaceAll(uuid.New().String(), "-", "")
+				// Keep an admin-customized recipient name if a certificate already exists
+				recipientName := applicant.FullName
+				if existing, _ := h.credentialRepo.GetCertificateByApplicantAndProgram(r.Context(), applicant.ID, applicant.ProgramID); existing != nil && existing.RecipientName != "" {
+					recipientName = existing.RecipientName
+				}
 				cert, err := h.credentialRepo.CreateOrUpdateCertificate(r.Context(), &model.Certificate{
 					CertificateNumber: certNumber,
 					ApplicantID:       applicant.ID,
 					ProgramID:         applicant.ProgramID,
 					OrganizationID:    applicant.OrganizationID,
-					RecipientName:     applicant.FullName,
+					RecipientName:     recipientName,
 					RecipientEmail:    applicant.Email,
 					ProgramName:       progName,
 					TrackName:         trackName,
@@ -557,7 +562,7 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 					}
 					_ = h.emailSvc.SendCertificateEmail(
 						applicant.Email,
-						applicant.FullName,
+						cert.RecipientName,
 						progName,
 						trackName,
 						cert.CertificateNumber,

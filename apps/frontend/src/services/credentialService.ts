@@ -2,7 +2,6 @@ import { apiClient } from './apiClient';
 import type {
   CandidateCredentialsResponse,
   Certificate,
-  Badge,
   GenerateCertificatePayload,
   PublicCertificateVerification,
   PublicBadgeVerification,
@@ -31,8 +30,8 @@ export const credentialService = {
   async generateCertificate(
     applicantId: string,
     payload: GenerateCertificatePayload = { send_email: true }
-  ): Promise<{ success: boolean; certificate: Certificate; badge?: Badge }> {
-    const res = await apiClient.post<{ success: boolean; certificate: Certificate; badge?: Badge }>(
+  ): Promise<Certificate> {
+    const res = await apiClient.post<Certificate>(
       `/applicants/${applicantId}/certificate`,
       payload
     );

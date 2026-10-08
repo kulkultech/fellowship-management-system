@@ -20,6 +20,7 @@ import type {
   RubricCriterion,
   CriterionScore,
   ApplicantListItem,
+  GenerateCertificatePayload,
 } from '@/services/types';
 import { ImportQuestionsCsvModal } from '@/components/ImportQuestionsCsvModal';
 import { EditProfileModal } from '@/components/EditProfileModal';
@@ -36,6 +37,7 @@ import { ProgramEmailTemplatesView } from '@/components/admin/ProgramEmailTempla
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { exportCandidatesToExcel } from '@/utils/candidateExcelExporter';
 import { credentialService } from '@/services/credentialService';
+import { CertificateDetailsForm } from '@/components/admin/CertificateDetailsForm';
 
 const DEFAULT_FELLOWSHIP_RUBRIC: AIInterviewRubric = {
   name: 'Engineering Fellowship - AI Technical Interview Rubric',
@@ -1893,15 +1895,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   };
 
   const generateCertMutation = useMutation({
-    mutationFn: async ({ sendEmail }: { sendEmail: boolean }) => {
+    mutationFn: async (payload: GenerateCertificatePayload) => {
       if (!selectedApplicantId) return;
-      return await credentialService.generateCertificate(selectedApplicantId, { send_email: sendEmail });
+      return await credentialService.generateCertificate(selectedApplicantId, payload);
     },
-    onSuccess: (data) => {
+    onSuccess: (_data, payload) => {
       toast.success(
-        data?.certificate?.email_sent_at
-          ? 'Certificate generated and emailed to fellow successfully!'
-          : 'Certificate generated successfully!'
+        applicantCredentials?.certificate
+          ? 'Certificate details updated!'
+          : payload.send_email
+            ? 'Certificate generated and emailed to fellow successfully!'
+            : 'Certificate generated successfully!'
       );
       refetchApplicantCredentials();
       queryClient.invalidateQueries({ queryKey: ['admin-applicant-credentials', selectedApplicantId] });
@@ -5478,15 +5482,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 >
                   <Award className="w-3.5 h-3.5" />
                   <span>Badges & Certificate</span>
-                  {applicantCredentials?.certificate ? (
-                    <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      Certified
-                    </span>
-                  ) : applicantCredentials?.badges && applicantCredentials.badges.length > 0 ? (
-                    <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                      {applicantCredentials.badges.length} {applicantCredentials.badges.length === 1 ? 'Badge' : 'Badges'}
-                    </span>
-                  ) : null}
                 </button>
 
                 <button
@@ -5800,13 +5795,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </h4>
                         </div>
                         {applicantCredentials?.certificate ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                            Generated & Active
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
+                            <Check className="w-3.5 h-3.5" />
+                            Generated
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-200 text-slate-700">
-                            Not Yet Generated
-                          </span>
+                          <span className="text-xs font-medium text-slate-400">Not yet generated</span>
                         )}
                       </div>
 
@@ -5841,6 +5835,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             </div>
                           </div>
 
+                          <CertificateDetailsForm
+                            key={`${selectedApplicantId}-${applicantCredentials.certificate.updated_at}`}
+                            certificate={applicantCredentials.certificate}
+                            defaultRecipientName={applicantDetail?.applicant?.full_name || ''}
+                            isPending={generateCertMutation.isPending}
+                            onSubmit={(payload) => generateCertMutation.mutate(payload)}
+                          />
+
                           <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center gap-3">
                             <a
                               href={`/verify/certificate/${applicantCredentials.certificate.certificate_number}`}
@@ -5865,27 +5867,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       ) : (
                         <div className="space-y-3">
                           <p className="text-xs text-slate-600 leading-relaxed">
-                            No certificate has been generated yet for this candidate. You can generate one automatically now or when marking them as completed/graduated.
+                            No certificate has been generated yet for this candidate. Fill in the details below to generate one now, or it will be generated automatically when marking them as completed/graduated.
                           </p>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => generateCertMutation.mutate({ sendEmail: true })}
-                              disabled={generateCertMutation.isPending}
-                              className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-                              <span>{generateCertMutation.isPending ? 'Generating...' : 'Generate & Email Certificate'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => generateCertMutation.mutate({ sendEmail: false })}
-                              disabled={generateCertMutation.isPending}
-                              className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
-                            >
-                              <span>Generate Only (No Email)</span>
-                            </button>
-                          </div>
+                          <CertificateDetailsForm
+                            key={`${selectedApplicantId}-new`}
+                            certificate={null}
+                            defaultRecipientName={applicantDetail?.applicant?.full_name || ''}
+                            isPending={generateCertMutation.isPending}
+                            onSubmit={(payload) => generateCertMutation.mutate(payload)}
+                          />
                         </div>
                       )}
                     </div>
@@ -5899,7 +5889,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             Earned Open Badges (v2.0)
                           </h4>
                         </div>
-                        <span className="text-xs text-slate-500 font-mono">
+                        <span className="text-xs font-medium text-slate-400">
                           {applicantCredentials?.badges?.length || 0} badges
                         </span>
                       </div>
@@ -5915,11 +5905,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 <img src={b.image_url} alt={b.name} className="w-full h-full object-contain" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <span className="text-3xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
-                                  {b.badge_type === 'member' ? 'Member Badge' : 'Graduate Badge'}
-                                </span>
-                                <h5 className="text-xs font-bold text-slate-900 truncate mt-0.5">{b.name}</h5>
-                                <div className="text-3xs text-slate-400">Awarded {new Date(b.issued_at).toLocaleDateString()}</div>
+                                <h5 className="text-xs font-bold text-slate-900 truncate">{b.name}</h5>
+                                <div className="text-2xs text-slate-400 mt-0.5">
+                                  {b.badge_type === 'member' ? 'Member badge' : 'Graduate badge'} &middot; Awarded{' '}
+                                  {new Date(b.issued_at).toLocaleDateString()}
+                                </div>
                               </div>
                               <a
                                 href={`/verify/badge/${b.id}`}

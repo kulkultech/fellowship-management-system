@@ -45,6 +45,20 @@ const (
 	CertificateStatusRevoked CertificateStatus = "revoked"
 )
 
+// Certificate metadata keys for admin-provided display details
+const (
+	CertMetaSignatories     = "signatories"      // []CertificateSignatory
+	CertMetaIntroText       = "intro_text"       // line above the recipient name
+	CertMetaDescriptionText = "description_text" // paragraph below the recipient name
+)
+
+// CertificateSignatory is a person who signs the certificate (e.g. Program Director).
+type CertificateSignatory struct {
+	Name           string `json:"name"`
+	Role           string `json:"role"`
+	SignatureImage string `json:"signature_image,omitempty"` // data URL (image/png, image/jpeg, image/webp)
+}
+
 type Certificate struct {
 	ID                uuid.UUID              `json:"id"`
 	CertificateNumber string                 `json:"certificate_number"` // e.g. "CERT-2026-XXXXXX"
