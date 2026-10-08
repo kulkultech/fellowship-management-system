@@ -995,3 +995,52 @@ export function getCertificateSignatories(cert?: Pick<Certificate, 'metadata'> |
 }
 
 
+
+// ---------------------------------------------------------------------
+// GitHub contribution tracking
+// ---------------------------------------------------------------------
+
+export type GitHubSyncStatus = 'idle' | 'syncing' | 'success' | 'error';
+
+export interface GitHubContributionCounts {
+  commits: number;
+  pull_requests: number;
+  pull_requests_merged: number;
+  issues: number;
+  pr_comments: number;
+  review_comments: number;
+  issue_comments: number;
+}
+
+export interface ProgramGitHubRepo {
+  id: string;
+  program_id: string;
+  owner: string;
+  name: string;
+  full_name: string;
+  html_url: string;
+  sync_status: GitHubSyncStatus;
+  sync_error?: string;
+  sync_truncated: boolean;
+  sync_started_at?: string | null;
+  last_synced_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GitHubFellowActivity {
+  applicant_id: string;
+  full_name: string;
+  email: string;
+  github_url?: string;
+  github_login?: string;
+  totals: GitHubContributionCounts;
+  /** Keyed by repository id */
+  by_repo: Record<string, GitHubContributionCounts>;
+}
+
+export interface ProgramGitHubActivity {
+  repos: ProgramGitHubRepo[];
+  fellows: GitHubFellowActivity[];
+  github_token_configured: boolean;
+}

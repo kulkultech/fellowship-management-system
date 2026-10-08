@@ -35,6 +35,7 @@ import { ProgramImageAdjustModal } from '@/components/admin/ProgramImageAdjustMo
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
 import { ProgramEmailTemplatesView } from '@/components/admin/ProgramEmailTemplatesView';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
+import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
 import { exportCandidatesToExcel } from '@/utils/candidateExcelExporter';
 import { credentialService } from '@/services/credentialService';
 import { CertificateDetailsForm } from '@/components/admin/CertificateDetailsForm';
@@ -161,6 +162,7 @@ import {
   Mail,
   Sparkles,
   RefreshCw,
+  Github,
   Edit3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -208,7 +210,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
 ];
 
 export interface DashboardPageProps {
-  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions';
+  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github';
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
@@ -236,8 +238,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [user, impersonatedOrgId, navigate]);
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -2262,6 +2264,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       ? `email-templates-${activeProgramSlug}`
       : currentView === 'sessions'
       ? `sessions-${activeProgramSlug}`
+      : currentView === 'github'
+      ? `github-${activeProgramSlug}`
       : selectedTrackFilter
       ? `track-${selectedTrackFilter}`
       : `all-candidates-${activeProgramSlug}`;
@@ -2363,6 +2367,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 onClick: () => {
                   setActiveProgramSlug(p.slug);
                   setCurrentView('sessions');
+                },
+              },
+              {
+                id: `github-${p.slug}`,
+                label: 'GitHub Activity',
+                icon: Github,
+                onClick: () => {
+                  setActiveProgramSlug(p.slug);
+                  setCurrentView('github');
                 },
               },
             ],
@@ -2481,6 +2494,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? 'Email Templates'
           : currentView === 'sessions'
           ? `${program?.name || 'Program'} - Sessions & Attendance`
+          : currentView === 'github'
+          ? `${program?.name || 'Program'} - GitHub Activity`
           : program?.name || 'Candidate Pipeline'
       }
       subtitle={
@@ -5172,6 +5187,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 />
               );
             })()}
+          </div>
+        )}
+
+        {/* ================================================================================= */}
+        {/* VIEW 12: PROGRAM GITHUB CONTRIBUTION ACTIVITY */}
+        {/* ================================================================================= */}
+        {currentView === 'github' && (
+          <div className="animate-in fade-in duration-200">
+            {program ? (
+              <ProgramGitHubActivityView programId={program.id} />
+            ) : (
+              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Github className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Please select a fellowship cohort to track its GitHub repositories and fellow contributions.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

@@ -428,6 +428,26 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	CREATE INDEX IF NOT EXISTS idx_certificates_cert_number ON certificates(certificate_number);
 	CREATE INDEX IF NOT EXISTS idx_certificates_program ON certificates(program_id);
 	CREATE INDEX IF NOT EXISTS idx_certificates_org ON certificates(organization_id);
+
+	CREATE TABLE IF NOT EXISTS program_github_repos (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		owner VARCHAR(100) NOT NULL,
+		name VARCHAR(100) NOT NULL,
+		full_name VARCHAR(255) NOT NULL,
+		html_url TEXT NOT NULL DEFAULT '',
+		added_by UUID REFERENCES users(id) ON DELETE SET NULL,
+		sync_status VARCHAR(16) NOT NULL DEFAULT 'idle',
+		sync_error TEXT NOT NULL DEFAULT '',
+		sync_truncated BOOLEAN NOT NULL DEFAULT false,
+		sync_started_at TIMESTAMPTZ,
+		last_synced_at TIMESTAMPTZ,
+		contributions JSONB NOT NULL DEFAULT '{}'::jsonb,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_program_github_repos_unique ON program_github_repos(program_id, LOWER(full_name));
+	CREATE INDEX IF NOT EXISTS idx_program_github_repos_program ON program_github_repos(program_id);
 	`
 
 	if _, err := pool.Exec(ctx, schema); err != nil {

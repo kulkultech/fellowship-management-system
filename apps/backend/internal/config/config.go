@@ -22,6 +22,7 @@ type Config struct {
 	CookieDomain       string
 	GoogleOAuth        OAuthConfig
 	GoogleCalendar     GoogleCalendarConfig
+	GitHubToken        string
 	Storage            StorageConfig
 	Cloudflare         CloudflareConfig
 	SES                SESConfig
@@ -141,6 +142,7 @@ func Load() (*Config, error) {
 			CalendarID:         getString("GOOGLE_CALENDAR_ID", "primary"),
 			ServiceAccountJSON: getString("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
 		},
+		GitHubToken: getString("GITHUB_TOKEN", ""),
 		Storage: StorageConfig{
 			Provider:       getString("STORAGE_PROVIDER", "r2"),
 			LocalPath:      getString("LOCAL_STORAGE_PATH", "./uploads"),

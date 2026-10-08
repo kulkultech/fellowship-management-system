@@ -28,6 +28,7 @@ import {
 import toast from 'react-hot-toast';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
+import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
 
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -125,6 +126,12 @@ export const MentorDashboardPage: React.FC = () => {
       label: 'Assignments & Grading',
       icon: FileText,
       onClick: () => setActiveNavId('assignments'),
+    },
+    {
+      id: 'github',
+      label: 'GitHub Activity',
+      icon: Github,
+      onClick: () => setActiveNavId('github'),
     },
   ];
 
@@ -794,6 +801,38 @@ export const MentorDashboardPage: React.FC = () => {
             ) : (
               <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
                 <p className="text-xs text-slate-500 font-bold">No active program found to manage assignments for.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 7. GITHUB CONTRIBUTION ACTIVITY */}
+        {/* ========================================================================= */}
+        {activeNavId === 'github' && (
+          <div className="space-y-4">
+            {programs.length > 1 && (
+              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-700">Active Program:</span>
+                <select
+                  value={activeProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
+                  className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                >
+                  {programs.map((p) => (
+                    <option key={p.program_id} value={p.program_id}>
+                      {p.program_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {activeProgramId ? (
+              <ProgramGitHubActivityView programId={activeProgramId} />
+            ) : (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                <p className="text-xs text-slate-500 font-bold">No active program found to track GitHub activity for.</p>
               </div>
             )}
           </div>

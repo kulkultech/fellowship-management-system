@@ -21,6 +21,7 @@ import (
 	"github.com/kulkul/backend/internal/calendar"
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/email"
+	"github.com/kulkul/backend/internal/github"
 	"github.com/kulkul/backend/internal/handler"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
@@ -81,6 +82,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))
 	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 
 	var googleOAuth *auth.GoogleOAuth
@@ -307,6 +309,15 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				a.Get("/{assignmentId}/submissions", assignmentHandler.ListSubmissions)
 				a.Post("/{assignmentId}/submit", assignmentHandler.SubmitAssignment)
 				a.Post("/{assignmentId}/submissions/{submissionId}/grade", assignmentHandler.GradeSubmission)
+			})
+
+			// Program GitHub Contribution Tracking
+			protected.Route("/programs/{programId}/github", func(g chi.Router) {
+				g.Get("/repos", githubHandler.ListRepos)
+				g.Post("/repos", githubHandler.AddRepo)
+				g.Delete("/repos/{repoId}", githubHandler.DeleteRepo)
+				g.Post("/repos/{repoId}/sync", githubHandler.SyncRepo)
+				g.Get("/activity", githubHandler.GetActivity)
 			})
 
 			// Program & Applicant Credentials Management
