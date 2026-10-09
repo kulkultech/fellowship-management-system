@@ -297,16 +297,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     return [...DEFAULT_VISIBLE_COLUMNS];
   });
 
-  // Candidate Table Sorting State
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Candidate Table Sorting State: ordered by priority (first rule is the primary sort)
+  const [sortRules, setSortRules] = useState<{ column: string; direction: 'asc' | 'desc' }[]>([]);
 
   // Candidate Export to Excel State
   const [isExportingCandidates, setIsExportingCandidates] = useState(false);
   const [showCandidateExportMenu, setShowCandidateExportMenu] = useState(false);
 
   const hasActiveCandidateFilters = Boolean(
-    searchQuery.trim() || selectedTrackFilter || selectedStage || sortColumn
+    searchQuery.trim() || selectedTrackFilter || selectedStage || sortRules.length > 0
   );
 
   const handleExportCandidates = async (targetApplicants: ApplicantListItem[], scope: string) => {
@@ -335,20 +334,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   };
 
+  // Clicking a new column adds it as the next sort level; clicking a sorted column
+  // cycles it asc -> desc -> removed while keeping the other sort levels.
   const handleSort = (colId: string) => {
     if (colId === 'actions') return;
-    if (sortColumn === colId) {
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else {
-        // Cycle: asc -> desc -> clear sorting
-        setSortColumn(null);
-        setSortDirection('asc');
+    setSortRules((prev) => {
+      const existing = prev.find((r) => r.column === colId);
+      if (!existing) return [...prev, { column: colId, direction: 'asc' }];
+      if (existing.direction === 'asc') {
+        return prev.map((r) => (r.column === colId ? { ...r, direction: 'desc' } : r));
       }
-    } else {
-      setSortColumn(colId);
-      setSortDirection('asc');
-    }
+      return prev.filter((r) => r.column !== colId);
+    });
   };
 
   // Modals & Sub-views
@@ -735,10 +732,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [activeProgramSlug]);
 
   const handleUpdateActiveColumns = (cols: string[]) => {
-    if (sortColumn && !cols.includes(sortColumn)) {
-      setSortColumn(null);
-      setSortDirection('asc');
-    }
+    setSortRules((prev) => prev.filter((r) => cols.includes(r.column)));
     setActiveColumns(cols);
     try {
       localStorage.setItem(`fms_candidate_table_cols_${activeProgramSlug || 'default'}`, JSON.stringify(cols));
@@ -758,10 +752,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const handleRemoveColumn = (colId: string) => {
     if (colId === 'candidate' || colId === 'actions') return;
-    if (sortColumn === colId) {
-      setSortColumn(null);
-      setSortDirection('asc');
-    }
+    setSortRules((prev) => prev.filter((r) => r.column !== colId));
     const colDef = allAvailableColumnsMap.get(colId);
     const updated = activeColumns.filter((id) => id !== colId);
     handleUpdateActiveColumns(updated);
@@ -2114,32 +2105,38 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       return true;
     });
 
-    if (!sortColumn) {
+    if (sortRules.length === 0) {
       return list;
     }
 
     return [...list].sort((a, b) => {
-      const valA = getApplicantSortValue(a, sortColumn);
-      const valB = getApplicantSortValue(b, sortColumn);
+      // Compare by each sort level in priority order until one differs
+      for (const rule of sortRules) {
+        const valA = getApplicantSortValue(a, rule.column);
+        const valB = getApplicantSortValue(b, rule.column);
 
-      // Missing / empty values always stay at the end in both asc and desc
-      if (valA === null && valB === null) return 0;
-      if (valA === null) return 1;
-      if (valB === null) return -1;
+        // Missing / empty values always stay at the end in both asc and desc
+        if (valA === null && valB === null) continue;
+        if (valA === null) return 1;
+        if (valB === null) return -1;
 
-      let comparison = 0;
-      if (typeof valA === 'number' && typeof valB === 'number') {
-        comparison = valA - valB;
-      } else {
-        comparison = String(valA).localeCompare(String(valB), undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        });
+        let comparison = 0;
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+        }
+
+        if (comparison !== 0) {
+          return rule.direction === 'desc' ? -comparison : comparison;
+        }
       }
-
-      return sortDirection === 'desc' ? -comparison : comparison;
+      return 0;
     });
-  }, [applicants, searchQuery, selectedTrackFilter, selectedStage, sortColumn, sortDirection]);
+  }, [applicants, searchQuery, selectedTrackFilter, selectedStage, sortRules]);
 
   const questionsEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -3362,28 +3359,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 {/* Active Sort Indicator */}
-                {sortColumn && (
-                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-bold text-kulkul-purple shadow-2xs animate-in fade-in duration-150">
-                    {sortDirection === 'asc' ? (
-                      <ArrowUp className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
-                    ) : (
-                      <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
-                    )}
-                    <span>
-                      Sorted: {allAvailableColumnsMap.get(sortColumn)?.label || sortColumn} (
-                      {sortDirection === 'asc' ? 'Asc' : 'Desc'})
-                    </span>
+                {sortRules.length > 0 && (
+                  <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 animate-in fade-in duration-150">
+                    <span className="font-medium">Sorted by:</span>
+                    {sortRules.map((rule, i) => (
+                      <span key={rule.column} className="inline-flex items-center gap-1 font-bold text-slate-800">
+                        {sortRules.length > 1 && <span className="text-slate-400">{i + 1}.</span>}
+                        <span>{allAvailableColumnsMap.get(rule.column)?.label || rule.column}</span>
+                        {rule.direction === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                        )}
+                        {i < sortRules.length - 1 && <span className="text-slate-300 font-normal">,</span>}
+                      </span>
+                    ))}
                     <button
                       type="button"
-                      onClick={() => {
-                        setSortColumn(null);
-                        setSortDirection('asc');
-                      }}
-                      className="p-0.5 rounded-full hover:bg-purple-200/70 text-purple-400 hover:text-purple-800 transition ml-0.5"
+                      onClick={() => setSortRules([])}
+                      className="font-bold text-kulkul-purple hover:underline"
                       title="Clear sorting to restore original order"
-                      aria-label="Clear sorting"
                     >
-                      <X className="w-3 h-3" />
+                      Clear
                     </button>
                   </div>
                 )}
@@ -3405,7 +3402,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         };
                         const isRemovable = colDef.removable !== false && colId !== 'candidate' && colId !== 'actions';
                         const isSortable = colId !== 'actions';
-                        const isCurrentSorted = sortColumn === colId;
+                        const sortIndex = sortRules.findIndex((r) => r.column === colId);
+                        const sortRule = sortIndex >= 0 ? sortRules[sortIndex] : null;
+                        const isCurrentSorted = sortRule !== null;
 
                         return (
                           <th
@@ -3421,11 +3420,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             title={
                               !isSortable
                                 ? undefined
-                                : !isCurrentSorted
-                                ? `Click to sort by ${colDef.label}`
-                                : sortDirection === 'asc'
+                                : !sortRule
+                                ? sortRules.length > 0
+                                  ? `Click to also sort by ${colDef.label}`
+                                  : `Click to sort by ${colDef.label}`
+                                : sortRule.direction === 'asc'
                                 ? `Sorted ascending by ${colDef.label}. Click to sort descending.`
-                                : `Sorted descending by ${colDef.label}. Click to clear sorting.`
+                                : `Sorted descending by ${colDef.label}. Click to remove this sort.`
                             }
                           >
                             <div
@@ -3439,12 +3440,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 </span>
                                 {isSortable && (
                                   <span className="inline-flex items-center">
-                                    {isCurrentSorted ? (
-                                      sortDirection === 'asc' ? (
-                                        <ArrowUp className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
-                                      ) : (
-                                        <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
-                                      )
+                                    {sortRule ? (
+                                      <>
+                                        {sortRule.direction === 'asc' ? (
+                                          <ArrowUp className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                                        ) : (
+                                          <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
+                                        )}
+                                        {sortRules.length > 1 && (
+                                          <span className="text-2xs font-black text-kulkul-purple tabular-nums">
+                                            {sortIndex + 1}
+                                          </span>
+                                        )}
+                                      </>
                                     ) : (
                                       <ArrowUpDown className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     )}
@@ -3497,7 +3505,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 setSearchQuery('');
                                 setSelectedStage('');
                                 setSelectedTrackFilter('');
-                                setSortColumn(null);
+                                setSortRules([]);
                               }}
                               className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-kulkul-purple bg-purple-50 hover:bg-purple-100 transition"
                             >
