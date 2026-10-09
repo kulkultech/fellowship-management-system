@@ -791,13 +791,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               {renderStageBadge(app.current_stage)}
               {app.current_stage === 'approved_for_live' && (
                 app.program_room_invited_at ? (
-                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-700">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
                     Room Invited
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold text-amber-700">
+                    <Clock className="w-3 h-3 text-amber-600" />
                     Room Pending
                   </span>
                 )
@@ -2229,7 +2229,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       case 'completed':
       case 'graduated':
         return (
-          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-purple-700">
             <Award className="w-3 h-3 text-purple-600" />
             <span>Graduated / Completed</span>
           </span>
@@ -2890,7 +2890,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </span>
                           <span>{title}</span>
                           {!isEnabled && (
-                            <span className="text-3xs no-underline px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                            <span className="text-3xs no-underline text-amber-700 font-bold">
                               Disabled
                             </span>
                           )}
@@ -3221,10 +3221,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   >
                     <span>{st.label}</span>
                     <span
-                      className={`text-2xs px-1.5 py-0.5 rounded-full font-extrabold ${
-                        selectedStage === st.value
-                          ? 'bg-white/20 text-white'
-                          : 'bg-slate-200 text-slate-700'
+                      className={`text-2xs font-extrabold ${
+                        selectedStage === st.value ? 'text-white/70' : 'text-slate-400'
                       }`}
                     >
                       {st.count}
@@ -3273,7 +3271,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                       )}
                       <span>Export to Excel</span>
-                      <span className="text-2xs font-extrabold text-emerald-800 bg-emerald-200/80 px-1.5 py-0.5 rounded-full">
+                      <span className="text-2xs font-extrabold text-emerald-600">
                         {hasActiveCandidateFilters ? filteredApplicants.length : applicants.length}
                       </span>
                     </button>
@@ -3325,7 +3323,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               Matches current stage, track, search & sort
                             </div>
                           </div>
-                          <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-extrabold text-emerald-700">
                             {filteredApplicants.length}
                           </span>
                         </button>
@@ -3348,7 +3346,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               Complete program applicant pool
                             </div>
                           </div>
-                          <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-extrabold text-slate-600">
                             {applicants.length}
                           </span>
                         </button>
@@ -5422,7 +5420,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-2">
                         <span>Candidate Accepted into Fellowship Cohort</span>
                         {applicantDetail.applicant.program_room_invited_at && (
-                          <span className="text-3xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                          <span className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-700">
+                            <Check className="w-3 h-3" />
                             Room Invited
                           </span>
                         )}
@@ -5536,7 +5535,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <Award className="w-3.5 h-3.5" />
                   <span>Reviewer Evaluation</span>
                   {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
-                    <span className="text-3xs font-extrabold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                    <span className="text-2xs font-extrabold text-kulkul-purple">
                       {applicantDetail.applicant.reviewer_mark}
                     </span>
                   )}
@@ -6334,24 +6333,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <div className="flex items-center gap-2">
                   {applicantDetail?.applicant.current_stage === 'completed' ? (
                     <div className="flex items-center gap-2">
-                      <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-purple-50 border border-purple-300 text-purple-800 text-xs font-bold shadow-2xs">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700">
                         <Award className="w-3.5 h-3.5 text-purple-600" />
                         <span>Fellowship Graduated</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveDrawerTab('credentials')}
-                        className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
-                        <span>Manage Certificate</span>
-                      </button>
+                      </span>
+                      {/* Shortcut to the certificate tab; hidden when it is already open */}
+                      {activeDrawerTab !== 'credentials' && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveDrawerTab('credentials')}
+                          className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
+                          <span>Manage Certificate</span>
+                        </button>
+                      )}
                     </div>
                   ) : applicantDetail?.applicant.current_stage === 'approved_for_live' ? (
                     <>
                       {applicantDetail.applicant.program_room_invited_at ? (
                         <div className="flex items-center gap-2">
-                          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold shadow-2xs">
+                          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
                             <span>In Program Room</span>
                           </div>
