@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Excalidraw,
   convertToExcalidrawElements,
+  reconcileElements,
   MainMenu,
   WelcomeScreen,
 } from '@excalidraw/excalidraw';
@@ -28,6 +29,7 @@ interface LiveWhiteboardProps {
   isMentor?: boolean;
   initialElements?: any[];
   initialAppState?: any;
+  /** Called with only the elements that changed (including deletions) since the last call */
   onElementsChange?: (elements: any[], appState?: any) => void;
   remoteWhiteboardUpdate?: { elements: any[]; appState?: any; sender?: { name: string; role: string } } | null;
   isConnected?: boolean;
@@ -48,13 +50,52 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const storageKey = `excalidraw_session_${sessionId}`;
-  const isApplyingRemoteRef = useRef(false);
+  // Last version of each element that this browser sent or received, so only real changes are
+  // broadcast and remote updates are never echoed back
+  const syncedVersionsRef = useRef<Map<string, number>>(new Map());
   const lastBroadcastRef = useRef<number>(0);
   const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const markSynced = (elements: readonly any[]) => {
+    for (const el of elements) syncedVersionsRef.current.set(el.id, el.version);
+  };
+
+  // Merges elements from others into the canvas, element by element (same rule as Excalidraw collab)
+  const mergeRemoteElements = useCallback(
+    (remoteElements: any[], appState?: any) => {
+      if (!excalidrawAPI) return;
+      const local = excalidrawAPI.getSceneElementsIncludingDeleted();
+      const merged = reconcileElements(local, remoteElements as any, excalidrawAPI.getAppState());
+      markSynced(merged);
+      excalidrawAPI.updateScene({
+        elements: merged,
+        appState: appState?.viewBackgroundColor ? { viewBackgroundColor: appState.viewBackgroundColor } : undefined,
+        commitToHistory: false,
+      });
+    },
+    [excalidrawAPI]
+  );
+
+  // Replaces the drawing in a way peers can merge: old elements are marked deleted, not dropped
+  const replaceScene = (newElements: readonly any[]) => {
+    const removed = excalidrawAPI
+      .getSceneElementsIncludingDeleted()
+      .filter((el: any) => !el.isDeleted)
+      .map((el: any) => ({
+        ...el,
+        isDeleted: true,
+        version: el.version + 1,
+        versionNonce: Math.floor(Math.random() * 2 ** 31),
+        updated: Date.now(),
+      }));
+    excalidrawAPI.updateScene({ elements: [...removed, ...newElements], commitToHistory: true });
+  };
 
   // Load initial data from server or localStorage
   const initialData = useMemo(() => {
     if (initialElements && initialElements.length > 0) {
+      // These came from the shared scene; don't re-broadcast them on the first change event
+      for (const el of initialElements) syncedVersionsRef.current.set(el.id, el.version);
       return {
         elements: initialElements,
         appState: {
@@ -83,50 +124,32 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
     return null;
   }, [storageKey, initialElements, initialAppState]);
 
-  // When initialElements arrives after mount, load into canvas
+  // When the shared scene arrives (or the board remounts), merge it into the canvas
   useEffect(() => {
     if (!excalidrawAPI || !initialElements || initialElements.length === 0) return;
-    try {
-      isApplyingRemoteRef.current = true;
-      excalidrawAPI.updateScene({
-        elements: initialElements,
-        appState: initialAppState,
-        commitToHistory: false,
-      });
-    } finally {
-      setTimeout(() => {
-        isApplyingRemoteRef.current = false;
-      }, 50);
-    }
-  }, [excalidrawAPI, initialElements, initialAppState]);
+    mergeRemoteElements(initialElements, initialAppState);
+  }, [excalidrawAPI, initialElements, initialAppState, mergeRemoteElements]);
 
   // Handle incoming remote updates from mentor or peers
   useEffect(() => {
-    if (!remoteWhiteboardUpdate || !excalidrawAPI) return;
-    try {
-      isApplyingRemoteRef.current = true;
-      excalidrawAPI.updateScene({
-        elements: remoteWhiteboardUpdate.elements || [],
-        appState: remoteWhiteboardUpdate.appState
-          ? {
-              viewBackgroundColor: remoteWhiteboardUpdate.appState.viewBackgroundColor,
-            }
-          : undefined,
-        commitToHistory: false,
-      });
-    } finally {
-      setTimeout(() => {
-        isApplyingRemoteRef.current = false;
-      }, 50);
-    }
-  }, [remoteWhiteboardUpdate, excalidrawAPI]);
+    if (!remoteWhiteboardUpdate) return;
+    mergeRemoteElements(remoteWhiteboardUpdate.elements || [], remoteWhiteboardUpdate.appState);
+  }, [remoteWhiteboardUpdate, mergeRemoteElements]);
+
+  // Sends the elements whose version differs from what was last synced
+  const flushChanges = useCallback(() => {
+    if (!excalidrawAPI || !onElementsChange) return;
+    const all = excalidrawAPI.getSceneElementsIncludingDeleted();
+    const changed = all.filter((el: any) => syncedVersionsRef.current.get(el.id) !== el.version);
+    if (changed.length === 0) return;
+    markSynced(changed);
+    lastBroadcastRef.current = Date.now();
+    onElementsChange(changed, excalidrawAPI.getAppState());
+  }, [excalidrawAPI, onElementsChange]);
 
   // Handle scene change and auto-save + real-time broadcast
   const handleChange = useCallback(
     (elements: readonly any[], appState: any) => {
-      // Ignore if currently applying remote update
-      if (isApplyingRemoteRef.current) return;
-
       const nonDeleted = elements.filter((el) => !el.isDeleted);
 
       try {
@@ -142,22 +165,17 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
         // storage quota
       }
 
-      // Realtime throttled broadcast to other participants
+      // Realtime throttled broadcast of changed elements to other participants
       if (onElementsChange) {
-        const now = Date.now();
-        if (now - lastBroadcastRef.current >= 60) {
-          lastBroadcastRef.current = now;
-          onElementsChange(nonDeleted, appState);
+        if (Date.now() - lastBroadcastRef.current >= 60) {
+          flushChanges();
         } else {
           if (throttleTimeoutRef.current) clearTimeout(throttleTimeoutRef.current);
-          throttleTimeoutRef.current = setTimeout(() => {
-            lastBroadcastRef.current = Date.now();
-            onElementsChange(nonDeleted, appState);
-          }, 60);
+          throttleTimeoutRef.current = setTimeout(flushChanges, 60);
         }
       }
     },
-    [storageKey, onElementsChange]
+    [storageKey, onElementsChange, flushChanges]
   );
 
   // Template 1: Microservices Architecture
@@ -243,7 +261,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
           points: [[0, 0], [70, 0]],
         },
       ]);
-      excalidrawAPI.updateScene({ elements, commitToHistory: true });
+      replaceScene(elements);
       setTimeout(() => excalidrawAPI.scrollToContent(), 50);
       toast.success('Microservices architecture template loaded');
     } catch {
@@ -297,7 +315,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
           label: { text: 'Enterprise Rules\n(Entities)' },
         },
       ]);
-      excalidrawAPI.updateScene({ elements, commitToHistory: true });
+      replaceScene(elements);
       setTimeout(() => excalidrawAPI.scrollToContent(), 50);
       toast.success('Clean Architecture diagram template loaded');
     } catch {
@@ -371,7 +389,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
           label: { text: 'Return Error (400)' },
         },
       ]);
-      excalidrawAPI.updateScene({ elements, commitToHistory: true });
+      replaceScene(elements);
       setTimeout(() => excalidrawAPI.scrollToContent(), 50);
       toast.success('Flowchart template loaded');
     } catch {
@@ -389,7 +407,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   const handleClear = () => {
     if (!excalidrawAPI) return;
     if (window.confirm('Clear all drawings on this whiteboard?')) {
-      excalidrawAPI.resetScene();
+      replaceScene([]);
       localStorage.removeItem(storageKey);
       toast.success('Whiteboard cleared');
     }

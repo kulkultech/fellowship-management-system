@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import * as Y from 'yjs';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -20,11 +21,48 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { sessionService } from '@/services/sessionService';
 import { useAuthStore } from '@/hooks/useAuthStore';
-import { LiveCodeEditor, SupportedLanguage } from '@/components/sessions/LiveCodeEditor';
+import {
+  LiveCodeEditor,
+  SupportedLanguage,
+  LANGUAGE_SNIPPET_COLLECTIONS,
+  SUPPORTED_LANGUAGES,
+} from '@/components/sessions/LiveCodeEditor';
+import {
+  LOCAL_ORIGIN,
+  REMOTE_ORIGIN,
+  NOTES_TEXT_KEY,
+  codeTextKey,
+  uint8ToBase64,
+  base64ToUint8,
+  deterministicSeedUpdate,
+  applyTextDiff,
+  mapPositionThroughDelta,
+} from '@/components/sessions/collab';
 import { LiveWhiteboard } from '@/components/sessions/LiveWhiteboard';
-import { useSessionWorkspaceSocket, WorkspaceInitState } from '@/hooks/useSessionWorkspaceSocket';
+import { useSessionWorkspaceSocket, WorkspaceInitState, YjsTag } from '@/hooks/useSessionWorkspaceSocket';
 import type { LogItem } from '@/components/sessions/codeRunners';
 import type { AttendanceStatus } from '@/services/types';
+
+const DEFAULT_SCRATCHPAD = `# Session Scratchpad & Key Takeaways\n\n- Topic: Microservices Architecture & Live Demos\n- Agenda:\n  1. Review distributed transactions & idempotency\n  2. Live coding session (Java backend & HTML/CSS/JS frontend)\n  3. Q&A and assignment brief\n\n### Important Links:\n- Class repo: https://github.com/kulkultech/fellowship-cohort\n- API Documentation: https://docs.fellowhire.org/api`;
+
+// How often a browser that edited sends a compacted snapshot (and how long after the last one)
+const SNAPSHOT_CHECK_MS = 2000;
+const SNAPSHOT_MIN_INTERVAL_MS = 5000;
+
+/** Keeps the newest version of each whiteboard element (Excalidraw's reconcile rule). */
+function mergeWhiteboardElements(store: Map<string, any>, elements: any[]) {
+  for (const el of elements) {
+    if (!el?.id) continue;
+    const existing = store.get(el.id);
+    if (
+      !existing ||
+      el.version > existing.version ||
+      (el.version === existing.version && el.versionNonce < existing.versionNonce)
+    ) {
+      store.set(el.id, el);
+    }
+  }
+}
 
 export const SessionWorkspacePage: React.FC = () => {
   const { orgSlug, programSlug, sessionId } = useParams<{
@@ -44,12 +82,22 @@ export const SessionWorkspacePage: React.FC = () => {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'editor' | 'whiteboard' | 'scratchpad'>('whiteboard');
   // Live attendance drawer (for mentors)
   const [isAttendanceDrawerOpen, setIsAttendanceDrawerOpen] = useState<boolean>(false);
-  // Scratchpad notes
-  const [scratchpadNotes, setScratchpadNotes] = useState<string>(
-    `# Session Scratchpad & Key Takeaways\n\n- Topic: Microservices Architecture & Live Demos\n- Agenda:\n  1. Review distributed transactions & idempotency\n  2. Live coding session (Java backend & HTML/CSS/JS frontend)\n  3. Q&A and assignment brief\n\n### Important Links:\n- Class repo: https://github.com/kulkultech/fellowship-cohort\n- API Documentation: https://docs.fellowhire.org/api`
-  );
-  const scratchpadNotesInitializedRef = useRef<boolean>(false);
-  const scratchpadDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  // Shared document (Yjs) for the code editor and notes: concurrent edits merge instead of overwriting
+  const ydocRef = useRef<Y.Doc | null>(null);
+  if (!ydocRef.current) ydocRef.current = new Y.Doc();
+  const ydoc = ydocRef.current;
+  // Highest stored-update sequence seen per server instance; sent with snapshots for compaction
+  const seenRef = useRef<Record<string, number>>({});
+  const localEditsRef = useRef(false);
+  const lastAckAtRef = useRef(0);
+  const sendYjsUpdateRef = useRef<((update: string) => void) | null>(null);
+
+  // Scratchpad notes (mirrors the shared notes text)
+  const [scratchpadNotes, setScratchpadNotes] = useState<string>('');
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Whiteboard: every element seen so far, so the board can be rebuilt when its tab remounts
+  const whiteboardStoreRef = useRef<Map<string, any>>(new Map());
 
   // Whiteboard sync state
   const [initialElements, setInitialElements] = useState<any[]>([]);
@@ -61,13 +109,7 @@ export const SessionWorkspacePage: React.FC = () => {
   } | null>(null);
 
   // Code editor sync state
-  const [initialCodeMap, setInitialCodeMap] = useState<Record<string, string> | undefined>(undefined);
   const [initialLanguage, setInitialLanguage] = useState<SupportedLanguage>('java');
-  const [remoteCodeUpdate, setRemoteCodeUpdate] = useState<{
-    language: SupportedLanguage;
-    code: string;
-    sender?: { name: string; role: string };
-  } | null>(null);
   const [remoteLanguageChange, setRemoteLanguageChange] = useState<{
     language: SupportedLanguage;
     sender?: { name: string; role: string };
@@ -81,40 +123,84 @@ export const SessionWorkspacePage: React.FC = () => {
   // Follow presenter mode: defaults to true for fellows/candidates, false for mentor
   const [followMentor, setFollowMentor] = useState<boolean>(!isMentorOrAdmin);
 
-  // Real-time socket callbacks
-  const handleInitState = useCallback((data: WorkspaceInitState) => {
-    if (data.state?.whiteboard?.elements) {
-      setInitialElements(data.state.whiteboard.elements);
-      setInitialAppState(data.state.whiteboard.appState);
-    }
-    if (data.state?.code?.files) {
-      setInitialCodeMap(data.state.code.files);
-    }
-    if (data.state?.code?.language) {
-      setInitialLanguage(data.state.code.language);
-    }
-    if (data.state?.scratchpad) {
-      setScratchpadNotes(data.state.scratchpad);
-      scratchpadNotesInitializedRef.current = true;
-    }
-  }, []);
+  const noteSeen = (tag?: YjsTag) => {
+    if (!tag?.i) return;
+    seenRef.current[tag.i] = Math.max(seenRef.current[tag.i] || 0, tag.s);
+  };
 
-  const handleRemoteWhiteboardUpdate = useCallback(
-    (payload: { elements: any[]; appState?: any }, sender: { id: string; name: string; role: string }) => {
-      setRemoteWhiteboard({
-        elements: payload.elements,
-        appState: payload.appState,
-        sender,
-      });
+  const docHasContent = (doc: Y.Doc) =>
+    doc.getText(NOTES_TEXT_KEY).length > 0 ||
+    SUPPORTED_LANGUAGES.some((l) => doc.getText(codeTextKey(l.id)).length > 0);
+
+  // Applies stored workspace state from the server (on join, reconnect, or cross-instance sync)
+  const applyServerState = useCallback(
+    (state: WorkspaceInitState['state'] | undefined, isInitial: boolean) => {
+      if (!state) return;
+      const doc = ydocRef.current!;
+      const hadContent = docHasContent(doc);
+      const entries = state.yjs ?? [];
+      for (const entry of entries) {
+        Y.applyUpdate(doc, base64ToUint8(entry.u), REMOTE_ORIGIN);
+        noteSeen(entry);
+      }
+
+      if (isInitial && entries.length === 0 && !hadContent) {
+        // First use of this workspace: start from the saved plain text or the starter templates.
+        // Seeds are deterministic, so browsers seeding at the same time end up with one copy.
+        for (const lang of SUPPORTED_LANGUAGES) {
+          const key = codeTextKey(lang.id);
+          const content = state.code?.files?.[lang.id] || LANGUAGE_SNIPPET_COLLECTIONS[lang.id][0].code;
+          if (doc.getText(key).length === 0) Y.applyUpdate(doc, deterministicSeedUpdate(key, content), 'seed');
+        }
+        if (doc.getText(NOTES_TEXT_KEY).length === 0) {
+          Y.applyUpdate(doc, deterministicSeedUpdate(NOTES_TEXT_KEY, state.scratchpad || DEFAULT_SCRATCHPAD), 'seed');
+        }
+      } else if (isInitial && hadContent) {
+        // Reconnected: send everything we have, in case edits were made while offline
+        sendYjsUpdateRef.current?.(uint8ToBase64(Y.encodeStateAsUpdate(doc)));
+      }
+
+      const elements = state.whiteboard?.elements;
+      if (elements && elements.length > 0) {
+        mergeWhiteboardElements(whiteboardStoreRef.current, elements);
+        setInitialElements(Array.from(whiteboardStoreRef.current.values()));
+        setInitialAppState(state.whiteboard?.appState);
+      }
+      if (state.code?.language) {
+        setInitialLanguage(state.code.language);
+      }
     },
     []
   );
 
-  const handleRemoteCodeUpdate = useCallback(
-    (payload: { language: SupportedLanguage; code: string }, sender: { id: string; name: string; role: string }) => {
-      setRemoteCodeUpdate({
-        language: payload.language,
-        code: payload.code,
+  // Real-time socket callbacks
+  const handleInitState = useCallback(
+    (data: WorkspaceInitState) => applyServerState(data.state, true),
+    [applyServerState]
+  );
+
+  const handleStateSync = useCallback(
+    (payload: { state: WorkspaceInitState['state'] }) => applyServerState(payload?.state, false),
+    [applyServerState]
+  );
+
+  const handleYjsUpdate = useCallback((payload: { update: string; tag: YjsTag }) => {
+    if (!payload?.update) return;
+    Y.applyUpdate(ydocRef.current!, base64ToUint8(payload.update), REMOTE_ORIGIN);
+    noteSeen(payload.tag);
+  }, []);
+
+  const handleYjsAck = useCallback((payload: { tag: YjsTag }) => {
+    noteSeen(payload?.tag);
+    lastAckAtRef.current = Date.now();
+  }, []);
+
+  const handleRemoteWhiteboardUpdate = useCallback(
+    (payload: { elements: any[]; appState?: any }, sender: { id: string; name: string; role: string }) => {
+      mergeWhiteboardElements(whiteboardStoreRef.current, payload.elements || []);
+      setRemoteWhiteboard({
+        elements: payload.elements,
+        appState: payload.appState,
         sender,
       });
     },
@@ -142,10 +228,6 @@ export const SessionWorkspacePage: React.FC = () => {
     []
   );
 
-  const handleRemoteScratchpadUpdate = useCallback((payload: { notes: string }) => {
-    setScratchpadNotes(payload.notes);
-  }, []);
-
   const handleRemoteTabChange = useCallback(
     (payload: { tab: 'editor' | 'whiteboard' | 'scratchpad' }, sender: { id: string; name: string; role: string }) => {
       if (followMentor && (sender.role === 'mentor' || sender.role === 'org_admin' || sender.role === 'superadmin')) {
@@ -160,22 +242,75 @@ export const SessionWorkspacePage: React.FC = () => {
     isConnected,
     participants,
     sendWhiteboardUpdate,
-    sendCodeUpdate,
     sendLanguageChange,
     sendCodeRun,
-    sendScratchpadUpdate,
     sendTabChange,
+    sendYjsUpdate,
+    sendYjsSnapshot,
   } = useSessionWorkspaceSocket({
     sessionId,
-    user,
     onInitState: handleInitState,
     onWhiteboardUpdate: handleRemoteWhiteboardUpdate,
-    onCodeUpdate: handleRemoteCodeUpdate,
     onLanguageChange: handleRemoteLanguageChange,
     onCodeRun: handleRemoteCodeRun,
-    onScratchpadUpdate: handleRemoteScratchpadUpdate,
     onTabChange: handleRemoteTabChange,
+    onYjsUpdate: handleYjsUpdate,
+    onYjsAck: handleYjsAck,
+    onStateSync: handleStateSync,
   });
+  sendYjsUpdateRef.current = sendYjsUpdate;
+
+  // Broadcast this browser's edits to the shared document
+  useEffect(() => {
+    const onUpdate = (update: Uint8Array, origin: unknown) => {
+      if (origin === REMOTE_ORIGIN) return;
+      sendYjsUpdateRef.current?.(uint8ToBase64(update));
+      localEditsRef.current = true;
+    };
+    ydoc.on('update', onUpdate);
+    return () => ydoc.off('update', onUpdate);
+  }, [ydoc]);
+
+  // Periodically send a compacted snapshot (also stores readable text copies on the server)
+  useEffect(() => {
+    if (!isConnected) return;
+    const timer = setInterval(() => {
+      if (!localEditsRef.current || Date.now() - lastAckAtRef.current < SNAPSHOT_MIN_INTERVAL_MS) return;
+      localEditsRef.current = false;
+      lastAckAtRef.current = Date.now();
+      const files: Record<string, string> = {};
+      for (const lang of SUPPORTED_LANGUAGES) files[lang.id] = ydoc.getText(codeTextKey(lang.id)).toString();
+      sendYjsSnapshot({
+        update: uint8ToBase64(Y.encodeStateAsUpdate(ydoc)),
+        seen: { ...seenRef.current },
+        files,
+        scratchpad: ydoc.getText(NOTES_TEXT_KEY).toString(),
+      });
+    }, SNAPSHOT_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [isConnected, ydoc, sendYjsSnapshot]);
+
+  // Mirror the shared notes into the textarea. Remote edits are written to the textarea right away
+  // (not on the next render), so a keystroke is always diffed against what the user actually saw.
+  useEffect(() => {
+    const notes = ydoc.getText(NOTES_TEXT_KEY);
+    const observer = (event: Y.YTextEvent, tx: Y.Transaction) => {
+      const value = notes.toString();
+      const textarea = notesTextareaRef.current;
+      if (tx.origin !== LOCAL_ORIGIN && textarea && textarea.value !== value) {
+        const focused = document.activeElement === textarea;
+        const start = mapPositionThroughDelta(event.delta, textarea.selectionStart);
+        const end = mapPositionThroughDelta(event.delta, textarea.selectionEnd);
+        textarea.value = value;
+        if (focused) textarea.setSelectionRange(start, end);
+      }
+      setScratchpadNotes(value);
+    };
+    setScratchpadNotes(notes.toString());
+    notes.observe(observer);
+    return () => notes.unobserve(observer);
+  }, [ydoc]);
+
 
   // 1. Fetch Session Details
   const {
@@ -188,26 +323,22 @@ export const SessionWorkspacePage: React.FC = () => {
     enabled: Boolean(sessionId),
   });
 
-  // Initialize from session.workspace_state if available from REST
+  // Whiteboard snapshot from the session record, merged with anything already received live
   useEffect(() => {
-    if (session?.workspace_state) {
-      const ws = session.workspace_state;
-      if (ws.whiteboard?.elements && initialElements.length === 0) {
-        setInitialElements(ws.whiteboard.elements);
-        setInitialAppState(ws.whiteboard.appState);
-      }
-      if (ws.code?.files && !initialCodeMap) {
-        setInitialCodeMap(ws.code.files);
-      }
-      if (ws.code?.language) {
-        setInitialLanguage(ws.code.language);
-      }
-      if (ws.scratchpad && !scratchpadNotesInitializedRef.current) {
-        setScratchpadNotes(ws.scratchpad);
-        scratchpadNotesInitializedRef.current = true;
-      }
+    const elements = session?.workspace_state?.whiteboard?.elements;
+    if (elements && elements.length > 0) {
+      mergeWhiteboardElements(whiteboardStoreRef.current, elements);
+      setInitialElements(Array.from(whiteboardStoreRef.current.values()));
+      setInitialAppState(session?.workspace_state?.whiteboard?.appState);
     }
-  }, [session, initialElements.length, initialCodeMap]);
+  }, [session]);
+
+  // Rebuild the board from everything received whenever its tab is opened
+  useEffect(() => {
+    if (activeWorkspaceTab === 'whiteboard' && whiteboardStoreRef.current.size > 0) {
+      setInitialElements(Array.from(whiteboardStoreRef.current.values()));
+    }
+  }, [activeWorkspaceTab]);
 
   // Tab switch handler
   const handleSelectTab = (tab: 'editor' | 'whiteboard' | 'scratchpad') => {
@@ -217,14 +348,10 @@ export const SessionWorkspacePage: React.FC = () => {
     }
   };
 
-  // Scratchpad edit handler with debounced broadcast
+  // Notes edits go into the shared text as minimal changes
   const handleScratchpadChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setScratchpadNotes(val);
-    if (scratchpadDebounceRef.current) clearTimeout(scratchpadDebounceRef.current);
-    scratchpadDebounceRef.current = setTimeout(() => {
-      sendScratchpadUpdate(val);
-    }, 120);
+    const notes = ydoc.getText(NOTES_TEXT_KEY);
+    applyTextDiff(notes, notes.toString(), e.target.value);
   };
 
   // 2. Fetch Attendance (for mentors/admins)
@@ -529,17 +656,13 @@ export const SessionWorkspacePage: React.FC = () => {
             <LiveCodeEditor
               initialLanguage={initialLanguage}
               sessionTitle={session.title}
-              initialCodeMap={initialCodeMap}
-              onCodeChange={(lang, code) => {
-                sendCodeUpdate(lang, code);
-              }}
+              ydoc={ydoc}
               onLanguageChange={(lang) => {
                 sendLanguageChange(lang);
               }}
               onCodeRun={(lang, logs) => {
                 sendCodeRun(lang, logs);
               }}
-              remoteCodeUpdate={remoteCodeUpdate}
               remoteLanguageChange={remoteLanguageChange}
               remoteCodeRun={remoteCodeRun}
               isConnected={isConnected}
@@ -556,6 +679,7 @@ export const SessionWorkspacePage: React.FC = () => {
               initialElements={initialElements}
               initialAppState={initialAppState}
               onElementsChange={(elements, appState) => {
+                mergeWhiteboardElements(whiteboardStoreRef.current, elements);
                 sendWhiteboardUpdate(elements, appState);
               }}
               remoteWhiteboardUpdate={remoteWhiteboard}
@@ -594,6 +718,7 @@ export const SessionWorkspacePage: React.FC = () => {
             </div>
 
             <textarea
+              ref={notesTextareaRef}
               value={scratchpadNotes}
               onChange={handleScratchpadChange}
               rows={16}

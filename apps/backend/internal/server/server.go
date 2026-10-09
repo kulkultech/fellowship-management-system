@@ -26,6 +26,7 @@ import (
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/repository"
+	"github.com/kulkul/backend/internal/sessionws"
 	"github.com/kulkul/backend/pkg/storage"
 )
 
@@ -79,7 +80,20 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		CalendarID:         cfg.GoogleCalendar.CalendarID,
 		ServiceAccountJSON: cfg.GoogleCalendar.ServiceAccountJSON,
 	}, logger)
-	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc)
+	// Live session workspace hub. With REDIS_URL set, instances relay updates to each other so
+	// participants connected to different backend instances share one workspace.
+	wsOpts := sessionws.Options{AllowedOrigins: append([]string{cfg.SES.FrontendURL}, cfg.CORSAllowedOrigins...)}
+	if cfg.RedisURL != "" {
+		broker, err := sessionws.NewRedisBroker(cfg.RedisURL)
+		if err != nil {
+			logger.Error("session workspace: redis unavailable, running in single-instance mode", "error", err)
+		} else {
+			wsOpts.Broker = broker
+			logger.Info("session workspace: relaying live updates through redis")
+		}
+	}
+	wsHub := sessionws.NewHub(sessionRepo, logger, wsOpts)
+	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc, wsHub)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))

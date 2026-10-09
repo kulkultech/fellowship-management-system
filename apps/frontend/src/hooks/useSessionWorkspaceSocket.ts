@@ -24,8 +24,19 @@ export interface WorkspaceInitState {
       last_logs?: LogItem[];
     };
     scratchpad?: string;
+    /** Stored Yjs updates that rebuild the shared code and notes document */
+    yjs?: YjsEntry[];
   };
   participants: WorkspaceParticipant[];
+}
+
+export interface YjsTag {
+  i: string;
+  s: number;
+}
+
+export interface YjsEntry extends YjsTag {
+  u: string;
 }
 
 export interface UseSessionWorkspaceSocketProps {
@@ -61,11 +72,16 @@ export interface UseSessionWorkspaceSocketProps {
     payload: { tab: 'editor' | 'whiteboard' | 'scratchpad' },
     sender: { id: string; name: string; role: string }
   ) => void;
+  /** A shared-document update from another participant */
+  onYjsUpdate?: (payload: { update: string; tag: YjsTag }) => void;
+  /** A stored snapshot was acknowledged; its tag marks updates everyone has */
+  onYjsAck?: (payload: { tag: YjsTag }) => void;
+  /** Newer state merged from another backend instance */
+  onStateSync?: (payload: { state: WorkspaceInitState['state'] }) => void;
 }
 
 export function useSessionWorkspaceSocket({
   sessionId,
-  user,
   onInitState,
   onWhiteboardUpdate,
   onCodeUpdate,
@@ -73,6 +89,9 @@ export function useSessionWorkspaceSocket({
   onCodeRun,
   onScratchpadUpdate,
   onTabChange,
+  onYjsUpdate,
+  onYjsAck,
+  onStateSync,
 }: UseSessionWorkspaceSocketProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [myClientId, setMyClientId] = useState<string | null>(null);
@@ -82,6 +101,8 @@ export function useSessionWorkspaceSocket({
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  // False once the page leaves the session, so an intentional close never triggers a reconnect
+  const shouldReconnectRef = useRef(true);
 
   // Store latest callbacks in refs to avoid re-triggering connection on callback changes
   const callbacksRef = useRef({
@@ -92,6 +113,9 @@ export function useSessionWorkspaceSocket({
     onCodeRun,
     onScratchpadUpdate,
     onTabChange,
+    onYjsUpdate,
+    onYjsAck,
+    onStateSync,
   });
 
   useEffect(() => {
@@ -103,6 +127,9 @@ export function useSessionWorkspaceSocket({
       onCodeRun,
       onScratchpadUpdate,
       onTabChange,
+      onYjsUpdate,
+      onYjsAck,
+      onStateSync,
     };
   });
 
@@ -120,14 +147,68 @@ export function useSessionWorkspaceSocket({
       baseWs = `${proto}//${loc.host}${apiBase.startsWith('/') ? '' : '/'}${apiBase}`;
     }
 
-    const params = new URLSearchParams();
-    if (user?.name) params.set('name', user.name);
-    else if (user?.email) params.set('name', user.email.split('@')[0]);
-    if (user?.role) params.set('role', user.role);
-    if (user?.id) params.set('userId', user.id);
+    // Identity comes from the auth cookie sent with the WebSocket request
+    return `${baseWs.replace(/\/+$/, '')}/sessions/${sessionId}/ws`;
+  }, [sessionId]);
 
-    return `${baseWs.replace(/\/+$/, '')}/sessions/${sessionId}/ws?${params.toString()}`;
-  }, [sessionId, user]);
+  const handleServerMessage = useCallback((msg: any) => {
+    const sender = {
+      id: msg.sender_id || '',
+      name: msg.sender_name || '',
+      role: msg.sender_role || '',
+    };
+
+    switch (msg.type) {
+      case 'init_state': {
+        const payload: WorkspaceInitState = msg.payload;
+        if (payload?.my_id) {
+          setMyClientId(payload.my_id);
+        }
+        if (payload?.participants) {
+          setParticipants(payload.participants);
+        }
+        callbacksRef.current.onInitState?.(payload);
+        break;
+      }
+
+      case 'participant_joined':
+      case 'participant_left':
+      case 'participants_update': {
+        if (msg.payload?.participants) {
+          setParticipants(msg.payload.participants);
+        }
+        break;
+      }
+
+      case 'whiteboard_update':
+        callbacksRef.current.onWhiteboardUpdate?.(msg.payload, sender);
+        break;
+      case 'code_update':
+        callbacksRef.current.onCodeUpdate?.(msg.payload, sender);
+        break;
+      case 'language_change':
+        callbacksRef.current.onLanguageChange?.(msg.payload, sender);
+        break;
+      case 'code_run':
+        callbacksRef.current.onCodeRun?.(msg.payload, sender);
+        break;
+      case 'scratchpad_update':
+        callbacksRef.current.onScratchpadUpdate?.(msg.payload, sender);
+        break;
+      case 'tab_change':
+        callbacksRef.current.onTabChange?.(msg.payload, sender);
+        break;
+      case 'yjs_update':
+        callbacksRef.current.onYjsUpdate?.(msg.payload);
+        break;
+      case 'yjs_ack':
+        callbacksRef.current.onYjsAck?.(msg.payload);
+        break;
+      case 'state_sync':
+        callbacksRef.current.onStateSync?.(msg.payload);
+        break;
+    }
+  }, []);
 
   const connect = useCallback(() => {
     if (!sessionId || typeof window === 'undefined') return;
@@ -151,8 +232,11 @@ export function useSessionWorkspaceSocket({
       };
 
       ws.onclose = () => {
+        // Ignore sockets that were replaced or closed on purpose
+        if (socketRef.current !== ws) return;
         setIsConnected(false);
         socketRef.current = null;
+        if (!shouldReconnectRef.current) return;
 
         // Auto-reconnect with exponential backoff
         const timeout = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
@@ -167,93 +251,38 @@ export function useSessionWorkspaceSocket({
       };
 
       ws.onmessage = (event) => {
-        try {
-          const raw = event.data;
-          const msg = JSON.parse(raw);
-          setLastSyncTime(new Date());
-
-          const sender = {
-            id: msg.sender_id || '',
-            name: msg.sender_name || '',
-            role: msg.sender_role || '',
-          };
-
-          switch (msg.type) {
-            case 'init_state': {
-              const payload: WorkspaceInitState = msg.payload;
-              if (payload?.my_id) {
-                setMyClientId(payload.my_id);
-              }
-              if (payload?.participants) {
-                setParticipants(payload.participants);
-              }
-              callbacksRef.current.onInitState?.(payload);
-              break;
-            }
-
-            case 'participant_joined': {
-              if (msg.payload?.participants) {
-                setParticipants(msg.payload.participants);
-              }
-              break;
-            }
-
-            case 'participant_left': {
-              if (msg.payload?.participants) {
-                setParticipants(msg.payload.participants);
-              }
-              break;
-            }
-
-            case 'whiteboard_update': {
-              callbacksRef.current.onWhiteboardUpdate?.(msg.payload, sender);
-              break;
-            }
-
-            case 'code_update': {
-              callbacksRef.current.onCodeUpdate?.(msg.payload, sender);
-              break;
-            }
-
-            case 'language_change': {
-              callbacksRef.current.onLanguageChange?.(msg.payload, sender);
-              break;
-            }
-
-            case 'code_run': {
-              callbacksRef.current.onCodeRun?.(msg.payload, sender);
-              break;
-            }
-
-            case 'scratchpad_update': {
-              callbacksRef.current.onScratchpadUpdate?.(msg.payload, sender);
-              break;
-            }
-
-            case 'tab_change': {
-              callbacksRef.current.onTabChange?.(msg.payload, sender);
-              break;
-            }
+        setLastSyncTime(new Date());
+        // The server batches queued messages into one frame, separated by newlines
+        const lines = String(event.data).split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let msg: any;
+          try {
+            msg = JSON.parse(line);
+          } catch {
+            continue;
           }
-        } catch {
-          // message parse error ignored
+          handleServerMessage(msg);
         }
       };
     } catch {
       // connection error
     }
-  }, [sessionId, getWebSocketUrl]);
+  }, [sessionId, getWebSocketUrl, handleServerMessage]);
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
     connect();
 
     return () => {
+      shouldReconnectRef.current = false;
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (socketRef.current) {
-        socketRef.current.close();
+        const ws = socketRef.current;
         socketRef.current = null;
+        ws.close();
       }
     };
   }, [connect]);
@@ -324,6 +353,20 @@ export function useSessionWorkspaceSocket({
     [sendMessage]
   );
 
+  const sendYjsUpdate = useCallback(
+    (update: string) => {
+      sendMessage('yjs_update', { update });
+    },
+    [sendMessage]
+  );
+
+  const sendYjsSnapshot = useCallback(
+    (payload: { update: string; seen: Record<string, number>; files: Record<string, string>; scratchpad: string }) => {
+      sendMessage('yjs_snapshot', payload);
+    },
+    [sendMessage]
+  );
+
   const sendTabChange = useCallback(
     (tab: 'editor' | 'whiteboard' | 'scratchpad') => {
       sendMessage('tab_change', {
@@ -344,5 +387,7 @@ export function useSessionWorkspaceSocket({
     sendCodeRun,
     sendScratchpadUpdate,
     sendTabChange,
+    sendYjsUpdate,
+    sendYjsSnapshot,
   };
 }

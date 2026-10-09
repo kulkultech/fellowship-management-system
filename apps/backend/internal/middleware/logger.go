@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"bufio"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 )
@@ -24,6 +26,25 @@ func (w *responseWriterInterceptor) Write(b []byte) (int, error) {
 	n, err := w.ResponseWriter.Write(b)
 	w.bytesWritten += n
 	return n, err
+}
+
+// Hijack lets WebSocket upgrades take over the connection through the logging wrapper.
+func (w *responseWriterInterceptor) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := http.NewResponseController(w.ResponseWriter).Hijack()
+	if err == nil && w.statusCode == 0 {
+		w.statusCode = http.StatusSwitchingProtocols
+	}
+	return conn, rw, err
+}
+
+// Flush supports streaming responses through the logging wrapper.
+func (w *responseWriterInterceptor) Flush() {
+	_ = http.NewResponseController(w.ResponseWriter).Flush()
+}
+
+// Unwrap exposes the underlying writer to http.ResponseController.
+func (w *responseWriterInterceptor) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 func Logger(logger *slog.Logger) func(http.Handler) http.Handler {

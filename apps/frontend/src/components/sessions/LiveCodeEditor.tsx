@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
+import type * as Y from 'yjs';
+import { bindMonacoToYText, codeTextKey } from './collab';
 import {
   Play,
   RotateCcw,
@@ -366,6 +368,8 @@ interface LiveCodeEditorProps {
   remoteLanguageChange?: { language: SupportedLanguage; sender?: { name: string; role: string } } | null;
   remoteCodeRun?: { language: SupportedLanguage; logs: LogItem[]; sender?: { name: string; role: string } } | null;
   isConnected?: boolean;
+  /** Shared document for real-time co-editing; when set it is the source of truth for the code */
+  ydoc?: Y.Doc | null;
 }
 
 export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
@@ -379,6 +383,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   remoteLanguageChange,
   remoteCodeRun,
   isConnected = false,
+  ydoc,
 }) => {
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(initialLanguage);
   const [codeMap, setCodeMap] = useState<Record<SupportedLanguage, string>>({
@@ -419,11 +424,44 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   const [hasCopied, setHasCopied] = useState<boolean>(false);
 
   const editorRef = useRef<any>(null);
+  // The mounted Monaco instance (the editor remounts when switching to and from preview-only view)
+  const [editorInstance, setEditorInstance] = useState<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const codeDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Shared mode: mirror every language's shared text into codeMap (used by run, copy, download)
+  useEffect(() => {
+    if (!ydoc) return;
+    const langs = SUPPORTED_LANGUAGES.map((l) => l.id);
+    const sync = () => {
+      setCodeMap((prev) => {
+        const next = { ...prev };
+        for (const lang of langs) next[lang] = ydoc.getText(codeTextKey(lang)).toString();
+        return next;
+      });
+    };
+    sync();
+    const unobserve = langs.map((lang) => {
+      const ytext = ydoc.getText(codeTextKey(lang));
+      const observer = () => {
+        const value = ytext.toString();
+        setCodeMap((prev) => (prev[lang] === value ? prev : { ...prev, [lang]: value }));
+      };
+      ytext.observe(observer);
+      return () => ytext.unobserve(observer);
+    });
+    return () => unobserve.forEach((fn) => fn());
+  }, [ydoc]);
+
+  // Shared mode: bind the editor to the current language's shared text
+  useEffect(() => {
+    if (!ydoc || !editorInstance) return;
+    return bindMonacoToYText(editorInstance, ydoc.getText(codeTextKey(currentLang)));
+  }, [ydoc, editorInstance, currentLang]);
+
   // Update initial code map if received after mount
   useEffect(() => {
+    if (ydoc) return;
     if (initialCodeMap && Object.keys(initialCodeMap).length > 0) {
       setCodeMap((prev) => ({
         ...prev,
@@ -437,7 +475,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
   // Handle incoming remote code updates
   useEffect(() => {
-    if (!remoteCodeUpdate) return;
+    if (ydoc || !remoteCodeUpdate) return;
     const { language, code } = remoteCodeUpdate;
     setCodeMap((prev) => ({
       ...prev,
@@ -486,6 +524,19 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
+    setEditorInstance(editor);
+    editor.onDidDispose(() => {
+      setEditorInstance((current: any) => (current === editor ? null : current));
+    });
+  };
+
+  // Replaces the editor content as a normal edit, so in shared mode it syncs to everyone
+  const replaceEditorContent = (code: string): boolean => {
+    const editor = editorRef.current;
+    const model = editor?.getModel?.();
+    if (!ydoc || !model) return false;
+    editor.executeEdits('replace-content', [{ range: model.getFullModelRange(), text: code }]);
+    return true;
   };
 
   const handleCodeChange = (newCode: string | undefined) => {
@@ -595,19 +646,23 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   const handleResetSnippet = () => {
     const defaultCode = LANGUAGE_SNIPPET_COLLECTIONS[currentLang][0].code;
     if (window.confirm(`Reset ${SUPPORTED_LANGUAGES.find((l) => l.id === currentLang)?.name} editor to starter template?`)) {
-      setCodeMap((prev) => ({
-        ...prev,
-        [currentLang]: defaultCode,
-      }));
+      if (!replaceEditorContent(defaultCode)) {
+        setCodeMap((prev) => ({
+          ...prev,
+          [currentLang]: defaultCode,
+        }));
+      }
       toast.success('Starter code template restored');
     }
   };
 
   const handleLoadSnippet = (snippetCode: string) => {
-    setCodeMap((prev) => ({
-      ...prev,
-      [currentLang]: snippetCode,
-    }));
+    if (!replaceEditorContent(snippetCode)) {
+      setCodeMap((prev) => ({
+        ...prev,
+        [currentLang]: snippetCode,
+      }));
+    }
     toast.success('Template loaded into editor');
   };
 
@@ -893,7 +948,9 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
             <Editor
               height="100%"
               language={currentConfig.monacoLang}
-              value={codeMap[currentLang]}
+              // In shared mode the binding owns the content; a controlled value would overwrite remote edits
+              value={ydoc ? undefined : codeMap[currentLang]}
+              defaultValue={ydoc ? '' : undefined}
               theme={theme}
               onMount={handleEditorMount}
               onChange={handleCodeChange}

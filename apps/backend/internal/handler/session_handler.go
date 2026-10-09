@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -815,55 +816,97 @@ func (h *SessionHandler) HandleWorkspaceWS(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Verify session exists
-	_, err = h.sessionRepo.GetSessionByID(r.Context(), sessionID)
+	claims := h.resolveClaims(r)
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "sign in to join the session workspace")
+		return
+	}
+
+	session, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID)
 	if err != nil {
 		httpx.Error(w, http.StatusNotFound, "session not found")
 		return
 	}
+	if !h.canJoinWorkspace(r.Context(), claims, session.ProgramID) {
+		httpx.Error(w, http.StatusForbidden, "you are not a member of this session's program")
+		return
+	}
 
-	var userID, userName, userRole string
-	claims, ok := middleware.GetUser(r.Context())
-	if !ok || claims == nil {
-		tokenStr := ""
-		if cookie, err := r.Cookie(auth.AuthCookieName); err == nil && cookie.Value != "" {
-			tokenStr = cookie.Value
-		} else if qToken := r.URL.Query().Get("token"); qToken != "" {
-			tokenStr = qToken
+	userName := claims.Email
+	if u, err := h.userRepo.GetByID(r.Context(), claims.UserID); err == nil && u != nil && u.Name != "" {
+		userName = u.Name
+	}
+	userRole := claims.Role
+	if userRole == "" {
+		userRole = model.RoleCandidate
+	}
+
+	h.wsHub.ServeWebSocket(w, r, sessionID, claims.UserID.String(), userName, userRole)
+}
+
+// resolveClaims returns the signed-in user from the auth middleware, the auth cookie, or a ?token=
+// query parameter (browsers cannot set headers on WebSocket requests).
+func (h *SessionHandler) resolveClaims(r *http.Request) *auth.Claims {
+	if claims, ok := middleware.GetUser(r.Context()); ok && claims != nil {
+		return claims
+	}
+	tokenStr := ""
+	if cookie, err := r.Cookie(auth.AuthCookieName); err == nil && cookie.Value != "" {
+		tokenStr = cookie.Value
+	} else if qToken := r.URL.Query().Get("token"); qToken != "" {
+		tokenStr = qToken
+	}
+	if tokenStr == "" || h.authService == nil {
+		return nil
+	}
+	claims, err := h.authService.ValidateToken(tokenStr)
+	if err != nil {
+		return nil
+	}
+	return claims
+}
+
+// canJoinWorkspace allows superadmins, the program organization's admins and reviewers, mentors
+// assigned to the program, and fellows admitted into the program.
+func (h *SessionHandler) canJoinWorkspace(ctx context.Context, claims *auth.Claims, programID uuid.UUID) bool {
+	switch claims.Role {
+	case model.RoleSuperadmin:
+		return true
+	case model.RoleOrgAdmin, model.RoleReviewer:
+		program, err := h.programRepo.GetByID(ctx, programID)
+		return err == nil && program != nil && claims.OrganizationID != nil && *claims.OrganizationID == program.OrganizationID
+	case model.RoleMentor:
+		if h.mentorRepo == nil {
+			return false
 		}
-		if tokenStr != "" && h.authService != nil {
-			if parsedClaims, err := h.authService.ValidateToken(tokenStr); err == nil {
-				claims = parsedClaims
-				ok = true
+		isMentor, err := h.mentorRepo.IsMentorOfProgram(ctx, claims.UserID, programID)
+		return err == nil && isMentor
+	default:
+		if claims.Email == "" {
+			return false
+		}
+		apps, err := h.applicantRepo.ListByEmail(ctx, claims.Email)
+		if err != nil {
+			return false
+		}
+		for _, app := range apps {
+			if app.ProgramID != programID || app.DeletedAt != nil {
+				continue
+			}
+			if app.CurrentStage == model.StageApprovedForLive || app.CurrentStage == model.StageCompleted || app.ProgramRoomInvitedAt != nil {
+				return true
 			}
 		}
+		return false
 	}
+}
 
-	if ok && claims != nil {
-		userID = claims.UserID.String()
-		userRole = claims.Role
-		if u, err := h.userRepo.GetByID(r.Context(), claims.UserID); err == nil && u != nil {
-			userName = u.Name
-		} else {
-			userName = claims.Email
-		}
-	} else {
-		userName = r.URL.Query().Get("name")
-		userRole = r.URL.Query().Get("role")
-		userID = r.URL.Query().Get("userId")
+// canEditWorkspaceDirectly allows only staff of the program to overwrite the stored workspace.
+func (h *SessionHandler) canEditWorkspaceDirectly(ctx context.Context, claims *auth.Claims, programID uuid.UUID) bool {
+	if claims.Role == model.RoleCandidate || claims.Role == "" {
+		return false
 	}
-
-	if userName == "" {
-		userName = "Fellow"
-	}
-	if userRole == "" {
-		userRole = "candidate"
-	}
-	if userID == "" {
-		userID = uuid.New().String()
-	}
-
-	h.wsHub.ServeWebSocket(w, r, sessionID, userID, userName, userRole)
+	return h.canJoinWorkspace(ctx, claims, programID)
 }
 
 // GetWorkspaceState handles GET /api/v1/sessions/{sessionId}/workspace
@@ -872,6 +915,21 @@ func (h *SessionHandler) GetWorkspaceState(w http.ResponseWriter, r *http.Reques
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+
+	claims := h.resolveClaims(r)
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	session, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+	if !h.canJoinWorkspace(r.Context(), claims, session.ProgramID) {
+		httpx.Error(w, http.StatusForbidden, "you are not a member of this session's program")
 		return
 	}
 
@@ -895,7 +953,22 @@ func (h *SessionHandler) UpdateWorkspaceState(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	claims := h.resolveClaims(r)
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	session, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+	if !h.canEditWorkspaceDirectly(r.Context(), claims, session.ProgramID) {
+		httpx.Error(w, http.StatusForbidden, "only mentors and admins of this program can update the workspace")
+		return
+	}
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 8<<20))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "failed to read request body")
 		return
