@@ -2427,7 +2427,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         <select
           value={activeProgramSlug}
           onChange={(e) => setActiveProgramSlug(e.target.value)}
-          className="h-8 px-3 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
+          className="h-8 px-3 max-w-[16rem] truncate text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
         >
           {allPrograms.map((p) => (
             <option key={p.slug} value={p.slug}>

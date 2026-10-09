@@ -151,6 +151,33 @@ func TestGitHubContributionTracking(t *testing.T) {
 		t.Errorf("expected 403 for another organization's admin, got %d", w.Code)
 	}
 
+	// Mentors and admins can set a fellow's GitHub profile; contributions then map to them
+	updateGitHub := func(applicantID uuid.UUID, body string) *httptest.ResponseRecorder {
+		r2 := chi.NewRouter()
+		r2.Put("/programs/{programId}/github/fellows/{applicantId}", h.UpdateFellowGitHub)
+		req := httptest.NewRequest("PUT", fmt.Sprintf("%s/fellows/%s", base, applicantID), strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req = req.WithContext(middleware.WithUser(req.Context(), adminClaims))
+		w := httptest.NewRecorder()
+		r2.ServeHTTP(w, req)
+		return w
+	}
+	if w := updateGitHub(alan.ApplicantID, `{"github":"https://github.com/GraceH"}`); w.Code != http.StatusOK {
+		t.Fatalf("expected 200 updating GitHub, got %d: %s", w.Code, w.Body.String())
+	}
+	if updated, _ := appRepo.GetByID(ctx, alan.ApplicantID); updated.GitHubURL != "https://github.com/GraceH" {
+		t.Errorf("expected normalized GitHub URL, got %q", updated.GitHubURL)
+	}
+	if w := updateGitHub(alan.ApplicantID, `{"github":"https://linkedin.com/in/alan"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for a non-GitHub link, got %d", w.Code)
+	}
+	if w := updateGitHub(uuid.New(), `{"github":"alan"}`); w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for an unknown applicant, got %d", w.Code)
+	}
+	if w := updateGitHub(alan.ApplicantID, `{"github":""}`); w.Code != http.StatusOK {
+		t.Errorf("expected 200 clearing GitHub, got %d", w.Code)
+	}
+
 	// A failed sync keeps the previous counts and records the error
 	srv.Close()
 	w = do(adminClaims, "POST", fmt.Sprintf("%s/repos/%s/sync", base, repo.ID), "")
@@ -184,5 +211,30 @@ func TestGitHubSyncSkipsWhenAlreadyRunning(t *testing.T) {
 	}
 	if started, _ := githubRepo.TryStartSync(ctx, repo.ID, 0); !started {
 		t.Errorf("expected a stale sync to be restartable")
+	}
+}
+
+func TestGitHubScheduledSync(t *testing.T) {
+	ctx := context.Background()
+	githubRepo := repository.NewGitHubRepository(nil)
+	srv := newFakeGitHubAPI(t)
+	h := handler.NewGitHubHandler(githubRepo, repository.NewProgramRepository(nil), repository.NewApplicantRepository(nil),
+		repository.NewMentorRepository(nil), github.NewClient("").WithBaseURL(srv.URL))
+
+	repo, _ := githubRepo.Create(ctx, &model.ProgramGitHubRepo{ProgramID: uuid.New(), Owner: "acme", Name: "app", FullName: "acme/app"})
+
+	// A freshly added repository is not due yet
+	h.RunScheduledSync(ctx)
+	if got, _ := githubRepo.GetByID(ctx, repo.ID); got.LastSyncedAt != nil {
+		t.Fatalf("expected recently updated repo to be skipped")
+	}
+
+	// Once the repository is older than the threshold it is synced
+	time.Sleep(5 * time.Millisecond)
+	handler.SetGitHubAutoSyncAfter(h, time.Millisecond)
+	h.RunScheduledSync(ctx)
+	got, _ := githubRepo.GetByID(ctx, repo.ID)
+	if got.SyncStatus != model.GitHubSyncSuccess || got.Contributions["graceh"].Commits != 3 {
+		t.Errorf("expected stale repo to be synced, got status=%s contributions=%v", got.SyncStatus, got.Contributions)
 	}
 }

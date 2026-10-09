@@ -178,6 +178,45 @@ func (r *GitHubRepository) Delete(ctx context.Context, programID, id uuid.UUID) 
 	return nil
 }
 
+// ListDueForSync returns repositories (across all programs) not synced or attempted since the cutoff.
+func (r *GitHubRepository) ListDueForSync(ctx context.Context, olderThan time.Duration, limit int) ([]*model.ProgramGitHubRepo, error) {
+	cutoff := time.Now().Add(-olderThan)
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		list := []*model.ProgramGitHubRepo{}
+		for _, repo := range r.memRepos {
+			if repo.SyncStatus != model.GitHubSyncSyncing && repo.UpdatedAt.Before(cutoff) {
+				list = append(list, copyGitHubRepo(repo))
+			}
+		}
+		sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt.Before(list[j].UpdatedAt) })
+		if len(list) > limit {
+			list = list[:limit]
+		}
+		return list, nil
+	}
+
+	// updated_at changes on every sync attempt, so failing repositories are retried at the same pace
+	rows, err := r.pool.Query(ctx, `SELECT `+githubRepoColumns+` FROM program_github_repos
+		WHERE sync_status <> 'syncing' AND updated_at < $1
+		ORDER BY updated_at ASC LIMIT $2`, cutoff, limit)
+	if err != nil {
+		return nil, fmt.Errorf("github_repo: list due for sync: %w", err)
+	}
+	defer rows.Close()
+
+	list := []*model.ProgramGitHubRepo{}
+	for rows.Next() {
+		repo, err := scanGitHubRepo(rows)
+		if err != nil {
+			return nil, fmt.Errorf("github_repo: scan: %w", err)
+		}
+		list = append(list, repo)
+	}
+	return list, rows.Err()
+}
+
 // TryStartSync marks a repository as syncing unless a sync started within staleAfter is still running.
 // It returns false when another sync is already in progress.
 func (r *GitHubRepository) TryStartSync(ctx context.Context, id uuid.UUID, staleAfter time.Duration) (bool, error) {

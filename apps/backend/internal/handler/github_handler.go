@@ -21,6 +21,7 @@ import (
 const (
 	githubSyncTimeout    = 10 * time.Minute
 	githubSyncStaleAfter = 15 * time.Minute
+	githubAutoSyncAfter  = 24 * time.Hour
 	maxReposPerProgram   = 20
 )
 
@@ -33,6 +34,8 @@ type GitHubHandler struct {
 
 	// runAsync launches background syncs; tests replace it to run synchronously.
 	runAsync func(func())
+	// autoSyncAfter is how long a repository goes unsynced before the scheduler refreshes it.
+	autoSyncAfter time.Duration
 }
 
 func NewGitHubHandler(
@@ -49,6 +52,7 @@ func NewGitHubHandler(
 		mentorRepo:    mentorRepo,
 		client:        client,
 		runAsync:      func(f func()) { go f() },
+		autoSyncAfter: githubAutoSyncAfter,
 	}
 }
 
@@ -230,26 +234,119 @@ func (h *GitHubHandler) startSync(ctx context.Context, repo *model.ProgramGitHub
 	if err != nil || !started {
 		return
 	}
-	repoID, owner, name := repo.ID, repo.Owner, repo.Name
-	h.runAsync(func() {
-		syncCtx, cancel := context.WithTimeout(context.Background(), githubSyncTimeout)
-		defer cancel()
+	repoCopy := *repo
+	h.runAsync(func() { h.collectAndStore(&repoCopy) })
+}
 
-		activity, err := h.client.CollectRepoActivity(syncCtx, owner, name)
-		var contributions map[string]model.GitHubContributionCounts
-		truncated := false
-		if err == nil {
-			truncated = activity.Truncated
-			contributions = make(map[string]model.GitHubContributionCounts, len(activity.Contributors))
-			for login, c := range activity.Contributors {
-				contributions[login] = model.GitHubContributionCounts(*c)
+// collectAndStore fetches a repository's activity from GitHub and records the result.
+// The caller must have claimed the sync with TryStartSync.
+func (h *GitHubHandler) collectAndStore(repo *model.ProgramGitHubRepo) {
+	syncCtx, cancel := context.WithTimeout(context.Background(), githubSyncTimeout)
+	defer cancel()
+
+	activity, err := h.client.CollectRepoActivity(syncCtx, repo.Owner, repo.Name)
+	var contributions map[string]model.GitHubContributionCounts
+	truncated := false
+	if err == nil {
+		truncated = activity.Truncated
+		contributions = make(map[string]model.GitHubContributionCounts, len(activity.Contributors))
+		for login, c := range activity.Contributors {
+			contributions[login] = model.GitHubContributionCounts(*c)
+		}
+	} else {
+		err = friendlySyncError(err)
+	}
+	if finishErr := h.githubRepo.FinishSync(syncCtx, repo.ID, contributions, truncated, err); finishErr != nil {
+		slog.Error("github sync: failed to record result", "repo", repo.FullName, "error", finishErr)
+	}
+}
+
+// RunScheduledSync re-syncs repositories that have not been refreshed for a day, one at a time.
+func (h *GitHubHandler) RunScheduledSync(ctx context.Context) {
+	// Without a token GitHub allows 60 requests/hour; a small repository needs about 6
+	limit := 5
+	if h.client.HasToken() {
+		limit = 50
+	}
+	due, err := h.githubRepo.ListDueForSync(ctx, h.autoSyncAfter, limit)
+	if err != nil {
+		slog.Error("github auto-sync: failed to list repositories", "error", err)
+		return
+	}
+	for _, repo := range due {
+		if ctx.Err() != nil {
+			return
+		}
+		started, err := h.githubRepo.TryStartSync(ctx, repo.ID, githubSyncStaleAfter)
+		if err != nil || !started {
+			continue
+		}
+		h.collectAndStore(repo)
+	}
+}
+
+// StartAutoSync runs RunScheduledSync every hour until ctx is cancelled.
+func (h *GitHubHandler) StartAutoSync(ctx context.Context) {
+	go func() {
+		// Short initial delay so startup and migrations finish first
+		timer := time.NewTimer(2 * time.Minute)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				h.RunScheduledSync(ctx)
+				timer.Reset(time.Hour)
 			}
-		} else {
-			err = friendlySyncError(err)
 		}
-		if finishErr := h.githubRepo.FinishSync(syncCtx, repoID, contributions, truncated, err); finishErr != nil {
-			slog.Error("github sync: failed to record result", "repo", owner+"/"+name, "error", finishErr)
+	}()
+}
+
+type updateFellowGitHubRequest struct {
+	GitHub string `json:"github"`
+}
+
+// UpdateFellowGitHub handles PUT /api/v1/programs/{programId}/github/fellows/{applicantId}
+func (h *GitHubHandler) UpdateFellowGitHub(w http.ResponseWriter, r *http.Request) {
+	program, ok := h.authorizeProgram(w, r)
+	if !ok {
+		return
+	}
+	applicantID, err := uuid.Parse(chi.URLParam(r, "applicantId"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+	var req updateFellowGitHubRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil || applicant == nil || applicant.ProgramID != program.ID || !isProgramFellow(*applicant) {
+		httpx.Error(w, http.StatusNotFound, "fellow not found in this program")
+		return
+	}
+
+	githubURL := ""
+	login := ""
+	if strings.TrimSpace(req.GitHub) != "" {
+		login = github.UsernameFromProfile(req.GitHub)
+		if login == "" {
+			httpx.Error(w, http.StatusBadRequest, "enter a GitHub username or a github.com profile link")
+			return
 		}
+		githubURL = "https://github.com/" + login
+	}
+	if err := h.applicantRepo.UpdateGitHubURL(r.Context(), applicant.ID, githubURL); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update GitHub profile")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"github_url":   githubURL,
+		"github_login": login,
 	})
 }
 

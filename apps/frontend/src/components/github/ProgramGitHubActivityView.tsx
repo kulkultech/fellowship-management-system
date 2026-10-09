@@ -6,14 +6,20 @@ import {
   ArrowUp,
   Check,
   ExternalLink,
+  GitCommitHorizontal,
+  GitMerge,
   Github,
   Loader2,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
+  Users,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { githubService } from '@/services/githubService';
+import { useAuthStore } from '@/hooks/useAuthStore';
 import type { GitHubContributionCounts, GitHubFellowActivity, ProgramGitHubRepo } from '@/services/types';
 
 interface ProgramGitHubActivityViewProps {
@@ -65,6 +71,9 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
   const [repoInput, setRepoInput] = useState('');
   const [repoFilter, setRepoFilter] = useState<string>('all');
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'total', dir: 'desc' });
+  const [editing, setEditing] = useState<{ applicantId: string; value: string } | null>(null);
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'org_admin' || user?.role === 'superadmin';
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey,
@@ -106,6 +115,23 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
     onError: (err: any) => toast.error(errorMessage(err, 'Failed to remove repository')),
   });
 
+  const updateGitHubMutation = useMutation({
+    mutationFn: ({ applicantId, github }: { applicantId: string; github: string }) =>
+      githubService.updateFellowGitHub(programId, applicantId, github),
+    onSuccess: (res) => {
+      toast.success(res.github_login ? `GitHub set to @${res.github_login}` : 'GitHub link removed');
+      setEditing(null);
+      invalidate();
+    },
+    onError: (err: any) => toast.error(errorMessage(err, 'Failed to update GitHub profile')),
+  });
+
+  const handleSaveGitHub = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    updateGitHubMutation.mutate({ applicantId: editing.applicantId, github: editing.value.trim() });
+  };
+
   const handleAddRepo = (e: React.FormEvent) => {
     e.preventDefault();
     if (!repoInput.trim()) return;
@@ -138,6 +164,10 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
   }, [fellows, repoFilter, sort]);
 
   const linkedCount = fellows.filter((f) => f.github_login).length;
+  const programTotals = fellows.reduce(
+    (acc, f) => ({ commits: acc.commits + f.totals.commits, merged: acc.merged + f.totals.pull_requests_merged }),
+    { commits: 0, merged: 0 }
+  );
 
   const toggleSort = (key: SortKey) =>
     setSort((prev) =>
@@ -145,7 +175,11 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
     );
 
   const renderSortHeader = (sortKey: SortKey, label: string, hint?: string, align: 'left' | 'center' = 'center') => (
-    <th key={sortKey} className={`px-3 py-3 ${align === 'center' ? 'text-center' : 'text-left'}`} title={hint}>
+    <th
+      key={sortKey}
+      className={`px-3 py-3 whitespace-nowrap ${align === 'center' ? 'text-center' : 'text-left'}`}
+      title={hint}
+    >
       <button
         type="button"
         onClick={() => toggleSort(sortKey)}
@@ -182,6 +216,31 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
 
   return (
     <div className="space-y-6">
+      {/* Metrics Banner */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Tracked Repos', value: repos.length, note: 'Repositories being analyzed', icon: Github, color: 'text-kulkul-purple' },
+          {
+            label: 'Fellows on GitHub',
+            value: `${linkedCount} / ${fellows.length}`,
+            note: 'Fellows with a GitHub profile',
+            icon: Users,
+            color: 'text-emerald-600',
+          },
+          { label: 'PRs Merged', value: programTotals.merged, note: 'Across all tracked repos', icon: GitMerge, color: 'text-blue-600' },
+          { label: 'Commits', value: programTotals.commits, note: 'By fellows on default branches', icon: GitCommitHorizontal, color: 'text-[#fe900d]' },
+        ].map((card) => (
+          <div key={card.label} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-2xs font-extrabold uppercase tracking-wider">{card.label}</span>
+              <card.icon className={`w-4 h-4 ${card.color}`} />
+            </div>
+            <div className="text-2xl font-black text-slate-900">{card.value}</div>
+            <p className="text-2xs text-slate-500">{card.note}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Tracked Repositories */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
         <div className="pb-4 border-b border-slate-100 space-y-1">
@@ -192,29 +251,32 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
           </p>
         </div>
 
-        <form onSubmit={handleAddRepo} className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            value={repoInput}
-            onChange={(e) => setRepoInput(e.target.value)}
-            placeholder="https://github.com/owner/repo or owner/repo"
-            disabled={addRepoMutation.isPending}
-            className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 bg-white disabled:opacity-60"
-          />
+        <form onSubmit={handleAddRepo} className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Github className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={repoInput}
+              onChange={(e) => setRepoInput(e.target.value)}
+              placeholder="https://github.com/owner/repo or owner/repo"
+              disabled={addRepoMutation.isPending}
+              className="w-full pl-9 pr-4 py-2 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-kulkul-purple bg-slate-50/50 disabled:opacity-60"
+            />
+          </div>
           <button
             type="submit"
             disabled={addRepoMutation.isPending || !repoInput.trim()}
-            className="btn btn-md btn-primary shrink-0 disabled:opacity-60"
+            className="btn btn-sm btn-primary shrink-0 disabled:opacity-60"
           >
             {addRepoMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             <span>{addRepoMutation.isPending ? 'Adding…' : 'Add Repository'}</span>
           </button>
         </form>
 
-        {!data?.github_token_configured && (
+        {isAdmin && !data?.github_token_configured && (
           <p className="text-2xs text-slate-400">
-            The server has no GitHub token, so only public repositories can be tracked and GitHub allows 60 requests per
-            hour. Set GITHUB_TOKEN on the backend to raise the limit and track private repositories.
+            Only public repositories can be tracked right now, and syncing is limited to a few repositories per hour.
+            Ask your developer to add a GitHub token to the server to track private repositories.
           </p>
         )}
 
@@ -254,7 +316,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
                     type="button"
                     onClick={() => handleRemove(repo)}
                     disabled={removeMutation.isPending}
-                    className="btn btn-sm btn-ghost text-rose-600 hover:text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                    className="btn btn-sm btn-outline text-rose-600 border-rose-200 hover:bg-rose-50 disabled:opacity-60"
                     aria-label={`Stop tracking ${repo.full_name}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -275,7 +337,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
             <p className="text-xs text-slate-500">
               {fellows.length === 0
                 ? 'No fellows admitted to this program yet.'
-                : `${linkedCount} of ${fellows.length} fellows have a GitHub profile on their application.`}
+                : `${linkedCount} of ${fellows.length} fellows have a GitHub profile. Missing ones can be added below.`}
             </p>
           </div>
           {repos.length > 1 && (
@@ -310,20 +372,73 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
               <tbody className="divide-y divide-slate-100">
                 {rows.map(({ fellow, counts }) => (
                   <tr key={fellow.applicant_id} className="hover:bg-slate-50/60 transition">
-                    <td className="px-3 py-3.5">
+                    <td className="px-3 py-3.5 min-w-[13rem]">
                       <div className="font-extrabold text-slate-900">{fellow.full_name}</div>
-                      {fellow.github_login ? (
-                        <a
-                          href={`https://github.com/${fellow.github_login}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-2xs text-slate-500 hover:text-kulkul-purple hover:underline"
-                        >
-                          @{fellow.github_login}
-                        </a>
+                      {editing?.applicantId === fellow.applicant_id ? (
+                        <form onSubmit={handleSaveGitHub} className="flex items-center gap-1.5 mt-1">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editing.value}
+                            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                            onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
+                            placeholder="username or profile link"
+                            disabled={updateGitHubMutation.isPending}
+                            className="w-36 px-2.5 py-1 rounded-lg border border-slate-200 text-2xs focus:outline-none focus:border-kulkul-purple bg-white disabled:opacity-60"
+                          />
+                          <button
+                            type="submit"
+                            disabled={updateGitHubMutation.isPending}
+                            className="btn btn-icon-xs btn-primary disabled:opacity-60"
+                            aria-label="Save GitHub profile"
+                          >
+                            {updateGitHubMutation.isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Check className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditing(null)}
+                            className="btn btn-icon-xs btn-ghost"
+                            aria-label="Cancel"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </form>
+                      ) : fellow.github_login ? (
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`https://github.com/${fellow.github_login}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-2xs text-slate-500 hover:text-kulkul-purple hover:underline"
+                          >
+                            @{fellow.github_login}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ applicantId: fellow.applicant_id, value: fellow.github_login || '' })}
+                            className="text-slate-300 hover:text-kulkul-purple transition"
+                            aria-label={`Edit GitHub profile of ${fellow.full_name}`}
+                            title="Edit GitHub profile"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        </div>
                       ) : (
-                        <div className="text-2xs text-slate-400">
-                          {fellow.github_url ? 'GitHub link not recognized' : 'No GitHub on profile'}
+                        <div className="flex items-center gap-1.5 text-2xs">
+                          <span className="text-slate-400">
+                            {fellow.github_url ? 'GitHub link not recognized' : 'No GitHub on profile'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ applicantId: fellow.applicant_id, value: fellow.github_url || '' })}
+                            className="font-bold text-kulkul-purple hover:underline"
+                          >
+                            {fellow.github_url ? 'Fix' : 'Add'}
+                          </button>
                         </div>
                       )}
                     </td>

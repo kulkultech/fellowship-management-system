@@ -230,6 +230,34 @@ func (r *ApplicantRepository) UpdateStage(ctx context.Context, id uuid.UUID, sta
 	return nil
 }
 
+// UpdateGitHubURL sets the GitHub profile link used to match a fellow's contributions.
+func (r *ApplicantRepository) UpdateGitHubURL(ctx context.Context, id uuid.UUID, githubURL string) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		app, ok := r.memApplicants[id]
+		if !ok || app.DeletedAt != nil {
+			return ErrApplicantNotFound
+		}
+		app.GitHubURL = githubURL
+		app.UpdatedAt = time.Now()
+		return nil
+	}
+
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE applicants
+		SET github_url = $2, updated_at = now()
+		WHERE id = $1 AND deleted_at IS NULL
+	`, id, githubURL)
+	if err != nil {
+		return fmt.Errorf("applicant_repo: update github url: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrApplicantNotFound
+	}
+	return nil
+}
+
 func (r *ApplicantRepository) SetFormSubmitted(ctx context.Context, id uuid.UUID, submitted bool) error {
 	if r.pool == nil {
 		r.mu.Lock()

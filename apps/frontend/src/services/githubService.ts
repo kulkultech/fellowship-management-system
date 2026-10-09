@@ -19,6 +19,16 @@ export const githubService = {
     return res.data;
   },
 
+  /** Sets (or clears, with '') a fellow's GitHub username or profile link */
+  updateFellowGitHub: async (
+    programId: string,
+    applicantId: string,
+    github: string
+  ): Promise<{ github_url: string; github_login: string }> => {
+    const res = await apiClient.put(`/programs/${programId}/github/fellows/${applicantId}`, { github });
+    return res.data;
+  },
+
   removeRepo: async (programId: string, repoId: string): Promise<void> => {
     await apiClient.delete(`/programs/${programId}/github/repos/${repoId}`);
   },

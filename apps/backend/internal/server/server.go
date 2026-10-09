@@ -83,6 +83,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))
+	if pool != nil {
+		githubHandler.StartAutoSync(context.Background())
+	}
 	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 
 	var googleOAuth *auth.GoogleOAuth
@@ -318,6 +321,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				g.Delete("/repos/{repoId}", githubHandler.DeleteRepo)
 				g.Post("/repos/{repoId}/sync", githubHandler.SyncRepo)
 				g.Get("/activity", githubHandler.GetActivity)
+				g.Put("/fellows/{applicantId}", githubHandler.UpdateFellowGitHub)
 			})
 
 			// Program & Applicant Credentials Management

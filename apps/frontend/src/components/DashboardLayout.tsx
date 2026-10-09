@@ -683,8 +683,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 min-w-0 overflow-y-auto">
           {/* Header Title Section (if provided) */}
           {(title || headerActions) && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80 mb-6">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-200/80 mb-6">
+              {/* Title takes the row when there's room; actions wrap below it instead of squeezing it */}
+              <div className="min-w-0 flex-[1_1_24rem]">
                 {title && (
                   <h1 className="heading-page">
                     {title}
@@ -698,7 +699,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </div>
 
               {headerActions && (
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-3 max-w-full">
                   {headerActions}
                 </div>
               )}
