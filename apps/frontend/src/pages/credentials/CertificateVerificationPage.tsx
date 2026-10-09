@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ShieldCheck,
   AlertCircle,
+  Check,
   ArrowLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -177,32 +178,36 @@ export const CertificateVerificationPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Verification Status Banner (Hidden in print) */}
-        <div className="mb-8 print:hidden">
-          <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-7 h-7" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-extrabold text-slate-900">
-                    Official Verified Certificate
-                  </h2>
-                  <span className="badge badge-sm bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Valid & Active
+        {/* Verification Status (Hidden in print) */}
+        <div className="mb-8 pb-6 border-b border-slate-200 flex flex-col md:flex-row md:items-start justify-between gap-4 print:hidden">
+          <div className="flex items-start gap-3">
+            <ShieldCheck
+              className={`w-6 h-6 shrink-0 mt-0.5 ${data.valid ? 'text-emerald-600' : 'text-rose-600'}`}
+            />
+            <div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h2 className="text-base font-extrabold text-slate-900">Official Verified Certificate</h2>
+                {data.valid ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
+                    <Check className="w-3.5 h-3.5" />
+                    Valid &amp; active
                   </span>
-                </div>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  Conferred upon <strong className="text-slate-900">{data.recipient_name}</strong> for completing{' '}
-                  <strong className="text-slate-900">{data.program_name}</strong>. Authenticated against the FellowHire Credential Board.
-                </p>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    No longer valid
+                  </span>
+                )}
               </div>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Conferred upon <strong className="text-slate-900">{data.recipient_name}</strong> for completing{' '}
+                <strong className="text-slate-900">{data.program_name}</strong>. Authenticated against the FellowHire Credential Board.
+              </p>
             </div>
-            <div className="shrink-0 font-mono text-xs text-slate-500 border-t md:border-t-0 md:border-l border-emerald-200/80 pt-3 md:pt-0 md:pl-5 space-y-0.5">
-              <div>Certificate ID: <span className="font-bold text-slate-800">{data.certificate_number}</span></div>
-              <div>Verification Hash: <span className="font-bold text-emerald-700">{data.verification_code}</span></div>
-            </div>
+          </div>
+          <div className="shrink-0 font-mono text-xs text-slate-500 space-y-0.5 pl-9 md:pl-0 md:text-right">
+            <div>Certificate ID: <span className="font-bold text-slate-800">{data.certificate_number}</span></div>
+            <div>Verification Hash: <span className="font-bold text-slate-800">{data.verification_code}</span></div>
           </div>
         </div>
 
@@ -326,13 +331,11 @@ export const CertificateVerificationPage: React.FC = () => {
                     <img src={b.image_url} alt={b.name} className="w-full h-full object-contain filter drop-shadow-sm" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="badge badge-sm bg-purple-100 text-kulkul-purple">
+                    <div className="text-caption">
+                      <span className="font-bold text-kulkul-purple">
                         {b.badge_type === 'member' ? 'Cohort Member' : 'Program Graduate'}
                       </span>
-                      <span className="text-caption">
-                        {new Date(b.issued_at).toLocaleDateString()}
-                      </span>
+                      <span> &middot; {new Date(b.issued_at).toLocaleDateString()}</span>
                     </div>
                     <h4 className="heading-card text-sm text-slate-900 truncate mt-1">{b.name}</h4>
                     <p className="text-body-sm text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{b.description}</p>
