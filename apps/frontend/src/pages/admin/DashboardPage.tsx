@@ -2392,7 +2392,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       id: 'questions',
       label: 'Question Banks',
       icon: HelpCircle,
-      badge: allQuestionSets.length > 0 ? allQuestionSets.length : undefined,
       onClick: () => setCurrentView('questions'),
     },
     {
