@@ -156,6 +156,30 @@ func (r *CredentialRepository) GetBadgeByID(ctx context.Context, id uuid.UUID) (
 	return &b, nil
 }
 
+// RevokeBadge marks a badge as revoked; its hosted assertion then returns 410 Gone.
+func (r *CredentialRepository) RevokeBadge(ctx context.Context, id uuid.UUID, revokedAt time.Time) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		b, ok := r.memBadges[id]
+		if !ok {
+			return ErrBadgeNotFound
+		}
+		b.RevokedAt = &revokedAt
+		b.UpdatedAt = time.Now()
+		return nil
+	}
+
+	tag, err := r.pool.Exec(ctx, `UPDATE badges SET revoked_at = $2, updated_at = now() WHERE id = $1`, id, revokedAt)
+	if err != nil {
+		return fmt.Errorf("credential_repo: revoke badge: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrBadgeNotFound
+	}
+	return nil
+}
+
 func (r *CredentialRepository) ListBadgesByApplicant(ctx context.Context, applicantID uuid.UUID) ([]*model.Badge, error) {
 	if r.pool == nil {
 		r.mu.RLock()

@@ -934,9 +934,11 @@ export interface PublicCertificateVerification {
 
 export interface PublicBadgeVerification {
   valid: boolean;
-  status: string;
-  badge: Badge;
+  badge_id: string;
+  /** Present when the badge exists (including revoked badges) */
+  badge?: Badge;
   assertion_url: string;
+  badge_class_url: string;
   issuer_url: string;
 }
 

@@ -249,7 +249,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		api.Route("/badges", func(b chi.Router) {
 			b.Get("/assertions/{id}", credentialHandler.GetBadgeAssertionJSON)
 			b.Get("/classes/{slug}", credentialHandler.GetBadgeClassJSON)
+			b.Get("/classes/{programId}/{type}", credentialHandler.GetProgramBadgeClassJSON)
 			b.Get("/issuer.json", credentialHandler.GetBadgeIssuerJSON)
+			b.Get("/issuers/{orgId}", credentialHandler.GetOrgIssuerJSON)
 			b.Get("/images/{type}", credentialHandler.GetBadgeImageSVG)
 			b.Get("/verify/{id}", credentialHandler.VerifyBadgePublic)
 		})

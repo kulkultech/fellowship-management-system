@@ -3,6 +3,8 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -194,8 +196,18 @@ func TestOpenBadgesAndCertificateFlow(t *testing.T) {
 	if assertion.Type != "Assertion" {
 		t.Errorf("expected type Assertion, got: %s", assertion.Type)
 	}
-	if assertion.Recipient.Identity != "fellow@example.com" {
-		t.Errorf("expected recipient fellow@example.com, got: %s", assertion.Recipient.Identity)
+	// The recipient email is hashed with a published salt (Open Badges 2.0 recommendation)
+	sum := sha256.Sum256([]byte("fellow@example.com" + assertion.Recipient.Salt))
+	if !assertion.Recipient.Hashed || assertion.Recipient.Salt == "" ||
+		assertion.Recipient.Identity != "sha256$"+hex.EncodeToString(sum[:]) {
+		t.Errorf("expected hashed recipient identity, got: %+v", assertion.Recipient)
+	}
+	if strings.Contains(w.Body.String(), "fellow@example.com") {
+		t.Errorf("assertion must not expose the recipient email")
+	}
+	wantClass := fmt.Sprintf("/api/v1/badges/classes/%s/member.json", applicant.ProgramID)
+	if !strings.HasSuffix(assertion.Badge, wantClass) {
+		t.Errorf("expected program badge class %s, got: %s", wantClass, assertion.Badge)
 	}
 	if assertion.Verification.Type != "hosted" {
 		t.Errorf("expected verification type hosted, got: %s", assertion.Verification.Type)
@@ -370,5 +382,84 @@ func TestGenerateCertificateWithSignatories(t *testing.T) {
 		if w := post(body); w.Code != http.StatusBadRequest {
 			t.Errorf("%s: expected 400, got %d", name, w.Code)
 		}
+	}
+}
+
+func TestOpenBadgesProgramClassIssuerAndRevocation(t *testing.T) {
+	credRepo, _, _, _, credHandler, _, orgID, progID, applicant := setupCredentialTestEnv(t)
+	ctx := context.Background()
+
+	badge, err := credHandler.AutoAwardCompletionBadge(ctx, applicant, "LIT Fellowship 2026", "https://fellowhire.com")
+	if err != nil {
+		t.Fatalf("failed to award badge: %v", err)
+	}
+
+	r := chi.NewRouter()
+	r.Get("/api/v1/badges/assertions/{id}", credHandler.GetBadgeAssertionJSON)
+	r.Get("/api/v1/badges/classes/{programId}/{type}", credHandler.GetProgramBadgeClassJSON)
+	r.Get("/api/v1/badges/issuers/{orgId}", credHandler.GetOrgIssuerJSON)
+	r.Get("/api/v1/badges/verify/{id}", credHandler.VerifyBadgePublic)
+	get := func(path string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		return w
+	}
+
+	// Program-specific BadgeClass issued by the program's organization
+	w := get(fmt.Sprintf("/api/v1/badges/classes/%s/graduate.json", progID))
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for badge class, got %d: %s", w.Code, w.Body.String())
+	}
+	var class model.OpenBadgeClass
+	_ = json.Unmarshal(w.Body.Bytes(), &class)
+	if class.Name != "LIT Fellowship 2026 Graduate" || !strings.HasSuffix(class.Issuer, fmt.Sprintf("/api/v1/badges/issuers/%s.json", orgID)) {
+		t.Errorf("unexpected badge class: %+v", class)
+	}
+	if !strings.HasSuffix(class.ID, fmt.Sprintf("/api/v1/badges/classes/%s/graduate.json", progID)) || class.Criteria.Narrative == "" || class.Image == "" {
+		t.Errorf("badge class is missing required fields: %+v", class)
+	}
+	if w := get(fmt.Sprintf("/api/v1/badges/classes/%s/unknown.json", progID)); w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown badge type, got %d", w.Code)
+	}
+
+	// Organization issuer profile
+	w = get(fmt.Sprintf("/api/v1/badges/issuers/%s.json", orgID))
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for issuer, got %d: %s", w.Code, w.Body.String())
+	}
+	var issuer model.OpenBadgeIssuer
+	_ = json.Unmarshal(w.Body.Bytes(), &issuer)
+	if issuer.Name != "KulKul Tech" || issuer.Type != "Issuer" || issuer.Email == "" || issuer.URL == "" {
+		t.Errorf("unexpected issuer: %+v", issuer)
+	}
+
+	// Public verification includes the badge but never the recipient email
+	w = get(fmt.Sprintf("/api/v1/badges/verify/%s", badge.ID))
+	var verification model.PublicBadgeVerification
+	_ = json.Unmarshal(w.Body.Bytes(), &verification)
+	if !verification.Valid || verification.Badge == nil || verification.Badge.Name == "" {
+		t.Errorf("expected valid verification with badge details, got %+v", verification)
+	}
+	if strings.Contains(w.Body.String(), "fellow@example.com") {
+		t.Errorf("public badge verification must not expose the recipient email")
+	}
+
+	// Revoked hosted assertions return 410 Gone with revoked: true
+	if err := credRepo.RevokeBadge(ctx, badge.ID, time.Now()); err != nil {
+		t.Fatalf("failed to revoke badge: %v", err)
+	}
+	w = get(fmt.Sprintf("/api/v1/badges/assertions/%s.json", badge.ID))
+	if w.Code != http.StatusGone {
+		t.Fatalf("expected 410 for revoked assertion, got %d", w.Code)
+	}
+	var revoked model.OpenBadgeRevokedAssertion
+	_ = json.Unmarshal(w.Body.Bytes(), &revoked)
+	if !revoked.Revoked || revoked.ID == "" {
+		t.Errorf("expected revoked assertion body, got %s", w.Body.String())
+	}
+	w = get(fmt.Sprintf("/api/v1/badges/verify/%s", badge.ID))
+	_ = json.Unmarshal(w.Body.Bytes(), &verification)
+	if verification.Valid {
+		t.Errorf("expected revoked badge to verify as invalid")
 	}
 }

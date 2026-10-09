@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,6 +58,59 @@ func NewCredentialHandler(
 // PUBLIC OPEN BADGES v2.0 SPECIFICATION ENDPOINTS
 // ---------------------------------------------------------------------
 
+// fallbackIssuerEmail is used when an organization has no contact or admin email.
+const fallbackIssuerEmail = "support@fellowhire.kul.to"
+
+// apiBaseURL returns the public origin of the API for building Open Badges IRIs.
+func apiBaseURL(r *http.Request) string {
+	scheme := "https"
+	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
+		scheme = "http"
+	}
+	return fmt.Sprintf("%s://%s", scheme, r.Host)
+}
+
+// badgeClassSlug maps a badge type to its BadgeClass path segment.
+func badgeClassSlug(t model.BadgeType) string {
+	if t == model.BadgeTypeCompletion {
+		return "graduate"
+	}
+	return "member"
+}
+
+// programBadgeClassURL is the BadgeClass for a program's member or graduate badge.
+func programBadgeClassURL(base string, programID uuid.UUID, t model.BadgeType) string {
+	return fmt.Sprintf("%s/api/v1/badges/classes/%s/%s.json", base, programID, badgeClassSlug(t))
+}
+
+// orgIssuerURL is the issuer Profile of the organization that runs the program.
+func orgIssuerURL(base string, orgID uuid.UUID) string {
+	return fmt.Sprintf("%s/api/v1/badges/issuers/%s.json", base, orgID)
+}
+
+func assertionURL(base string, badgeID uuid.UUID) string {
+	return fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", base, badgeID)
+}
+
+// hashedEmailRecipient hides the recipient email as recommended by Open Badges 2.0:
+// identity = "sha256$" + hex(sha256(lowercase(email) + salt)).
+func hashedEmailRecipient(email, salt string) model.OpenBadgeRecipient {
+	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(email)) + salt))
+	return model.OpenBadgeRecipient{
+		Type:     "email",
+		Hashed:   true,
+		Identity: "sha256$" + hex.EncodeToString(sum[:]),
+		Salt:     salt,
+	}
+}
+
+func writeJSONLD(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/ld+json; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
 // GetBadgeAssertionJSON handles GET /api/v1/badges/assertions/{id}.json
 func (h *CredentialHandler) GetBadgeAssertionJSON(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -77,50 +132,125 @@ func (h *CredentialHandler) GetBadgeAssertionJSON(w http.ResponseWriter, r *http
 		return
 	}
 
-	scheme := "https"
-	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
-		scheme = "http"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+	baseURL := apiBaseURL(r)
 
-	badgeTypeSlug := "cohort-member"
-	if badge.BadgeType == model.BadgeTypeCompletion {
-		badgeTypeSlug = "program-graduate"
+	// Open Badges 2.0: a revoked hosted assertion returns 410 Gone with revoked: true
+	if badge.RevokedAt != nil {
+		writeJSONLD(w, http.StatusGone, model.OpenBadgeRevokedAssertion{
+			Context: "https://w3id.org/openbadges/v2",
+			ID:      assertionURL(baseURL, badge.ID),
+			Type:    "Assertion",
+			Revoked: true,
+		})
+		return
 	}
 
-	assertion := model.OpenBadgeAssertion{
-		Context: "https://w3id.org/openbadges/v2",
-		ID:      fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", baseURL, badge.ID.String()),
-		Type:    "Assertion",
-		Recipient: model.OpenBadgeRecipient{
-			Type:     "email",
-			Hashed:   false,
-			Identity: badge.RecipientEmail,
-		},
-		Badge: fmt.Sprintf("%s/api/v1/badges/classes/%s.json", baseURL, badgeTypeSlug),
+	writeJSONLD(w, http.StatusOK, model.OpenBadgeAssertion{
+		Context:   "https://w3id.org/openbadges/v2",
+		ID:        assertionURL(baseURL, badge.ID),
+		Type:      "Assertion",
+		Recipient: hashedEmailRecipient(badge.RecipientEmail, strings.ReplaceAll(badge.ID.String(), "-", "")),
+		Badge:     programBadgeClassURL(baseURL, badge.ProgramID, badge.BadgeType),
 		Verification: model.OpenBadgeVerification{
 			Type: "hosted",
 		},
 		IssuedOn:  badge.IssuedAt.UTC().Format(time.RFC3339),
 		Evidence:  fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, badge.ID.String()),
 		Narrative: badge.Description,
-	}
-
-	w.Header().Set("Content-Type", "application/ld+json; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_ = json.NewEncoder(w).Encode(assertion)
+	})
 }
 
-// GetBadgeClassJSON handles GET /api/v1/badges/classes/{slug}.json
+// GetProgramBadgeClassJSON handles GET /api/v1/badges/classes/{programId}/{type}.json
+func (h *CredentialHandler) GetProgramBadgeClassJSON(w http.ResponseWriter, r *http.Request) {
+	programID, err := uuid.Parse(chi.URLParam(r, "programId"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+	badgeType := model.BadgeTypeMember
+	switch strings.TrimSuffix(chi.URLParam(r, "type"), ".json") {
+	case "member":
+	case "graduate":
+		badgeType = model.BadgeTypeCompletion
+	default:
+		httpx.Error(w, http.StatusNotFound, "badge class not found")
+		return
+	}
+
+	program, err := h.programRepo.GetByID(r.Context(), programID)
+	if err != nil || program == nil {
+		httpx.Error(w, http.StatusNotFound, "badge class not found")
+		return
+	}
+	orgName := "the fellowship organization"
+	if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
+		orgName = org.Name
+	}
+
+	baseURL := apiBaseURL(r)
+	class := model.OpenBadgeClass{
+		Context: "https://w3id.org/openbadges/v2",
+		ID:      programBadgeClassURL(baseURL, program.ID, badgeType),
+		Type:    "BadgeClass",
+		Issuer:  orgIssuerURL(baseURL, program.OrganizationID),
+	}
+	if badgeType == model.BadgeTypeCompletion {
+		class.Name = fmt.Sprintf("%s Graduate", program.Name)
+		class.Description = fmt.Sprintf("Awarded by %s to fellows who completed the %s cohort, including its live sessions, assignments, and final milestones.", orgName, program.Name)
+		class.Image = fmt.Sprintf("%s/api/v1/badges/images/completion.svg", baseURL)
+		class.Criteria = model.OpenBadgeCriteria{
+			Narrative: "Attended the scheduled cohort sessions, submitted assignments that met the grading standards, and completed the final program milestones.",
+		}
+		class.Tags = []string{"fellowship", "graduate", "certificate"}
+	} else {
+		class.Name = fmt.Sprintf("%s Cohort Member", program.Name)
+		class.Description = fmt.Sprintf("Awarded by %s to fellows admitted into the %s cohort after its selection process.", orgName, program.Name)
+		class.Image = fmt.Sprintf("%s/api/v1/badges/images/member.svg", baseURL)
+		class.Criteria = model.OpenBadgeCriteria{
+			Narrative: "Passed the program's application screening and assessments and was admitted into the live fellowship cohort.",
+		}
+		class.Tags = []string{"fellowship", "member", "cohort"}
+	}
+	writeJSONLD(w, http.StatusOK, class)
+}
+
+// GetOrgIssuerJSON handles GET /api/v1/badges/issuers/{orgId}.json
+func (h *CredentialHandler) GetOrgIssuerJSON(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(strings.TrimSuffix(chi.URLParam(r, "orgId"), ".json"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid issuer id")
+		return
+	}
+	org, err := h.orgRepo.GetByID(r.Context(), orgID)
+	if err != nil || org == nil {
+		httpx.Error(w, http.StatusNotFound, "issuer not found")
+		return
+	}
+
+	email := org.ContactEmail
+	if email == "" {
+		email = org.AdminEmail
+	}
+	if email == "" {
+		email = fallbackIssuerEmail
+	}
+	writeJSONLD(w, http.StatusOK, model.OpenBadgeIssuer{
+		Context:     "https://w3id.org/openbadges/v2",
+		ID:          orgIssuerURL(apiBaseURL(r), org.ID),
+		Type:        "Issuer",
+		Name:        org.Name,
+		URL:         h.frontendURL,
+		Email:       email,
+		Description: fmt.Sprintf("%s issues fellowship credentials through FellowHire.", org.Name),
+	})
+}
+
+// GetBadgeClassJSON handles GET /api/v1/badges/classes/{slug}.json.
+// Legacy platform-wide classes, kept so previously shared links keep resolving.
 func (h *CredentialHandler) GetBadgeClassJSON(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	slug = strings.TrimSuffix(slug, ".json")
-
-	scheme := "https"
-	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
-		scheme = "http"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+	baseURL := apiBaseURL(r)
 
 	var class model.OpenBadgeClass
 	if slug == "completion" || slug == "program-graduate" || slug == "graduate" {
@@ -152,33 +282,21 @@ func (h *CredentialHandler) GetBadgeClassJSON(w http.ResponseWriter, r *http.Req
 			Tags:   []string{"fellowship", "member", "cohort", "admitted", "fellowhire"},
 		}
 	}
-
-	w.Header().Set("Content-Type", "application/ld+json; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_ = json.NewEncoder(w).Encode(class)
+	writeJSONLD(w, http.StatusOK, class)
 }
 
-// GetBadgeIssuerJSON handles GET /api/v1/badges/issuer.json
+// GetBadgeIssuerJSON handles GET /api/v1/badges/issuer.json.
+// Legacy platform-wide issuer, kept so previously shared links keep resolving.
 func (h *CredentialHandler) GetBadgeIssuerJSON(w http.ResponseWriter, r *http.Request) {
-	scheme := "https"
-	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
-		scheme = "http"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
-
-	issuer := model.OpenBadgeIssuer{
+	writeJSONLD(w, http.StatusOK, model.OpenBadgeIssuer{
 		Context:     "https://w3id.org/openbadges/v2",
-		ID:          fmt.Sprintf("%s/api/v1/badges/issuer.json", baseURL),
+		ID:          fmt.Sprintf("%s/api/v1/badges/issuer.json", apiBaseURL(r)),
 		Type:        "Issuer",
 		Name:        "KulKul Fellowship / FellowHire Credentials Board",
 		URL:         h.frontendURL,
-		Email:       "credentials@fellowhire.com",
+		Email:       fallbackIssuerEmail,
 		Description: "Official certifying authority for FellowHire and KulKul Fellowship engineering talent credentials.",
-	}
-
-	w.Header().Set("Content-Type", "application/ld+json; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_ = json.NewEncoder(w).Encode(issuer)
+	})
 }
 
 // GetBadgeImageSVG handles GET /api/v1/badges/images/{type}.svg
@@ -337,10 +455,13 @@ func (h *CredentialHandler) VerifyCertificatePublic(w http.ResponseWriter, r *ht
 	for _, b := range badges {
 		b.AssertionURL = fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", baseURL, b.ID.String())
 		b.VerificationURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, b.ID.String())
+		// This endpoint is public: never expose the recipient's email address
+		b.RecipientEmail = ""
 	}
 
 	cert.VerificationURL = fmt.Sprintf("%s/verify/certificate/%s", h.frontendURL, cert.CertificateNumber)
 	cert.LinkedInURL = h.buildLinkedInCertificationURL(cert)
+	cert.RecipientEmail = ""
 
 	httpx.JSON(w, http.StatusOK, model.PublicCertificateVerification{
 		Valid:             cert.Status == model.CertificateStatusIssued,
@@ -382,16 +503,11 @@ func (h *CredentialHandler) VerifyBadgePublic(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	scheme := "https"
-	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") && strings.Contains(r.Host, "localhost") {
-		scheme = "http"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
-
-	badgeTypeSlug := "cohort-member"
-	if badge.BadgeType == model.BadgeTypeCompletion {
-		badgeTypeSlug = "program-graduate"
-	}
+	baseURL := apiBaseURL(r)
+	badge.AssertionURL = assertionURL(baseURL, badge.ID)
+	badge.VerificationURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, badge.ID.String())
+	// This endpoint is public: never expose the recipient's email address
+	badge.RecipientEmail = ""
 
 	httpx.JSON(w, http.StatusOK, model.PublicBadgeVerification{
 		Valid:            badge.RevokedAt == nil,
@@ -404,9 +520,10 @@ func (h *CredentialHandler) VerifyBadgePublic(w http.ResponseWriter, r *http.Req
 		ProgramName:      badge.ProgramName,
 		OrganizationName: badge.OrganizationName,
 		IssuedAt:         badge.IssuedAt,
-		AssertionURL:     fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", baseURL, badge.ID.String()),
-		BadgeClassURL:    fmt.Sprintf("%s/api/v1/badges/classes/%s.json", baseURL, badgeTypeSlug),
-		IssuerURL:        fmt.Sprintf("%s/api/v1/badges/issuer.json", baseURL),
+		AssertionURL:     badge.AssertionURL,
+		BadgeClassURL:    programBadgeClassURL(baseURL, badge.ProgramID, badge.BadgeType),
+		IssuerURL:        orgIssuerURL(baseURL, badge.OrganizationID),
+		Badge:            badge,
 	})
 }
 

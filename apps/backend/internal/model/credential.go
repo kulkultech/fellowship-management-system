@@ -100,7 +100,16 @@ type OpenBadgeAssertion struct {
 type OpenBadgeRecipient struct {
 	Type     string `json:"type"` // "email"
 	Hashed   bool   `json:"hashed"`
-	Identity string `json:"identity"`
+	Identity string `json:"identity"`       // "sha256$<hex>" when hashed
+	Salt     string `json:"salt,omitempty"` // appended to the identity before hashing
+}
+
+// OpenBadgeRevokedAssertion is returned (with 410 Gone) for a revoked hosted assertion.
+type OpenBadgeRevokedAssertion struct {
+	Context string `json:"@context"`
+	ID      string `json:"id"`
+	Type    string `json:"type"` // "Assertion"
+	Revoked bool   `json:"revoked"`
 }
 
 type OpenBadgeVerification struct {
@@ -164,4 +173,5 @@ type PublicBadgeVerification struct {
 	AssertionURL   string    `json:"assertion_url"`
 	BadgeClassURL  string    `json:"badge_class_url"`
 	IssuerURL      string    `json:"issuer_url"`
+	Badge          *Badge    `json:"badge,omitempty"`
 }

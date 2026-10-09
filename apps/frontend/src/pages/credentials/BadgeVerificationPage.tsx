@@ -24,6 +24,9 @@ export const BadgeVerificationPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PublicBadgeVerification | null>(null);
   const [showJson, setShowJson] = useState(false);
+  // The assertion exactly as served to Open Badges verifiers and backpacks
+  const [assertionJson, setAssertionJson] = useState<string | null>(null);
+  const [assertionError, setAssertionError] = useState(false);
 
   useEffect(() => {
     if (!badgeId) {
@@ -52,6 +55,18 @@ export const BadgeVerificationPage: React.FC = () => {
     toast.success('Badge verification link copied!');
   };
 
+  const handleToggleJson = () => {
+    const next = !showJson;
+    setShowJson(next);
+    if (next && !assertionJson && data?.assertion_url) {
+      setAssertionError(false);
+      fetch(data.assertion_url)
+        .then((res) => res.json())
+        .then((json) => setAssertionJson(JSON.stringify(json, null, 2)))
+        .catch(() => setAssertionError(true));
+    }
+  };
+
   const handleCopyAssertionURL = () => {
     if (!data?.assertion_url) return;
     navigator.clipboard.writeText(data.assertion_url);
@@ -71,7 +86,7 @@ export const BadgeVerificationPage: React.FC = () => {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !data.valid || !data.badge) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <Navbar />
@@ -82,7 +97,10 @@ export const BadgeVerificationPage: React.FC = () => {
             </div>
             <h1 className="heading-section text-slate-900 mb-2">Unverified Badge Assertion</h1>
             <p className="text-body text-slate-600 text-sm mb-6 leading-relaxed">
-              {error || 'This digital badge does not exist or has been revoked by the issuing authority.'}
+              {error ||
+                (data?.badge
+                  ? 'This digital badge has been revoked by the issuing organization and is no longer valid.'
+                  : 'This digital badge does not exist or has been revoked by the issuing authority.')}
             </p>
             <Link to="/" className="btn btn-md btn-primary w-full gap-2">
               <ArrowLeft className="w-4 h-4" /> Return to Homepage
@@ -144,23 +162,17 @@ export const BadgeVerificationPage: React.FC = () => {
 
             {/* Badge Details */}
             <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-3">
-                <span
-                  className={`badge badge-md ${
-                    isMember
-                      ? 'bg-purple-100 text-kulkul-purple border border-purple-200'
-                      : 'bg-amber-100 text-amber-900 border border-amber-200'
-                  }`}
-                >
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1 mb-3 text-xs">
+                <span className={`font-bold ${isMember ? 'text-kulkul-purple' : 'text-amber-700'}`}>
                   {isMember ? 'Cohort Member Badge' : 'Program Graduate Badge'}
                 </span>
-                <span className="badge badge-md bg-emerald-50 text-emerald-800 border border-emerald-200 gap-1.5">
+                <span className="text-slate-300">&middot;</span>
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Verified Assertion</span>
+                  Verified
                 </span>
-                <span className="badge badge-md font-mono text-slate-500 bg-slate-100 border border-slate-200">
-                  Open Badges v2.0
-                </span>
+                <span className="text-slate-300">&middot;</span>
+                <span className="font-mono text-slate-500">Open Badges 2.0</span>
               </div>
 
               <h1 className="heading-page text-slate-900 text-xl sm:text-2xl mb-2">
@@ -226,7 +238,7 @@ export const BadgeVerificationPage: React.FC = () => {
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={() => setShowJson(!showJson)}
+                  onClick={handleToggleJson}
                   className="btn btn-md btn-outline"
                 >
                   <Code2 className="w-4 h-4 text-kulkul-purple" />
@@ -268,27 +280,9 @@ export const BadgeVerificationPage: React.FC = () => {
                 </button>
               </div>
               <pre className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-purple-200 overflow-x-auto leading-relaxed shadow-inner">
-                {JSON.stringify(
-                  {
-                    '@context': 'https://w3id.org/openbadges/v2',
-                    id: data.assertion_url,
-                    type: 'Assertion',
-                    recipient: {
-                      type: 'email',
-                      hashed: false,
-                      identity: badge.recipient_email,
-                    },
-                    badge: badge.criteria_url,
-                    verification: {
-                      type: 'hosted',
-                    },
-                    issuedOn: badge.issued_at,
-                    evidence: window.location.href,
-                    narrative: badge.description,
-                  },
-                  null,
-                  2
-                )}
+                {assertionError
+                  ? 'Could not load the assertion. Open the JSON-LD Assertion link above instead.'
+                  : assertionJson ?? 'Loading assertion…'}
               </pre>
             </div>
           )}
