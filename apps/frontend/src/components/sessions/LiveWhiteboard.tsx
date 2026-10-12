@@ -15,7 +15,6 @@ import {
   FileCode,
   GitBranch,
   Layers,
-  Check,
   Compass,
   PenTool,
   Sun,
@@ -25,24 +24,20 @@ import toast from 'react-hot-toast';
 
 interface LiveWhiteboardProps {
   sessionId: string;
-  sessionTitle: string;
   isMentor?: boolean;
   initialElements?: any[];
   initialAppState?: any;
   /** Called with only the elements that changed (including deletions) since the last call */
   onElementsChange?: (elements: any[], appState?: any) => void;
   remoteWhiteboardUpdate?: { elements: any[]; appState?: any; sender?: { name: string; role: string } } | null;
-  isConnected?: boolean;
 }
 
 export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   sessionId,
-  sessionTitle,
   initialElements,
   initialAppState,
   onElementsChange,
   remoteWhiteboardUpdate,
-  isConnected = false,
 }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -445,26 +440,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
           <div className="w-9 h-9 rounded-2xl bg-purple-50 text-kulkul-purple border border-purple-100 flex items-center justify-center shrink-0">
             <PenTool className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-sm font-extrabold text-slate-900 leading-tight">
-              Whiteboard Studio
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              {isConnected ? (
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Synced
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400">
-                  <Check className="w-3.5 h-3.5" />
-                  Auto-saved
-                </span>
-              )}
-              <span>&bull;</span>
-              <span className="truncate max-w-[140px] sm:max-w-xs">{sessionTitle}</span>
-            </div>
-          </div>
+          <div className="text-sm font-extrabold text-slate-900">Whiteboard Studio</div>
         </div>
 
         {/* Middle: Architecture Templates */}

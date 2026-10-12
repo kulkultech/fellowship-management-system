@@ -15,10 +15,10 @@ import {
   X,
   PenTool,
   Eye,
+  Copy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { sessionService } from '@/services/sessionService';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import {
@@ -434,228 +434,133 @@ export const SessionWorkspacePage: React.FC = () => {
     ? '/admin/dashboard'
     : '/candidate/dashboard';
 
+  const portalType =
+    user?.role === 'mentor'
+      ? 'mentor'
+      : user?.role === 'superadmin'
+      ? 'superadmin'
+      : user?.role === 'org_admin'
+      ? 'company_admin'
+      : 'candidate';
+
+  const roleLabel = (role: string) =>
+    role === 'mentor' ? 'Mentor' : role === 'org_admin' || role === 'superadmin' ? 'Admin' : 'Fellow';
+
+  // Left sidebar: who is currently in the workspace
+  const renderParticipants = (isMinimized: boolean) => (
+    <div className="space-y-3">
+      <div className={`flex items-center justify-between px-1 ${isMinimized ? 'lg:hidden' : ''}`}>
+        <span className="subsection-title">In this workspace</span>
+        <span className="text-2xs font-bold text-slate-400">{participants.length}</span>
+      </div>
+
+      {participants.length === 0 ? (
+        <p className={`px-1 text-xs text-slate-400 ${isMinimized ? 'lg:hidden' : ''}`}>
+          {isConnected ? 'Waiting for others to join…' : 'Connecting…'}
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {participants.map((p) => (
+            <li
+              key={p.id}
+              className={`flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-slate-50 ${
+                isMinimized ? 'lg:justify-center lg:px-0' : ''
+              }`}
+              title={`${p.name} (${roleLabel(p.role)})`}
+            >
+              <div className="relative shrink-0">
+                <div
+                  className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-white text-3xs font-black"
+                  style={p.avatar_color?.startsWith('#') ? { backgroundColor: p.avatar_color } : undefined}
+                >
+                  {p.name.slice(0, 2).toUpperCase()}
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+              </div>
+              <div className={`min-w-0 ${isMinimized ? 'lg:hidden' : ''}`}>
+                <div className="text-sm font-bold text-slate-900 truncate">
+                  {p.name}
+                  {user?.id && p.user_id === user.id && (
+                    <span className="text-xs font-semibold text-slate-400"> (you)</span>
+                  )}
+                </div>
+                <div className="text-2xs text-slate-500">{roleLabel(p.role)}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const renderLayout = (content: React.ReactNode, title?: string, subtitle?: string) => (
+    <DashboardLayout
+      portalType={portalType}
+      title={title}
+      subtitle={subtitle}
+      companyName={user?.organization?.name}
+      companyLogoUrl={user?.organization?.logo_url}
+      candidateEmail={portalType === 'candidate' ? user?.email : undefined}
+      navItems={[]}
+      activeNavId=""
+      onNavChange={() => {}}
+      sidebarContent={renderParticipants}
+    >
+      {content}
+    </DashboardLayout>
+  );
+
   if (isLoadingSession) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center p-8">
-          <div className="flex flex-col items-center gap-3 text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
-            <span className="text-sm font-bold">Loading Live Session Workspace...</span>
-          </div>
-        </main>
-        <Footer />
+    return renderLayout(
+      <div className="content-card p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Loading live session workspace…</span>
       </div>
     );
   }
 
   if (sessionError || !session) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center p-8">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center space-y-4 shadow-sm border border-slate-200">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
-              <X className="w-6 h-6" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900">Session Not Found</h2>
-            <p className="text-xs text-slate-500">
-              The requested fellowship session could not be retrieved or has expired.
-            </p>
-            <button
-              onClick={() => navigate(backUrl)}
-              className="btn btn-sm btn-outline border-slate-300 text-slate-700 hover:bg-slate-100 font-bold"
-            >
-              Return to Dashboard
-            </button>
-          </div>
-        </main>
-        <Footer />
+    return renderLayout(
+      <div className="content-card p-12 text-center space-y-3">
+        <h2 className="section-title">Session not found</h2>
+        <p className="text-xs text-slate-500">
+          The requested fellowship session could not be retrieved or has expired.
+        </p>
+        <button type="button" onClick={() => navigate(backUrl)} className="btn btn-sm btn-outline">
+          Return to Dashboard
+        </button>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-      <Navbar />
+  const workspaceTabs = [
+    { key: 'whiteboard' as const, label: 'Whiteboard', icon: PenTool },
+    { key: 'editor' as const, label: 'Code Studio', icon: FileCode },
+    { key: 'scratchpad' as const, label: 'Scratchpad & Notes', icon: FileText },
+  ];
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Top Breadcrumb */}
-        <div className="flex items-center justify-between">
-          <Link
-            to={backUrl}
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-kulkul-purple transition group"
-          >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-            <span>
-              {orgSlug && programSlug ? 'Back to Program Room' : 'Back to Dashboard'}
-            </span>
-          </Link>
-        </div>
-
-        {/* Standardized Header Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-xs font-bold text-kulkul-purple bg-purple-50 px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
-                {session.session_type.replace('_', ' ')}
-              </span>
-              <span className="text-slate-300">&bull;</span>
-              <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-slate-400" />
-                {formatDateTime(session.start_time)}
-              </span>
-              {session.mentor_name && (
-                <>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="text-xs font-medium text-slate-500">
-                    Lead: <strong className="text-slate-900 font-bold">{session.mentor_name}</strong>
-                  </span>
-                </>
-              )}
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
-              {session.title}
-            </h1>
-
-            {session.description && (
-              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                {session.description}
-              </p>
-            )}
-
-            {/* Real-time Collaboration & Presence Status */}
-            <div className="flex items-center gap-3 pt-1 flex-wrap">
-              {isConnected ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Live Synced</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-xs font-medium">
-                  <span className="w-2 h-2 rounded-full bg-slate-400" />
-                  <span>Connecting...</span>
-                </div>
-              )}
-
-              {participants.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex -space-x-1.5 overflow-hidden">
-                    {participants.slice(0, 6).map((p) => (
-                      <div
-                        key={p.id}
-                        className={`inline-block h-6 w-6 rounded-full ring-2 ring-white flex items-center justify-center text-white text-3xs font-black shadow-2xs ${
-                          p.avatar_color || 'bg-slate-600'
-                        }`}
-                        title={`${p.name} (${p.role})`}
-                      >
-                        {p.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    ))}
-                  </div>
-                  <span className="text-2xs font-bold text-slate-500">
-                    {participants.length} {participants.length === 1 ? 'member connected' : 'members connected'}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-            {session.meeting_url && (
-              <a
-                href={session.meeting_url}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
-                title="Open live video call"
-              >
-                <Video className="w-4 h-4" />
-                <span>Join Live Call</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-
-            {isMentorOrAdmin && (
+  return renderLayout(
+    <>
+      <div className="flex flex-col xl:flex-row gap-6 items-start">
+        {/* Center: whiteboard, code studio, and notes */}
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          <div className="flex items-center gap-1 flex-wrap">
+            {workspaceTabs.map(({ key, label, icon: Icon }) => (
               <button
+                key={key}
                 type="button"
-                onClick={() => setIsAttendanceDrawerOpen(true)}
-                className="btn btn-sm btn-outline border-slate-300 text-slate-700 hover:bg-slate-50 font-bold flex items-center gap-1.5"
+                onClick={() => handleSelectTab(key)}
+                className={`tab-pill ${activeWorkspaceTab === key ? 'tab-pill-active' : ''}`}
               >
-                <Users className="w-4 h-4 text-slate-500" />
-                <span>Attendance Roster</span>
+                <Icon className="w-4 h-4" />
+                <span>{label}</span>
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* Standard Tab Navigation & Follow Presenter */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-1 flex-wrap gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => handleSelectTab('whiteboard')}
-              className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-                activeWorkspaceTab === 'whiteboard'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <PenTool className="w-4 h-4" />
-              <span>Whiteboard</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectTab('editor')}
-              className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-                activeWorkspaceTab === 'editor'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <FileCode className="w-4 h-4" />
-              <span>Code Studio</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectTab('scratchpad')}
-              className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-                activeWorkspaceTab === 'scratchpad'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Scratchpad &amp; Notes</span>
-            </button>
+            ))}
           </div>
 
-          {!isMentorOrAdmin && (
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none px-2 py-1 rounded-xl hover:bg-slate-100 transition">
-              <input
-                type="checkbox"
-                checked={followMentor}
-                onChange={(e) => setFollowMentor(e.target.checked)}
-                className="rounded border-slate-300 text-kulkul-purple focus:ring-kulkul-purple w-4 h-4 cursor-pointer"
-              />
-              <span className="flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-slate-500" />
-                Follow Presenter View
-              </span>
-            </label>
-          )}
-        </div>
-
-        {/* Main Content Area */}
-        {activeWorkspaceTab === 'editor' && (
-          <div className="space-y-4">
+          {activeWorkspaceTab === 'editor' && (
             <LiveCodeEditor
               initialLanguage={initialLanguage}
-              sessionTitle={session.title}
               ydoc={ydoc}
               onLanguageChange={(lang) => {
                 sendLanguageChange(lang);
@@ -665,16 +570,12 @@ export const SessionWorkspacePage: React.FC = () => {
               }}
               remoteLanguageChange={remoteLanguageChange}
               remoteCodeRun={remoteCodeRun}
-              isConnected={isConnected}
             />
-          </div>
-        )}
+          )}
 
-        {activeWorkspaceTab === 'whiteboard' && (
-          <div className="space-y-4">
+          {activeWorkspaceTab === 'whiteboard' && (
             <LiveWhiteboard
               sessionId={session.id}
-              sessionTitle={session.title}
               isMentor={isMentorOrAdmin}
               initialElements={initialElements}
               initialAppState={initialAppState}
@@ -683,53 +584,128 @@ export const SessionWorkspacePage: React.FC = () => {
                 sendWhiteboardUpdate(elements, appState);
               }}
               remoteWhiteboardUpdate={remoteWhiteboard}
-              isConnected={isConnected}
             />
-          </div>
-        )}
+          )}
 
-        {activeWorkspaceTab === 'scratchpad' && (
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Live Session Scratchpad &amp; Lecture Notes</h3>
-                <p className="text-xs text-slate-500">
-                  Shared collaborative notes for class instructions, architecture diagrams, and homework references.
-                </p>
+          {activeWorkspaceTab === 'scratchpad' && (
+            <div className="content-card space-y-4">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">Scratchpad &amp; Lecture Notes</h2>
+                  <p className="section-subtitle">
+                    Shared notes for class instructions, links, and homework references.
+                  </p>
+                </div>
+                <div className="section-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(scratchpadNotes);
+                      toast.success('Notes copied to clipboard');
+                    }}
+                    className="btn btn-sm btn-outline"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Notes</span>
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isConnected && (
-                  <span className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Synced
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(scratchpadNotes);
-                    toast.success('Notes copied to clipboard');
-                  }}
-                  className="btn btn-sm btn-outline border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
-                >
-                  Copy Notes
-                </button>
-              </div>
+
+              <textarea
+                ref={notesTextareaRef}
+                value={scratchpadNotes}
+                onChange={handleScratchpadChange}
+                rows={22}
+                className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-2xl p-4 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple resize-none"
+                placeholder="Type lecture notes, code snippets, or shared questions here..."
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right: session details and actions */}
+        <aside className="w-full xl:w-72 shrink-0 space-y-4 xl:sticky xl:top-28 order-first xl:order-none">
+          <div className="content-card p-5 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="subsection-title">Session</span>
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}
+                title={isConnected ? 'Live synced' : 'Connecting…'}
+                aria-label={isConnected ? 'Live synced' : 'Connecting'}
+              />
             </div>
 
-            <textarea
-              ref={notesTextareaRef}
-              value={scratchpadNotes}
-              onChange={handleScratchpadChange}
-              rows={16}
-              className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-2xl p-4 font-mono text-xs focus:outline-none focus:border-kulkul-purple resize-none"
-              placeholder="Type lecture notes, code snippets, or shared questions here..."
-            />
+            <dl className="space-y-3">
+              <div>
+                <dt className="text-xs text-slate-400 font-medium">Type</dt>
+                <dd className="text-xs font-bold text-slate-900 capitalize">
+                  {session.session_type.replace('_', ' ')}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-400 font-medium">Starts</dt>
+                <dd className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  {formatDateTime(session.start_time)}
+                </dd>
+              </div>
+              {session.mentor_name && (
+                <div>
+                  <dt className="text-xs text-slate-400 font-medium">Lead mentor</dt>
+                  <dd className="text-xs font-bold text-slate-900">{session.mentor_name}</dd>
+                </div>
+              )}
+            </dl>
           </div>
-        )}
-      </main>
 
-      <Footer />
+          <div className="content-card p-5 sm:p-5 space-y-2.5">
+            <span className="subsection-title block pb-1">Actions</span>
+
+            {session.meeting_url && (
+              <a
+                href={session.meeting_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-sm btn-primary w-full"
+                title="Open live video call"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>Join Live Call</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+
+            {isMentorOrAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsAttendanceDrawerOpen(true)}
+                className="btn btn-sm btn-outline w-full"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Attendance Roster</span>
+              </button>
+            )}
+
+            <Link to={backUrl} className="btn btn-sm btn-outline w-full">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{orgSlug && programSlug ? 'Back to Program Room' : 'Back to Dashboard'}</span>
+            </Link>
+
+            {!isMentorOrAdmin && (
+              <label className="flex items-center gap-2 pt-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={followMentor}
+                  onChange={(e) => setFollowMentor(e.target.checked)}
+                  className="rounded border-slate-300 text-kulkul-purple focus:ring-kulkul-purple w-4 h-4 cursor-pointer"
+                />
+                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                <span>Follow presenter view</span>
+              </label>
+            )}
+          </div>
+        </aside>
+      </div>
 
       {/* Mentor In-Session Attendance Drawer */}
       {isAttendanceDrawerOpen && (
@@ -849,6 +825,8 @@ export const SessionWorkspacePage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>,
+    session.title,
+    session.description || undefined
   );
 };

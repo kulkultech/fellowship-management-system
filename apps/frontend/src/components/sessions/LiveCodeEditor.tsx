@@ -359,7 +359,6 @@ print(f"Sum of sequence: {sum(result)}")`,
 
 interface LiveCodeEditorProps {
   initialLanguage?: SupportedLanguage;
-  sessionTitle?: string;
   initialCodeMap?: Record<string, string>;
   onCodeChange?: (lang: SupportedLanguage, code: string) => void;
   onLanguageChange?: (lang: SupportedLanguage) => void;
@@ -367,14 +366,12 @@ interface LiveCodeEditorProps {
   remoteCodeUpdate?: { language: SupportedLanguage; code: string; sender?: { name: string; role: string } } | null;
   remoteLanguageChange?: { language: SupportedLanguage; sender?: { name: string; role: string } } | null;
   remoteCodeRun?: { language: SupportedLanguage; logs: LogItem[]; sender?: { name: string; role: string } } | null;
-  isConnected?: boolean;
   /** Shared document for real-time co-editing; when set it is the source of truth for the code */
   ydoc?: Y.Doc | null;
 }
 
 export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   initialLanguage = 'java',
-  sessionTitle = 'Fellowship Live Session',
   initialCodeMap,
   onCodeChange,
   onLanguageChange,
@@ -382,7 +379,6 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   remoteCodeUpdate,
   remoteLanguageChange,
   remoteCodeRun,
-  isConnected = false,
   ydoc,
 }) => {
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(initialLanguage);
@@ -739,13 +735,6 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
         {/* Right: Actions & Controls */}
         <div className="flex items-center gap-2">
-          {isConnected && (
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-400 text-3xs font-extrabold uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Live Synced</span>
-            </div>
-          )}
-
           {/* Run Code Button */}
           <button
             type="button"
@@ -1132,14 +1121,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
       {/* 4. FOOTER STATUS BAR */}
       <div className="bg-slate-950 px-4 py-1.5 border-t border-slate-800 text-3xs text-slate-500 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={`inline-block w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
-          <span className="font-medium text-slate-400">
-            {isConnected ? 'Real-Time Sync Active' : 'Monaco Engine: Ready'}
-          </span>
-          <span>&bull;</span>
-          <span>{sessionTitle}</span>
-        </div>
+        <span className="font-medium text-slate-400">Monaco Engine</span>
 
         <div className="flex items-center gap-3">
           <span>Encoding: UTF-8</span>

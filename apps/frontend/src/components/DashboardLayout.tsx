@@ -56,6 +56,8 @@ interface DashboardLayoutProps {
   activeNavId: string;
   onNavChange: (id: string) => void;
   headerActions?: React.ReactNode;
+  /** Replaces the navigation list in the left sidebar (receives whether the sidebar is minimized) */
+  sidebarContent?: (isMinimized: boolean) => React.ReactNode;
   children: React.ReactNode;
   candidateName?: string;
   candidateEmail?: string;
@@ -73,6 +75,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   activeNavId,
   onNavChange,
   headerActions,
+  sidebarContent,
   children,
   candidateName,
   candidateEmail,
@@ -250,6 +253,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 : 'p-4 sm:p-5'
             }`}
           >
+            {sidebarContent ? (
+              sidebarContent(isMinimized)
+            ) : (
             <nav className="space-y-1.5">
                 {navItems.map((item) => {
                   const IconComponent = item.icon;
@@ -586,6 +592,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   );
                 })}
               </nav>
+            )}
             </div>
 
           {/* Bottom Section: Footer / User Identity & Profile (Clickable to Edit Profile) */}
