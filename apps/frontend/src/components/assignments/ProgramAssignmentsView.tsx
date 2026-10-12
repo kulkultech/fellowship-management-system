@@ -173,19 +173,17 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
 
       {/* Action Bar & Controls */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-lg font-extrabold text-slate-900">Fellowship Assignments &amp; Projects</h3>
-          </div>
+        <div className="section-header">
+          <h3 className="section-title">Fellowship Assignments &amp; Projects</h3>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="section-actions">
             {/* Track Filter if tracks exist */}
             {tracks.length > 0 && (
               <select
                 aria-label="Filter assignments by track"
                 value={selectedTrackFilter}
                 onChange={(e) => setSelectedTrackFilter(e.target.value)}
-                className="select select-sm select-bordered rounded-xl text-xs font-semibold text-slate-700 bg-white"
+                className="filter-select"
               >
                 <option value="all">All Tracks</option>
                 {tracks.map((t) => (
@@ -204,9 +202,9 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                   setEditingAssignment(null);
                   setIsCreateModalOpen(true);
                 }}
-                className="btn btn-sm bg-kulkul-purple hover:bg-[#431970] text-white font-bold flex items-center gap-1.5 shadow-sm rounded-xl"
+                className="btn btn-sm btn-primary"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Create Assignment</span>
               </button>
             )}

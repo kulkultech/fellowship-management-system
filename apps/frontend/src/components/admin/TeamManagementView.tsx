@@ -254,17 +254,17 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
       </div>
 
       {/* Main Content Card with Navigation Tabs & Actions */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
-        {/* Top Control Bar: Tabs, Search, Filter & Action Buttons */}
-        <div className="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
+        {/* Header: tabs on the left, actions on the right */}
+        <div className="section-header">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab('members')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'members'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-kulkul-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -273,10 +273,10 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('invitations')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'invitations'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-kulkul-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
@@ -284,56 +284,52 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 sm:w-60">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search name or email..."
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-              />
-            </div>
-
-            {/* Role Filter */}
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-            >
-              <option value="all">All Roles</option>
-              {isSuperadmin && <option value="superadmin">Superadmin</option>}
-              <option value="org_admin">Company Admin</option>
-              <option value="mentor">Mentor</option>
-            </select>
-
-            {/* Actions: Refresh & Invite Admin */}
+          <div className="section-actions">
             <button
               type="button"
               onClick={() => refetch()}
               disabled={isRefetching}
-              className="btn btn-sm btn-outline text-slate-600 hover:text-slate-900 shrink-0"
+              className="btn btn-sm btn-outline"
               title="Refresh team list"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin text-kulkul-purple' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span>Refresh</span>
             </button>
-            <button
-              type="button"
-              onClick={handleOpenInviteModal}
-              className="btn btn-sm btn-primary shadow-sm shadow-purple-900/10 flex items-center gap-2 shrink-0"
-            >
-              <UserPlus className="w-4 h-4" />
+            <button type="button" onClick={handleOpenInviteModal} className="btn btn-sm btn-primary">
+              <UserPlus className="w-3.5 h-3.5" />
               <span>Invite Admin</span>
             </button>
           </div>
         </div>
 
+        {/* Toolbar: search on the left, filters on the right */}
+        <div className="table-toolbar">
+          <div className="search-field">
+            <Search />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search name or email..."
+              className="search-input"
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="filter-select"
+            aria-label="Filter by role"
+          >
+            <option value="all">All Roles</option>
+            {isSuperadmin && <option value="superadmin">Superadmin</option>}
+            <option value="org_admin">Company Admin</option>
+            <option value="mentor">Mentor</option>
+          </select>
+        </div>
+
         {/* Tab 1: Active Members Table */}
         {activeTab === 'members' && (
-          <div className="overflow-x-auto">
+          <div className="data-table-wrap">
             {isLoading ? (
               <div className="py-16 text-center text-slate-400 space-y-3">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-kulkul-purple" />
@@ -348,24 +344,24 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 </p>
               </div>
             ) : (
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50/75 border-b border-slate-200 text-3xs font-extrabold uppercase tracking-wider text-slate-400">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <th className="py-3.5 px-6">Name &amp; Email</th>
-                    <th className="py-3.5 px-6 whitespace-nowrap">Role</th>
-                    {isSuperadmin && <th className="py-3.5 px-6 whitespace-nowrap">Organization</th>}
-                    <th className="py-3.5 px-6 whitespace-nowrap">Date Joined</th>
-                    <th className="py-3.5 px-6 text-right whitespace-nowrap">Actions</th>
+                    <th>Name &amp; Email</th>
+                    <th className="whitespace-nowrap">Role</th>
+                    {isSuperadmin && <th className="whitespace-nowrap">Organization</th>}
+                    <th className="whitespace-nowrap">Date Joined</th>
+                    <th className="text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {filteredMembers.map((member) => {
                     const isSelf = currentUser?.id === member.id;
 
                     return (
-                      <tr key={member.id} className="hover:bg-slate-50/60 transition">
-                        <td className="py-3.5 px-6">
-                          <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      <tr key={member.id} className="transition">
+                        <td>
+                          <div className="cell-primary flex items-center gap-1.5">
                             <span>{member.name || 'Admin User'}</span>
                             {isSelf && (
                               <span className="text-xs text-slate-400 font-normal">
@@ -373,17 +369,17 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 mt-0.5">{member.email}</div>
+                          <div className="cell-secondary mt-0.5">{member.email}</div>
                         </td>
-                        <td className="py-3.5 px-6 whitespace-nowrap">{getRoleText(member.role)}</td>
+                        <td className="whitespace-nowrap">{getRoleText(member.role)}</td>
                         {isSuperadmin && (
-                          <td className="py-3.5 px-6 text-slate-600 font-medium whitespace-nowrap">
+                          <td className="text-slate-600 font-medium whitespace-nowrap">
                             {member.organization_name || (
                               <span className="text-slate-400 italic">Platform Level</span>
                             )}
                           </td>
                         )}
-                        <td className="py-3.5 px-6 text-slate-500 whitespace-nowrap">
+                        <td className="text-slate-500 whitespace-nowrap">
                           {member.created_at
                             ? new Date(member.created_at).toLocaleDateString(undefined, {
                                 year: 'numeric',
@@ -392,7 +388,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                               })
                             : '—'}
                         </td>
-                        <td className="py-3.5 px-6 text-right whitespace-nowrap">
+                        <td className="text-right whitespace-nowrap">
                           {isSelf ? (
                             <span className="text-xs text-slate-400 italic">Active session</span>
                           ) : (
@@ -417,7 +413,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
         {/* Tab 2: Pending Invitations Table */}
         {activeTab === 'invitations' && (
-          <div className="overflow-x-auto">
+          <div className="data-table-wrap">
             {isLoading ? (
               <div className="py-16 text-center text-slate-400 space-y-3">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-kulkul-purple" />
@@ -432,27 +428,27 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 </p>
               </div>
             ) : (
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50/75 border-b border-slate-200 text-3xs font-extrabold uppercase tracking-wider text-slate-400">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <th className="py-3.5 px-6">Invitee Email</th>
-                    <th className="py-3.5 px-6 whitespace-nowrap">Role</th>
-                    {isSuperadmin && <th className="py-3.5 px-6 whitespace-nowrap">Organization</th>}
-                    <th className="py-3.5 px-6 whitespace-nowrap">Status &amp; Validity</th>
-                    <th className="py-3.5 px-6 whitespace-nowrap">Sent Date</th>
-                    <th className="py-3.5 px-6 text-right whitespace-nowrap">Actions</th>
+                    <th>Invitee Email</th>
+                    <th className="whitespace-nowrap">Role</th>
+                    {isSuperadmin && <th className="whitespace-nowrap">Organization</th>}
+                    <th className="whitespace-nowrap">Status &amp; Validity</th>
+                    <th className="whitespace-nowrap">Sent Date</th>
+                    <th className="text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {filteredInvitations.map((inv) => {
                     const isExpired = new Date(inv.expires_at) < new Date();
 
                     return (
-                      <tr key={inv.id} className="hover:bg-slate-50/60 transition">
-                        <td className="py-3.5 px-6 font-bold text-slate-900 text-sm">
+                      <tr key={inv.id} className="transition">
+                        <td className="font-bold text-slate-900">
                           {inv.email}
                         </td>
-                        <td className="py-3.5 px-6 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           {getRoleText(inv.role)}
                           {inv.program_name && (
                             <div className="text-3xs text-purple-700 font-semibold mt-1 flex items-center gap-1">
@@ -462,13 +458,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                           )}
                         </td>
                         {isSuperadmin && (
-                          <td className="py-3.5 px-6 text-slate-600 font-medium whitespace-nowrap">
+                          <td className="text-slate-600 font-medium whitespace-nowrap">
                             {inv.organization_name || (
                               <span className="text-slate-400 italic">Platform Superadmin</span>
                             )}
                           </td>
                         )}
-                        <td className="py-3.5 px-6 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           <span className={`text-xs font-semibold ${isExpired ? 'text-red-600' : 'text-amber-600'}`}>
                             {isExpired ? 'Expired' : 'Pending'}
                           </span>
@@ -476,7 +472,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                             ({formatExpiresIn(inv.expires_at)})
                           </span>
                         </td>
-                        <td className="py-3.5 px-6 text-slate-500 whitespace-nowrap">
+                        <td className="text-slate-500 whitespace-nowrap">
                           {inv.created_at
                             ? new Date(inv.created_at).toLocaleDateString(undefined, {
                                 year: 'numeric',
@@ -485,7 +481,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                               })
                             : '—'}
                         </td>
-                        <td className="py-3.5 px-6 text-right whitespace-nowrap">
+                        <td className="text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"

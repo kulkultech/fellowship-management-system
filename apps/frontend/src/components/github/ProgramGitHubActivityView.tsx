@@ -24,6 +24,8 @@ import type { GitHubContributionCounts, GitHubFellowActivity, ProgramGitHubRepo 
 
 interface ProgramGitHubActivityViewProps {
   programId: string;
+  /** Show the metric cards above the repositories (default true) */
+  showSummary?: boolean;
 }
 
 type MetricKey = keyof GitHubContributionCounts;
@@ -65,7 +67,10 @@ function formatRelative(iso?: string | null): string {
 
 const errorMessage = (err: any, fallback: string) => err?.response?.data?.error || err?.message || fallback;
 
-export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps> = ({ programId }) => {
+export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps> = ({
+  programId,
+  showSummary = true,
+}) => {
   const queryClient = useQueryClient();
   const queryKey = ['program-github-activity', programId];
   const [repoInput, setRepoInput] = useState('');
@@ -183,7 +188,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
       <button
         type="button"
         onClick={() => toggleSort(sortKey)}
-        className={`inline-flex items-center gap-1 font-extrabold hover:text-slate-900 transition ${
+        className={`inline-flex items-center gap-1 uppercase tracking-wider font-extrabold hover:text-slate-900 transition ${
           sort.key === sortKey ? 'text-slate-900' : ''
         }`}
       >
@@ -217,38 +222,42 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
   return (
     <div className="space-y-6">
       {/* Metrics Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Tracked Repos', value: repos.length, note: 'Repositories being analyzed', icon: Github, color: 'text-kulkul-purple' },
-          {
-            label: 'Fellows on GitHub',
-            value: `${linkedCount} / ${fellows.length}`,
-            note: 'Fellows with a GitHub profile',
-            icon: Users,
-            color: 'text-emerald-600',
-          },
-          { label: 'PRs Merged', value: programTotals.merged, note: 'Across all tracked repos', icon: GitMerge, color: 'text-blue-600' },
-          { label: 'Commits', value: programTotals.commits, note: 'By fellows on default branches', icon: GitCommitHorizontal, color: 'text-[#fe900d]' },
-        ].map((card) => (
-          <div key={card.label} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-2xs font-extrabold uppercase tracking-wider">{card.label}</span>
-              <card.icon className={`w-4 h-4 ${card.color}`} />
+      {showSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Tracked Repos', value: repos.length, note: 'Repositories being analyzed', icon: Github, color: 'text-kulkul-purple' },
+            {
+              label: 'Fellows on GitHub',
+              value: `${linkedCount} / ${fellows.length}`,
+              note: 'Fellows with a GitHub profile',
+              icon: Users,
+              color: 'text-emerald-600',
+            },
+            { label: 'PRs Merged', value: programTotals.merged, note: 'Across all tracked repos', icon: GitMerge, color: 'text-blue-600' },
+            { label: 'Commits', value: programTotals.commits, note: 'By fellows on default branches', icon: GitCommitHorizontal, color: 'text-[#fe900d]' },
+          ].map((card) => (
+            <div key={card.label} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-2xs font-extrabold uppercase tracking-wider">{card.label}</span>
+                <card.icon className={`w-4 h-4 ${card.color}`} />
+              </div>
+              <div className="text-2xl font-black text-slate-900">{card.value}</div>
+              <p className="text-2xs text-slate-500">{card.note}</p>
             </div>
-            <div className="text-2xl font-black text-slate-900">{card.value}</div>
-            <p className="text-2xs text-slate-500">{card.note}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Tracked Repositories */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
-        <div className="pb-4 border-b border-slate-100 space-y-1">
-          <h3 className="text-lg font-extrabold text-slate-900">Tracked Repositories</h3>
-          <p className="text-xs text-slate-500">
-            Add the repositories fellows work on. Contributions are matched to fellows by the GitHub profile on their
-            application.
-          </p>
+        <div className="section-header">
+          <div>
+            <h3 className="section-title">Tracked Repositories</h3>
+            <p className="section-subtitle">
+              Add the repositories fellows work on. Contributions are matched to fellows by the GitHub profile on
+              their application.
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleAddRepo} className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -331,10 +340,10 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
 
       {/* Fellow Contributions */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div className="space-y-1">
-            <h3 className="text-lg font-extrabold text-slate-900">Fellow Contributions</h3>
-            <p className="text-xs text-slate-500">
+        <div className="section-header">
+          <div>
+            <h3 className="section-title">Fellow Contributions</h3>
+            <p className="section-subtitle">
               {fellows.length === 0
                 ? 'No fellows admitted to this program yet.'
                 : `${linkedCount} of ${fellows.length} fellows have a GitHub profile. Missing ones can be added below.`}
@@ -345,7 +354,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
               aria-label="Filter contributions by repository"
               value={repoFilter}
               onChange={(e) => setRepoFilter(e.target.value)}
-              className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+              className="filter-select"
             >
               <option value="all">All repositories</option>
               {repos.map((r) => (
@@ -360,20 +369,20 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
         {fellows.length === 0 ? null : repos.length === 0 ? (
           <p className="text-xs text-slate-500">Add a repository above to see each fellow's contributions.</p>
         ) : (
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-            <table className="w-full text-left text-xs min-w-[880px]">
-              <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+          <div className="data-table-wrap">
+            <table className="data-table min-w-[880px]">
+              <thead>
                 <tr>
                   {renderSortHeader('name', 'Fellow', undefined, 'left')}
                   {METRICS.map((m) => renderSortHeader(m.key, m.label, m.hint))}
                   {renderSortHeader('total', 'Total', 'Commits, PRs opened, issues, and all comments combined')}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {rows.map(({ fellow, counts }) => (
-                  <tr key={fellow.applicant_id} className="hover:bg-slate-50/60 transition">
-                    <td className="px-3 py-3.5 min-w-[13rem]">
-                      <div className="font-extrabold text-slate-900">{fellow.full_name}</div>
+                  <tr key={fellow.applicant_id} className="transition">
+                    <td className="min-w-[13rem]">
+                      <div className="cell-primary">{fellow.full_name}</div>
                       {editing?.applicantId === fellow.applicant_id ? (
                         <form onSubmit={handleSaveGitHub} className="flex items-center gap-1.5 mt-1">
                           <input

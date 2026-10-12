@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { mentorService } from '@/services/mentorService';
+import { sessionService } from '@/services/sessionService';
+import { assignmentService } from '@/services/assignmentService';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
-import type { ApplicantListItem, MentorProgramSummary } from '@/services/types';
+import type { ApplicantListItem, MentorProgramSummary, ProgramAssignment, ProgramSession } from '@/services/types';
 import {
   GraduationCap,
   Users,
@@ -15,20 +17,19 @@ import {
   Linkedin,
   FileText,
   Mail,
-  RefreshCw,
   Loader2,
   Video,
-  Award,
   X,
   Building2,
-  UserCheck,
   TrendingUp,
   Calendar,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
+
+// Every menu uses the same card shape as the shared sessions, assignments, and GitHub views
+const cardShell = 'bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8';
 
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -43,15 +44,12 @@ export const MentorDashboardPage: React.FC = () => {
   const {
     data: overview,
     isLoading: isLoadingOverview,
-    isRefetching: isRefetchingOverview,
-    refetch: refetchOverview,
   } = useQuery({
     queryKey: ['mentor-overview'],
     queryFn: () => mentorService.getOverview(),
   });
 
   const programs: MentorProgramSummary[] = overview?.assigned_programs || [];
-  const totalPrograms = programs.length;
   const totalFellows = overview?.total_fellows || 0;
 
   // 2. Fetch Fellows for the Selected Program or First Program
@@ -64,7 +62,6 @@ export const MentorDashboardPage: React.FC = () => {
   const {
     data: fellowsData,
     isLoading: isLoadingFellows,
-    refetch: refetchFellows,
   } = useQuery({
     queryKey: ['mentor-fellows', activeProgramId],
     queryFn: () => mentorService.getProgramFellows(activeProgramId),
@@ -93,11 +90,77 @@ export const MentorDashboardPage: React.FC = () => {
     return fellowsList.some((f) => Boolean(f.track_name && f.track_name.trim() !== ''));
   }, [fellowsList]);
 
+  // What's next: upcoming sessions and assignment deadlines across assigned programs
+  const now = new Date();
+  const firstName = (user?.name || user?.email?.split('@')[0] || 'Mentor').split(' ')[0];
+  const upcomingQueries = useQueries({
+    queries: programs.flatMap((p) => [
+      {
+        queryKey: ['program-sessions', p.program_id],
+        queryFn: () => sessionService.listSessions(p.program_id),
+        enabled: activeNavId === 'overview',
+      },
+      {
+        queryKey: ['program-assignments', p.program_id],
+        queryFn: () => assignmentService.listAssignments(p.program_id),
+        enabled: activeNavId === 'overview',
+      },
+    ]),
+  });
+  const isLoadingUpcoming = upcomingQueries.some((q) => q.isLoading);
+
+  type UpcomingItem = {
+    kind: 'session' | 'assignment';
+    id: string;
+    title: string;
+    at: string;
+    endAt?: string;
+    programId: string;
+    programName: string;
+    subtitle?: string;
+    meetingUrl?: string;
+  };
+  const upcomingItems: UpcomingItem[] = useMemo(() => {
+    const nowMs = Date.now();
+    const items: UpcomingItem[] = [];
+    programs.forEach((p, idx) => {
+      const sessions = (upcomingQueries[idx * 2]?.data as ProgramSession[] | undefined) || [];
+      const assignments = (upcomingQueries[idx * 2 + 1]?.data as ProgramAssignment[] | undefined) || [];
+      for (const s of sessions) {
+        // Include sessions that have not ended yet (upcoming or happening now)
+        if (new Date(s.end_time || s.start_time).getTime() < nowMs) continue;
+        items.push({
+          kind: 'session',
+          id: s.id,
+          title: s.title,
+          at: s.start_time,
+          endAt: s.end_time,
+          programId: p.program_id,
+          programName: p.program_name,
+          subtitle: s.session_type ? s.session_type.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : undefined,
+          meetingUrl: s.meeting_url,
+        });
+      }
+      for (const a of assignments) {
+        if (a.status !== 'published' || !a.due_date || new Date(a.due_date).getTime() < nowMs) continue;
+        items.push({
+          kind: 'assignment',
+          id: a.id,
+          title: a.title,
+          at: a.due_date,
+          programId: p.program_id,
+          programName: p.program_name,
+        });
+      }
+    });
+    return items.sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime()).slice(0, 8);
+  }, [programs, upcomingQueries.map((q) => q.dataUpdatedAt).join(',')]);
+
   // Sidebar navigation items
   const navItems: NavItem[] = [
     {
       id: 'overview',
-      label: 'Overview & Cohorts',
+      label: 'Overview',
       icon: GraduationCap,
       onClick: () => setActiveNavId('overview'),
     },
@@ -135,241 +198,209 @@ export const MentorDashboardPage: React.FC = () => {
     },
   ];
 
-  const handleRefresh = async () => {
-    await Promise.all([refetchOverview(), refetchFellows()]);
-    toast.success('Dashboard refreshed');
-  };
-
   return (
     <DashboardLayout
       portalType="mentor"
-      title="Mentor Dashboard"
       navItems={navItems}
       activeNavId={activeNavId}
       onNavChange={setActiveNavId}
-      headerActions={
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={isLoadingOverview || isRefetchingOverview}
-          className="btn btn-sm btn-outline text-slate-600 hover:text-slate-900 flex items-center gap-1.5"
-          title="Refresh dashboard data"
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${isRefetchingOverview ? 'animate-spin text-kulkul-purple' : ''}`}
-          />
-          <span className="hidden sm:inline">Refresh</span>
-        </button>
-      }
     >
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* ========================================================================= */}
-        {/* 1. MENTOR WELCOME BANNER */}
+        {/* 1. OVERVIEW: WELCOME + WHAT'S NEXT */}
         {/* ========================================================================= */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-kulkul-purple via-[#4a1d7f] to-[#250d45] text-white p-6 sm:p-8 shadow-xl">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-                Welcome back, {user?.name || user?.email?.split('@')[0]}!
-              </h2>
-              <p className="text-sm text-purple-100/90 max-w-xl leading-relaxed">
-                You are currently mentoring across{' '}
-                <strong className="text-white font-bold">{totalPrograms} active program{totalPrograms !== 1 ? 's' : ''}</strong>{' '}
-                with <strong className="text-white font-bold">{totalFellows} registered fellow{totalFellows !== 1 ? 's' : ''}</strong>.
+        {activeNavId === 'overview' && (
+          <div className="space-y-6">
+            <div>
+              <h1 className="heading-page">Welcome back, {firstName}</h1>
+              <p className="text-body mt-1">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setActiveNavId('fellows')}
-                className="btn btn-sm bg-kulkul-orange hover:bg-orange-500 text-white font-bold border-none shadow-md shadow-orange-950/20 flex items-center gap-2"
-              >
-                <Users className="w-4 h-4" />
-                <span>View Fellows</span>
-              </button>
+            <div className={`${cardShell} space-y-5`}>
+              <div className="section-header">
+                <div>
+                  <h3 className="section-title">What&apos;s next</h3>
+                  <p className="section-subtitle">Upcoming sessions and assignment deadlines in your programs.</p>
+                </div>
+              </div>
+
+              {isLoadingOverview || isLoadingUpcoming ? (
+                <div className="py-10 flex items-center justify-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading your schedule…</span>
+                </div>
+              ) : upcomingItems.length === 0 ? (
+                <div className="py-10 text-center space-y-3">
+                  <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs text-slate-500">
+                    {programs.length === 0
+                      ? 'You are not assigned to any program yet.'
+                      : 'Nothing scheduled yet.'}
+                  </p>
+                  {programs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveNavId('sessions')}
+                      className="btn btn-sm btn-outline"
+                    >
+                      Schedule a Session
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {upcomingItems.map((item) => {
+                    const start = new Date(item.at);
+                    const isLive = item.kind === 'session' && item.endAt && start <= now && new Date(item.endAt) >= now;
+                    return (
+                      <li key={`${item.kind}-${item.id}`} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+                        <div className="sm:w-36 shrink-0">
+                          <div className="text-xs font-bold text-slate-900">
+                            {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </div>
+                          <div className="text-2xs text-slate-500">
+                            {item.kind === 'assignment'
+                              ? `Due ${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                              : `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${
+                                  item.endAt
+                                    ? ` – ${new Date(item.endAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                                    : ''
+                                }`}
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {item.kind === 'session' ? (
+                              <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                            )}
+                            <span className="text-sm font-bold text-slate-900 truncate">{item.title}</span>
+                            {isLive && <span className="text-2xs font-bold text-emerald-700 shrink-0">Live now</span>}
+                          </div>
+                          <div className="text-2xs text-slate-500 mt-0.5 truncate">
+                            {item.programName}
+                            {item.kind === 'assignment' ? ' · Assignment deadline' : item.subtitle ? ` · ${item.subtitle}` : ''}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {item.kind === 'session' ? (
+                            <>
+                              {item.meetingUrl && (
+                                <a href={item.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  <span>Join Call</span>
+                                </a>
+                              )}
+                              <Link to={`/sessions/${item.id}/room`} className="btn btn-sm btn-primary">
+                                <span>Open Room</span>
+                              </Link>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProgramId(item.programId);
+                                setActiveNavId('assignments');
+                              }}
+                              className="btn btn-sm btn-outline"
+                            >
+                              View Assignment
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           </div>
-
-          {/* Decorative glow element */}
-          <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-kulkul-orange/20 rounded-full blur-3xl pointer-events-none" />
-        </div>
-
-        {/* ========================================================================= */}
-        {/* 2. QUICK STATS ROW */}
-        {/* ========================================================================= */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Assigned Programs
-              </div>
-              <div className="text-2xl font-black text-slate-900 mt-1">{totalPrograms}</div>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center font-bold">
-              <BookOpen className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Total Fellows
-              </div>
-              <div className="text-2xl font-black text-slate-900 mt-1">{totalFellows}</div>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <UserCheck className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Live Sessions
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-2xl font-black text-slate-900">Room</span>
-                <span className="text-3xs font-extrabold text-kulkul-purple uppercase">
-                  Phase 2
-                </span>
-              </div>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              <Video className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Certifications
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-2xl font-black text-slate-900">Badges</span>
-                <span className="text-3xs font-extrabold text-blue-700 uppercase">
-                  Phase 5
-                </span>
-              </div>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <Award className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* ========================================================================= */}
         {/* 3. ASSIGNED PROGRAMS GRID */}
         {/* ========================================================================= */}
-        {(activeNavId === 'overview' || activeNavId === 'programs') && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">Assigned Cohort Programs</h3>
-                <p className="text-xs text-slate-500">
-                  Programs where you serve as a designated technical mentor.
-                </p>
-              </div>
-            </div>
-
+        {activeNavId === 'programs' && (
+          <div className="space-y-6">
             {isLoadingOverview ? (
-              <div className="py-16 text-center text-slate-400 space-y-3">
+              <div className={`${cardShell} py-16 text-center text-slate-400 space-y-3`}>
                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-kulkul-purple" />
                 <p className="text-xs font-semibold">Loading assigned programs...</p>
               </div>
             ) : programs.length === 0 ? (
-              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-4">
-                <div className="w-14 h-14 bg-purple-50 text-kulkul-purple rounded-2xl flex items-center justify-center mx-auto">
-                  <GraduationCap className="w-7 h-7" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-base font-bold text-slate-800">No Programs Assigned Yet</h4>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    You have not been assigned to any fellowship cohorts yet. Reach out to your organization administrator to add you as a mentor to active programs.
-                  </p>
-                </div>
+              <div className={`${cardShell} text-center space-y-3`}>
+                <GraduationCap className="w-8 h-8 text-slate-300 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-800">No Programs Assigned Yet</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Ask your organization administrator to add you as a mentor to a program.
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {programs.map((prog) => (
-                  <div
-                    key={prog.program_id}
-                    className="bg-white rounded-3xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between overflow-hidden group"
-                  >
-                    <div className="p-6 space-y-4">
-                      {/* Top metadata */}
-                      <div className="flex items-center justify-between gap-2 text-2xs font-extrabold">
-                        <span className="inline-flex items-center gap-1.5 uppercase tracking-wider text-kulkul-purple">
-                          <Building2 className="w-3.5 h-3.5" />
-                          <span>{prog.org_name}</span>
+              programs.map((prog) => (
+                <div
+                  key={prog.program_id}
+                  className={`${cardShell} flex flex-col lg:flex-row lg:items-center justify-between gap-6`}
+                >
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-2xs font-extrabold">
+                      <span className="inline-flex items-center gap-1.5 uppercase tracking-wider text-kulkul-purple">
+                        <Building2 className="w-3.5 h-3.5" />
+                        <span>{prog.org_name}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-emerald-700">
+                        <Users className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>
+                          {prog.fellow_count} Fellow{prog.fellow_count !== 1 ? 's' : ''}
                         </span>
-
-                        <span className="inline-flex items-center gap-1 text-emerald-700">
-                          <Users className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>{prog.fellow_count} Fellow{prog.fellow_count !== 1 ? 's' : ''}</span>
-                        </span>
-                      </div>
-
-                      {/* Title & Description */}
-                      <div className="space-y-1.5">
-                        <h4 className="text-lg font-black text-slate-900 group-hover:text-kulkul-purple transition">
-                          {prog.program_name}
-                        </h4>
-                        <p className="text-xs text-slate-500 line-clamp-2">
-                          {prog.description || 'Fellowship program for ambitious software engineers.'}
-                        </p>
-                      </div>
-
-                      {/* Mentor Role Info */}
-                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between text-xs">
-                        <div className="text-slate-500 text-3xs font-extrabold uppercase tracking-wider">
-                          Role Title
-                        </div>
-                        <div className="font-bold text-slate-800">
-                          {prog.role_title || 'Program Mentor'}
-                        </div>
-                      </div>
+                      </span>
+                      <span className="text-slate-500">{prog.role_title || 'Program Mentor'}</span>
                     </div>
-
-                    {/* Footer Actions */}
-                    <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-                      <Link
-                        to={`/programs/${prog.org_slug}/${prog.program_slug}/room`}
-                        className="btn btn-sm bg-kulkul-purple hover:bg-[#431970] text-white font-bold flex items-center gap-1.5 shadow-2xs"
-                        title="Enter Program Room to collaborate with fellows"
-                      >
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        <span>Room</span>
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedProgramId(prog.program_id);
-                          setActiveNavId('fellows');
-                        }}
-                        className="flex-1 btn btn-sm btn-primary shadow-xs flex items-center justify-center gap-1.5"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        <span>View Fellows</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedProgramId(prog.program_id);
-                          setActiveNavId('assignments');
-                        }}
-                        className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-kulkul-purple flex items-center gap-1.5"
-                        title="Manage Assignments & Grading"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
-                        <span>Tasks</span>
-                      </button>
-                    </div>
+                    <h3 className="text-lg font-extrabold text-slate-900">{prog.program_name}</h3>
+                    <p className="text-xs text-slate-500 line-clamp-2">
+                      {prog.description || 'Fellowship program for ambitious software engineers.'}
+                    </p>
                   </div>
-                ))}
-              </div>
+
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <Link
+                      to={`/programs/${prog.org_slug}/${prog.program_slug}/room`}
+                      className="btn btn-sm btn-primary"
+                      title="Enter Program Room to collaborate with fellows"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      <span>Room</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProgramId(prog.program_id);
+                        setActiveNavId('fellows');
+                      }}
+                      className="btn btn-sm btn-outline"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>View Fellows</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProgramId(prog.program_id);
+                        setActiveNavId('assignments');
+                      }}
+                      className="btn btn-sm btn-outline"
+                      title="Manage Assignments & Grading"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Assignments</span>
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}
@@ -377,49 +408,41 @@ export const MentorDashboardPage: React.FC = () => {
         {/* ========================================================================= */}
         {/* 4. COHORT FELLOWS TABLE VIEW */}
         {/* ========================================================================= */}
-        {(activeNavId === 'overview' || activeNavId === 'fellows') && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
-            {/* Table Header / Filter Bar */}
-            <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-kulkul-purple" />
-                  <span>Cohort Fellows Directory</span>
-                </h3>
-              </div>
+        {activeNavId === 'fellows' && (
+          <div className={`${cardShell} space-y-5`}>
+            <div className="section-header">
+              <h3 className="section-title">Cohort Fellows Directory</h3>
+            </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Program Selector */}
-                {programs.length > 1 && (
-                  <select
-                    value={activeProgramId}
-                    onChange={(e) => setSelectedProgramId(e.target.value)}
-                    className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  >
-                    {programs.map((p) => (
-                      <option key={p.program_id} value={p.program_id}>
-                        {p.program_name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Search Bar */}
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchFellowQuery}
-                    onChange={(e) => setSearchFellowQuery(e.target.value)}
-                    placeholder="Search fellow name or email..."
-                    className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
-                  />
-                </div>
+            <div className="table-toolbar">
+              <div className="search-field">
+                <Search />
+                <input
+                  type="text"
+                  value={searchFellowQuery}
+                  onChange={(e) => setSearchFellowQuery(e.target.value)}
+                  placeholder="Search fellow name or email..."
+                  className="search-input"
+                />
               </div>
+              {programs.length > 1 && (
+                <select
+                  value={activeProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
+                  className="filter-select"
+                  aria-label="Program"
+                >
+                  {programs.map((p) => (
+                    <option key={p.program_id} value={p.program_id}>
+                      {p.program_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Fellows Table Content */}
-            <div className="overflow-x-auto">
+            <div className="data-table-wrap">
               {isLoadingFellows ? (
                 <div className="py-16 text-center text-slate-400 space-y-3">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-kulkul-purple" />
@@ -436,25 +459,25 @@ export const MentorDashboardPage: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs text-slate-700">
-                  <thead className="bg-slate-50/75 border-b border-slate-200 text-3xs font-extrabold uppercase tracking-wider text-slate-400">
+                <table className="data-table">
+                  <thead>
                     <tr>
-                      <th className="py-3.5 px-6">Fellow Details</th>
-                      {hasTracks && <th className="py-3.5 px-6 whitespace-nowrap">Track</th>}
-                      <th className="py-3.5 px-6 whitespace-nowrap">Stage</th>
-                      <th className="py-3.5 px-6 whitespace-nowrap">Assessment</th>
-                      <th className="py-3.5 px-6 whitespace-nowrap">Profiles</th>
-                      <th className="py-3.5 px-6 text-right whitespace-nowrap">Action</th>
+                      <th>Fellow Details</th>
+                      {hasTracks && <th className="whitespace-nowrap">Track</th>}
+                      <th className="whitespace-nowrap">Stage</th>
+                      <th className="whitespace-nowrap">Assessment</th>
+                      <th className="whitespace-nowrap">Profiles</th>
+                      <th className="text-right whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {filteredFellows.map((fellow) => (
-                      <tr key={fellow.id} className="hover:bg-slate-50/60 transition">
-                        <td className="py-3.5 px-6">
-                          <div className="font-bold text-slate-900 text-sm">
+                      <tr key={fellow.id} className="transition">
+                        <td>
+                          <div className="cell-primary">
                             {fellow.full_name}
                           </div>
-                          <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                          <div className="cell-secondary mt-0.5 flex items-center gap-2">
                             <span>{fellow.email}</span>
                             {fellow.phone && (
                               <>
@@ -471,7 +494,7 @@ export const MentorDashboardPage: React.FC = () => {
                         </td>
 
                         {hasTracks && (
-                          <td className="py-3.5 px-6 whitespace-nowrap">
+                          <td className="whitespace-nowrap">
                             {fellow.track_name ? (
                               <span className="text-2xs font-extrabold text-kulkul-purple">
                                 {fellow.track_name}
@@ -482,7 +505,7 @@ export const MentorDashboardPage: React.FC = () => {
                           </td>
                         )}
 
-                        <td className="py-3.5 px-6 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           <span
                             className={`text-2xs font-bold capitalize ${
                               fellow.current_stage === 'accepted'
@@ -496,7 +519,7 @@ export const MentorDashboardPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-6 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           <div className="space-y-0.5">
                             {fellow.mcq_score !== undefined && (
                               <div className="text-2xs font-semibold text-slate-700">
@@ -514,7 +537,7 @@ export const MentorDashboardPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-6 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {fellow.github_url && (
                               <a
@@ -555,7 +578,7 @@ export const MentorDashboardPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-6 text-right whitespace-nowrap">
+                        <td className="text-right whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setSelectedFellow(fellow)}
@@ -739,9 +762,9 @@ export const MentorDashboardPage: React.FC = () => {
         {/* 5. SESSIONS & ATTENDANCE TRACKER */}
         {/* ========================================================================= */}
         {activeNavId === 'sessions' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {programs.length > 1 && (
-              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+              <div className="flex items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 shadow-sm px-6 sm:px-8 py-4">
                 <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
@@ -762,9 +785,10 @@ export const MentorDashboardPage: React.FC = () => {
                 programId={activeProgramId}
                 programName={programs.find((p) => p.program_id === activeProgramId)?.program_name}
                 isMentor={true}
+                showSummary={false}
               />
             ) : (
-              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+              <div className={`${cardShell} text-center space-y-3`}>
                 <p className="text-xs text-slate-500 font-bold">No active program found to schedule sessions for.</p>
               </div>
             )}
@@ -775,9 +799,9 @@ export const MentorDashboardPage: React.FC = () => {
         {/* 6. ASSIGNMENTS & COHORT GRADING */}
         {/* ========================================================================= */}
         {activeNavId === 'assignments' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {programs.length > 1 && (
-              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+              <div className="flex items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 shadow-sm px-6 sm:px-8 py-4">
                 <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
@@ -799,7 +823,7 @@ export const MentorDashboardPage: React.FC = () => {
                 isMentorOrAdmin={true}
               />
             ) : (
-              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+              <div className={`${cardShell} text-center space-y-3`}>
                 <p className="text-xs text-slate-500 font-bold">No active program found to manage assignments for.</p>
               </div>
             )}
@@ -810,9 +834,9 @@ export const MentorDashboardPage: React.FC = () => {
         {/* 7. GITHUB CONTRIBUTION ACTIVITY */}
         {/* ========================================================================= */}
         {activeNavId === 'github' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {programs.length > 1 && (
-              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+              <div className="flex items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 shadow-sm px-6 sm:px-8 py-4">
                 <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
@@ -829,9 +853,9 @@ export const MentorDashboardPage: React.FC = () => {
             )}
 
             {activeProgramId ? (
-              <ProgramGitHubActivityView programId={activeProgramId} />
+              <ProgramGitHubActivityView programId={activeProgramId} showSummary={false} />
             ) : (
-              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+              <div className={`${cardShell} text-center space-y-3`}>
                 <p className="text-xs text-slate-500 font-bold">No active program found to track GitHub activity for.</p>
               </div>
             )}

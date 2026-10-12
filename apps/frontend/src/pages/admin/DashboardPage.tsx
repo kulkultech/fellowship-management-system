@@ -765,15 +765,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     switch (colId) {
       case 'candidate':
         return (
-          <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
-            <div className="font-extrabold text-slate-900 truncate">{app.full_name}</div>
-            <div className="text-xs text-slate-500 truncate">{app.email}</div>
+          <td key={colId} className="align-middle max-w-[240px]">
+            <div className="cell-primary truncate">{app.full_name}</div>
+            <div className="cell-secondary truncate">{app.email}</div>
           </td>
         );
 
       case 'track':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.track_name ? (
               <span className="text-xs font-bold text-kulkul-purple whitespace-nowrap">
                 {app.track_name}
@@ -786,7 +786,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'stage':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             <div className="flex flex-col gap-1 items-start">
               {renderStageBadge(app.current_stage)}
               {app.current_stage === 'approved_for_live' && (
@@ -808,7 +808,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'mcq_score':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.mcq_score !== undefined && app.mcq_score !== null ? (
               <div className="flex items-center gap-2">
                 <span
@@ -830,7 +830,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'ai_score':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? (
               <span className="text-xs font-extrabold text-purple-700 whitespace-nowrap">
                 {app.ai_score}/100
@@ -843,7 +843,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'ai_recommendation':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.ai_recommendation ? (
               <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">
                 {app.ai_recommendation}
@@ -856,7 +856,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'reviewer_mark':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             <button
               type="button"
               onClick={(e) => {
@@ -880,7 +880,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'reviewer_notes':
         return (
-          <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+          <td key={colId} className="align-middle max-w-[240px]">
             <button
               type="button"
               onClick={(e) => {
@@ -909,14 +909,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'applied_date':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
+          <td key={colId} className="align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
             {app.created_at || '—'}
           </td>
         );
 
       case 'phone':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs font-medium text-slate-700">
+          <td key={colId} className="align-middle whitespace-nowrap text-xs font-medium text-slate-700">
             {app.phone ? (
               <a
                 href={`https://wa.me/${app.phone.replace(/\D/g, '')}`}
@@ -936,7 +936,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'university':
         return (
-          <td key={colId} className="px-6 py-4 align-middle max-w-[220px]">
+          <td key={colId} className="align-middle max-w-[220px]">
             <div className="text-xs font-medium text-slate-800 truncate" title={app.university}>
               {app.university || <span className="text-slate-400">&mdash;</span>}
             </div>
@@ -945,7 +945,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'major':
         return (
-          <td key={colId} className="px-6 py-4 align-middle max-w-[220px]">
+          <td key={colId} className="align-middle max-w-[220px]">
             <div className="text-xs font-medium text-slate-800 truncate" title={app.major}>
               {app.major || <span className="text-slate-400">&mdash;</span>}
             </div>
@@ -954,7 +954,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'semester':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.semester ? (
               <span className="text-xs font-medium text-slate-700 whitespace-nowrap">
                 {app.semester}
@@ -967,21 +967,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'referral_source':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs font-medium text-slate-700">
+          <td key={colId} className="align-middle whitespace-nowrap text-xs font-medium text-slate-700">
             {app.referral_source || <span className="text-slate-400">&mdash;</span>}
           </td>
         );
 
       case 'date_of_birth':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
+          <td key={colId} className="align-middle whitespace-nowrap text-xs text-slate-600 font-medium">
             {app.date_of_birth || <span className="text-slate-400">&mdash;</span>}
           </td>
         );
 
       case 'linkedin_url':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.linkedin_url ? (
               <a
                 href={app.linkedin_url.startsWith('http') ? app.linkedin_url : `https://${app.linkedin_url}`}
@@ -1001,7 +1001,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'github_url':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.github_url ? (
               <a
                 href={app.github_url.startsWith('http') ? app.github_url : `https://${app.github_url}`}
@@ -1021,7 +1021,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'resume_url':
         return (
-          <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+          <td key={colId} className="align-middle whitespace-nowrap">
             {app.resume_url ? (
               <a
                 href={resolveMediaUrl(app.resume_url)}
@@ -1043,7 +1043,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
       case 'actions':
         return (
-          <td key={colId} className="px-6 py-4 align-middle text-right whitespace-nowrap">
+          <td key={colId} className="align-middle text-right whitespace-nowrap">
             <div className="flex items-center justify-end gap-1">
               <button
                 type="button"
@@ -1089,7 +1089,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         if (val === undefined || val === null || val === '') {
           return (
-            <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            <td key={colId} className="align-middle whitespace-nowrap">
               <span className="text-xs text-slate-400">&mdash;</span>
             </td>
           );
@@ -1097,7 +1097,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         if (typeof val === 'boolean') {
           return (
-            <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            <td key={colId} className="align-middle whitespace-nowrap">
               <span
                 className={`text-xs font-bold whitespace-nowrap ${
                   val ? 'text-emerald-700' : 'text-slate-600'
@@ -1111,7 +1111,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         if (Array.isArray(val)) {
           return (
-            <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+            <td key={colId} className="align-middle max-w-[240px]">
               <span className="text-xs font-medium text-slate-700 whitespace-nowrap truncate block" title={val.map(String).join(', ')}>
                 {val.map(String).join(', ')}
               </span>
@@ -1124,7 +1124,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         if (isUrl) {
           return (
-            <td key={colId} className="px-6 py-4 align-middle whitespace-nowrap">
+            <td key={colId} className="align-middle whitespace-nowrap">
               <a
                 href={strVal}
                 target="_blank"
@@ -1140,7 +1140,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         }
 
         return (
-          <td key={colId} className="px-6 py-4 align-middle max-w-[240px]">
+          <td key={colId} className="align-middle max-w-[240px]">
             <div className="text-xs text-slate-800 truncate" title={strVal}>
               {strVal}
             </div>
@@ -2516,15 +2516,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {currentView === 'programs' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-6">
-                <div>
-                  <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-kulkul-purple" />
-                    <span>Active Fellowship Cohorts</span>
-                  </h2>
-                </div>
+              <div className="section-header">
+                <h2 className="section-title">Active Fellowship Cohorts</h2>
 
-                <div className="flex items-center gap-3">
+                <div className="section-actions">
                   <span className="text-xs font-bold text-slate-500">
                     {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
                   </span>
@@ -2546,37 +2541,37 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </button>
                 </div>
               ) : (
-                <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
+                <div className="data-table-wrap">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[860px]">
+                    <table className="data-table table-fixed min-w-[960px]">
                       <colgroup>
-                        <col className="w-[26%]" />
                         <col className="w-[22%]" />
-                        <col className="w-[14%]" />
-                        <col className="w-[16%]" />
                         <col className="w-[22%]" />
+                        <col className="w-[13%]" />
+                        <col className="w-[15%]" />
+                        <col className="w-[28%]" />
                       </colgroup>
-                      <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
+                      <thead>
                         <tr>
-                          <th className="py-3.5 px-6 font-bold">Program Details</th>
-                          <th className="py-3.5 px-6 font-bold">Cohort Window</th>
-                          <th className="py-3.5 px-6 font-bold">Tracks</th>
-                          <th className="py-3.5 px-6 font-bold">Status</th>
-                          <th className="py-3.5 px-6 font-bold text-right">Actions</th>
+                          <th>Program Details</th>
+                          <th>Cohort Window</th>
+                          <th>Tracks</th>
+                          <th>Status</th>
+                          <th className="text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
+                      <tbody className="bg-white">
                         {allPrograms.map((prog) => {
                           return (
                             <tr
-                              key={prog.id}
-                              className="hover:bg-slate-50/90 transition group cursor-pointer"
-                              onClick={() => {
+ key={prog.id}
+ className="transition group cursor-pointer"
+ onClick={() => {
                                 setActiveProgramSlug(prog.slug);
                                 setCurrentView('pipeline');
                               }}
                             >
-                              <td className="py-4 px-6 align-middle">
+                              <td className="align-middle">
                                 <div className="flex items-center gap-3.5 h-10">
                                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold text-base shrink-0 border border-kulkul-purple/20 overflow-hidden shadow-2xs">
                                     {prog.image_url ? (
@@ -2590,17 +2585,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                     )}
                                   </div>
                                   <div className="min-w-0 flex flex-col justify-center">
-                                    <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm truncate leading-tight">
+                                    <div className="cell-primary group-hover:text-kulkul-purple transition truncate leading-tight">
                                       {prog.name}
                                     </div>
                                     <div className="mt-0.5">
-                                      <span className="text-2xs font-mono text-slate-400 leading-tight">/{prog.slug}</span>
+                                      <span className="cell-secondary font-mono leading-tight">/{prog.slug}</span>
                                     </div>
                                   </div>
                                 </div>
                               </td>
 
-                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
+                              <td className="align-middle whitespace-nowrap text-left">
                                 <div className="flex items-center gap-2 h-10 text-xs font-semibold text-slate-700">
                                   <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                                   <span>
@@ -2609,7 +2604,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 </div>
                               </td>
 
-                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
+                              <td className="align-middle whitespace-nowrap text-left">
                                 {(() => {
                                   const count = prog.tracks ? prog.tracks.length : (prog.slug === activeProgramSlug ? programTracks.length : 0);
                                   return (
@@ -2623,14 +2618,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 })()}
                               </td>
 
-                              <td className="py-4 px-6 align-middle whitespace-nowrap text-left">
+                              <td className="align-middle whitespace-nowrap text-left">
                                 <div className="flex items-center gap-2 h-10">
                                   <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
                                   <span className="text-xs font-semibold text-emerald-700">Admissions Open</span>
                                 </div>
                               </td>
 
-                              <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              <td className="align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2 h-10">
                                   <button
                                     onClick={() => {
@@ -2809,21 +2804,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* VIEW: PROGRAM APPLICATION & ASSESSMENT STAGES */}
         {/* ================================================================================= */}
         {currentView === 'stages' && (
-          <div className="space-y-8">
+          <div className="space-y-6 animate-in fade-in duration-200">
             {/* 1. CANDIDATE ADMISSION FLOW SEQUENCER (RUNTIME LOGIC & PIPELINE ORDER) */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+              <div className="section-header">
                 <div>
-                  <h2 className="text-xl font-extrabold text-kulkul-purple flex items-center gap-2">
-                    <Workflow className="w-5 h-5 text-kulkul-orange" />
-                    Candidate Admission Flow Sequencer
-                  </h2>
+                  <h2 className="section-title">Candidate Admission Flow</h2>
+                  <p className="section-subtitle">The order candidates complete each step after signing in.</p>
                 </div>
 
-                <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="section-actions">
                   <button
                     onClick={handleResetCandidateFlow}
-                    className="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
+                    className="btn btn-sm btn-outline"
                     title="Reset to default order (Form -> MCQ -> AI Interview)"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -2833,7 +2826,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <button
                     onClick={() => updateCandidateFlowMutation.mutate(editableCandidateFlow)}
                     disabled={updateCandidateFlowMutation.isPending}
-                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                    className="btn btn-sm btn-primary"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{updateCandidateFlowMutation.isPending ? 'Saving Order...' : 'Save Flow Order'}</span>
@@ -3017,31 +3010,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
             {/* 2. PUBLIC APPLICATION & ASSESSMENT STAGES (MARKETING & CURRICULUM SHOWCASE) */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+              <div className="section-header">
                 <div>
-                  <h2 className="text-xl font-extrabold text-kulkul-purple flex items-center gap-2">
-                    <Workflow className="w-5 h-5 text-kulkul-orange" />
-                    Public Program Stages Showcase
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-                    Configure the descriptive stages displayed publicly to candidates on the program overview page.
+                  <h2 className="section-title">Public Program Stages</h2>
+                  <p className="section-subtitle">
+                    The stages shown to candidates on the public program page.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="section-actions">
                   <button
                     onClick={handleResetStages}
-                    className="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
+                    className="btn btn-sm btn-outline"
                     title="Reset to default 6-stage flow"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset Defaults</span>
                   </button>
 
-                  <button
-                    onClick={handleAddStage}
-                    className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-1.5"
-                  >
+                  <button onClick={handleAddStage} className="btn btn-sm btn-outline">
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Stage</span>
                   </button>
@@ -3049,7 +3036,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <button
                     onClick={() => updateStagesMutation.mutate(editableStages)}
                     disabled={updateStagesMutation.isPending}
-                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                    className="btn btn-sm btn-primary"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{updateStagesMutation.isPending ? 'Saving...' : 'Save Changes'}</span>
@@ -3103,28 +3090,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                     <div className="grid grid-cols-1 gap-3">
                       <div>
-                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Stage Title
-                        </label>
+                        <label className="field-label">Stage Title</label>
                         <input
                           type="text"
                           value={stage.title}
                           onChange={(e) => handleStageChange(idx, 'title', e.target.value)}
                           placeholder="e.g. Specialization Track & Intake Application"
-                          className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-semibold text-slate-900"
+                          className="form-input"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Description & Instructions
-                        </label>
+                        <label className="field-label">Description & Instructions</label>
                         <textarea
                           rows={2}
                           value={stage.description}
                           onChange={(e) => handleStageChange(idx, 'description', e.target.value)}
                           placeholder="Explain what happens in this stage..."
-                          className="w-full px-3.5 py-2 rounded-xl text-xs bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-slate-700 leading-relaxed"
+                          className="form-textarea leading-relaxed"
                         />
                       </div>
                     </div>
@@ -3140,9 +3123,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <button
                   onClick={() => updateStagesMutation.mutate(editableStages)}
                   disabled={updateStagesMutation.isPending}
-                  className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                  className="btn btn-sm btn-primary"
                 >
-                  <Save className="w-4 h-4" />
+                  <Save className="w-3.5 h-3.5" />
                   <span>{updateStagesMutation.isPending ? 'Saving Stages...' : 'Save Application Stages'}</span>
                 </button>
               </div>
@@ -3154,17 +3137,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* VIEW: CANDIDATE PIPELINE (FILTERED BY TREE SELECTION) */}
         {/* ================================================================================= */}
         {currentView === 'pipeline' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Candidate Pipeline Header & Filter Bar */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
-              <div className="relative w-full lg:w-96">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5 animate-in fade-in duration-200">
+            {/* Candidate Pipeline Toolbar: search left, filters and actions right */}
+            <div className="table-toolbar lg:items-start">
+              <div className="search-field shrink-0">
+                <Search />
                 <input
                   type="text"
-                  placeholder="Search candidates by name, email, university, track, or stage..."
+                  placeholder="Search name, email, university, track..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                  className="search-input pr-8"
                 />
                 {searchQuery && (
                   <button
@@ -3179,7 +3162,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               </div>
 
               {/* Stage Filter Tabs & Active Track Indicator & Track Actions */}
-              <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap sm:justify-end">
                 {selectedTrackFilter && (
                   <div className="flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
                     <Award className="w-3.5 h-3.5 text-kulkul-orange" />
@@ -3234,7 +3217,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <button
                   type="button"
                   onClick={() => setIsColumnCustomizerOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs hover:border-kulkul-purple/50 transition whitespace-nowrap"
+                  className="btn btn-sm btn-outline whitespace-nowrap"
                   title="Customize candidate table columns"
                 >
                   <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
@@ -3246,7 +3229,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                 {/* Export Candidates to Excel Button */}
                 <div className="relative">
-                  <div className="inline-flex items-stretch rounded-full shadow-2xs border border-emerald-300/80 bg-emerald-50 hover:bg-emerald-100/80 transition overflow-hidden">
+                  <div className="inline-flex items-stretch h-8 rounded-full shadow-2xs border border-slate-200 bg-white hover:bg-slate-50 transition overflow-hidden">
                     <button
                       type="button"
                       disabled={isExportingCandidates || filteredApplicants.length === 0}
@@ -3258,7 +3241,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             : 'All Candidates'
                         );
                       }}
-                      className="inline-flex items-center gap-1.5 pl-3.5 pr-2.5 py-1.5 text-xs font-bold text-emerald-800 disabled:opacity-50 transition whitespace-nowrap"
+                      className="inline-flex items-center gap-1.5 pl-3.5 pr-2.5 text-xs font-bold text-slate-700 disabled:opacity-50 transition whitespace-nowrap"
                       title={
                         hasActiveCandidateFilters
                           ? `Export ${filteredApplicants.length} filtered candidate(s) to Excel (.xlsx)`
@@ -3271,7 +3254,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                       )}
                       <span>Export to Excel</span>
-                      <span className="text-2xs font-extrabold text-emerald-600">
+                      <span className="text-2xs font-extrabold text-slate-400">
                         {hasActiveCandidateFilters ? filteredApplicants.length : applicants.length}
                       </span>
                     </button>
@@ -3280,7 +3263,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         type="button"
                         disabled={isExportingCandidates || applicants.length === 0}
                         onClick={() => setShowCandidateExportMenu((prev) => !prev)}
-                        className="px-2 py-1.5 text-emerald-700 hover:text-emerald-900 border-l border-emerald-200 hover:bg-emerald-200/50 transition flex items-center justify-center disabled:opacity-50"
+                        className="px-2 text-slate-500 hover:text-slate-900 border-l border-slate-200 hover:bg-slate-100 transition flex items-center justify-center disabled:opacity-50"
                         title="Choose export scope (Filtered vs All Candidates)"
                       >
                         <ChevronDown className="w-3 h-3" />
@@ -3385,10 +3368,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
 
             {/* Candidates Table */}
-            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
               <div className="overflow-auto max-h-[calc(100vh-270px)] min-h-[360px] relative scrollbar-thin">
-                <table className="w-full text-left text-sm text-slate-700 min-w-[960px]">
-                  <thead className="sticky top-0 z-20 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider shadow-2xs">
+                <table className="data-table min-w-[960px]">
+                  <thead className="sticky top-0 z-20">
                     <tr>
                       {activeColumns.map((colId) => {
                         const colDef = allAvailableColumnsMap.get(colId) || {
@@ -3407,10 +3390,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <th
                             key={colId}
                             onClick={() => isSortable && handleSort(colId)}
-                            className={`sticky top-0 z-20 px-6 py-4 whitespace-nowrap group select-none shadow-[inset_0_-1px_0_#e2e8f0] ${
-                              isCurrentSorted
-                                ? 'bg-purple-50 text-kulkul-purple font-black'
-                                : 'bg-slate-50 text-slate-600'
+                            className={`sticky top-0 z-20 whitespace-nowrap group select-none ${
+                              isCurrentSorted ? '!bg-purple-50 !text-kulkul-purple' : ''
                             } ${
                               isSortable ? 'cursor-pointer hover:bg-slate-100/90 transition-colors' : ''
                             } ${colId === 'actions' ? 'text-right' : ''}`}
@@ -3476,16 +3457,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       })}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {isListLoading ? (
                       <tr>
-                        <td colSpan={activeColumns.length} className="px-6 py-12 text-center text-slate-400">
+                        <td colSpan={activeColumns.length} className="text-center text-slate-400">
                           Loading candidates...
                         </td>
                       </tr>
                     ) : filteredApplicants.length === 0 ? (
                       <tr>
-                        <td colSpan={activeColumns.length} className="px-6 py-16 text-center text-slate-400">
+                        <td colSpan={activeColumns.length} className="text-center text-slate-400">
                           <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                           <div className="text-base font-bold text-slate-700">
                             {hasActiveCandidateFilters ? 'No candidates matching filters' : 'No applicants yet'}
@@ -3537,30 +3518,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             {!openedQuestionSetId ? (
               /* Simple Question Banks Table View */
               <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
-                  <div>
-                    <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                      <HelpCircle className="w-5 h-5 text-kulkul-purple" />
-                      <span>Assessment Question Banks</span>
-                    </h2>
-                  </div>
+                <div className="section-header">
+                  <h2 className="section-title">Assessment Question Banks</h2>
 
-                  <div className="flex items-center gap-3">
+                  <div className="section-actions">
                     <button
                       type="button"
                       onClick={handleOpenCsvImportNew}
-                      className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                      className="btn btn-sm btn-outline"
                     >
-                      <UploadCloud className="w-4 h-4 text-kulkul-purple" />
+                      <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
                       <span>Import CSV</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setIsCreateQuestionSetModalOpen(true)}
-                      className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                      className="btn btn-sm btn-primary"
                     >
-                      <Plus className="w-4 h-4 text-kulkul-orange" />
+                      <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
                       <span>Create Question Set</span>
                     </button>
                   </div>
@@ -3590,9 +3566,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     </div>
                   </div>
                 ) : (
-                  <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs bg-white">
+                  <div className="data-table-wrap">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse table-fixed min-w-[780px]">
+                      <table className="data-table table-fixed min-w-[780px]">
                         <colgroup>
                           <col className="w-[30%]" />
                           <col className="w-[18%]" />
@@ -3600,57 +3576,57 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <col className="w-[18%]" />
                           <col className="w-[20%]" />
                         </colgroup>
-                        <thead className="bg-slate-50/90 border-b border-slate-200/80 text-2xs uppercase tracking-wider text-slate-500 font-bold">
+                        <thead>
                           <tr>
-                            <th className="py-3.5 px-6 font-bold">Question Set</th>
-                            <th className="py-3.5 px-6 font-bold">Category</th>
-                            <th className="py-3.5 px-6 font-bold">Questions</th>
-                            <th className="py-3.5 px-6 font-bold">Timing & Benchmark</th>
-                            <th className="py-3.5 px-6 font-bold text-right">Actions</th>
+                            <th>Question Set</th>
+                            <th>Category</th>
+                            <th>Questions</th>
+                            <th>Timing & Benchmark</th>
+                            <th className="text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody className="bg-white">
                           {allQuestionSets.map((qs) => {
                             return (
                               <tr
-                                key={qs.id}
-                                className="hover:bg-slate-50/90 transition group cursor-pointer"
-                                onClick={() => {
+ key={qs.id}
+ className="transition group cursor-pointer"
+ onClick={() => {
                                   setSelectedQuestionSetId(qs.id);
                                   setOpenedQuestionSetId(qs.id);
                                 }}
                               >
-                                <td className="py-4 px-6 align-middle">
-                                  <div className="font-extrabold text-slate-900 group-hover:text-kulkul-purple transition text-sm">
+                                <td className="align-middle">
+                                  <div className="cell-primary group-hover:text-kulkul-purple transition">
                                     {qs.name}
                                   </div>
                                   {qs.description && (
-                                    <div className="text-2xs text-slate-500 mt-0.5 line-clamp-1">
+                                    <div className="cell-secondary mt-0.5 line-clamp-1">
                                       {qs.description}
                                     </div>
                                   )}
                                 </td>
 
-                                <td className="py-4 px-6 align-middle whitespace-nowrap">
+                                <td className="align-middle whitespace-nowrap">
                                   <span className="text-2xs font-extrabold text-slate-600">
                                     {qs.category || 'Logic Assessment'}
                                   </span>
                                 </td>
 
-                                <td className="py-4 px-6 align-middle whitespace-nowrap text-xs font-bold text-slate-800">
+                                <td className="align-middle whitespace-nowrap font-bold text-slate-800">
                                   <span className="inline-flex items-center gap-1 text-2xs font-bold text-kulkul-purple">
                                     {qs.questions?.length || qs.total_questions || 0} Questions
                                   </span>
                                 </td>
 
-                                <td className="py-4 px-6 align-middle whitespace-nowrap text-xs text-slate-600">
+                                <td className="align-middle whitespace-nowrap text-slate-600">
                                   <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                                     <span>{qs.duration_minutes} mins · {qs.passing_score}% pass</span>
                                   </div>
                                 </td>
 
-                                <td className="py-4 px-6 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <td className="align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex items-center justify-end gap-2">
                                     <button
                                       type="button"
@@ -4066,31 +4042,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* ================================================================================= */}
         {currentView === 'track_editor' && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Top Navigation / Breadcrumb */}
-            <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentView('pipeline')}
-                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Candidate Pipeline</span>
-              </button>
-
-              <span className="text-xs font-bold text-kulkul-purple">
-                Program: {program?.name || activeProgramSlug}
-              </span>
-            </div>
-
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-8">
-              <div className="border-b border-slate-100 pb-5">
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-kulkul-purple" />
-                  <span>{editingTrack ? `Edit Track: ${editingTrack.name}` : 'Create Specialization Track'}</span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Configure candidate specialization tracks, MCQ question sets, and AI technical screening parameters.
-                </p>
+            <div className="content-card space-y-6">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">
+                    {editingTrack ? `Edit Track: ${editingTrack.name}` : 'Create Specialization Track'}
+                  </h2>
+                  <p className="section-subtitle">{program?.name || activeProgramSlug}</p>
+                </div>
+                <div className="section-actions">
+                  <button type="button" onClick={() => setCurrentView('pipeline')} className="btn btn-sm btn-outline">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Pipeline</span>
+                  </button>
+                </div>
               </div>
 
               <form
@@ -4106,13 +4071,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               >
                 {/* Section 1: Track Details */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <h3 className="text-sm font-extrabold text-slate-900">
                     1. Track Information
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      <label className="field-label">
                         Track Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -4128,12 +4093,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
                           }));
                         }}
-                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        className="form-input"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      <label className="field-label">
                         Track URL Slug <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -4142,13 +4107,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         placeholder="e.g. devops"
                         value={trackForm.slug}
                         onChange={(e) => setTrackForm({ ...trackForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        className="form-input font-mono"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    <label className="field-label">
                       Track Description
                     </label>
                     <textarea
@@ -4156,7 +4121,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       placeholder="Focus areas, required skillsets, expectations..."
                       value={trackForm.description}
                       onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      className="form-input"
                     />
                   </div>
                 </div>
@@ -4164,7 +4129,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 {/* Section 2: Question Bank & Logic MCQ */}
                 <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                       <HelpCircle className="w-4 h-4 text-kulkul-purple" />
                       <span>2. Timed Logic & Domain MCQ Assessment</span>
                     </h3>
@@ -4182,7 +4147,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {trackForm.enable_mcq && (
                     <div className="space-y-4 pt-2">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        <label className="field-label">
                           Question Bank / Reusable Test Set
                         </label>
                         <select
@@ -4204,7 +4169,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               }));
                             }
                           }}
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                          className="form-input"
                         >
                           <option value="">-- Choose Question Set from Bank --</option>
                           {allQuestionSets.map((qs) => (
@@ -4223,7 +4188,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                          <label className="field-label">
                             Logic Test Duration (Minutes)
                           </label>
                           <input
@@ -4237,7 +4202,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         </div>
 
                         <div>
-                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                          <label className="field-label">
                             Passing Score Benchmark (%)
                           </label>
                           <input
@@ -4257,7 +4222,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 {/* Section 3: AI Technical Screening */}
                 <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                       <Bot className="w-4 h-4 text-kulkul-purple" />
                       <span>3. Autonomous AI Technical Screening Room</span>
                     </h3>
@@ -4275,7 +4240,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {trackForm.enable_ai_interview && (
                     <div className="space-y-4 pt-2">
                       <div>
-                        <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                        <label className="field-label">
                           AI Interviewer Guidelines & System Instructions
                         </label>
                         <input
@@ -4283,12 +4248,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           value={trackForm.ai_interview_instructions}
                           onChange={(e) => setTrackForm({ ...trackForm, ai_interview_instructions: e.target.value })}
                           placeholder="e.g. Assess system design principles, debugging methodology, and communication clarity."
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          className="form-input"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                        <label className="field-label">
                           Track Technical Interview Questions (One question per line)
                         </label>
                         <textarea
@@ -4319,7 +4284,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         }
                       }}
                       disabled={deleteTrackMutation.isPending}
-                      className="px-4 py-2.5 rounded-full text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center gap-1.5"
+                      className="btn btn-sm btn-ghost text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Delete Track</span>
@@ -4332,7 +4297,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     <button
                       type="button"
                       onClick={() => setCurrentView('pipeline')}
-                      className="px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs"
+                      className="btn btn-sm btn-outline"
                     >
                       Cancel
                     </button>
@@ -4340,9 +4305,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     <button
                       type="submit"
                       disabled={createTrackMutation.isPending || updateTrackMutation.isPending}
-                      className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                      className="btn btn-sm btn-primary"
                     >
-                      <Save className="w-4 h-4 text-kulkul-orange" />
+                      <Save className="w-3.5 h-3.5" />
                       <span>{editingTrack ? 'Save Track Changes' : 'Create Specialization Track'}</span>
                     </button>
                   </div>
@@ -4357,67 +4322,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* ================================================================================= */}
         {currentView === 'ai_rubric' && rubricTargetProgram && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Top Navigation / Breadcrumb & Controls */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentView('pipeline')}
-                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Candidate Pipeline</span>
-              </button>
-
-              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-start sm:justify-end">
-                {allPrograms.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500">Program:</span>
-                    <select
-                      value={rubricTargetProgram.slug}
-                      onChange={(e) => {
-                        const target = allPrograms.find((p) => p.slug === e.target.value);
-                        if (target) handleOpenRubricPage(target);
-                      }}
-                      className="px-3.5 py-1.5 rounded-full border border-purple-200 bg-purple-50 text-kulkul-purple text-xs font-bold focus:outline-none shadow-2xs"
-                    >
-                      {allPrograms.map((p) => (
-                        <option key={p.id} value={p.slug}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider flex items-center gap-1.5 border shadow-2xs ${
-                    rubricTotalPts === 100
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                      : 'bg-amber-50 text-amber-700 border-amber-300'
-                  }`}
-                >
-                  <span>Total: {rubricTotalPts} / 100 Pts</span>
-                  {rubricTotalPts === 100 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                </div>
-              </div>
-            </div>
-
-            {/* Main Editor Card */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-8">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200 shrink-0 shadow-2xs">
-                    <Bot className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900">
-                      AI Interview Questions & Rubric Settings
-                    </h2>
-                  </div>
+            <div className="content-card space-y-8">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">AI Interview Questions & Rubric</h2>
+                  <p className="section-subtitle">
+                    {rubricTargetProgram.name} ·{' '}
+                    <span className={`font-bold ${rubricTotalPts === 100 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      Total {rubricTotalPts} / 100 pts
+                    </span>
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="section-actions">
                   <button
                     type="button"
                     onClick={() => {
@@ -4431,26 +4348,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       });
                     }}
                     disabled={updateProgramRubricMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                    className="btn btn-sm btn-primary"
                   >
-                    <Save className="w-4 h-4 text-kulkul-orange" />
-                    <span>
-                      {updateProgramRubricMutation.isPending ? 'Saving Rubric...' : 'Save Rubric Configuration'}
-                    </span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{updateProgramRubricMutation.isPending ? 'Saving...' : 'Save Rubric'}</span>
                   </button>
                 </div>
               </div>
 
               {/* General Timing & Screening Parameters */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-kulkul-purple" />
                   <span>Screening Chamber & Timing Parameters</span>
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                    <label className="field-label">
                       Preparation Buffer
                     </label>
                     <div className="relative">
@@ -4474,7 +4389,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
 
                   <div>
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                    <label className="field-label">
                       Max Response Duration
                     </label>
                     <div className="relative">
@@ -4498,7 +4413,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
 
                   <div className="flex flex-col justify-center">
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                    <label className="field-label">
                       Re-recording Policy
                     </label>
                     <label className="flex items-center gap-2 mt-1 cursor-pointer bg-white p-2 px-3 rounded-xl border border-slate-200">
@@ -4521,7 +4436,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 <div>
-                  <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                  <label className="field-label">
                     AI Evaluator Instructions & Accent Fairness Guidelines
                   </label>
                   <textarea
@@ -4553,7 +4468,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <button
                     type="button"
                     onClick={handleAddRubricQuestion}
-                    className="px-4 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-kulkul-purple text-xs font-bold border border-purple-200 transition flex items-center gap-1.5 shadow-2xs"
+                    className="btn btn-sm btn-outline"
                   >
                     <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
                     <span>Add Question</span>
@@ -4583,7 +4498,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-2xs font-bold text-slate-500 uppercase">Max Points:</span>
+                            <span className="text-xs font-bold text-slate-700">Max points</span>
                             <input
                               type="number"
                               min={1}
@@ -4609,7 +4524,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                       {/* Question Prompt Textarea */}
                       <div>
-                        <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                        <label className="field-label">
                           Question Prompt Spoken by AI to Candidate
                         </label>
                         <textarea
@@ -4624,7 +4539,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       {/* Criteria Sub-table */}
                       <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-2xs font-extrabold uppercase tracking-wider text-purple-900">
+                          <span className="text-xs font-bold text-slate-700">
                             Itemized Scoring Rubric Criteria ({q.criteria?.length || 0})
                           </span>
                           <button
@@ -4695,15 +4610,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentView('pipeline')}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 transition shadow-2xs"
-                  >
-                    Back to Pipeline
-                  </button>
-
+                <div className="section-actions">
                   <button
                     type="button"
                     onClick={() => {
@@ -4717,12 +4624,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       });
                     }}
                     disabled={updateProgramRubricMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                    className="btn btn-sm btn-primary"
                   >
-                    <Save className="w-4 h-4 text-kulkul-orange" />
-                    <span>
-                      {updateProgramRubricMutation.isPending ? 'Saving Rubric...' : 'Save Rubric Configuration'}
-                    </span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{updateProgramRubricMutation.isPending ? 'Saving...' : 'Save Rubric'}</span>
                   </button>
                 </div>
               </div>
@@ -5139,14 +5044,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* ================================================================================= */}
         {currentView === 'form_builder' && (
           <div className="animate-in fade-in duration-200">
-            <ApplicationFormBuilder
-              program={allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0]}
-              onBack={() => setCurrentView('pipeline')}
-              onSaved={() => {
-                queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
-                queryClient.invalidateQueries({ queryKey: ['program-stats', activeProgramSlug] });
-              }}
-            />
+            {/* Programs may still be loading when this page is opened directly or refreshed */}
+            {!(allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0]) ? (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading application form…</span>
+              </div>
+            ) : (
+              <ApplicationFormBuilder
+                program={(allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0])!}
+                onSaved={() => {
+                  queryClient.invalidateQueries({ queryKey: ['admin-all-programs'] });
+                  queryClient.invalidateQueries({ queryKey: ['program-stats', activeProgramSlug] });
+                }}
+              />
+            )}
           </div>
         )}
 
@@ -5173,7 +5085,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               const targetProg = allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0];
               if (!targetProg) {
                 return (
-                  <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+                  <div className="content-card p-12 text-center">
                     <Mail className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
                     <p className="text-xs text-slate-500 mt-1">
@@ -5203,7 +5115,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             {program ? (
               <ProgramGitHubActivityView programId={program.id} />
             ) : (
-              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+              <div className="content-card p-12 text-center">
                 <Github className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
                 <p className="text-xs text-slate-500 mt-1">
@@ -5226,7 +5138,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 tracks={programTracks}
               />
             ) : (
-              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+              <div className="content-card p-12 text-center">
                 <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
                 <p className="text-xs text-slate-500 mt-1">

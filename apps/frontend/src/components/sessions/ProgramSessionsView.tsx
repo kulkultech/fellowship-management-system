@@ -46,9 +46,12 @@ interface ProgramSessionsViewProps {
   isMentor?: boolean;
   tracks?: Track[];
   mentors?: ProgramMentor[];
+  /** Show the metric cards above the sessions (default true) */
+  showSummary?: boolean;
 }
 
 export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
+  showSummary = true,
   programId,
   programName = 'Fellowship Cohort',
   isMentor: _isMentor = false,
@@ -469,78 +472,89 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Header & Metrics Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-2xs font-extrabold uppercase tracking-wider">Cohort Sessions</span>
-            <Calendar className="w-4 h-4 text-kulkul-purple" />
+      {showSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-2xs font-extrabold uppercase tracking-wider">Cohort Sessions</span>
+              <Calendar className="w-4 h-4 text-kulkul-purple" />
+            </div>
+            <div className="text-2xl font-black text-slate-900">{cohortMetrics.totalSessions}</div>
+            <p className="text-2xs text-slate-500">Scheduled workshops &amp; syncs</p>
           </div>
-          <div className="text-2xl font-black text-slate-900">{cohortMetrics.totalSessions}</div>
-          <p className="text-2xs text-slate-500">Scheduled workshops &amp; syncs</p>
-        </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-2xs font-extrabold uppercase tracking-wider">Accepted Fellows</span>
-            <Users className="w-4 h-4 text-emerald-600" />
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-2xs font-extrabold uppercase tracking-wider">Accepted Fellows</span>
+              <Users className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="text-2xl font-black text-slate-900">{cohortMetrics.totalFellows}</div>
+            <p className="text-2xs text-slate-500">Official cohort participants</p>
           </div>
-          <div className="text-2xl font-black text-slate-900">{cohortMetrics.totalFellows}</div>
-          <p className="text-2xs text-slate-500">Official cohort participants</p>
-        </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-2xs font-extrabold uppercase tracking-wider">Cohort Attendance</span>
-            <TrendingUp className="w-4 h-4 text-blue-600" />
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-2xs font-extrabold uppercase tracking-wider">Cohort Attendance</span>
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-black text-slate-900">{cohortMetrics.avgAttendanceRate}%</div>
+              <span className="text-2xs font-bold text-slate-500">Average Rate</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  cohortMetrics.avgAttendanceRate >= 80
+                    ? 'bg-emerald-500'
+                    : cohortMetrics.avgAttendanceRate >= 65
+                    ? 'bg-amber-500'
+                    : 'bg-rose-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, cohortMetrics.avgAttendanceRate))}%` }}
+              />
+            </div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <div className="text-2xl font-black text-slate-900">{cohortMetrics.avgAttendanceRate}%</div>
-            <span className="text-2xs font-bold text-slate-500">Average Rate</span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                cohortMetrics.avgAttendanceRate >= 80
-                  ? 'bg-emerald-500'
-                  : cohortMetrics.avgAttendanceRate >= 65
-                  ? 'bg-amber-500'
-                  : 'bg-rose-500'
-              }`}
-              style={{ width: `${Math.min(100, Math.max(0, cohortMetrics.avgAttendanceRate))}%` }}
-            />
-          </div>
-        </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-2xs font-extrabold uppercase tracking-wider">Attendance Health</span>
-            <Award className="w-4 h-4 text-[#fe900d]" />
-          </div>
-          <div className="flex items-center gap-3 pt-0.5 text-2xs font-bold">
-            <span className="text-emerald-700">
-              {cohortMetrics.goodCount} Good
-            </span>
-            <span className="text-amber-700">
-              {cohortMetrics.warningCount} Warn
-            </span>
-            {cohortMetrics.atRiskCount > 0 && (
-              <span className="text-rose-700">
-                {cohortMetrics.atRiskCount} Risk
+          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-2xs font-extrabold uppercase tracking-wider">Attendance Health</span>
+              <Award className="w-4 h-4 text-[#fe900d]" />
+            </div>
+            <div className="flex items-center gap-3 pt-0.5 text-2xs font-bold">
+              <span className="text-emerald-700">
+                {cohortMetrics.goodCount} Good
               </span>
-            )}
+              <span className="text-amber-700">
+                {cohortMetrics.warningCount} Warn
+              </span>
+              {cohortMetrics.atRiskCount > 0 && (
+                <span className="text-rose-700">
+                  {cohortMetrics.atRiskCount} Risk
+                </span>
+              )}
+            </div>
+            <p className="text-2xs text-slate-500 pt-0.5">&ge;80% Good &bull; &lt;65% At Risk</p>
           </div>
-          <p className="text-2xs text-slate-500 pt-0.5">&ge;80% Good &bull; &lt;65% At Risk</p>
         </div>
-      </div>
+      )}
 
       {/* Main Container */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm p-4 sm:p-6 space-y-6">
-        <div className="flex items-center justify-between text-xs text-slate-500 font-bold pb-1">
-          <span>Cohort Program: <strong className="text-slate-900">{programName}</strong></span>
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="section-header">
+          <div>
+            <h3 className="section-title">Cohort Sessions &amp; Attendance</h3>
+            <p className="section-subtitle">{programName}</p>
+          </div>
+          <div className="section-actions">
+            <button onClick={() => openCreateModal()} className="btn btn-sm btn-primary">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Schedule New Session</span>
+            </button>
+          </div>
         </div>
 
-        {/* Tab & Controls Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        {/* Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
             <button
               onClick={() => setActiveTab('sessions')}
@@ -579,40 +593,31 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => openCreateModal()}
-              className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Schedule New Session</span>
-            </button>
-          </div>
         </div>
 
         {/* Tab 1: Cohort Sessions */}
         {activeTab === 'sessions' && (
           <div className="space-y-4">
-            {/* Filters */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="relative flex-1 min-w-[240px] max-w-md">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            {/* Toolbar: search on the left, filters on the right */}
+            <div className="table-toolbar">
+              <div className="search-field">
+                <Search />
                 <input
                   type="text"
                   placeholder="Search sessions by title, mentor, or type..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-kulkul-purple bg-slate-50/50"
+                  className="search-input"
                 />
               </div>
 
               {tracks.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider">Track:</span>
                   <select
                     value={selectedTrackFilter}
                     onChange={(e) => setSelectedTrackFilter(e.target.value)}
-                    className="select select-sm select-bordered rounded-xl text-xs bg-white"
+                    className="filter-select"
+                    aria-label="Filter by track"
                   >
                     <option value="all">All Tracks</option>
                     {tracks.map((t) => (
@@ -840,47 +845,47 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
-                <table className="w-full text-left text-xs min-w-[700px]">
-                  <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+              <div className="data-table-wrap">
+                <table className="data-table min-w-[700px]">
+                  <thead>
                     <tr>
-                      <th className="px-5 py-3">Fellow</th>
-                      {tracks.length > 0 && <th className="px-4 py-3">Track</th>}
-                      <th className="px-3 py-3 text-center">Sessions</th>
-                      <th className="px-3 py-3 text-center">Present</th>
-                      <th className="px-3 py-3 text-center">Late</th>
-                      <th className="px-3 py-3 text-center">Pending</th>
-                      <th className="px-3 py-3 text-center">Absent</th>
-                      <th className="px-3 py-3 text-center">Excused</th>
-                      <th className="px-4 py-3 text-center">Rate (%)</th>
-                      <th className="px-4 py-3 text-center">Status</th>
+                      <th>Fellow</th>
+                      {tracks.length > 0 && <th>Track</th>}
+                      <th className="text-center">Sessions</th>
+                      <th className="text-center">Present</th>
+                      <th className="text-center">Late</th>
+                      <th className="text-center">Pending</th>
+                      <th className="text-center">Absent</th>
+                      <th className="text-center">Excused</th>
+                      <th className="text-center">Rate (%)</th>
+                      <th className="text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {summaries.map((s) => (
-                      <tr key={s.applicant_id} className="hover:bg-slate-50/60 transition">
-                        <td className="px-5 py-3.5">
-                          <div className="font-extrabold text-slate-900">{s.full_name}</div>
-                          <div className="text-2xs text-slate-400">{s.email}</div>
+                      <tr key={s.applicant_id} className="transition">
+                        <td>
+                          <div className="cell-primary">{s.full_name}</div>
+                          <div className="cell-secondary">{s.email}</div>
                         </td>
                         {tracks.length > 0 && (
-                          <td className="px-4 py-3.5 text-slate-600 font-medium">
+                          <td className="text-slate-600 font-medium">
                             {s.track_name || <span className="text-slate-400">&mdash;</span>}
                           </td>
                         )}
-                        <td className="px-3 py-3.5 text-center font-bold text-slate-700">{s.total_sessions}</td>
-                        <td className="px-3 py-3.5 text-center font-bold text-emerald-700">{s.present_count}</td>
-                        <td className="px-3 py-3.5 text-center font-bold text-amber-600">{s.late_count}</td>
-                        <td className="px-3 py-3.5 text-center font-bold text-amber-700">
+                        <td className="text-center font-bold text-slate-700">{s.total_sessions}</td>
+                        <td className="text-center font-bold text-emerald-700">{s.present_count}</td>
+                        <td className="text-center font-bold text-amber-600">{s.late_count}</td>
+                        <td className="text-center font-bold text-amber-700">
                           {s.pending_count !== undefined && s.pending_count > 0 ? (
                             <span className="text-amber-700 font-extrabold">{s.pending_count}</span>
                           ) : (
                             <span className="text-slate-400">0</span>
                           )}
                         </td>
-                        <td className="px-3 py-3.5 text-center font-bold text-rose-600">{s.absent_count}</td>
-                        <td className="px-3 py-3.5 text-center font-bold text-slate-500">{s.excused_count}</td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="text-center font-bold text-rose-600">{s.absent_count}</td>
+                        <td className="text-center font-bold text-slate-500">{s.excused_count}</td>
+                        <td className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <span className="font-extrabold text-slate-900">{s.attendance_rate}%</span>
                             <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
@@ -897,7 +902,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="text-center">
                           <span
                             className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
                               s.status === 'Good'
@@ -1497,7 +1502,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </div>
 
             {/* Attendance Table */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto border border-slate-200 rounded-2xl">
+            <div className="data-table-wrap flex-1 overflow-y-auto">
               {isLoadingAttendance ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
@@ -1508,24 +1513,24 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   <p className="text-xs font-bold">No accepted fellows found for this cohort.</p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs min-w-[580px]">
-                  <thead className="bg-slate-100/70 text-slate-600 font-extrabold sticky top-0 border-b border-slate-200">
+                <table className="data-table min-w-[580px]">
+                  <thead className="sticky top-0">
                     <tr>
-                      <th className="px-4 py-3">Fellow</th>
-                      {tracks.length > 0 && <th className="px-3 py-3">Track</th>}
-                      <th className="px-4 py-3 text-center">Attendance Status</th>
-                      <th className="px-4 py-3 text-center">Proof Screenshot</th>
-                      <th className="px-4 py-3">Notes / Remarks</th>
+                      <th>Fellow</th>
+                      {tracks.length > 0 && <th>Track</th>}
+                      <th className="text-center">Attendance Status</th>
+                      <th className="text-center">Proof Screenshot</th>
+                      <th>Notes / Remarks</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {attendanceSheet.map((item) => (
-                      <tr key={item.applicant_id} className="hover:bg-slate-50/70 transition">
-                        <td className="px-4 py-3 font-bold text-slate-900">{item.fellow_name}</td>
+                      <tr key={item.applicant_id} className="transition">
+                        <td className="cell-primary">{item.fellow_name}</td>
                         {tracks.length > 0 && (
-                          <td className="px-3 py-3 text-slate-500">{item.track_name || 'General'}</td>
+                          <td className="text-slate-500">{item.track_name || 'General'}</td>
                         )}
-                        <td className="px-4 py-3">
+                        <td>
                           <div className="flex flex-col items-center justify-center gap-1">
                             {item.status === 'pending_validation' && (
                               <span className="text-2xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
@@ -1557,7 +1562,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="text-center">
                           {item.proof_image_url ? (
                             <button
                               type="button"
@@ -1583,7 +1588,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             <span className="text-xs text-slate-400 italic">No screenshot</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td>
                           <input
                             type="text"
                             placeholder="Add remark..."

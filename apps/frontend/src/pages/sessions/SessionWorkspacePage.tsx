@@ -772,7 +772,7 @@ export const SessionWorkspacePage: React.FC = () => {
             </div>
 
             {/* Roster Table */}
-            <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl bg-white">
+            <div className="data-table-wrap flex-1 overflow-y-auto">
               {isLoadingRoster ? (
                 <div className="py-20 flex flex-col items-center justify-center text-slate-400 space-y-2">
                   <Loader2 className="w-7 h-7 animate-spin text-kulkul-purple" />
@@ -783,23 +783,23 @@ export const SessionWorkspacePage: React.FC = () => {
                   No accepted fellows found for this cohort.
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold">
+                <table className="data-table">
+                  <thead>
                     <tr>
-                      <th className="px-4 py-3">Fellow</th>
-                      <th className="px-4 py-3 text-center">Status</th>
+                      <th>Fellow</th>
+                      <th className="text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {attendanceRoster.map((fellow) => (
-                      <tr key={fellow.applicant_id} className="hover:bg-slate-50/80 transition">
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-slate-900">{fellow.fellow_name}</div>
+                      <tr key={fellow.applicant_id} className="transition">
+                        <td>
+                          <div className="cell-primary">{fellow.fellow_name}</div>
                           {fellow.track_name && (
                             <div className="text-2xs text-slate-500">{fellow.track_name}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             {(['present', 'late', 'absent', 'excused'] as const).map((st) => (
                               <button

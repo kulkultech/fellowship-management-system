@@ -252,7 +252,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-4">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-kulkul-purple border-t-transparent rounded-full animate-spin"></div>
         <p className="text-sm font-medium text-slate-500">Loading program email templates...</p>
       </div>
     );
@@ -275,45 +275,47 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
   }
 
   return (
-    <div className="space-y-6 pb-16">
-      {/* Top Actions Bar */}
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={handleResetAll}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-100 hover:text-slate-800 rounded-xl border border-slate-200 transition-all shadow-sm"
-          title="Reset all 6 templates to system defaults"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Reset All to Defaults
-        </button>
+    <div className="content-card space-y-6">
+      <div className="section-header">
+        <div>
+          <h2 className="section-title">Candidate Email Templates</h2>
+          <p className="section-subtitle">{program.name}</p>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => saveMutation.mutate(templates)}
-          disabled={saveMutation.isPending || !hasChanges}
-          className={`inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all ${
-            hasChanges
-              ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 hover:shadow-md'
-              : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-          }`}
-        >
-          {saveMutation.isPending ? (
-            <>
-              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Saving Changes...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              {hasChanges ? 'Save Templates' : 'All Changes Saved'}
-            </>
-          )}
-        </button>
+        <div className="section-actions">
+          <button
+            type="button"
+            onClick={handleResetAll}
+            className="btn btn-sm btn-outline"
+            title="Reset all 6 templates to system defaults"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset All to Defaults
+          </button>
+
+          <button
+            type="button"
+            onClick={() => saveMutation.mutate(templates)}
+            disabled={saveMutation.isPending || !hasChanges}
+            className="btn btn-sm btn-primary"
+          >
+            {saveMutation.isPending ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Saving Changes...
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                {hasChanges ? 'Save Templates' : 'All Changes Saved'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Tabs Row (6 Email Types) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         {EMAIL_TEMPLATE_TYPES.map((typeMeta) => {
           const Icon = TAB_ICONS[typeMeta.key] || Mail;
           const isActive = activeTabKey === typeMeta.key;
@@ -327,14 +329,14 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
               onClick={() => setActiveTabKey(typeMeta.key)}
               className={`flex flex-col items-start p-3 rounded-xl text-left transition-all relative ${
                 isActive
-                  ? 'bg-white shadow-sm border border-slate-200 text-indigo-950 font-bold'
-                  : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 font-medium'
+                  ? 'bg-purple-50/60 border border-kulkul-purple text-slate-900 font-bold'
+                  : 'border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
               }`}
             >
               <div className="flex items-center justify-between w-full mb-1.5">
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                    isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200/70 text-slate-500'
+                    isActive ? 'bg-kulkul-purple text-white' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -358,12 +360,12 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
         {/* Left Column: Editor Controls (7 Cols) */}
         <div className="lg:col-span-7 space-y-5">
           {/* Active Template Status Card */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div className="rounded-2xl p-5 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold text-slate-900">{activeMeta.label}</h2>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  <span className="text-2xs font-semibold text-slate-400">
                     {activeMeta.stageTag}
                   </span>
                 </div>
@@ -383,7 +385,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
 
                 {/* Enable / Disable Switch */}
                 <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-100 transition-colors">
-                  <span className="text-xs font-semibold text-slate-700">
+                  <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
                     {currentConfig.enabled ? 'Custom Email Active' : 'Default System'}
                   </span>
                   <div className="relative inline-flex items-center">
@@ -411,14 +413,14 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
           </div>
 
           {/* Dynamic Variables Quick-Insertion Pills */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-2.5">
+          <div className="rounded-2xl p-5 border border-slate-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <Sparkles className="w-3.5 h-3.5 text-kulkul-purple" />
                 Click Variable to Insert / Copy
               </span>
               <span className="text-[11px] text-slate-400">
-                Inserting into: <span className="font-semibold text-indigo-600 uppercase">{activeField}</span>
+                Inserting into: <span className="font-semibold text-kulkul-purple uppercase">{activeField}</span>
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -429,14 +431,14 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                     key={v.variable}
                     type="button"
                     onClick={() => handleInsertVariable(v.variable)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-all group"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-50 hover:bg-purple-50 text-kulkul-purple border border-slate-200 transition-all group"
                     title={`${v.label} (e.g. ${v.example})`}
                   >
                     <span>{v.variable}</span>
                     {isCopied ? (
                       <Check className="w-3 h-3 text-emerald-600" />
                     ) : (
-                      <Copy className="w-3 h-3 text-indigo-400 group-hover:text-indigo-600" />
+                      <Copy className="w-3 h-3 text-slate-400 group-hover:text-kulkul-purple" />
                     )}
                   </button>
                 );
@@ -445,7 +447,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
           </div>
 
           {/* Form Inputs Card */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="rounded-2xl p-5 border border-slate-200 space-y-4">
             {/* Subject Line */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -461,7 +463,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 onFocus={() => setActiveField('subject')}
                 onChange={(e) => handleFieldChange('subject', e.target.value)}
                 placeholder="e.g. Application Received: {{program_name}}"
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-medium transition-all"
+                className="form-input"
               />
             </div>
 
@@ -480,7 +482,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 onFocus={() => setActiveField('headline')}
                 onChange={(e) => handleFieldChange('headline', e.target.value)}
                 placeholder="e.g. Your Application has been Received!"
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-medium transition-all"
+                className="form-input"
               />
             </div>
 
@@ -497,7 +499,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 onFocus={() => setActiveField('body')}
                 onChange={(e) => handleFieldChange('body', e.target.value)}
                 placeholder="Write your email body here. Use {{variable_name}} for dynamic values..."
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-sans leading-relaxed transition-all resize-y"
+                className="form-textarea text-sm leading-relaxed resize-y"
               />
             </div>
 
@@ -514,15 +516,15 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 onFocus={() => setActiveField('button_text')}
                 onChange={(e) => handleFieldChange('button_text', e.target.value)}
                 placeholder="e.g. Begin Assessment Now"
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-medium transition-all"
+                className="form-input"
               />
             </div>
           </div>
 
           {/* Test Email Dispatch Card */}
-          <div className="bg-gradient-to-br from-indigo-50/70 to-slate-50 border border-indigo-100 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-950">
-              <Send className="w-4 h-4 text-indigo-600" />
+          <div className="rounded-2xl p-5 border border-slate-200 bg-slate-50/60 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
+              <Send className="w-4 h-4 text-kulkul-purple" />
               Dispatch Live Test Email
             </div>
             <p className="text-xs text-slate-600">
@@ -535,13 +537,13 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 value={testEmailRecipient}
                 onChange={(e) => setTestEmailRecipient(e.target.value)}
                 placeholder="your.email@company.com"
-                className="w-full sm:flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800"
+                className="form-input sm:flex-1"
               />
               <button
                 type="button"
                 onClick={handleSendTestEmail}
                 disabled={testEmailMutation.isPending}
-                className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0"
+                className="btn btn-sm btn-outline w-full sm:w-auto shrink-0"
               >
                 {testEmailMutation.isPending ? (
                   <>
@@ -562,10 +564,10 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
         {/* Right Column: Interactive Live Preview (5 Cols) */}
         <div className="lg:col-span-5 space-y-3 sticky top-4">
           {/* Viewport Selector */}
-          <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl border border-slate-200">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">Live Client Preview</span>
-              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-2xs text-slate-400 font-medium">
                 Sample Data
               </span>
             </div>
@@ -576,7 +578,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 onClick={() => setDevicePreview('desktop')}
                 className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
                   devicePreview === 'desktop'
-                    ? 'bg-white text-indigo-700 shadow-sm'
+                    ? 'bg-white text-kulkul-purple shadow-sm'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title="Desktop View"
@@ -589,7 +591,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                 onClick={() => setDevicePreview('mobile')}
                 className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
                   devicePreview === 'mobile'
-                    ? 'bg-white text-indigo-700 shadow-sm'
+                    ? 'bg-white text-kulkul-purple shadow-sm'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title="Mobile View"

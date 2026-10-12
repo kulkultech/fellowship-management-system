@@ -10,14 +10,12 @@ import {
   type StandardFieldKey,
 } from '@/services/formSchema';
 import {
-  ArrowLeft,
   Save,
   Plus,
   Trash2,
   CheckCircle,
   Eye,
   EyeOff,
-  Settings,
   Sliders,
   FileText,
   Upload,
@@ -30,11 +28,10 @@ import toast from 'react-hot-toast';
 
 interface Props {
   program: Program;
-  onBack: () => void;
   onSaved?: (updated: Program) => void;
 }
 
-export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSaved }) => {
+export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) => {
   const queryClient = useQueryClient();
 
   const getInitialSchema = (): ApplicationFormSchema => {
@@ -226,137 +223,100 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
   };
 
   return (
-    <div className="space-y-6 pb-16">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3">
+    <div className="content-card space-y-6">
+      <div className="section-header">
+        <div className="flex items-center gap-1 flex-wrap">
           <button
-            onClick={onBack}
-            className="p-2.5 rounded-full hover:bg-slate-100 text-slate-600 transition"
-            title="Back to Dashboard"
+            type="button"
+            onClick={() => setActiveTab('editor')}
+            className={`tab-pill ${activeTab === 'editor' ? 'tab-pill-active' : ''}`}
           >
-            <ArrowLeft className="w-5 h-5" />
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Form Editor</span>
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-extrabold text-kulkul-purple">
-              {program.name}
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('preview')}
+            className={`tab-pill ${activeTab === 'preview' ? 'tab-pill-active' : ''}`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Live Preview</span>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
-            <button
-              onClick={() => setActiveTab('editor')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === 'editor'
-                  ? 'bg-white text-kulkul-purple shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Form Editor</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === 'preview'
-                  ? 'bg-white text-kulkul-purple shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Live Preview</span>
-            </button>
-          </div>
-
+        <div className="section-actions">
           <button
+            type="button"
             onClick={handleResetToDefault}
-            className="px-3.5 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition flex items-center gap-1.5"
+            className="btn btn-sm btn-outline"
             title="Reset to default format"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset to Default</span>
           </button>
-
           <button
+            type="button"
             onClick={handleSave}
             disabled={saveMutation.isPending}
-            className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-purple-700 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+            className="btn btn-sm btn-primary"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-3.5 h-3.5" />
             <span>{saveMutation.isPending ? 'Saving...' : 'Save Form'}</span>
           </button>
         </div>
       </div>
 
       {activeTab === 'editor' ? (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="space-y-8">
           {/* Section: General Header & Copy */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Settings className="w-4 h-4 text-kulkul-purple" />
-              <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                Page Header & Copy
-              </h2>
+          <div className="space-y-4">
+            <div>
+              <h2 className="section-title">Page Header & Copy</h2>
+              <p className="section-subtitle">The title, instructions, and button text candidates see on the form.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
-                  Form Title
-                </label>
+                <label className="field-label">Form Title</label>
                 <input
                   type="text"
                   value={schema.title || ''}
                   onChange={(e) => setSchema({ ...schema, title: e.target.value })}
                   placeholder="Candidate Application"
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple"
+                  className="form-input"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
-                  Description / Instructions
-                </label>
+                <label className="field-label">Description / Instructions</label>
                 <textarea
                   rows={2}
                   value={schema.description || ''}
                   onChange={(e) => setSchema({ ...schema, description: e.target.value })}
                   placeholder="Explain what the applicant needs to submit..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple"
+                  className="form-textarea"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
-                  Submit Button Text
-                </label>
+                <label className="field-label">Submit Button Text</label>
                 <input
                   type="text"
                   value={schema.submit_button_text || ''}
                   onChange={(e) => setSchema({ ...schema, submit_button_text: e.target.value })}
                   placeholder="Submit Application"
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple"
+                  className="form-input"
                 />
               </div>
             </div>
           </div>
 
           {/* Section: Standard Intake Fields Toggle Palette */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-kulkul-purple" />
-                <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                  Standard Intake Fields
-                </h2>
-              </div>
-              <span className="text-2xs text-slate-400 font-medium">
-                Check to enable standard fields into your active questions sequence below
-              </span>
+          <div className="space-y-4 pt-6 border-t border-slate-100">
+            <div>
+              <h2 className="section-title">Standard Intake Fields</h2>
+              <p className="section-subtitle">Check a field to add it to the question sequence below.</p>
             </div>
-
             {/* Identity Note */}
             <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 text-xs text-purple-950 flex items-start gap-2.5">
               <CheckCircle className="w-4 h-4 text-kulkul-purple shrink-0 mt-0.5" />
@@ -427,31 +387,26 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
           </div>
 
           {/* Section: Unified Ordered Questions & Form Sequence */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="space-y-5 pt-6 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-kulkul-purple" />
-                  <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                    Form Questions & Layout Order
-                  </h2>
-                  <span className="text-2xs font-extrabold text-slate-500 whitespace-nowrap">
-                    ({activeOrder.length} Active {activeOrder.length === 1 ? 'Field' : 'Fields'})
+                <h2 className="section-title">
+                  Form Questions & Layout Order{' '}
+                  <span className="text-xs font-semibold text-slate-500">
+                    ({activeOrder.length} active {activeOrder.length === 1 ? 'field' : 'fields'})
                   </span>
-                </div>
-                <p className="text-2xs text-slate-500 mt-0.5">
-                  Use the <strong>↑ Move Up</strong> and <strong>↓ Move Down</strong> buttons (or drag) to reorder standard intake fields and custom questions in the exact order candidates will answer them.
+                </h2>
+                <p className="section-subtitle">
+                  Drag or use the up and down arrows to set the order candidates answer in.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddCustomField}
-                className="px-3.5 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-2xs self-start sm:self-auto"
-              >
-                <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
-                <span>Add Custom Question</span>
-              </button>
+              <div className="section-actions">
+                <button type="button" onClick={handleAddCustomField} className="btn btn-sm btn-outline">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Custom Question</span>
+                </button>
+              </div>
             </div>
 
             {activeOrder.length === 0 ? (
@@ -464,7 +419,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                 <button
                   type="button"
                   onClick={handleAddCustomField}
-                  className="mt-3 px-4 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-bold text-kulkul-purple hover:bg-purple-50 transition inline-flex items-center gap-1.5 shadow-2xs"
+                  className="mt-3 btn btn-sm btn-outline"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Create Custom Question</span>
@@ -510,13 +465,9 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                                <span className="px-2 py-0.5 rounded-md text-3xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200/60">
-                                  Standard Intake Field
-                                </span>
+                                <span className="text-2xs font-semibold text-slate-400">Standard field</span>
                                 {cfg.required && (
-                                  <span className="px-1.5 py-0.2 rounded text-3xs font-bold bg-rose-50 text-rose-600 border border-rose-200">
-                                    Required
-                                  </span>
+                                  <span className="text-2xs font-bold text-rose-600">Required</span>
                                 )}
                               </div>
                               <p className="text-3xs text-slate-400 mt-0.5">{meta.description}</p>
@@ -655,10 +606,10 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDrop={(e) => handleDrop(e, index)}
-                      className={`p-4 rounded-2xl border transition bg-amber-50/20 shadow-2xs space-y-3.5 ${
+                      className={`p-4 rounded-2xl border transition bg-white shadow-2xs space-y-3.5 ${
                         draggedIndex === index
                           ? 'opacity-40 border-dashed border-purple-400'
-                          : 'border-amber-200/80 hover:border-amber-300'
+                          : 'border-slate-200/90 hover:border-slate-300'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
@@ -670,12 +621,13 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                             <GripVertical className="w-4 h-4" />
                           </div>
 
-                          <span className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-3xs font-extrabold text-amber-900 shrink-0">
+                          <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-3xs font-extrabold text-slate-700 shrink-0">
                             #{index + 1}
                           </span>
 
-                          <span className="px-2 py-0.5 rounded-md text-3xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300/60">
-                            Custom Question • {customField.type.toUpperCase()}
+                          <span className="text-xs font-bold text-slate-900">
+                            Custom question{' '}
+                            <span className="text-2xs font-semibold text-slate-400">· {customField.type}</span>
                           </span>
                         </div>
 
@@ -725,7 +677,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="sm:col-span-2">
-                          <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
+                          <label className="field-label">
                             Question Title / Prompt
                           </label>
                           <input
@@ -733,12 +685,12 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                             value={customField.label}
                             onChange={(e) => handleUpdateCustomField(customField.id, { label: e.target.value })}
                             placeholder="e.g., Portfolio link, Years of experience..."
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple"
+                            className="form-input"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
+                          <label className="field-label">
                             Answer Type
                           </label>
                           <select
@@ -754,7 +706,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                                     : undefined,
                               })
                             }
-                            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple"
+                            className="form-input"
                           >
                             <option value="text">Short Text</option>
                             <option value="textarea">Paragraph / Essay</option>
@@ -767,7 +719,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                         </div>
 
                         <div className="sm:col-span-2">
-                          <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
+                          <label className="field-label">
                             Placeholder Text (Optional)
                           </label>
                           <input
@@ -780,7 +732,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
                         </div>
 
                         <div>
-                          <label className="block text-2xs font-extrabold uppercase text-slate-500 mb-1">
+                          <label className="field-label">
                             Field ID Key
                           </label>
                           <input
@@ -853,12 +805,10 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onBack, onSav
         </div>
       ) : (
         /* Live Preview Tab - Dynamic Sequence */
-        <div className="bg-slate-50 p-6 md:p-10 rounded-3xl border border-slate-200/80">
+        <div className="bg-slate-50 p-6 md:p-10 rounded-2xl border border-slate-200">
           <div className="max-w-2xl mx-auto bg-white rounded-3xl p-8 shadow-sm border border-slate-200/70 space-y-6">
             <div className="border-b border-slate-100 pb-5">
-              <span className="text-2xs font-extrabold uppercase text-kulkul-purple bg-purple-100/70 px-2.5 py-0.5 rounded-full">
-                Candidate View Preview
-              </span>
+              <span className="subsection-title">Candidate View Preview</span>
               <h2 className="text-xl font-extrabold text-slate-900 mt-2">{schema.title || 'Candidate Application'}</h2>
               <p className="text-xs text-slate-500 mt-1">{schema.description}</p>
             </div>
