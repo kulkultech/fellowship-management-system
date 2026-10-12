@@ -59,6 +59,20 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// Browser-storage (IndexedDB) failures from Safari/WebKit and in-app browsers (e.g. Instagram) when
+// the browser wipes site data mid-visit. Firebase Analytics hits these in background tasks; they
+// don't affect the page and aren't actionable, so they are kept out of Sentry.
+const BROWSER_STORAGE_ERROR_PATTERNS: RegExp[] = [
+  /Database deleted by request of the user/i,
+  /Connection to Indexed Database server lost/i,
+  /The database connection is closing/i,
+  /Internal error opening backing store for indexedDB/i,
+  /indexedDB.*(?:not available|unavailable|is not defined)/i,
+];
+
+const isBrowserStorageError = (message?: string) =>
+  typeof message === 'string' && BROWSER_STORAGE_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
@@ -88,6 +102,7 @@ if (sentryDsn) {
       "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
       /window\.webkit\.messageHandlers/i,
       /messageHandlers/i,
+      ...BROWSER_STORAGE_ERROR_PATTERNS,
     ],
     beforeSend(event, hint) {
       const error = hint?.originalException;
@@ -108,15 +123,20 @@ if (sentryDsn) {
           return null; // Suppress benign browser aborts & third-party in-app browser webview errors
         }
       }
+      if (error && typeof error === 'object' && isBrowserStorageError((error as { message?: string }).message)) {
+        return null; // Browser wiped its IndexedDB storage mid-visit (Safari / in-app browsers)
+      }
       const eventMsg = typeof event.message === 'string' ? event.message : '';
-      if (eventMsg.includes('messageHandlers') || eventMsg.includes('window.webkit')) {
+      if (eventMsg.includes('messageHandlers') || eventMsg.includes('window.webkit') || isBrowserStorageError(eventMsg)) {
         return null;
       }
       if (
         event.exception?.values?.some(
           (val) =>
             typeof val.value === 'string' &&
-            (val.value.includes('messageHandlers') || val.value.includes('window.webkit')),
+            (val.value.includes('messageHandlers') ||
+              val.value.includes('window.webkit') ||
+              isBrowserStorageError(val.value)),
         )
       ) {
         return null;
