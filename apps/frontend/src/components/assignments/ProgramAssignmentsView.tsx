@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { assignmentService } from '@/services/assignmentService';
 import { uploadService } from '@/services/uploadService';
 import { mentorService } from '@/services/mentorService';
+import { FellowPicker } from '@/components/sessions/FellowPicker';
 import type {
   ProgramAssignment,
   AssignmentSubmission,
@@ -26,7 +27,6 @@ import {
   Users,
   User,
   UserCheck,
-  Search,
   Check,
   X,
   Plus,
@@ -581,18 +581,6 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
   const [selectedFellowIds, setSelectedFellowIds] = useState<string[]>(
     existing?.target_applicant_ids || []
   );
-  const [fellowSearch, setFellowSearch] = useState('');
-
-  const filteredFellows = useMemo(() => {
-    if (!fellowSearch.trim()) return allFellows;
-    const q = fellowSearch.toLowerCase();
-    return allFellows.filter(
-      (f) =>
-        f.full_name?.toLowerCase().includes(q) ||
-        f.email?.toLowerCase().includes(q) ||
-        f.track_name?.toLowerCase().includes(q)
-    );
-  }, [allFellows, fellowSearch]);
 
   // Due date format
   const [dueDate, setDueDate] = useState<string>(() => {
@@ -802,98 +790,20 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
             </div>
 
             {targetAudience === 'specific' && (
-              <div className="space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder={tracks.length > 0 ? "Search fellows by name, email, or track..." : "Search fellows by name or email..."}
-                      value={fellowSearch}
-                      onChange={(e) => setFellowSearch(e.target.value)}
-                      className="w-full pl-9 pr-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 bg-white"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFellowIds(allFellows.map((f) => f.id))}
-                      className="text-xs font-semibold text-kulkul-purple hover:underline cursor-pointer"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-slate-300">|</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFellowIds([])}
-                      className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {filteredFellows.length === 0 ? (
-                    <div className="text-center py-4 text-xs text-slate-400">
-                      No fellows found matching "{fellowSearch}"
-                    </div>
-                  ) : (
-                    filteredFellows.map((fellow) => {
-                      const isChecked = selectedFellowIds.includes(fellow.id);
-                      return (
-                        <label
-                          key={fellow.id}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border text-sm cursor-pointer transition ${
-                            isChecked
-                              ? 'bg-purple-50/70 border-purple-200'
-                              : 'bg-white border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedFellowIds((prev) => [...prev, fellow.id]);
-                                } else {
-                                  setSelectedFellowIds((prev) => prev.filter((id) => id !== fellow.id));
-                                }
-                              }}
-                              className="checkbox checkbox-sm checkbox-primary rounded"
-                            />
-                            <div className="truncate">
-                              <span className="font-semibold text-slate-900">{fellow.full_name}</span>
-                              <span className="text-slate-400 text-xs ml-1.5">({fellow.email})</span>
-                            </div>
-                          </div>
-                          {fellow.track_name && tracks.length > 0 && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 ml-2">
-                              {fellow.track_name}
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-
-                <div className="text-xs text-slate-500 font-medium flex items-center justify-between pt-1">
-                  <span>
-                    {selectedFellowIds.length === 0
-                      ? 'No fellows selected (must select at least 1)'
-                      : selectedFellowIds.length === 1
-                      ? '1 fellow selected (1-on-1 assignment)'
-                      : `${selectedFellowIds.length} fellows selected (Group assignment)`}
-                  </span>
-                  {selectedFellowIds.length > 0 && (
-                    <span className="text-kulkul-purple font-semibold">
-                      {selectedFellowIds.length} / {allFellows.length}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <FellowPicker
+                programId={programId}
+                fellows={allFellows}
+                showTracks={tracks.length > 0}
+                selectedIds={selectedFellowIds}
+                onChange={setSelectedFellowIds}
+                summaryLabel={(count) =>
+                  count === 0
+                    ? 'No fellows selected (must select at least 1)'
+                    : count === 1
+                    ? '1 fellow selected (1-on-1 assignment)'
+                    : `${count} fellows selected (Group assignment)`
+                }
+              />
             )}
           </div>
 

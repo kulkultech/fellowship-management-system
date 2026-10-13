@@ -96,6 +96,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc, wsHub)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	fellowGroupHandler := handler.NewFellowGroupHandler(repository.NewFellowGroupRepository(pool), programRepo, applicantRepo, mentorRepo)
 	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))
 	if pool != nil {
 		githubHandler.StartAutoSync(context.Background())
@@ -331,6 +332,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				a.Get("/{assignmentId}/submissions", assignmentHandler.ListSubmissions)
 				a.Post("/{assignmentId}/submit", assignmentHandler.SubmitAssignment)
 				a.Post("/{assignmentId}/submissions/{submissionId}/grade", assignmentHandler.GradeSubmission)
+			})
+
+			// Fellow Groups: named sets of fellows for targeting sessions and assignments
+			protected.Route("/programs/{programId}/fellow-groups", func(fg chi.Router) {
+				fg.Get("/", fellowGroupHandler.ListGroups)
+				fg.Post("/", fellowGroupHandler.CreateGroup)
+				fg.Put("/{groupId}", fellowGroupHandler.UpdateGroup)
+				fg.Delete("/{groupId}", fellowGroupHandler.DeleteGroup)
 			})
 
 			// Program GitHub Contribution Tracking
