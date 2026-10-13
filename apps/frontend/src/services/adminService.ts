@@ -307,6 +307,15 @@ export const adminService = {
     return data;
   },
 
+  // Adds someone (applicant or outsider) straight into a program as a fellow and invites them to the Program Room
+  inviteProgramFellow: async (
+    programId: string,
+    payload: { full_name: string; email: string; track_id?: string }
+  ): Promise<{ message: string; id: string; already_member: boolean }> => {
+    const { data } = await apiClient.post(`/admin/programs/${programId}/fellows/invite`, payload);
+    return data;
+  },
+
   // Superadmin Company Approvals
   listCompanies: async (status?: string): Promise<Organization[]> => {
     const { data } = await apiClient.get<{ companies: Organization[] }>('/admin/companies', {

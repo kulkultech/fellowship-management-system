@@ -7,6 +7,7 @@ import { programService } from '@/services/programService';
 import { uploadService } from '@/services/uploadService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { ApplicationFormBuilder } from '@/components/admin/ApplicationFormBuilder';
+import { InviteFellowModal } from '@/components/admin/InviteFellowModal';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type {
   MCQQuestion,
@@ -164,6 +165,7 @@ import {
   RefreshCw,
   Github,
   Edit3,
+  UserPlus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -1311,6 +1313,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   // Pipeline Modules Config State & Mutation
   const [isPipelineConfigModalOpen, setIsPipelineConfigModalOpen] = useState(false);
+  const [isInviteFellowModalOpen, setIsInviteFellowModalOpen] = useState(false);
   const [pipelineConfigProgId, setPipelineConfigProgId] = useState<string>('');
   const [pipelineConfigProgName, setPipelineConfigProgName] = useState<string>('');
   const [pipelineConfigQuestionSetId, setPipelineConfigQuestionSetId] = useState<string>('');
@@ -3337,6 +3340,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     </>
                   )}
                 </div>
+
+                {/* Invite someone straight into the program */}
+                {program && (
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteFellowModalOpen(true)}
+                    className="btn btn-sm btn-primary whitespace-nowrap"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Invite Fellow</span>
+                  </button>
+                )}
 
                 {/* Active Sort Indicator */}
                 {sortRules.length > 0 && (
@@ -7223,6 +7238,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           imageSrc={adjustBannerSrc}
           onApply={handleApplyAdjustedBanner}
         />
-      </DashboardLayout>
+        {isInviteFellowModalOpen && program && (
+        <InviteFellowModal
+          programId={program.id}
+          programName={program.name}
+          tracks={programTracks}
+          onClose={() => setIsInviteFellowModalOpen(false)}
+          onInvited={() => queryClient.invalidateQueries({ queryKey: ['admin-applicants'] })}
+        />
+      )}
+    </DashboardLayout>
   );
 };

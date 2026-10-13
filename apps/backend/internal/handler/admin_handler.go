@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/mail"
 	"strconv"
 	"strings"
 	"time"
@@ -771,53 +772,12 @@ func (h *AdminHandler) DeleteApplicant(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	applicantID, err := uuid.Parse(idStr)
+// inviteToProgramRoom records the Program Room invitation, awards the member badge,
+// and emails the fellow a link to the room.
+func (h *AdminHandler) inviteToProgramRoom(r *http.Request, applicantID, invitedBy uuid.UUID) (*model.Applicant, error) {
+	updated, err := h.applicantRepo.InviteToProgramRoom(r.Context(), applicantID, invitedBy)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
-		return
-	}
-
-	claims, _ := middleware.GetUser(r.Context())
-	if claims == nil {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
-	if err != nil {
-		if errors.Is(err, repository.ErrApplicantNotFound) {
-			httpx.Error(w, http.StatusNotFound, "applicant not found")
-			return
-		}
-		httpx.Error(w, http.StatusInternalServerError, "failed to check applicant")
-		return
-	}
-
-	// Superadmin can invite any applicant. Org admin/reviewer can only invite applicants of their org.
-	if claims.Role != model.RoleSuperadmin {
-		orgID, _ := h.resolveOrgID(r, claims)
-		if orgID == uuid.Nil && claims.OrganizationID != nil {
-			orgID = *claims.OrganizationID
-		}
-		rsaOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-		if orgID != uuid.Nil && applicant.OrganizationID != orgID && applicant.OrganizationID != rsaOrgID && orgID != rsaOrgID {
-			httpx.Error(w, http.StatusForbidden, "unauthorized to invite applicant of another organization")
-			return
-		}
-	}
-
-	// Candidate must be approved for live cohort or completed
-	if applicant.CurrentStage != model.StageApprovedForLive && applicant.CurrentStage != model.StageCompleted {
-		httpx.Error(w, http.StatusBadRequest, "applicant must be in approved_for_live or completed stage to be invited to program room")
-		return
-	}
-
-	updated, err := h.applicantRepo.InviteToProgramRoom(r.Context(), applicantID, claims.UserID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to record program room invitation")
-		return
+		return nil, err
 	}
 
 	// Auto-award Member Badge if not already awarded
@@ -877,6 +837,58 @@ func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *ht
 		)
 	}
 
+	return updated, nil
+}
+
+func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	applicantID, err := uuid.Parse(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil {
+		if errors.Is(err, repository.ErrApplicantNotFound) {
+			httpx.Error(w, http.StatusNotFound, "applicant not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to check applicant")
+		return
+	}
+
+	// Superadmin can invite any applicant. Org admin/reviewer can only invite applicants of their org.
+	if claims.Role != model.RoleSuperadmin {
+		orgID, _ := h.resolveOrgID(r, claims)
+		if orgID == uuid.Nil && claims.OrganizationID != nil {
+			orgID = *claims.OrganizationID
+		}
+		rsaOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		if orgID != uuid.Nil && applicant.OrganizationID != orgID && applicant.OrganizationID != rsaOrgID && orgID != rsaOrgID {
+			httpx.Error(w, http.StatusForbidden, "unauthorized to invite applicant of another organization")
+			return
+		}
+	}
+
+	// Candidate must be approved for live cohort or completed
+	if applicant.CurrentStage != model.StageApprovedForLive && applicant.CurrentStage != model.StageCompleted {
+		httpx.Error(w, http.StatusBadRequest, "applicant must be in approved_for_live or completed stage to be invited to program room")
+		return
+	}
+
+	updated, err := h.inviteToProgramRoom(r, applicantID, claims.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to record program room invitation")
+		return
+	}
+
 	var invitedAtStr string
 	if updated.ProgramRoomInvitedAt != nil {
 		invitedAtStr = updated.ProgramRoomInvitedAt.Format("2006-01-02 15:04:05")
@@ -886,6 +898,128 @@ func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *ht
 		"message":                 "Candidate successfully invited to Program Room",
 		"id":                      updated.ID.String(),
 		"program_room_invited_at": invitedAtStr,
+	})
+}
+
+// InviteProgramFellowRequest adds someone straight into a program as a fellow,
+// without going through the application flow.
+type InviteProgramFellowRequest struct {
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	TrackID  string `json:"track_id,omitempty"`
+}
+
+// InviteProgramFellow adds a person (applicant or not) to a program as an approved fellow
+// and invites them to the Program Room. They join by signing in with the invited email.
+func (h *AdminHandler) InviteProgramFellow(w http.ResponseWriter, r *http.Request) {
+	programID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	claims, _ := middleware.GetUser(r.Context())
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req InviteProgramFellowRequest
+	if err := httpx.Decode(w, r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	fullName := strings.Join(strings.Fields(req.FullName), " ")
+	emailAddr := strings.ToLower(strings.TrimSpace(req.Email))
+	if fullName == "" {
+		httpx.Error(w, http.StatusBadRequest, "full name is required")
+		return
+	}
+	if parsed, err := mail.ParseAddress(emailAddr); err != nil || parsed.Address != emailAddr {
+		httpx.Error(w, http.StatusBadRequest, "a valid email address is required")
+		return
+	}
+
+	program, err := h.programRepo.GetByID(r.Context(), programID)
+	if err != nil || program == nil {
+		httpx.Error(w, http.StatusNotFound, "program not found")
+		return
+	}
+
+	// Admins can only add fellows to their own organization's programs
+	if claims.Role != model.RoleSuperadmin {
+		if claims.OrganizationID == nil || program.OrganizationID != *claims.OrganizationID {
+			httpx.Error(w, http.StatusForbidden, "unauthorized to add fellows to another organization's program")
+			return
+		}
+	}
+
+	var trackID *uuid.UUID
+	if strings.TrimSpace(req.TrackID) != "" {
+		parsed, err := uuid.Parse(strings.TrimSpace(req.TrackID))
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid track id")
+			return
+		}
+		track, err := h.trackRepo.GetByID(r.Context(), parsed)
+		if err != nil || track == nil || track.ProgramID != programID {
+			httpx.Error(w, http.StatusBadRequest, "track does not belong to this program")
+			return
+		}
+		trackID = &parsed
+	}
+
+	// Reuse the person's existing application in this program if there is one; otherwise create one
+	applicant, err := h.applicantRepo.GetByProgramAndEmail(r.Context(), programID, emailAddr)
+	alreadyMember := false
+	switch {
+	case err == nil:
+		alreadyMember = applicant.ProgramRoomInvitedAt != nil
+		if applicant.CurrentStage != model.StageApprovedForLive && applicant.CurrentStage != model.StageCompleted {
+			if err := h.applicantRepo.UpdateStage(r.Context(), applicant.ID, model.StageApprovedForLive); err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "failed to approve fellow")
+				return
+			}
+		}
+	case errors.Is(err, repository.ErrApplicantNotFound):
+		firstName, lastName := fullName, ""
+		if i := strings.LastIndex(fullName, " "); i > 0 {
+			firstName, lastName = fullName[:i], fullName[i+1:]
+		}
+		applicant, _, err = h.applicantRepo.CreateOrGet(r.Context(), &model.Applicant{
+			OrganizationID: program.OrganizationID,
+			ProgramID:      programID,
+			TrackID:        trackID,
+			Email:          emailAddr,
+			FullName:       fullName,
+			FirstName:      firstName,
+			LastName:       lastName,
+			ReferralSource: "Invited by admin",
+			CurrentStage:   model.StageApprovedForLive,
+		})
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to add fellow")
+			return
+		}
+	default:
+		httpx.Error(w, http.StatusInternalServerError, "failed to check existing fellows")
+		return
+	}
+
+	updated, err := h.inviteToProgramRoom(r, applicant.ID, claims.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to record program room invitation")
+		return
+	}
+
+	message := fmt.Sprintf("%s was added to %s and invited to the Program Room", updated.FullName, program.Name)
+	if alreadyMember {
+		message = fmt.Sprintf("%s is already in %s; the invitation email was sent again", updated.FullName, program.Name)
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":        message,
+		"id":             updated.ID.String(),
+		"already_member": alreadyMember,
 	})
 }
 
