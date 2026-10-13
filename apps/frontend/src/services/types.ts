@@ -765,6 +765,34 @@ export interface FellowAttendanceSummary {
   status: 'Good' | 'Warning' | 'At Risk' | string;
 }
 
+export interface MentorAttendance {
+  session_id: string;
+  user_id: string;
+  status: AttendanceStatus;
+  notes?: string;
+  mentor_name?: string;
+  mentor_email?: string;
+  role_title?: string;
+  is_lead: boolean;
+  recorded: boolean;
+}
+
+export interface MentorAttendanceSummary {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role_title?: string;
+  /** Sessions that have already started */
+  total_sessions: number;
+  led_count: number;
+  present_count: number;
+  late_count: number;
+  absent_count: number;
+  excused_count: number;
+  attendance_rate: number;
+  status: 'Good' | 'Warning' | 'At Risk' | string;
+}
+
 export interface CreateSessionPayload {
   title: string;
   description?: string;

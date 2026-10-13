@@ -4,6 +4,8 @@ import type {
   SessionAttendance,
   AttendanceStatus,
   FellowAttendanceSummary,
+  MentorAttendance,
+  MentorAttendanceSummary,
   CreateSessionPayload,
   BatchAttendanceUpdatePayload,
 } from './types';
@@ -81,6 +83,24 @@ export const sessionService = {
 
   getAttendanceSummary: async (programId: string): Promise<FellowAttendanceSummary[]> => {
     const res = await apiClient.get(`/programs/${programId}/attendance-summary`);
+    return res.data.summaries || [];
+  },
+
+  getMentorAttendance: async (programId: string, sessionId: string): Promise<MentorAttendance[]> => {
+    const res = await apiClient.get(`/programs/${programId}/sessions/${sessionId}/mentor-attendance`);
+    return res.data.attendance || [];
+  },
+
+  batchUpdateMentorAttendance: async (
+    programId: string,
+    sessionId: string,
+    attendances: { user_id: string; status: AttendanceStatus; notes?: string }[]
+  ): Promise<void> => {
+    await apiClient.post(`/programs/${programId}/sessions/${sessionId}/mentor-attendance`, { attendances });
+  },
+
+  getMentorAttendanceSummary: async (programId: string): Promise<MentorAttendanceSummary[]> => {
+    const res = await apiClient.get(`/programs/${programId}/sessions/mentor-attendance-summary`);
     return res.data.summaries || [];
   },
 

@@ -95,3 +95,36 @@ type FellowAttendanceSummary struct {
 	AttendanceRate int       `json:"attendance_rate"` // 0-100 percentage
 	Status         string    `json:"status"`          // "Good", "Warning", "At Risk"
 }
+
+// MentorAttendance is one mentor's attendance for one session.
+type MentorAttendance struct {
+	SessionID uuid.UUID        `json:"session_id"`
+	UserID    uuid.UUID        `json:"user_id"`
+	Status    AttendanceStatus `json:"status"`
+	Notes     string           `json:"notes,omitempty"`
+	MarkedBy  *uuid.UUID       `json:"marked_by,omitempty"`
+	UpdatedAt *time.Time       `json:"updated_at,omitempty"`
+
+	// Roster info
+	MentorName  string `json:"mentor_name,omitempty"`
+	MentorEmail string `json:"mentor_email,omitempty"`
+	RoleTitle   string `json:"role_title,omitempty"`
+	IsLead      bool   `json:"is_lead"`
+	Recorded    bool   `json:"recorded"`
+}
+
+// MentorAttendanceSummary aggregates one mentor's attendance across a program's sessions.
+type MentorAttendanceSummary struct {
+	UserID         uuid.UUID `json:"user_id"`
+	FullName       string    `json:"full_name"`
+	Email          string    `json:"email"`
+	RoleTitle      string    `json:"role_title,omitempty"`
+	TotalSessions  int       `json:"total_sessions"` // sessions that have already started
+	LedCount       int       `json:"led_count"`
+	PresentCount   int       `json:"present_count"`
+	LateCount      int       `json:"late_count"`
+	AbsentCount    int       `json:"absent_count"`
+	ExcusedCount   int       `json:"excused_count"`
+	AttendanceRate int       `json:"attendance_rate"` // 0-100 percentage
+	Status         string    `json:"status"`          // "Good", "Warning", "At Risk"
+}

@@ -9,6 +9,7 @@ import type {
   AttendanceStatus,
   Track,
   ProgramMentor,
+  MentorAttendance,
 } from '@/services/types';
 import {
   Calendar,
@@ -54,7 +55,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   showSummary = true,
   programId,
   programName = 'Fellowship Cohort',
-  isMentor: _isMentor = false,
+  isMentor = false,
   tracks = [],
   mentors = [],
 }) => {
@@ -139,6 +140,56 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
       );
     }
   }, [sessionAttendanceList]);
+
+  // Mentor attendance (tracked by admins; mentors only see fellows)
+  const canTrackMentors = !isMentor;
+  const [checkSheetTab, setCheckSheetTab] = useState<'fellows' | 'mentors'>('fellows');
+  const [summaryView, setSummaryView] = useState<'fellows' | 'mentors'>('fellows');
+  const [mentorSheet, setMentorSheet] = useState<MentorAttendance[]>([]);
+
+  React.useEffect(() => {
+    setCheckSheetTab('fellows');
+  }, [activeAttendanceSession?.id]);
+
+  const { data: mentorAttendanceList = [], isLoading: isLoadingMentorAttendance } = useQuery({
+    queryKey: ['session-mentor-attendance', programId, activeAttendanceSession?.id],
+    queryFn: () => sessionService.getMentorAttendance(programId, activeAttendanceSession!.id),
+    enabled: Boolean(canTrackMentors && programId && activeAttendanceSession?.id),
+  });
+
+  React.useEffect(() => {
+    setMentorSheet(mentorAttendanceList.map((m) => ({ ...m, notes: m.notes || '' })));
+  }, [mentorAttendanceList]);
+
+  const { data: mentorSummaries = [], isLoading: isLoadingMentorSummaries } = useQuery({
+    queryKey: ['program-mentor-attendance-summary', programId],
+    queryFn: () => sessionService.getMentorAttendanceSummary(programId),
+    enabled: Boolean(canTrackMentors && programId && activeTab === 'summary' && summaryView === 'mentors'),
+  });
+
+  const saveMentorAttendanceMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeAttendanceSession) return;
+      await sessionService.batchUpdateMentorAttendance(
+        programId,
+        activeAttendanceSession.id,
+        mentorSheet.map((m) => ({ user_id: m.user_id, status: m.status, notes: m.notes }))
+      );
+    },
+    onSuccess: () => {
+      toast.success('Mentor attendance saved');
+      queryClient.invalidateQueries({ queryKey: ['program-mentor-attendance-summary', programId] });
+      queryClient.invalidateQueries({ queryKey: ['session-mentor-attendance', programId, activeAttendanceSession?.id] });
+      setActiveAttendanceSession(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || err.message || 'Failed to save mentor attendance');
+    },
+  });
+
+  const updateMentorSheet = (userId: string, changes: Partial<MentorAttendance>) => {
+    setMentorSheet((prev) => prev.map((m) => (m.user_id === userId ? { ...m, ...changes } : m)));
+  };
 
   // Session Form State
   const [formTitle, setFormTitle] = useState('');
@@ -825,13 +876,115 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         {/* Tab 3: Attendance Summary & Risk Monitor */}
         {activeTab === 'summary' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-extrabold text-slate-900">Cohort Attendance Health</h4>
-              </div>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h4 className="text-sm font-extrabold text-slate-900">
+                {summaryView === 'mentors' ? 'Mentor Attendance' : 'Cohort Attendance Health'}
+              </h4>
+              {canTrackMentors && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSummaryView('fellows')}
+                    className={`tab-pill ${summaryView === 'fellows' ? 'tab-pill-active' : ''}`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Fellows</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSummaryView('mentors')}
+                    className={`tab-pill ${summaryView === 'mentors' ? 'tab-pill-active' : ''}`}
+                  >
+                    <Award className="w-3.5 h-3.5" />
+                    <span>Mentors</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {isLoadingSummaries ? (
+            {summaryView === 'mentors' ? (
+              isLoadingMentorSummaries ? (
+                <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <Loader2 className="w-7 h-7 animate-spin text-kulkul-purple" />
+                  <span className="text-xs font-bold">Calculating mentor attendance...</span>
+                </div>
+              ) : mentorSummaries.length === 0 ? (
+                <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl p-8 space-y-2">
+                  <Award className="w-8 h-8 text-slate-400 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-800">No Mentors Yet</h4>
+                  <p className="text-xs text-slate-500">
+                    Mentors assigned to this program, or leading one of its sessions, appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="data-table-wrap">
+                  <table className="data-table min-w-[760px]">
+                    <thead>
+                      <tr>
+                        <th>Mentor</th>
+                        <th className="text-center">Sessions Held</th>
+                        <th className="text-center">Led</th>
+                        <th className="text-center">Present</th>
+                        <th className="text-center">Late</th>
+                        <th className="text-center">Absent</th>
+                        <th className="text-center">Excused</th>
+                        <th className="text-center">Rate (%)</th>
+                        <th className="text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mentorSummaries.map((m) => (
+                        <tr key={m.user_id} className="transition">
+                          <td>
+                            <div className="cell-primary">{m.full_name}</div>
+                            <div className="cell-secondary">{m.role_title || m.email}</div>
+                          </td>
+                          <td className="text-center font-bold text-slate-700">{m.total_sessions}</td>
+                          <td className="text-center font-bold text-kulkul-purple">{m.led_count}</td>
+                          <td className="text-center font-bold text-emerald-700">{m.present_count}</td>
+                          <td className="text-center font-bold text-amber-600">{m.late_count}</td>
+                          <td className="text-center font-bold text-rose-600">{m.absent_count}</td>
+                          <td className="text-center font-bold text-slate-500">{m.excused_count}</td>
+                          <td className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="font-extrabold text-slate-900">{m.attendance_rate}%</span>
+                              <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    m.attendance_rate >= 80
+                                      ? 'bg-emerald-500'
+                                      : m.attendance_rate >= 65
+                                      ? 'bg-amber-500'
+                                      : 'bg-rose-500'
+                                  }`}
+                                  style={{ width: `${m.attendance_rate}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="text-center">
+                            <span
+                              className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
+                                m.status === 'Good'
+                                  ? 'text-emerald-700'
+                                  : m.status === 'Warning'
+                                  ? 'text-amber-700'
+                                  : 'text-rose-700'
+                              }`}
+                            >
+                              {m.status === 'Good' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                              {m.status === 'Warning' && <AlertCircle className="w-3 h-3 text-amber-600" />}
+                              {m.status === 'At Risk' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
+                              <span>{m.status}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : isLoadingSummaries ? (
               <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
                 <Loader2 className="w-7 h-7 animate-spin text-kulkul-purple" />
                 <span className="text-xs font-bold">Calculating attendance metrics...</span>
@@ -1477,6 +1630,29 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </button>
             </div>
 
+            {canTrackMentors && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCheckSheetTab('fellows')}
+                  className={`tab-pill ${checkSheetTab === 'fellows' ? 'tab-pill-active' : ''}`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Fellows</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCheckSheetTab('mentors')}
+                  className={`tab-pill ${checkSheetTab === 'mentors' ? 'tab-pill-active' : ''}`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Mentors</span>
+                </button>
+              </div>
+            )}
+
+            {checkSheetTab === 'fellows' ? (
+            <>
             {/* Quick Actions Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
               <div className="flex items-center gap-3">
@@ -1603,6 +1779,98 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </table>
               )}
             </div>
+            </>
+            ) : (
+            <>
+            {/* Mentor Quick Actions Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => setMentorSheet((prev) => prev.map((m) => ({ ...m, status: 'present' })))}
+                className="btn btn-sm btn-outline"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Mark All Present</span>
+              </button>
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <Users className="w-4 h-4 text-slate-500" />
+                <span>
+                  {mentorSheet.filter((m) => m.status === 'present' || m.status === 'late').length} / {mentorSheet.length} Attended
+                </span>
+              </div>
+            </div>
+
+            {/* Mentor Attendance Table */}
+            <div className="data-table-wrap flex-1 overflow-y-auto">
+              {isLoadingMentorAttendance ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
+                  <span className="text-xs font-bold">Loading mentors...</span>
+                </div>
+              ) : mentorSheet.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 space-y-1">
+                  <p className="text-xs font-bold">No mentors are assigned to this program yet.</p>
+                </div>
+              ) : (
+                <table className="data-table min-w-[580px]">
+                  <thead className="sticky top-0">
+                    <tr>
+                      <th>Mentor</th>
+                      <th className="text-center">Attendance Status</th>
+                      <th>Notes / Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mentorSheet.map((m) => (
+                      <tr key={m.user_id} className="transition">
+                        <td>
+                          <div className="cell-primary">{m.mentor_name || m.mentor_email}</div>
+                          <div className="cell-secondary">
+                            {m.is_lead ? 'Session lead' : m.role_title || 'Mentor'}
+                            {!m.recorded && ' · not recorded yet'}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-center gap-1.5">
+                            {(['present', 'late', 'absent', 'excused'] as const).map((st) => (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => updateMentorSheet(m.user_id, { status: st })}
+                                className={`px-2.5 py-1 rounded-xl text-3xs font-black uppercase tracking-wider transition ${
+                                  m.status === st
+                                    ? st === 'present'
+                                      ? 'bg-emerald-600 text-white shadow-2xs'
+                                      : st === 'late'
+                                      ? 'bg-amber-500 text-white shadow-2xs'
+                                      : st === 'absent'
+                                      ? 'bg-rose-600 text-white shadow-2xs'
+                                      : 'bg-slate-700 text-white shadow-2xs'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                }`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            placeholder="Add remark..."
+                            value={m.notes || ''}
+                            onChange={(e) => updateMentorSheet(m.user_id, { notes: e.target.value })}
+                            className="input input-xs input-bordered w-full rounded-lg text-2xs"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            </>
+            )}
 
             {/* Footer Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
@@ -1619,11 +1887,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  disabled={saveAttendanceMutation.isPending}
-                  onClick={() => saveAttendanceMutation.mutate()}
-                  className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-1.5 shadow-sm"
+                  disabled={saveAttendanceMutation.isPending || saveMentorAttendanceMutation.isPending}
+                  onClick={() =>
+                    checkSheetTab === 'mentors' ? saveMentorAttendanceMutation.mutate() : saveAttendanceMutation.mutate()
+                  }
+                  className="btn btn-sm btn-primary"
                 >
-                  {saveAttendanceMutation.isPending ? (
+                  {saveAttendanceMutation.isPending || saveMentorAttendanceMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Saving Check Sheet...</span>
@@ -1631,7 +1901,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   ) : (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>Save Attendance</span>
+                      <span>{checkSheetTab === 'mentors' ? 'Save Mentor Attendance' : 'Save Attendance'}</span>
                     </>
                   )}
                 </button>

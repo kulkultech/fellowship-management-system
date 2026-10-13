@@ -26,6 +26,7 @@ type SessionRepository struct {
 	mu             sync.RWMutex
 	memSessions    map[uuid.UUID]*model.ProgramSession
 	memAttendances map[string]*model.SessionAttendance // key: session_id + ":" + applicant_id
+	memMentorAtt   map[string]*model.MentorAttendance  // key: session_id + ":" + user_id
 	appRepo        *ApplicantRepository                // for memory fallback joins
 }
 
@@ -34,6 +35,7 @@ func NewSessionRepository(pool *pgxpool.Pool, appRepo *ApplicantRepository) *Ses
 		pool:           pool,
 		memSessions:    make(map[uuid.UUID]*model.ProgramSession),
 		memAttendances: make(map[string]*model.SessionAttendance),
+		memMentorAtt:   make(map[string]*model.MentorAttendance),
 		appRepo:        appRepo,
 	}
 }
@@ -974,3 +976,88 @@ func (r *SessionRepository) GetWorkspaceState(ctx context.Context, sessionID uui
 	return json.RawMessage(raw), nil
 }
 
+
+// ListMentorAttendance returns the recorded mentor attendance for a program's sessions.
+// Pass a session ID to limit it to one session.
+func (r *SessionRepository) ListMentorAttendance(ctx context.Context, programID uuid.UUID, sessionID *uuid.UUID) ([]model.MentorAttendance, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var list []model.MentorAttendance
+		for _, att := range r.memMentorAtt {
+			sess, ok := r.memSessions[att.SessionID]
+			if !ok || sess.ProgramID != programID {
+				continue
+			}
+			if sessionID != nil && att.SessionID != *sessionID {
+				continue
+			}
+			list = append(list, *att)
+		}
+		return list, nil
+	}
+
+	query := `
+		SELECT ma.session_id, ma.user_id, ma.status, ma.notes, ma.marked_by, ma.updated_at
+		FROM session_mentor_attendances ma
+		JOIN program_sessions ps ON ps.id = ma.session_id
+		WHERE ps.program_id = $1 AND ($2::uuid IS NULL OR ma.session_id = $2::uuid)
+	`
+	rows, err := r.pool.Query(ctx, query, programID, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("session_repo: list mentor attendance: %w", err)
+	}
+	defer rows.Close()
+
+	var list []model.MentorAttendance
+	for rows.Next() {
+		var a model.MentorAttendance
+		var updatedAt time.Time
+		if err := rows.Scan(&a.SessionID, &a.UserID, &a.Status, &a.Notes, &a.MarkedBy, &updatedAt); err != nil {
+			return nil, fmt.Errorf("session_repo: scan mentor attendance: %w", err)
+		}
+		a.UpdatedAt = &updatedAt
+		a.Recorded = true
+		list = append(list, a)
+	}
+	return list, rows.Err()
+}
+
+// BatchUpdateMentorAttendance records or updates mentor attendance for one session.
+func (r *SessionRepository) BatchUpdateMentorAttendance(ctx context.Context, sessionID uuid.UUID, attendances []model.MentorAttendance, markedBy uuid.UUID) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		now := time.Now()
+		for _, a := range attendances {
+			rec := model.MentorAttendance{
+				SessionID: sessionID,
+				UserID:    a.UserID,
+				Status:    a.Status,
+				Notes:     a.Notes,
+				MarkedBy:  &markedBy,
+				UpdatedAt: &now,
+				Recorded:  true,
+			}
+			r.memMentorAtt[fmt.Sprintf("%s:%s", sessionID, a.UserID)] = &rec
+		}
+		return nil
+	}
+
+	query := `
+		INSERT INTO session_mentor_attendances (session_id, user_id, status, notes, marked_by, updated_at)
+		VALUES ($1, $2, $3, $4, $5, now())
+		ON CONFLICT (session_id, user_id)
+		DO UPDATE SET
+			status = EXCLUDED.status,
+			notes = EXCLUDED.notes,
+			marked_by = EXCLUDED.marked_by,
+			updated_at = now()
+	`
+	for _, a := range attendances {
+		if _, err := r.pool.Exec(ctx, query, sessionID, a.UserID, string(a.Status), a.Notes, markedBy); err != nil {
+			return fmt.Errorf("session_repo: batch update mentor attendance: %w", err)
+		}
+	}
+	return nil
+}
