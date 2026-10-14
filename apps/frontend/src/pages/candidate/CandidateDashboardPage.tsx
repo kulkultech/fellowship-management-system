@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { apiClient, resolveMediaUrl } from '@/services/apiClient';
@@ -28,8 +28,14 @@ import {
   Award,
   Share2,
   ShieldCheck,
+  Home,
+  CalendarDays,
+  Video,
+  Loader2,
 } from 'lucide-react';
 import { credentialService } from '@/services/credentialService';
+import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
+import { useCandidateSchedule } from '@/components/schedule/useCandidateSchedule';
 
 interface CandidateApplicationItem {
   applicant_id: string;
@@ -65,7 +71,19 @@ interface CandidateApplicationItem {
 export const CandidateDashboardPage: React.FC = () => {
   const { user: authUser, logout: authLogout, login } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'applications' | 'assessments' | 'ai_interview' | 'program_room' | 'credentials'>('applications');
+  const [searchParams] = useSearchParams();
+  type CandidateTab = 'home' | 'applications' | 'assessments' | 'ai_interview' | 'program_room' | 'calendar' | 'credentials';
+  const [activeTab, setActiveTab] = useState<CandidateTab>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'applications' ||
+      tab === 'assessments' ||
+      tab === 'ai_interview' ||
+      tab === 'program_room' ||
+      tab === 'calendar' ||
+      tab === 'credentials'
+      ? tab
+      : 'home';
+  });
 
   // Candidate Auth Form States (when unauthenticated)
   const [candidateAuthMode, setCandidateAuthMode] = useState<'signin' | 'register'>('signin');
@@ -111,6 +129,25 @@ export const CandidateDashboardPage: React.FC = () => {
   });
 
   const applications: CandidateApplicationItem[] = data?.applications || [];
+
+  // Sessions and assignment deadlines from the programs this fellow has joined
+  const schedulePrograms = useMemo(
+    () =>
+      applications
+        .filter((a) => a.current_stage === 'approved_for_live' && Boolean(a.program_room_invited_at))
+        .map((a) => ({
+          programId: a.program_id,
+          programName: a.program_name,
+          orgSlug: a.org_slug,
+          programSlug: a.program_slug,
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applications.map((a) => `${a.program_id}:${a.current_stage}:${a.program_room_invited_at || ''}`).join('|')]
+  );
+  const { events: scheduleEvents, isLoading: isLoadingSchedule } = useCandidateSchedule(
+    schedulePrograms,
+    activeTab === 'home' || activeTab === 'calendar'
+  );
   const candidateName = applications[0]?.full_name || (authUser?.email ? authUser.email.split('@')[0] : 'Candidate');
 
   const handleGoogleSignIn = () => {
@@ -612,6 +649,11 @@ export const CandidateDashboardPage: React.FC = () => {
 
   const navItems: NavItem[] = [
     {
+      id: 'home',
+      label: 'Home',
+      icon: Home,
+    },
+    {
       id: 'applications',
       label: 'My Applications',
       icon: FileText,
@@ -652,6 +694,11 @@ export const CandidateDashboardPage: React.FC = () => {
       badgeColor: 'bg-purple-100 text-kulkul-purple',
     },
     {
+      id: 'calendar',
+      label: 'Calendar',
+      icon: CalendarDays,
+    },
+    {
       id: 'credentials',
       label: 'Badges & Certificates',
       icon: Award,
@@ -660,10 +707,38 @@ export const CandidateDashboardPage: React.FC = () => {
     },
   ];
 
+  const tabTitles: Record<CandidateTab, string> = {
+    home: 'Home',
+    applications: 'My Applications',
+    assessments: 'Logic MCQ Tests',
+    ai_interview: 'AI Technical Screen',
+    program_room: 'Program Room',
+    calendar: 'Calendar',
+    credentials: 'Badges & Certificates',
+  };
+
+  // What's next: steps the candidate still has to do, then upcoming sessions and deadlines
+  const actionLabels: Record<string, { title: string; button: string }> = {
+    fill_form: { title: 'Complete your application form', button: 'Continue Application' },
+    mcq_test: { title: 'Take the Logic MCQ test', button: 'Start Test' },
+    ai_interview: { title: 'Take the AI technical interview', button: 'Start Interview' },
+  };
+  const actionItems = applications.filter((a) => a.next_step && actionLabels[a.next_step] && a.redirect_url);
+  const waitingItems = applications.filter((a) => a.next_step === 'completed' || a.next_step === 'pending_room_invite');
+  const nowMs = Date.now();
+  const upcomingEvents = scheduleEvents
+    .filter((e) =>
+      e.kind === 'session'
+        ? new Date(e.end || e.start).getTime() >= nowMs
+        : !e.done && new Date(e.start).getTime() >= nowMs
+    )
+    .slice(0, 8);
+  const firstName = candidateName.split(' ')[0];
+
   return (
     <DashboardLayout
       portalType="candidate"
-      title={`Welcome back, ${candidateName}!`}
+      title={activeTab === 'home' ? undefined : tabTitles[activeTab]}
       candidateName={candidateName}
       candidateEmail={authUser?.email}
       onCandidateSignOut={handleSignOut}
@@ -705,6 +780,170 @@ export const CandidateDashboardPage: React.FC = () => {
             </div>
           </div>
         )}
+          {/* ========================================================================= */}
+          {/* HOME: WELCOME + WHAT'S NEXT */}
+          {/* ========================================================================= */}
+          {activeTab === 'home' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="heading-page">Welcome back, {firstName}</h1>
+                <p className="text-body mt-1">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+
+              <div className="content-card space-y-5">
+                <div className="section-header">
+                  <div>
+                    <h3 className="section-title">What&apos;s next</h3>
+                    <p className="section-subtitle">Your next steps, upcoming sessions, and assignment deadlines.</p>
+                  </div>
+                  {schedulePrograms.length > 0 && (
+                    <div className="section-actions">
+                      <button type="button" onClick={() => setActiveTab('calendar')} className="btn btn-sm btn-outline">
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        <span>Open Calendar</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {isLoading || isLoadingSchedule ? (
+                  <div className="py-10 flex items-center justify-center gap-2 text-xs text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading your schedule…</span>
+                  </div>
+                ) : actionItems.length === 0 && upcomingEvents.length === 0 && waitingItems.length === 0 ? (
+                  <div className="py-10 text-center space-y-3">
+                    <CalendarDays className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs text-slate-500">
+                      {applications.length === 0
+                        ? 'You have no applications yet. Use the application link shared by the program to apply.'
+                        : 'Nothing coming up right now.'}
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {actionItems.map((app) => (
+                      <li key={`action-${app.applicant_id}`} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+                        <div className="sm:w-36 shrink-0">
+                          <div className="text-xs font-bold text-kulkul-purple">To do now</div>
+                          <div className="text-2xs text-slate-500">Application step</div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <ArrowRight className="w-4 h-4 text-kulkul-purple shrink-0" />
+                            <span className="text-sm font-bold text-slate-900 truncate">
+                              {actionLabels[app.next_step!].title}
+                            </span>
+                          </div>
+                          <div className="text-2xs text-slate-500 mt-0.5 truncate">{app.program_name}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link to={app.redirect_url!} className="btn btn-sm btn-primary">
+                            {actionLabels[app.next_step!].button}
+                          </Link>
+                        </div>
+                      </li>
+                    ))}
+
+                    {upcomingEvents.map((item) => {
+                      const start = new Date(item.start);
+                      const isLive =
+                        item.kind === 'session' && item.end && start.getTime() <= nowMs && new Date(item.end).getTime() >= nowMs;
+                      return (
+                        <li key={`${item.kind}-${item.id}`} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+                          <div className="sm:w-36 shrink-0">
+                            <div className="text-xs font-bold text-slate-900">
+                              {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </div>
+                            <div className="text-2xs text-slate-500">
+                              {item.kind === 'assignment'
+                                ? `Due ${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                                : `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${
+                                    item.end
+                                      ? ` – ${new Date(item.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                                      : ''
+                                  }`}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {item.kind === 'session' ? (
+                                <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
+                              ) : (
+                                <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                              )}
+                              <span className="text-sm font-bold text-slate-900 truncate">{item.title}</span>
+                              {isLive && <span className="text-2xs font-bold text-emerald-700 shrink-0">Live now</span>}
+                            </div>
+                            <div className="text-2xs text-slate-500 mt-0.5 truncate">
+                              {item.programName}
+                              {item.kind === 'assignment' ? ' · Assignment deadline' : item.subtitle ? ` · ${item.subtitle}` : ''}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {item.kind === 'session' && item.meetingUrl && (
+                              <a href={item.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span>Join Call</span>
+                              </a>
+                            )}
+                            {item.href && (
+                              <Link to={item.href} className="btn btn-sm btn-primary">
+                                {item.kind === 'session' ? 'Open Workspace' : 'View Assignment'}
+                              </Link>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+
+                    {waitingItems.map((app) => (
+                      <li key={`waiting-${app.applicant_id}`} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+                        <div className="sm:w-36 shrink-0">
+                          <div className="text-xs font-bold text-slate-900">In review</div>
+                          <div className="text-2xs text-slate-500">No action needed</div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                            <span className="text-sm font-bold text-slate-900 truncate">
+                              {app.next_step === 'pending_room_invite'
+                                ? 'Accepted: your Program Room invitation is on its way'
+                                : 'Your application is being reviewed'}
+                            </span>
+                          </div>
+                          <div className="text-2xs text-slate-500 mt-0.5 truncate">{app.program_name}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* CALENDAR */}
+          {/* ========================================================================= */}
+          {activeTab === 'calendar' &&
+            (schedulePrograms.length === 0 ? (
+              <div className="content-card p-12 text-center space-y-2">
+                <CalendarDays className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500">
+                  Your schedule appears here once you join a program&apos;s Program Room.
+                </p>
+              </div>
+            ) : isLoadingSchedule ? (
+              <div className="content-card p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading your schedule…</span>
+              </div>
+            ) : (
+              <ScheduleCalendar events={scheduleEvents} />
+            ))}
+
           {/* ========================================================================= */}
           {/* TAB 1: MY APPLICATIONS */}
           {/* ========================================================================= */}

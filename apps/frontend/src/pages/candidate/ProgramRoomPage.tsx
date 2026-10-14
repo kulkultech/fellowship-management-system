@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { sessionService } from '@/services/sessionService';
 import { apiClient } from '@/services/apiClient';
 import { useAuth } from '@/hooks/useAuth';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import toast from 'react-hot-toast';
 import {
   Calendar,
@@ -32,6 +31,8 @@ import {
   Camera,
   ShieldCheck,
   Code2,
+  Home,
+  CalendarDays,
 } from 'lucide-react';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 import { uploadService } from '@/services/uploadService';
@@ -52,6 +53,7 @@ interface FellowSession {
 export const ProgramRoomPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
   const { user: authUser } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'assignments' | 'sessions' | 'curriculum' | 'resources'>('assignments');
   const isMentorOrAdmin = Boolean(
@@ -232,83 +234,107 @@ export const ProgramRoomPage: React.FC = () => {
     },
   ];
 
+  const roomSections = [
+    { id: 'assignments' as const, label: 'Assignments & Projects', icon: FileText },
+    { id: 'sessions' as const, label: 'Sessions & Attendance', icon: Calendar },
+    { id: 'curriculum' as const, label: 'Curriculum & Milestones', icon: BookOpen },
+    { id: 'resources' as const, label: 'Channels & Resources', icon: Laptop },
+  ];
+  const roomChildren = roomSections.map((section) => ({
+    id: section.id,
+    label: section.label,
+    icon: section.icon,
+    onClick: () => setActiveTab(section.id),
+  }));
+
+  const staffDashboardUrl =
+    authUser?.role === 'mentor'
+      ? '/mentor/dashboard'
+      : authUser?.role === 'superadmin'
+      ? '/superadmin/dashboard'
+      : '/admin/dashboard';
+
+  // Every Program Room this fellow has joined. With more than one, list each program and
+  // expand the current one into its sections so they can switch rooms in one click.
+  const joinedRooms = applications.filter(
+    (a: any) => a.current_stage === 'approved_for_live' && Boolean(a.program_room_invited_at)
+  );
+  const isCurrentRoom = (a: any) => a.program_slug === programSlug && a.org_slug === orgSlug;
+  const candidateRoomChildren =
+    joinedRooms.length > 1
+      ? joinedRooms.map((a: any) => ({
+          id: `room-${a.program_id}`,
+          label: a.program_name,
+          icon: GraduationCap,
+          isExpanded: isCurrentRoom(a),
+          onClick: isCurrentRoom(a)
+            ? () => setActiveTab('assignments')
+            : () => navigate(a.redirect_url || `/programs/${a.org_slug}/${a.program_slug}/room`),
+          children: isCurrentRoom(a) ? roomChildren : undefined,
+        }))
+      : roomChildren;
+
+  // Same sidebar as the candidate dashboard, with this room's sections under Program Room
+  const navItems: NavItem[] = isMentorOrAdmin
+    ? [
+        { id: 'dashboard', label: 'Back to Dashboard', icon: ArrowLeft, onClick: () => navigate(staffDashboardUrl) },
+        { id: 'program_room', label: 'Program Room', icon: GraduationCap, children: roomChildren },
+      ]
+    : [
+        { id: 'home', label: 'Home', icon: Home, onClick: () => navigate('/candidate/dashboard') },
+        { id: 'applications', label: 'My Applications', icon: FileText, onClick: () => navigate('/candidate/dashboard?tab=applications') },
+        { id: 'program_room', label: 'Program Room', icon: GraduationCap, children: candidateRoomChildren },
+        { id: 'assessments', label: 'Logic MCQ Tests', icon: Clock, onClick: () => navigate('/candidate/dashboard?tab=assessments') },
+        { id: 'ai_interview', label: 'AI Technical Screen', icon: Code2, onClick: () => navigate('/candidate/dashboard?tab=ai_interview') },
+        { id: 'calendar', label: 'Calendar', icon: CalendarDays, onClick: () => navigate('/candidate/dashboard?tab=calendar') },
+        { id: 'credentials', label: 'Badges & Certificates', icon: Award, onClick: () => navigate('/candidate/dashboard?tab=credentials') },
+      ];
+
+  const portalType =
+    authUser?.role === 'mentor'
+      ? 'mentor'
+      : authUser?.role === 'superadmin'
+      ? 'superadmin'
+      : authUser?.role === 'org_admin'
+      ? 'company_admin'
+      : 'candidate';
+
+  const roomSubtitle = [
+    program?.tracks && program.tracks.length > 0 && currentApp?.track_name ? `Track: ${currentApp.track_name}` : '',
+    `Hosted by ${org?.name || 'KulKul Tech'}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const renderRoom = (content: React.ReactNode) => (
+    <DashboardLayout
+      portalType={portalType}
+      title={program?.name || 'Program Room'}
+      subtitle={program ? roomSubtitle : undefined}
+      candidateName={currentApp?.full_name}
+      candidateEmail={portalType === 'candidate' ? authUser?.email : undefined}
+      companyName={org?.name}
+      navItems={navItems}
+      activeNavId={activeTab}
+      onNavChange={(id) => {
+        if (roomSections.some((section) => section.id === id)) setActiveTab(id as typeof activeTab);
+      }}
+    >
+      {content}
+    </DashboardLayout>
+  );
+
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center p-8">
-          <div className="flex flex-col items-center gap-3 text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
-            <span className="text-sm font-bold">Opening Program Room...</span>
-          </div>
-        </main>
-        <Footer />
+    return renderRoom(
+      <div className="content-card p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Opening Program Room…</span>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Top Navigation Breadcrumb */}
-        <div className="flex items-center justify-between">
-          <Link
-            to={
-              isMentorOrAdmin && authUser?.role === 'mentor'
-                ? '/mentor/dashboard'
-                : isMentorOrAdmin && authUser?.role === 'superadmin'
-                ? '/superadmin/dashboard'
-                : isMentorOrAdmin
-                ? '/admin/dashboard'
-                : '/candidate/dashboard'
-            }
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-kulkul-purple transition group"
-          >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-            <span>
-              {isMentorOrAdmin && authUser?.role === 'mentor'
-                ? 'Back to Mentor Dashboard'
-                : isMentorOrAdmin
-                ? 'Back to Dashboard'
-                : 'Back to Candidate Dashboard'}
-            </span>
-          </Link>
-        </div>
-
-        {/* Hero Card */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#250d43] via-[#33125d] to-[#1c0834] text-white p-6 sm:p-10 shadow-xl border border-purple-900/40">
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-[#fe900d]/10 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 space-y-4 max-w-3xl">
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              {program?.name || 'Fellowship Program Room'}
-            </h1>
-
-            <p className="text-sm sm:text-base text-purple-100/90 leading-relaxed">
-              Welcome aboard, <strong>{currentApp?.full_name || authUser?.email || 'Fellow'}</strong>! You have officially entered the dedicated Program Room for this fellowship. Here you can track orientation dates, attend live sessions, collaborate with mentors, and access cohort repositories.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-purple-200/80 font-medium">
-              {Boolean(program?.tracks && program.tracks.length > 0 && currentApp?.track_name) && (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <GraduationCap className="w-4 h-4 text-[#fe900d]" />
-                    <span>Track: {currentApp?.track_name}</span>
-                  </div>
-                  <span>&bull;</span>
-                </>
-              )}
-              <div className="flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-emerald-400" />
-                <span>Hosted by {org?.name || 'KulKul Tech'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+  return renderRoom(
+      <div className="space-y-6">
         {/* Access Check Notice if pending invite */}
         {!isInvited && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-800">
@@ -318,57 +344,6 @@ export const ProgramRoomPage: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-1 flex-wrap">
-          <button
-            onClick={() => setActiveTab('assignments')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeTab === 'assignments'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Assignments &amp; Projects</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sessions')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeTab === 'sessions'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Sessions &amp; Attendance</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('curriculum')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeTab === 'curriculum'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Curriculum &amp; Milestones</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('resources')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${
-              activeTab === 'resources'
-                ? 'bg-kulkul-purple text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Laptop className="w-4 h-4" />
-            <span>Channels &amp; Resources</span>
-          </button>
-        </div>
 
         {/* Tab Content: Assignments & Projects */}
         {activeTab === 'assignments' && program?.id && (
@@ -385,7 +360,7 @@ export const ProgramRoomPage: React.FC = () => {
         {activeTab === 'sessions' && (
           <div className="space-y-6">
             {/* Fellow Attendance Health & Progress Card */}
-            {fellowStats && (
+            {fellowStats && !isMentorOrAdmin && (
               <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -1003,9 +978,6 @@ export const ProgramRoomPage: React.FC = () => {
             </div>
           </div>
         )}
-      </main>
-
-      <Footer />
-    </div>
+      </div>
   );
 };
