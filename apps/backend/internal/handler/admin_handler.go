@@ -366,6 +366,10 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 	if ai, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), applicant.ID); err == nil && ai != nil {
 		aiDetail = ai
 	}
+	aiAttempts := []model.AIInterviewAttempt{}
+	if attempts, err := h.aiInterviewRepo.ListAttempts(r.Context(), applicant.ID); err == nil && attempts != nil {
+		aiAttempts = attempts
+	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"applicant": map[string]any{
@@ -397,6 +401,7 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 		"track":      trackDetail,
 		"submission": submissionDetail,
 		"ai_screen":  aiDetail,
+		"ai_previous_attempts": aiAttempts,
 	})
 }
 
@@ -898,6 +903,117 @@ func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *ht
 		"message":                 "Candidate successfully invited to Program Room",
 		"id":                      updated.ID.String(),
 		"program_room_invited_at": invitedAtStr,
+	})
+}
+
+// ReinviteAIInterviewRequest lets an admin give a candidate a fresh AI interview take.
+type ReinviteAIInterviewRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+// ReinviteAIInterview handles POST /admin/applicants/{id}/reinvite-ai-interview.
+// The previous take (transcript, score, video link) is archived, the same interview link is
+// reset for a new take, and the candidate is emailed the invitation again.
+func (h *AdminHandler) ReinviteAIInterview(w http.ResponseWriter, r *http.Request) {
+	applicantID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid applicant id")
+		return
+	}
+	claims, _ := middleware.GetUser(r.Context())
+	if claims == nil {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req ReinviteAIInterviewRequest
+	if r.ContentLength > 0 {
+		if err := httpx.Decode(w, r, &req); err != nil {
+			httpx.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	reason := strings.TrimSpace(req.Reason)
+	if len([]rune(reason)) > 500 {
+		httpx.Error(w, http.StatusBadRequest, "reason is too long")
+		return
+	}
+
+	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+	if err != nil || applicant == nil {
+		httpx.Error(w, http.StatusNotFound, "applicant not found")
+		return
+	}
+	if claims.Role != model.RoleSuperadmin {
+		if claims.OrganizationID == nil || applicant.OrganizationID != *claims.OrganizationID {
+			httpx.Error(w, http.StatusForbidden, "unauthorized to manage applicants of another organization")
+			return
+		}
+	}
+	if applicant.CurrentStage == model.StageApprovedForLive || applicant.CurrentStage == model.StageCompleted {
+		httpx.Error(w, http.StatusBadRequest, "this candidate is already accepted into the program")
+		return
+	}
+
+	interview, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), applicantID)
+	if err != nil || interview == nil {
+		httpx.Error(w, http.StatusBadRequest, "this candidate has not been invited to an AI interview yet")
+		return
+	}
+
+	newExpiry := time.Now().Add(7 * 24 * time.Hour)
+	notStarted := interview.Status == model.AIInterviewInvited && interview.StartedAt == nil && len(interview.Transcript) == 0
+	if notStarted {
+		// Nothing to archive: just give them more time and resend the link
+		if err := h.aiInterviewRepo.ExtendInvitation(r.Context(), interview.ID, newExpiry); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to extend the interview invitation")
+			return
+		}
+	} else if err := h.aiInterviewRepo.ArchiveAndReset(r.Context(), interview.ID, claims.UserID, reason, newExpiry); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to reset the AI interview")
+		return
+	}
+
+	if applicant.CurrentStage != model.StageAIInterviewInvited {
+		if err := h.applicantRepo.UpdateStage(r.Context(), applicantID, model.StageAIInterviewInvited); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to update candidate stage")
+			return
+		}
+	}
+
+	emailSent := false
+	if h.emailSvc != nil && applicant.Email != "" {
+		progName := "KulKul Fellowship"
+		var customTmpl *model.EmailTemplateConfig
+		if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+			progName = prog.Name
+			if prog.EmailTemplates != nil {
+				customTmpl = prog.EmailTemplates.AIInterviewInvitation
+			}
+		}
+		trackName := ""
+		if applicant.TrackID != nil {
+			if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+				trackName = tr.Name
+			}
+		}
+		interviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, interview.InvitationToken)
+		emailSent = h.emailSvc.SendCustomAIInterviewInvitationEmail(
+			applicant.Email, applicant.FullName, progName, trackName, interviewURL, newExpiry, customTmpl,
+		) == nil
+	}
+
+	message := fmt.Sprintf("%s can take the AI interview again", applicant.FullName)
+	if !notStarted {
+		message += "; the previous attempt was kept in their history"
+	}
+	if emailSent {
+		message += ". Invitation email sent."
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"message":    message,
+		"email_sent": emailSent,
+		"expires_at": newExpiry,
 	})
 }
 

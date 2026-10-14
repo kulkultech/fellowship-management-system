@@ -517,6 +517,18 @@ export interface ItemizedQuestionAnswer {
   points_awarded: number;
 }
 
+export interface AIInterviewAttempt {
+  id: string;
+  started_at?: string;
+  completed_at?: string;
+  scorecard_score: number;
+  recording_status: string;
+  recording_url?: string;
+  status: string;
+  reason?: string;
+  archived_at: string;
+}
+
 export interface ApplicantDetailResponse {
   applicant: {
     id: string;
@@ -561,6 +573,8 @@ export interface ApplicantDetailResponse {
     answers: ItemizedQuestionAnswer[];
   };
   ai_screen?: AIInterviewSession;
+  /** Earlier AI interview takes, kept when an admin re-invited the candidate */
+  ai_previous_attempts?: AIInterviewAttempt[];
 }
 
 export interface CandidateApplicationItem {

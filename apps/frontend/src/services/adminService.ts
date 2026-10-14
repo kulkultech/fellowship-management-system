@@ -307,6 +307,15 @@ export const adminService = {
     return data;
   },
 
+  // Gives a candidate a fresh AI interview take; the previous one is kept in their history
+  reinviteAIInterview: async (
+    applicantId: string,
+    reason?: string
+  ): Promise<{ message: string; email_sent: boolean; expires_at: string }> => {
+    const { data } = await apiClient.post(`/admin/applicants/${applicantId}/reinvite-ai-interview`, { reason });
+    return data;
+  },
+
   // Adds someone (applicant or outsider) straight into a program as a fellow and invites them to the Program Room
   inviteProgramFellow: async (
     programId: string,

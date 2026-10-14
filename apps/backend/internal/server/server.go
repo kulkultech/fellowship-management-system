@@ -407,6 +407,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				adm.Put("/applicants/{id}/review", adminHandler.UpdateApplicantReview)
 				adm.Post("/applicants/{id}/review", adminHandler.UpdateApplicantReview)
 				adm.Post("/applicants/{id}/invite-program-room", adminHandler.InviteApplicantToProgramRoom)
+				adm.Post("/applicants/{id}/reinvite-ai-interview", adminHandler.ReinviteAIInterview)
 				adm.Post("/programs/{id}/fellows/invite", adminHandler.InviteProgramFellow)
 				adm.Delete("/applicants/{id}", adminHandler.DeleteApplicant)
 

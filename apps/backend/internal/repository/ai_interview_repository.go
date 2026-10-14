@@ -21,6 +21,7 @@ type AIInterviewRepository struct {
 	pool          *pgxpool.Pool
 	mu            sync.RWMutex
 	memInterviews map[string]*model.AIInterview
+	memAttempts   []model.AIInterviewAttempt
 }
 
 func NewAIInterviewRepository(pool *pgxpool.Pool) *AIInterviewRepository {
@@ -360,3 +361,156 @@ func (r *AIInterviewRepository) ResetSession(ctx context.Context, id uuid.UUID) 
 	return nil
 }
 
+
+// ArchiveAndReset copies the current take into ai_interview_attempts, then resets the interview
+// so the candidate can take it again with the same link until newExpiry.
+func (r *AIInterviewRepository) ArchiveAndReset(ctx context.Context, id, archivedBy uuid.UUID, reason string, newExpiry time.Time) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, ai := range r.memInterviews {
+			if ai.ID != id {
+				continue
+			}
+			by := archivedBy
+			r.memAttempts = append(r.memAttempts, model.AIInterviewAttempt{
+				ID:                uuid.New(),
+				AIInterviewID:     ai.ID,
+				ApplicantID:       ai.ApplicantID,
+				StartedAt:         ai.StartedAt,
+				CompletedAt:       ai.CompletedAt,
+				Transcript:        append([]model.ChatMessage{}, ai.Transcript...),
+				SummaryEvaluation: ai.SummaryEvaluation,
+				ScorecardScore:    ai.ScorecardScore,
+				RecordingStatus:   ai.RecordingStatus,
+				RecordingURL:      ai.RecordingURL,
+				Status:            ai.Status,
+				Reason:            reason,
+				ArchivedBy:        &by,
+				ArchivedAt:        time.Now(),
+			})
+			ai.StartedAt = nil
+			ai.CompletedAt = nil
+			ai.Transcript = []model.ChatMessage{}
+			ai.SummaryEvaluation = nil
+			ai.ScorecardScore = 0
+			ai.RecordingURL = ""
+			ai.RecordingStatus = "pending"
+			ai.Status = model.AIInterviewInvited
+			ai.InvitationExpiresAt = newExpiry
+			ai.UpdatedAt = time.Now()
+			return nil
+		}
+		return ErrAIInterviewNotFound
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("ai_interview_repo: begin archive: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO ai_interview_attempts (
+			ai_interview_id, applicant_id, started_at, completed_at, transcript, summary_evaluation,
+			scorecard_score, recording_status, recording_url, status, reason, archived_by
+		)
+		SELECT id, applicant_id, started_at, completed_at, COALESCE(transcript, '[]'::jsonb), summary_evaluation,
+			scorecard_score, COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, $2, $3
+		FROM ai_interviews WHERE id = $1
+	`, id, reason, archivedBy)
+	if err != nil {
+		return fmt.Errorf("ai_interview_repo: archive attempt: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrAIInterviewNotFound
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE ai_interviews
+		SET started_at = NULL,
+			completed_at = NULL,
+			transcript = '[]'::jsonb,
+			summary_evaluation = NULL,
+			scorecard_score = 0,
+			recording_url = '',
+			recording_status = 'pending',
+			status = 'invited',
+			invitation_expires_at = $2,
+			expires_at = $2,
+			updated_at = now()
+		WHERE id = $1
+	`, id, newExpiry); err != nil {
+		return fmt.Errorf("ai_interview_repo: reset for re-invite: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
+// ExtendInvitation pushes back the expiry of an interview that has not been started yet.
+func (r *AIInterviewRepository) ExtendInvitation(ctx context.Context, id uuid.UUID, newExpiry time.Time) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for _, ai := range r.memInterviews {
+			if ai.ID == id {
+				ai.InvitationExpiresAt = newExpiry
+				ai.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+		return ErrAIInterviewNotFound
+	}
+	_, err := r.pool.Exec(ctx,
+		`UPDATE ai_interviews SET invitation_expires_at = $2, expires_at = $2, updated_at = now() WHERE id = $1`,
+		id, newExpiry)
+	if err != nil {
+		return fmt.Errorf("ai_interview_repo: extend invitation: %w", err)
+	}
+	return nil
+}
+
+// ListAttempts returns an applicant's archived interview takes, newest first.
+func (r *AIInterviewRepository) ListAttempts(ctx context.Context, applicantID uuid.UUID) ([]model.AIInterviewAttempt, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var list []model.AIInterviewAttempt
+		for i := len(r.memAttempts) - 1; i >= 0; i-- {
+			if r.memAttempts[i].ApplicantID == applicantID {
+				list = append(list, r.memAttempts[i])
+			}
+		}
+		return list, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, ai_interview_id, applicant_id, started_at, completed_at, transcript, summary_evaluation,
+			scorecard_score, recording_status, recording_url, status, reason, archived_by, archived_at
+		FROM ai_interview_attempts
+		WHERE applicant_id = $1
+		ORDER BY archived_at DESC
+	`, applicantID)
+	if err != nil {
+		return nil, fmt.Errorf("ai_interview_repo: list attempts: %w", err)
+	}
+	defer rows.Close()
+
+	var list []model.AIInterviewAttempt
+	for rows.Next() {
+		var a model.AIInterviewAttempt
+		var rawTranscript, rawSummary []byte
+		if err := rows.Scan(&a.ID, &a.AIInterviewID, &a.ApplicantID, &a.StartedAt, &a.CompletedAt, &rawTranscript, &rawSummary,
+			&a.ScorecardScore, &a.RecordingStatus, &a.RecordingURL, &a.Status, &a.Reason, &a.ArchivedBy, &a.ArchivedAt); err != nil {
+			return nil, fmt.Errorf("ai_interview_repo: scan attempt: %w", err)
+		}
+		_ = json.Unmarshal(rawTranscript, &a.Transcript)
+		if len(rawSummary) > 0 {
+			var summary model.EvaluationSummary
+			if json.Unmarshal(rawSummary, &summary) == nil {
+				a.SummaryEvaluation = &summary
+			}
+		}
+		list = append(list, a)
+	}
+	return list, rows.Err()
+}

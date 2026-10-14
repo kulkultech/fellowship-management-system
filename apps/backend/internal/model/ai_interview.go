@@ -99,6 +99,24 @@ type AIInterview struct {
 	UpdatedAt           time.Time          `json:"updated_at"`
 }
 
+// AIInterviewAttempt is a previous take of an AI interview, archived when an admin re-invites the candidate.
+type AIInterviewAttempt struct {
+	ID                uuid.UUID          `json:"id"`
+	AIInterviewID     uuid.UUID          `json:"ai_interview_id"`
+	ApplicantID       uuid.UUID          `json:"applicant_id"`
+	StartedAt         *time.Time         `json:"started_at,omitempty"`
+	CompletedAt       *time.Time         `json:"completed_at,omitempty"`
+	Transcript        []ChatMessage      `json:"transcript"`
+	SummaryEvaluation *EvaluationSummary `json:"summary_evaluation,omitempty"`
+	ScorecardScore    int                `json:"scorecard_score"`
+	RecordingStatus   string             `json:"recording_status"`
+	RecordingURL      string             `json:"recording_url,omitempty"`
+	Status            AIInterviewStatus  `json:"status"`
+	Reason            string             `json:"reason,omitempty"`
+	ArchivedBy        *uuid.UUID         `json:"archived_by,omitempty"`
+	ArchivedAt        time.Time          `json:"archived_at"`
+}
+
 // DefaultAIInterviewRubric returns the standard AI interview questions, timing, criteria, and scoring scale
 func DefaultAIInterviewRubric() *AIInterviewRubric {
 	return &AIInterviewRubric{

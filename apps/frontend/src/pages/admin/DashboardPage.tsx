@@ -166,6 +166,7 @@ import {
   Github,
   Edit3,
   UserPlus,
+  Send,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -1799,6 +1800,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.error || err?.response?.data?.message || 'Failed to delete candidate application');
+    },
+  });
+
+  const [isReinviteAIOpen, setIsReinviteAIOpen] = useState(false);
+  const [reinviteAIReason, setReinviteAIReason] = useState('');
+  const reinviteAIMutation = useMutation({
+    mutationFn: (applicantId: string) => adminService.reinviteAIInterview(applicantId, reinviteAIReason.trim() || undefined),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Candidate re-invited to the AI interview');
+      setIsReinviteAIOpen(false);
+      setReinviteAIReason('');
+      queryClient.invalidateQueries({ queryKey: ['admin-applicants'] });
+      if (selectedApplicantId) {
+        queryClient.invalidateQueries({ queryKey: ['admin-applicant-detail', selectedApplicantId] });
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || 'Failed to re-invite candidate');
     },
   });
 
@@ -5566,7 +5585,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               Candidate Video Assessment Recording
                             </span>
                           </div>
-                          {applicantDetail.ai_screen.recording_url ? null : applicantDetail.ai_screen.status === 'in_progress' ? (
+                          {applicantDetail.ai_screen.recording_url ? null : applicantDetail.ai_screen.status === 'invited' ? (
+                            <span className="text-3xs font-bold uppercase tracking-wider text-slate-400">
+                              Not Started Yet
+                            </span>
+                          ) : applicantDetail.ai_screen.status === 'in_progress' ? (
                             <span className="text-3xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
                               Chamber In Progress
@@ -5596,6 +5619,121 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </div>
                         )}
                       </div>
+
+                      {/* Re-invite to AI Interview (e.g. when the video never arrived) */}
+                      {applicantDetail.applicant.current_stage !== 'approved_for_live' &&
+                        applicantDetail.applicant.current_stage !== 'completed' && (
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-extrabold text-slate-900">Re-invite to AI Interview</div>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {applicantDetail.ai_screen.status === 'invited'
+                                    ? 'Resend the interview link and give them 7 more days.'
+                                    : 'Let them take the interview again, for example if the video is missing. This attempt is kept in their history and the same link works again for 7 days.'}
+                                </p>
+                              </div>
+                              {!isReinviteAIOpen && (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsReinviteAIOpen(true)}
+                                  className="btn btn-sm btn-outline shrink-0"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <span>Re-invite</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {isReinviteAIOpen && (
+                              <div className="space-y-3 pt-3 border-t border-slate-100">
+                                <div>
+                                  <label className="field-label" htmlFor="reinvite-ai-reason">
+                                    Reason (optional, for your team)
+                                  </label>
+                                  <textarea
+                                    id="reinvite-ai-reason"
+                                    rows={2}
+                                    value={reinviteAIReason}
+                                    onChange={(e) => setReinviteAIReason(e.target.value)}
+                                    placeholder="e.g. Video recording did not upload"
+                                    className="form-textarea"
+                                  />
+                                </div>
+                                {applicantDetail.ai_screen.status === 'in_progress' && (
+                                  <p className="text-xs font-semibold text-amber-700">
+                                    This candidate may be in the interview right now. Re-inviting restarts it.
+                                  </p>
+                                )}
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsReinviteAIOpen(false);
+                                      setReinviteAIReason('');
+                                    }}
+                                    className="btn btn-sm btn-outline"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={reinviteAIMutation.isPending}
+                                    onClick={() => reinviteAIMutation.mutate(applicantDetail.applicant.id)}
+                                    className="btn btn-sm btn-primary"
+                                  >
+                                    {reinviteAIMutation.isPending ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Send className="w-3.5 h-3.5" />
+                                    )}
+                                    <span>Re-invite &amp; Send Email</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                      {/* Earlier takes kept when the candidate was re-invited */}
+                      {(applicantDetail.ai_previous_attempts?.length ?? 0) > 0 && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                          <div className="text-sm font-extrabold text-slate-900">Previous Attempts</div>
+                          {applicantDetail.ai_previous_attempts!.map((attempt) => (
+                            <div
+                              key={attempt.id}
+                              className="flex items-start justify-between gap-3 pt-2 border-t border-slate-100 text-xs"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900">
+                                  {attempt.completed_at
+                                    ? `Completed ${new Date(attempt.completed_at).toLocaleString()}`
+                                    : 'Not finished'}
+                                </div>
+                                <div className="text-slate-500">
+                                  Re-invited {new Date(attempt.archived_at).toLocaleString()}
+                                  {attempt.reason ? ` · ${attempt.reason}` : ''}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-bold text-slate-900">{attempt.scorecard_score}/100</div>
+                                {attempt.recording_url ? (
+                                  <a
+                                    href={resolveMediaUrl(attempt.recording_url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-semibold text-kulkul-purple hover:underline"
+                                  >
+                                    Watch video
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400">No video</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {applicantDetail.ai_screen.summary_evaluation && (
                         <div className="stitch-card bg-purple-50/50 p-5 border border-purple-200 space-y-4">
