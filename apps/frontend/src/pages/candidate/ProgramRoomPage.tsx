@@ -282,10 +282,18 @@ export const ProgramRoomPage: React.FC = () => {
       ]
     : [
         { id: 'home', label: 'Home', icon: Home, onClick: () => navigate('/candidate/dashboard') },
-        { id: 'applications', label: 'My Applications', icon: FileText, onClick: () => navigate('/candidate/dashboard?tab=applications') },
+        {
+          id: 'applications',
+          label: 'My Applications',
+          icon: FileText,
+          onClick: () => navigate('/candidate/dashboard?tab=applications'),
+          isExpanded: false,
+          children: [
+            { id: 'assessments', label: 'Logic MCQ Tests', icon: Clock, onClick: () => navigate('/candidate/dashboard?tab=assessments') },
+            { id: 'ai_interview', label: 'AI Technical Screen', icon: Code2, onClick: () => navigate('/candidate/dashboard?tab=ai_interview') },
+          ],
+        },
         { id: 'program_room', label: 'Program Room', icon: GraduationCap, children: candidateRoomChildren },
-        { id: 'assessments', label: 'Logic MCQ Tests', icon: Clock, onClick: () => navigate('/candidate/dashboard?tab=assessments') },
-        { id: 'ai_interview', label: 'AI Technical Screen', icon: Code2, onClick: () => navigate('/candidate/dashboard?tab=ai_interview') },
         { id: 'calendar', label: 'Calendar', icon: CalendarDays, onClick: () => navigate('/candidate/dashboard?tab=calendar') },
         { id: 'credentials', label: 'Badges & Certificates', icon: Award, onClick: () => navigate('/candidate/dashboard?tab=credentials') },
       ];

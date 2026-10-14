@@ -71,7 +71,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   subtitle,
   companyName,
   companyLogoUrl,
-  navItems,
+  navItems: rawNavItems,
   activeNavId,
   onNavChange,
   headerActions,
@@ -82,6 +82,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onCandidateSignOut,
   onEditProfile,
 }) => {
+  // Menus show labels only, never counts
+  const navItems: NavItem[] = rawNavItems.map((item) => ({
+    ...item,
+    badge: undefined,
+    children: item.children?.map((child) => ({
+      ...child,
+      badge: undefined,
+      children: child.children?.map((sub) => ({ ...sub, badge: undefined })),
+    })),
+  }));
+
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});

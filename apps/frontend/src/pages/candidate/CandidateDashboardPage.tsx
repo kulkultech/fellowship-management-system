@@ -658,6 +658,21 @@ export const CandidateDashboardPage: React.FC = () => {
       label: 'My Applications',
       icon: FileText,
       badge: applications.length,
+      // Application steps, in the order candidates take them
+      children: [
+        {
+          id: 'assessments',
+          label: 'Logic MCQ Tests',
+          icon: Clock,
+          badge: applications.filter((a) => a.test_token).length || undefined,
+        },
+        {
+          id: 'ai_interview',
+          label: 'AI Technical Screen',
+          icon: Terminal,
+          badge: applications.filter((a) => a.interview_token).length || undefined,
+        },
+      ],
     },
     ...(acceptedCohortApps.length > 0
       ? [
@@ -680,19 +695,6 @@ export const CandidateDashboardPage: React.FC = () => {
           },
         ]
       : []),
-    {
-      id: 'assessments',
-      label: 'Logic MCQ Tests',
-      icon: Clock,
-      badge: applications.filter((a) => a.test_token).length || undefined,
-    },
-    {
-      id: 'ai_interview',
-      label: 'AI Technical Screen',
-      icon: Terminal,
-      badge: applications.filter((a) => a.interview_token).length || undefined,
-      badgeColor: 'bg-purple-100 text-kulkul-purple',
-    },
     {
       id: 'calendar',
       label: 'Calendar',
