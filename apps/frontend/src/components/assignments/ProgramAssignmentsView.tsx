@@ -15,7 +15,6 @@ import {
   UploadCloud,
   CheckCircle2,
   Clock,
-  AlertCircle,
   ExternalLink,
   Award,
   Trash2,
@@ -30,7 +29,6 @@ import {
   Check,
   X,
   Plus,
-  FileCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -122,61 +120,30 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
     <div className="space-y-6">
       {/* Fellow Progress Summary Card */}
       {fellowStats && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
-                Assignment Completion Status
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
-                  fellowStats.completionRate >= 100
-                    ? 'text-emerald-700'
-                    : fellowStats.completionRate >= 50
-                    ? 'text-kulkul-purple'
-                    : 'text-amber-700'
-                }`}
-              >
-                <FileCheck className="w-3 h-3" />
-                <span>
-                  {fellowStats.submitted} of {fellowStats.total} Completed
-                </span>
-              </span>
-            </div>
-            <h4 className="text-xl font-black text-slate-900">
-              {fellowStats.completionRate}% Submitted
-              {fellowStats.avgScore != null && (
-                <span className="text-sm font-bold text-emerald-600 ml-2">
-                  &bull; Avg Grade: {fellowStats.avgScore}%
-                </span>
-              )}
-            </h4>
-            <p className="text-xs text-slate-500">
-              Complete and submit all cohort tasks before the deadline to earn your fellowship certification.
-            </p>
-          </div>
+        <div className="content-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <p className="text-xs text-slate-500">
+            <strong className="text-sm font-extrabold text-slate-900">
+              {fellowStats.submitted}/{fellowStats.total} submitted
+            </strong>
+            {fellowStats.avgScore != null && (
+              <span className="font-bold text-emerald-600"> · Avg grade {fellowStats.avgScore}%</span>
+            )}
+          </p>
 
-          <div className="sm:w-56 space-y-2">
-            <div className="flex items-center justify-between text-2xs font-bold text-slate-600">
-              <span>Cohort Progress</span>
-              <span>{fellowStats.completionRate}%</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-kulkul-purple transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(0, fellowStats.completionRate))}%` }}
-              />
-            </div>
+          <div className="sm:w-56 w-full bg-slate-100 rounded-full h-2 overflow-hidden shrink-0">
+            <div
+              className="h-full rounded-full bg-kulkul-purple transition-all duration-500"
+              style={{ width: `${Math.min(100, Math.max(0, fellowStats.completionRate))}%` }}
+            />
           </div>
         </div>
       )}
 
       {/* Action Bar & Controls */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-        <div className="section-header">
-          <h3 className="section-title">Fellowship Assignments &amp; Projects</h3>
-
-          <div className="section-actions">
+      <div className="content-card space-y-6">
+        {/* Staff toolbar: track filter + create (the sidebar already names this section) */}
+        {isMentorOrAdmin && (
+          <div className="section-actions justify-end">
             {/* Track Filter if tracks exist */}
             {tracks.length > 0 && (
               <select
@@ -195,21 +162,19 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
             )}
 
             {/* Mentor Create Assignment Button */}
-            {isMentorOrAdmin && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingAssignment(null);
-                  setIsCreateModalOpen(true);
-                }}
-                className="btn btn-sm btn-primary"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create Assignment</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAssignment(null);
+                setIsCreateModalOpen(true);
+              }}
+              className="btn btn-sm btn-primary"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Assignment</span>
+            </button>
           </div>
-        </div>
+        )}
 
         {/* Content / Assignments List */}
         {isLoading ? (
@@ -222,21 +187,14 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
             <div className="w-14 h-14 bg-purple-50 text-kulkul-purple rounded-2xl flex items-center justify-center mx-auto">
               <FileText className="w-7 h-7" />
             </div>
-            <div className="space-y-1">
-              <h4 className="text-base font-bold text-slate-800">No Assignments Posted Yet</h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                {isMentorOrAdmin
-                  ? 'Click "Create Assignment" above to assign project deliverables, deadlines, and starter repositories to your fellows.'
-                  : 'Your technical mentors have not published any assignments for this cohort yet. Check back soon!'}
-              </p>
-            </div>
+            <h4 className="card-title">No assignments yet</h4>
             {isMentorOrAdmin && (
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(true)}
-                className="btn btn-sm btn-outline text-kulkul-purple border-purple-300 font-bold"
+                className="btn btn-sm btn-outline"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Post First Assignment</span>
               </button>
             )}
@@ -263,7 +221,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
               return (
                 <div
                   key={assignment.id}
-                  className={`p-6 rounded-2xl border transition flex flex-col gap-4 shadow-2xs ${
+                  className={`panel transition flex flex-col gap-4 ${
                     isGraded
                       ? 'bg-emerald-50/20 border-emerald-200 hover:border-emerald-300'
                       : isSubmitted
@@ -277,14 +235,14 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="space-y-2 max-w-2xl">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-base font-extrabold text-slate-900">
+                        <h4 className="card-title">
                           {assignment.title}
                         </h4>
                         {assignment.track_name ? (
                           <span className="text-3xs font-extrabold text-kulkul-purple uppercase tracking-wider">
                             {assignment.track_name}
                           </span>
-                        ) : tracks && tracks.length > 0 ? (
+                        ) : isMentorOrAdmin && tracks && tracks.length > 0 ? (
                           <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider">
                             All Tracks
                           </span>
@@ -302,9 +260,11 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                               : 'Group Assignment'}
                           </span>
                         ) : null}
-                        <span className="text-3xs font-bold text-slate-500">
-                          Max: {assignment.max_score} pts
-                        </span>
+                        {!isGraded && (
+                          <span className="text-3xs font-bold text-slate-500">
+                            Max: {assignment.max_score} pts
+                          </span>
+                        )}
                       </div>
 
                       {/* Description */}
@@ -322,7 +282,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                           <Clock className="w-3.5 h-3.5" />
                           <span>Due: {formattedDueDate}</span>
                           {isPastDue && !isSubmitted && (
-                            <span className="text-3xs font-extrabold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 ml-1">
+                            <span className="text-2xs font-bold uppercase text-rose-700 ml-1">
                               Past Due
                             </span>
                           )}
@@ -343,7 +303,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                           </a>
                         )}
 
-                        {assignment.creator_name && (
+                        {isMentorOrAdmin && assignment.creator_name && (
                           <span className="text-slate-400">
                             Created by <strong>{assignment.creator_name}</strong>
                           </span>
@@ -359,7 +319,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => setReviewAssignment(assignment)}
-                            className="btn btn-sm bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center gap-1.5 shadow-2xs rounded-xl"
+                            className="btn btn-sm btn-primary"
                           >
                             <Users className="w-3.5 h-3.5" />
                             <span>Submissions ({assignment.total_submissions || 0})</span>
@@ -371,7 +331,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                               setEditingAssignment(assignment);
                               setIsCreateModalOpen(true);
                             }}
-                            className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple rounded-xl"
+                            className="btn btn-icon-sm btn-ghost"
                             title="Edit Assignment"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -381,7 +341,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                             type="button"
                             onClick={() => handleDelete(assignment)}
                             disabled={deleteMutation.isPending}
-                            className="btn btn-sm btn-outline text-rose-600 border-rose-200 hover:bg-rose-50 rounded-xl"
+                            className="btn btn-icon-sm btn-ghost-danger"
                             title="Delete Assignment"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -392,8 +352,8 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                         <div className="flex items-center gap-3 flex-wrap">
                           {isGraded ? (
                             <div className="flex flex-col items-end">
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-black shadow-2xs">
-                                <Award className="w-4 h-4 text-emerald-600" />
+                              <span className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-700">
+                                <Award className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>
                                   Grade: {mySub?.score} / {assignment.max_score} pts
                                 </span>
@@ -403,27 +363,22 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                               </span>
                             </div>
                           ) : isSubmitted ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 text-kulkul-purple border border-purple-200 text-xs font-bold">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-kulkul-purple">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Submitted &bull; Pending Review</span>
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold">
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                              <span>Not Submitted</span>
-                            </span>
-                          )}
+                          ) : null}
 
                           <button
                             type="button"
                             onClick={() => setSubmitModalAssignment(assignment)}
-                            className={`btn btn-sm font-bold flex items-center gap-1.5 rounded-xl shadow-xs ${
+                            className={`btn btn-sm ${
                               isSubmitted
-                                ? 'btn-outline text-slate-700 hover:text-kulkul-purple'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                ? 'btn-outline'
+                                : 'btn-primary'
                             }`}
                           >
-                            <UploadCloud className="w-4 h-4" />
+                            <UploadCloud className="w-3.5 h-3.5" />
                             <span>{isSubmitted ? 'Edit / Resubmit' : 'Submit Assignment'}</span>
                           </button>
                         </div>
@@ -440,7 +395,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                             href={mySub.file_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-slate-700 hover:text-kulkul-purple font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200"
+                            className="btn btn-sm btn-outline"
                           >
                             <FileText className="w-3.5 h-3.5 text-kulkul-purple" />
                             <span>{mySub.file_name || 'View Uploaded File'}</span>
@@ -453,7 +408,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                             href={mySub.github_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-slate-700 hover:text-kulkul-purple font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200"
+                            className="btn btn-sm btn-outline"
                           >
                             <Github className="w-3.5 h-3.5" />
                             <span>View GitHub Repo</span>
@@ -461,7 +416,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                           </a>
                         )}
 
-                        <span className="text-3xs text-slate-400">
+                        <span className="meta-text">
                           Submitted on {new Date(mySub.submitted_at).toLocaleString()}
                         </span>
                       </div>
@@ -657,29 +612,30 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-xl">
+        <div className="section-header">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="section-title">
               {existing ? 'Edit Assignment' : 'Create New Cohort Assignment'}
             </h3>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <p className="section-subtitle">
               Assign deliverables, due dates, and starter code to your fellowship cohort.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className="btn btn-icon-sm btn-ghost"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               Assignment Title *
             </label>
             <input
@@ -688,20 +644,20 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               placeholder="e.g. Sprint 1: Concurrency Pipeline in Go"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white"
+              className="form-input"
             />
           </div>
 
           <div className={tracks.length > 0 ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : ""}>
             {tracks.length > 0 && (
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="field-label">
                   Target Track
                 </label>
                 <select
                   value={trackId}
                   onChange={(e) => setTrackId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                  className="form-input"
                 >
                   <option value="">All Fellows (Program-Wide)</option>
                   {tracks.map((t) => (
@@ -714,7 +670,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
             )}
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label className="field-label">
                 Max Score (Points)
               </label>
               <input
@@ -723,14 +679,14 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                 max={1000}
                 value={maxScore}
                 onChange={(e) => setMaxScore(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                className="form-input"
               />
             </div>
           </div>
 
           {/* Target Audience Selector */}
           <div className="space-y-2.5 pt-1">
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               Target Audience
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -809,25 +765,25 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label className="field-label">
                 Submission Due Date &amp; Time
               </label>
               <input
                 type="datetime-local"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                className="form-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label className="field-label">
                 Publication Status
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                className="form-input"
               >
                 <option value="published">Published (Visible to Fellows)</option>
                 <option value="draft">Draft (Hidden)</option>
@@ -836,7 +792,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               Instructions &amp; Requirements
             </label>
             <textarea
@@ -844,13 +800,13 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               placeholder="Outline project deliverables, edge cases, grading criteria, and required repository structure..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white leading-relaxed resize-y"
+              className="form-textarea leading-relaxed resize-y"
             />
           </div>
 
           {/* Starter Attachment Upload */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               Starter Materials / Template File (Optional)
             </label>
             {attachmentUrl ? (
@@ -865,7 +821,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                     setAttachmentUrl('');
                     setAttachmentName('');
                   }}
-                  className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
+                  className="btn btn-sm btn-danger-ghost"
                 >
                   Remove
                 </button>
@@ -887,27 +843,27 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                   <span className="text-sm font-semibold text-slate-700">
                     {isUploading ? 'Uploading starter archive...' : 'Upload starter .zip, .pdf, or template'}
                   </span>
-                  <span className="text-xs text-slate-400">Up to 100MB supported</span>
+                  <span className="meta-text">Up to 100MB supported</span>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="modal-footer">
             <button
               type="button"
               onClick={onClose}
               disabled={mutation.isPending}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              className="btn btn-sm btn-outline"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={mutation.isPending || isUploading}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-kulkul-purple hover:bg-[#431970] text-white shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
+              className="btn btn-sm btn-primary"
             >
-              {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
               <span>{existing ? 'Save Changes' : 'Publish Assignment'}</span>
             </button>
           </div>
@@ -995,30 +951,31 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-lg">
+        <div className="section-header">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="section-title">
               {existing ? 'Edit / Resubmit Assignment' : 'Submit Assignment'}
             </h3>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <p className="section-subtitle">
               {assignment.title} &bull; Max {assignment.max_score} pts
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className="btn btn-icon-sm btn-ghost"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* File Upload Area */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               Upload Work Deliverable (.zip, .pdf, .tar.gz, code files)
             </label>
             {fileUrl ? (
@@ -1037,7 +994,7 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                     setFileName('');
                     setFileSize(0);
                   }}
-                  className="text-xs text-rose-600 hover:underline font-semibold ml-2 shrink-0 cursor-pointer"
+                  className="btn btn-sm btn-danger-ghost ml-2 shrink-0"
                 >
                   Change File
                 </button>
@@ -1059,7 +1016,7 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                   <span className="text-sm font-semibold text-slate-800">
                     {isUploading ? 'Uploading deliverable...' : 'Click or drag files here to upload'}
                   </span>
-                  <span className="text-xs text-slate-400">Supports .zip, .tar.gz, .pdf, .docx, code archives up to 100MB</span>
+                  <span className="meta-text">Supports .zip, .tar.gz, .pdf, .docx, code archives up to 100MB</span>
                 </div>
               </div>
             )}
@@ -1067,7 +1024,7 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
 
           {/* GitHub Repository URL */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               GitHub / Code Repository URL (Optional)
             </label>
             <div className="relative">
@@ -1079,14 +1036,14 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
                 placeholder="https://github.com/username/project-repo"
                 value={githubUrl}
                 onChange={(e) => setGithubUrl(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                className="form-input pl-10"
               />
             </div>
           </div>
 
           {/* Fellow Notes */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label className="field-label">
               Submission Notes / Remarks to Mentor
             </label>
             <textarea
@@ -1094,25 +1051,25 @@ const SubmitAssignmentModal: React.FC<SubmitAssignmentModalProps> = ({
               placeholder="Explain how you approached the challenge, key engineering trade-offs, or instructions to run your code..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white leading-relaxed resize-y"
+              className="form-textarea leading-relaxed resize-y"
             />
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="modal-footer">
             <button
               type="button"
               onClick={onClose}
               disabled={mutation.isPending}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              className="btn btn-sm btn-outline"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={mutation.isPending || isUploading}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
+              className="btn btn-sm btn-primary"
             >
-              {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+              {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
               <span>{existing ? 'Confirm Resubmission' : 'Submit Assignment'}</span>
             </button>
           </div>
@@ -1192,24 +1149,25 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 my-8 max-h-[90vh] flex flex-col">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-4xl flex flex-col">
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+        <div className="section-header shrink-0">
           <div>
-            <h3 className="text-lg font-black text-slate-900">
+            <h3 className="section-title">
               Fellow Submissions &bull; {assignment.title}
             </h3>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="section-subtitle">
               Review submitted code archives, check GitHub repositories, and assign scores out of {assignment.max_score} pts.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="btn btn-icon-sm btn-ghost"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -1279,10 +1237,10 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
             {selectedSub ? (
               <div className="space-y-4">
                 {/* Fellow Header */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                <div className="panel-muted space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <h4 className="text-sm font-extrabold text-slate-900">
+                      <h4 className="card-title">
                         {selectedSub.fellow_name || 'Fellow Submission'}
                       </h4>
                       <p className="text-xs text-slate-500">{selectedSub.fellow_email}</p>
@@ -1305,9 +1263,9 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                         href={selectedSub.file_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="btn btn-xs bg-white border border-slate-200 hover:border-kulkul-purple font-bold flex items-center gap-1.5 shadow-2xs"
+                        className="btn btn-sm btn-outline"
                       >
-                        <Download className="w-3 h-3 text-kulkul-purple" />
+                        <Download className="w-3.5 h-3.5 text-kulkul-purple" />
                         <span>Download: {selectedSub.file_name || 'Work Archive'}</span>
                       </a>
                     )}
@@ -1317,9 +1275,9 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                         href={selectedSub.github_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="btn btn-xs btn-outline font-bold flex items-center gap-1.5"
+                        className="btn btn-sm btn-outline"
                       >
-                        <Github className="w-3 h-3" />
+                        <Github className="w-3.5 h-3.5" />
                         <span>GitHub Repo</span>
                         <ExternalLink className="w-2.5 h-2.5 text-slate-400" />
                       </a>
@@ -1329,7 +1287,7 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                   {/* Candidate notes */}
                   {selectedSub.notes && (
                     <div className="mt-2 pt-2 border-t border-slate-200/60 text-xs text-slate-700">
-                      <strong className="text-slate-500 font-bold block text-3xs uppercase">Fellow Notes:</strong>
+                      <strong className="subsection-title block">Fellow Notes:</strong>
                       <p className="mt-0.5 whitespace-pre-line leading-relaxed">{selectedSub.notes}</p>
                     </div>
                   )}
@@ -1338,7 +1296,7 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                 {/* Grade & Feedback Form */}
                 <form onSubmit={handleSaveGrade} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Assigned Score (Max {assignment.max_score} pts) *
                     </label>
                     <input
@@ -1350,12 +1308,12 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       placeholder={`0 - ${assignment.max_score}`}
                       value={scoreInput}
                       onChange={(e) => setScoreInput(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className="form-input"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Mentor Feedback &amp; Suggestions
                     </label>
                     <textarea
@@ -1363,7 +1321,7 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                       placeholder="Highlight strong architectural choices, concurrency safety, clean code principles, and areas for improvement..."
                       value={feedbackInput}
                       onChange={(e) => setFeedbackInput(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white leading-relaxed resize-y"
+                      className="form-textarea leading-relaxed resize-y"
                     />
                   </div>
 
@@ -1371,12 +1329,12 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                     <button
                       type="submit"
                       disabled={gradeMutation.isPending}
-                      className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
+                      className="btn btn-sm btn-primary"
                     >
                       {gradeMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <Check className="w-4 h-4" />
+                        <Check className="w-3.5 h-3.5" />
                       )}
                       <span>Save Grade &amp; Feedback</span>
                     </button>
@@ -1393,11 +1351,11 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-end shrink-0">
+        <div className="modal-footer shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="btn btn-sm btn-ghost rounded-xl font-bold text-slate-600"
+            className="btn btn-sm btn-outline"
           >
             Close
           </button>

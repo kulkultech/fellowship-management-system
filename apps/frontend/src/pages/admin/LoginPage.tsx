@@ -105,12 +105,12 @@ export const LoginPage: React.FC = () => {
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">
           {/* Main Card */}
-          <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+          <div className="content-card text-center space-y-6">
             <div>
               <h1 className="heading-page">
                 Company Portal
               </h1>
-              <p className="text-body-sm mt-1.5">
+              <p className="text-sm text-slate-600 mt-1.5">
                 Sign in to manage your fellowship programs, question banks, and candidate scorecards.
               </p>
             </div>
@@ -159,7 +159,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
+                  className="w-full btn btn-md btn-outline"
                 >
                   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path
@@ -181,7 +181,7 @@ export const LoginPage: React.FC = () => {
                   </svg>
                   <span>Continue with Google</span>
                 </button>
-                <p className="text-caption">
+                <p className="meta-text">
                   Instant corporate authentication for company administrators
                 </p>
               </div>
@@ -189,7 +189,7 @@ export const LoginPage: React.FC = () => {
               /* Email & Password Form */
               <form onSubmit={handlePasswordLogin} className="space-y-4 text-left pt-1">
                 <div>
-                  <label className="form-label">
+                  <label className="field-label">
                     Admin Work Email
                   </label>
                   <div className="relative">
@@ -199,15 +199,15 @@ export const LoginPage: React.FC = () => {
                       placeholder="e.g. admin@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 input-md"
+                      className="form-input pl-10 pr-4"
                     />
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="form-label mb-0">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="field-label mb-0">
                       Password
                     </label>
                     <Link
@@ -224,9 +224,9 @@ export const LoginPage: React.FC = () => {
                       placeholder="Your admin password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 input-md"
+                      className="form-input pl-10 pr-4"
                     />
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
 
@@ -248,9 +248,9 @@ export const LoginPage: React.FC = () => {
                         type="button"
                         onClick={handleResendActivation}
                         disabled={isResending}
-                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs rounded-xl transition disabled:opacity-60"
+                        className="w-full btn btn-sm btn-outline"
                       >
-                        <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
                         <span>{isResending ? 'Resending...' : 'Resend Activation Email'}</span>
                       </button>
                     )}
@@ -260,7 +260,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoggingIn}
-                  className="w-full btn btn-lg btn-primary"
+                  className="w-full btn btn-md btn-primary"
                 >
                   {isLoggingIn ? (
                     <span>Signing in...</span>

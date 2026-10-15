@@ -256,21 +256,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        {/* Header with gradient branding */}
-        <div className="bg-gradient-to-r from-kulkul-purple via-[#42167d] to-kulkul-purple text-white p-6 relative">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-xl relative animate-in fade-in zoom-in-95 duration-150">
+        {/* Header */}
+        <div className="section-header">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner overflow-hidden shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
               {avatarUrl ? (
                 <img
                   key={resolveMediaUrl(avatarUrl)}
@@ -282,69 +273,70 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   }}
                 />
               ) : (
-                <UserIcon className="w-6 h-6 text-kulkul-orange" />
+                <UserIcon className="w-6 h-6 text-kulkul-purple" />
               )}
             </div>
             <div>
-              <h2 className="text-xl font-black text-white tracking-tight">
+              <h2 className="section-title">
                 Edit Profile & Account
               </h2>
-              <p className="text-xs text-purple-200 mt-0.5">
+              <p className="section-subtitle">
                 Manage your name, profile picture, security credentials, and company details
               </p>
             </div>
           </div>
-
-          {/* Navigation Tabs (if company context available) */}
-          {isCompanyUser && (
-            <div className="flex items-center gap-2 mt-6 pt-2 border-t border-white/15">
-              <button
-                type="button"
-                onClick={() => setActiveTab('personal')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'personal'
-                    ? 'bg-white text-kulkul-purple shadow-sm'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <UserIcon className="w-3.5 h-3.5" />
-                <span>Personal Profile</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('company')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeTab === 'company'
-                    ? 'bg-white text-kulkul-purple shadow-sm'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Company / Organization</span>
-              </button>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-icon-sm btn-ghost self-start sm:self-center shrink-0"
+            title="Close"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
+
+        {/* Navigation Tabs (if company context available) */}
+        {isCompanyUser && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('personal')}
+              className={`tab-pill ${activeTab === 'personal' ? 'tab-pill-active' : ''}`}
+            >
+              <UserIcon className="w-3.5 h-3.5" />
+              <span>Personal Profile</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('company')}
+              className={`tab-pill ${activeTab === 'company' ? 'tab-pill-active' : ''}`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Company / Organization</span>
+            </button>
+          </div>
+        )}
 
         {/* Error notification banner */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
             <X className="w-4 h-4 shrink-0 text-rose-500" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 sm:p-7 space-y-6 max-h-[72vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* TAB 1: PERSONAL PROFILE */}
           {activeTab === 'personal' && (
             <div className="space-y-6 animate-in fade-in duration-150">
               {/* Profile Picture Live Preview & Upload Controls */}
               <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2">
+                <label className="field-label">
                   Profile Picture / Avatar
                 </label>
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="panel-muted space-y-3">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                     {/* Avatar Preview with click-to-upload overlay */}
                     <div className="relative group shrink-0">
@@ -393,7 +385,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                           type="button"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={uploadingAvatar}
-                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs transition disabled:opacity-50"
+                          className="btn btn-sm btn-outline"
                         >
                           {uploadingAvatar ? (
                             <>
@@ -415,7 +407,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                               setAvatarUrl('');
                               setAvatarFileName('');
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition"
+                            className="btn btn-sm btn-danger-ghost"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>Remove</span>
@@ -425,7 +417,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowAvatarUrlInput(!showAvatarUrlInput)}
-                          className="text-2xs font-semibold text-slate-500 hover:text-kulkul-purple hover:underline ml-auto"
+                          className="btn btn-sm btn-ghost ml-auto"
                         >
                           {showAvatarUrlInput ? 'Hide link' : 'Or paste link'}
                         </button>
@@ -448,7 +440,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                             value={avatarUrl}
                             onChange={(e) => setAvatarUrl(e.target.value)}
                             placeholder="Paste image URL (https://...)"
-                            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-mono"
+                            className="form-input pl-8 text-xs font-mono"
                           />
                         </div>
                       )}
@@ -457,7 +449,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
                   {/* Quick Avatar Presets */}
                   <div className="pt-2 border-t border-slate-200/60">
-                    <div className="text-2xs font-bold text-slate-500 mb-1.5 flex items-center gap-1">
+                    <div className="meta-text font-bold mb-1.5 flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-kulkul-purple" />
                       <span>Or pick an avatar preset:</span>
                     </div>
@@ -487,7 +479,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
               {/* Full Name */}
               <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                <label className="field-label">
                   Full Name <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -500,18 +492,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium text-slate-900"
+                    className="form-input pl-10"
                   />
                 </div>
               </div>
 
               {/* Email (Read-only) */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="field-label mb-0">
                     Email Address
                   </label>
-                  <span className="text-2xs font-bold text-slate-400 flex items-center gap-1">
+                  <span className="meta-text font-bold flex items-center gap-1">
                     <Lock className="w-3 h-3" /> Account ID (Immutable)
                   </span>
                 </div>
@@ -523,7 +515,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     type="email"
                     disabled
                     value={effectiveEmail}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-100 border border-slate-200 text-slate-500 font-medium cursor-not-allowed"
+                    className="form-input pl-10 bg-slate-100 text-slate-500 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -532,17 +524,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               <div className="pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                    <h3 className="card-title">
                       Security & Password
                     </h3>
-                    <p className="text-2xs text-slate-400">
+                    <p className="meta-text">
                       Leave blank if you wish to keep your current password
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-xs text-kulkul-purple font-bold hover:underline flex items-center gap-1"
+                    className="btn btn-sm btn-ghost"
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     <span>{showPassword ? 'Hide Passwords' : 'Show Passwords'}</span>
@@ -551,7 +543,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-2xs font-bold text-slate-600 mb-1">
+                    <label className="field-label">
                       New Password
                     </label>
                     <input
@@ -559,11 +551,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Min. 8 characters"
-                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                      className="form-input"
                     />
                   </div>
                   <div>
-                    <label className="block text-2xs font-bold text-slate-600 mb-1">
+                    <label className="field-label">
                       Confirm New Password
                     </label>
                     <input
@@ -571,7 +563,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Re-enter password"
-                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                      className="form-input"
                     />
                   </div>
                 </div>
@@ -584,14 +576,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <div className="space-y-6 animate-in fade-in duration-150">
               {/* Company Logo Upload & Live Preview */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="field-label mb-0">
                     Company Brand Logo
                   </label>
-                  <span className="text-2xs text-slate-400">PNG, SVG, JPG, or WebP (max 5MB)</span>
+                  <span className="meta-text">PNG, SVG, JPG, or WebP (max 5MB)</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="panel-muted space-y-3">
                   <input
                     ref={logoInputRef}
                     type="file"
@@ -606,7 +598,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       <span className="text-xs font-bold text-kulkul-purple">Uploading logo...</span>
                     </div>
                   ) : companyLogoUrl ? (
-                    <div className="flex items-center justify-between gap-4 p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                    <div className="panel flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center overflow-hidden shrink-0">
                           <img
@@ -620,7 +612,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                           />
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-900">
+                          <div className="card-title">
                             {logoFileName || 'Company Brand Logo'}
                           </div>
                           <span className="text-2xs font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
@@ -633,7 +625,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 transition"
+                          className="btn btn-sm btn-outline"
                         >
                           Change
                         </button>
@@ -643,7 +635,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                             setCompanyLogoUrl('');
                             setLogoFileName('');
                           }}
-                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition"
+                          className="btn btn-icon-sm btn-ghost-danger"
                           title="Remove logo"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -661,21 +653,21 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       <span className="text-xs font-bold text-slate-900 group-hover:text-kulkul-purple transition">
                         Click to upload company logo
                       </span>
-                      <span className="text-2xs text-slate-400 mt-0.5">
+                      <span className="meta-text mt-0.5">
                         PNG, SVG, WebP or JPG up to 5MB
                       </span>
                     </div>
                   )}
 
                   {/* Fallback to URL input if user desires */}
-                  <div className="pt-1 flex items-center justify-between">
-                    <p className="text-2xs text-slate-400">
+                  <div className="pt-1 flex items-center justify-between gap-2">
+                    <p className="meta-text">
                       Displayed on workspace headers, reports, and applicant portals.
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowLogoUrlInput(!showLogoUrlInput)}
-                      className="text-2xs font-semibold text-slate-500 hover:text-kulkul-purple hover:underline"
+                      className="btn btn-sm btn-ghost shrink-0"
                     >
                       {showLogoUrlInput ? 'Hide link' : 'Or paste link'}
                     </button>
@@ -691,7 +683,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         value={companyLogoUrl}
                         onChange={(e) => setCompanyLogoUrl(e.target.value)}
                         placeholder="https://example.com/company-logo.png"
-                        className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-mono"
+                        className="form-input pl-8 text-xs font-mono"
                       />
                     </div>
                   )}
@@ -700,7 +692,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
               {/* Organization / Company Name */}
               <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                <label className="field-label">
                   Company / Organization Name
                 </label>
                 <div className="relative">
@@ -712,15 +704,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="e.g. Acme Innovation Labs"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium text-slate-900"
+                    className="form-input pl-10"
                   />
                 </div>
               </div>
 
               {/* Organization URL Slug */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="field-label mb-0">
                     Company URL Slug
                   </label>
                   {companyName && !companySlug && (
@@ -734,7 +726,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                           .replace(/^-+|-+$/g, '');
                         setCompanySlug(generated);
                       }}
-                      className="text-3xs text-kulkul-purple hover:underline font-bold"
+                      className="btn btn-sm btn-ghost"
                     >
                       Generate from Name
                     </button>
@@ -754,10 +746,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       setCompanySlug(val);
                     }}
                     placeholder="e.g. acme-academy"
-                    className="w-full pl-8 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-mono text-slate-900"
+                    className="form-input pl-8 font-mono"
                   />
                 </div>
-                <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-slate-500 font-medium">
+                <div className="meta-text mt-1.5 flex items-center gap-1.5 font-medium">
                   <span className="text-slate-400">Public Portal URL:</span>
                   <code className="text-kulkul-purple font-mono bg-purple-50 px-1.5 py-0.5 rounded text-3xs">
                     /programs/{companySlug || 'your-slug'}/...
@@ -767,7 +759,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
               {/* Contact Email */}
               <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                <label className="field-label">
                   Company Admissions / Contact Email
                 </label>
                 <div className="relative">
@@ -779,10 +771,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     value={companyContactEmail}
                     onChange={(e) => setCompanyContactEmail(e.target.value)}
                     placeholder="e.g. admissions@company.org"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium text-slate-900"
+                    className="form-input pl-10"
                   />
                 </div>
-                <p className="text-2xs text-slate-400 mt-1">
+                <p className="meta-text mt-1">
                   Shown to applicants as the official point of contact for fellowship inquiries.
                 </p>
               </div>
@@ -790,28 +782,28 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           )}
 
           {/* Modal Footer Actions */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="modal-footer">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="btn btn-md btn-ghost rounded-xl"
+              className="btn btn-sm btn-outline"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn btn-md btn-primary rounded-xl"
+              className="btn btn-sm btn-primary"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
                   <span>Saving Changes...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-kulkul-orange" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-kulkul-orange" />
                   <span>Save Profile</span>
                 </>
               )}

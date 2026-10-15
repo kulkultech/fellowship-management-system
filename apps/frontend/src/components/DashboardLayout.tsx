@@ -181,7 +181,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   toggleMinimize();
                 }
               }}
-              className="p-2 rounded-xl text-slate-600 hover:text-kulkul-purple hover:bg-slate-100 transition focus:outline-none"
+              className="btn btn-icon-md btn-ghost"
               title={isMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
               aria-label="Toggle navigation sidebar"
             >
@@ -211,7 +211,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="btn btn-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 shadow-2xs whitespace-nowrap"
+                className="btn btn-md btn-outline whitespace-nowrap"
               >
                 <ShieldCheck className="w-4 h-4 text-slate-600" />
                 <span>Superadmin Console</span>
@@ -392,7 +392,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       {isMinimized && hasChildren && (
                         <div className="hidden lg:group-hover:block absolute left-full top-0 ml-3 z-50 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150">
                           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                            <span className="text-xs font-black text-slate-900">{item.label}</span>
+                            <span className="text-xs font-extrabold text-slate-900">{item.label}</span>
                             {item.badge !== undefined && (
                               <span className="text-3xs font-bold px-1.5 py-0.5 rounded-md bg-purple-50 text-kulkul-purple">
                                 {item.badge}
@@ -646,7 +646,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     ) : portalType === 'superadmin' ? (
                       <ShieldCheck className="w-5 h-5 text-kulkul-orange" />
                     ) : displayName && displayName !== 'My Profile' ? (
-                      <span className="text-sm font-black text-white">
+                      <span className="text-sm font-extrabold text-white">
                         {displayName.charAt(0).toUpperCase()}
                       </span>
                     ) : (

@@ -79,13 +79,13 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-md w-full">
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+            <div className="content-card text-center space-y-6">
               {/* Title & Description */}
               <div className="space-y-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Sign In to Continue
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
+                <p className="text-sm text-slate-600 max-w-sm mx-auto">
                   This {assessmentLabel.toLowerCase()} is private and reserved for invited applicants. Please sign in with your verified Google account to verify your identity.
                 </p>
               </div>
@@ -95,9 +95,9 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border-2 border-slate-200 hover:border-kulkul-purple/50 rounded-2xl text-sm sm:text-base font-extrabold text-slate-800 shadow-md hover:shadow-lg transition duration-150"
+                  className="w-full btn btn-md btn-outline"
                 >
-                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -120,7 +120,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
               </div>
 
               {/* Requirement Notice */}
-              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-2xs text-slate-500 text-left">
+              <div className="panel-muted text-2xs text-slate-500 text-left">
                 <span className="font-bold text-slate-700">Notice:</span> Please make sure to sign in with the Google account matching the invitation sent to your email.
               </div>
             </div>
@@ -160,7 +160,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-lg w-full">
-          <div className="stitch-card bg-white p-8 sm:p-10 border border-rose-200 shadow-2xl rounded-3xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="content-card border-rose-200 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
             {/* Shield Alert Icon */}
             <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 mx-auto flex items-center justify-center border border-rose-100 shadow-xs">
               <ShieldAlert className="w-9 h-9 text-rose-600" />
@@ -168,19 +168,19 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
 
             {/* Error Headers */}
             <div className="space-y-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+              <span className="inline-flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wider text-rose-700">
                 Access Restricted
               </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 You're Not Allowed to Access This {assessmentLabel}
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+              <p className="text-sm text-slate-600 max-w-md mx-auto">
                 This assessment invitation link was issued exclusively to another candidate. To maintain academic integrity, you cannot proceed under your current account.
               </p>
             </div>
 
             {/* Account Comparison Details */}
-            <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-left space-y-3">
+            <div className="panel-muted text-left space-y-3">
               <div>
                 <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-emerald-600" />
@@ -198,7 +198,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
                 </div>
                 <div className="font-extrabold text-xs sm:text-sm text-rose-700 bg-rose-50/80 px-3.5 py-2 rounded-xl border border-rose-200 truncate flex items-center justify-between">
                   <span>{user.email}</span>
-                  <span className="text-2xs bg-rose-200 text-rose-800 px-2 py-0.5 rounded-md font-bold uppercase">
+                  <span className="text-2xs text-rose-700 font-bold uppercase">
                     Unauthorized
                   </span>
                 </div>
@@ -211,7 +211,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
                 type="button"
                 disabled={isSwitching}
                 onClick={handleSwitchAccount}
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full text-sm font-extrabold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-md hover:shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+                className="w-full btn btn-md btn-primary"
               >
                 <LogOut className="w-4 h-4" />
                 <span>{isSwitching ? 'Signing out...' : `Sign Out & Switch to ${requiredEmail}`}</span>
@@ -220,7 +220,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
               <button
                 type="button"
                 onClick={() => navigate('/candidate/dashboard')}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-[0.98]"
+                className="w-full btn btn-md btn-outline"
               >
                 <span>Go to My Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
@@ -228,7 +228,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
             </div>
 
             {/* Help text */}
-            <div className="pt-2 text-2xs text-slate-400">
+            <div className="pt-2 meta-text">
               Need assistance? Contact our team at <a href="mailto:support@fellowhire.kul.to" className="text-kulkul-purple font-bold hover:underline">support@fellowhire.kul.to</a>
             </div>
           </div>

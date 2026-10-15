@@ -232,7 +232,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Calendar Toolbar */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-4">
+      <div className="panel space-y-4">
         {/* Row 1: Calendar Title, Synced Badge & View Mode Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -251,21 +251,21 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-1.5">
+                <h2 className="section-title flex items-center gap-1.5">
                   <span>{MONTH_NAMES[currentMonth]}</span>
                   <span>{currentYear}</span>
                 </h2>
                 {syncIndonesianCalendar ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-extrabold bg-rose-100 text-rose-800">
+                  <span className="text-2xs font-bold text-rose-700">
                     ID Holidays Synced
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-extrabold bg-slate-100 text-slate-700">
+                  <span className="text-2xs font-bold text-slate-500">
                     International Mode
                   </span>
                 )}
               </div>
-              <p className="text-2xs text-slate-500 font-medium">
+              <p className="section-subtitle">
                 {syncIndonesianCalendar
                   ? 'Indonesian National Calendar • Public Holidays & Session Scheduling'
                   : 'Standard International Calendar • Global Scheduling'}
@@ -311,7 +311,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
                   Sync Indonesian Calendar
                 </span>
-                <span className="text-2xs text-slate-500 font-medium">
+                <span className="meta-text font-medium">
                   {syncIndonesianCalendar
                     ? 'National holidays active'
                     : 'Disabled for global clients'}
@@ -345,16 +345,16 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
             <button
               type="button"
               onClick={handleToday}
-              className="btn btn-sm btn-outline border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
+              className="btn btn-sm btn-outline"
             >
               Today
             </button>
 
-            <div className="flex items-center bg-slate-100 rounded-xl p-1">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition cursor-pointer"
+                className="btn btn-icon-sm btn-outline"
                 title="Previous Month"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -365,7 +365,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition cursor-pointer"
+                className="btn btn-icon-sm btn-outline"
                 title="Next Month"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -378,18 +378,18 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
       {/* VIEW MODE 1: Main Calendar Grid */}
       {viewMode === 'grid' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             {/* Horizontal scroll container with protected min-width */}
             <div className="overflow-x-auto scrollbar-thin">
               <div className="min-w-[620px] sm:min-w-0">
                 {/* Weekday Header */}
-                <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center py-2.5 text-xs font-black uppercase tracking-wider select-none">
+                <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center py-2.5 text-2xs font-extrabold uppercase tracking-wider select-none">
                   {WEEKDAY_NAMES.map((w, idx) => (
                     <div
                       key={idx}
                       className={
                         syncIndonesianCalendar && w.isHolidayCol
-                          ? 'text-rose-600 font-black'
+                          ? 'text-rose-600 font-extrabold'
                           : 'text-slate-600'
                       }
                     >
@@ -431,7 +431,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                               dayItem.isToday
                                 ? 'bg-kulkul-purple text-white shadow-xs'
                                 : isRedDay
-                                ? 'text-rose-600 font-black'
+                                ? 'text-rose-600 font-extrabold'
                                 : dayItem.isCurrentMonth
                                 ? 'text-slate-800'
                                 : 'text-slate-400'
@@ -442,7 +442,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
 
                           {/* Holiday Badge or Schedule Action */}
                           {isNationalHoliday ? (
-                            <span className="text-3xs sm:text-2xs font-extrabold uppercase px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 tracking-tight shrink-0">
+                            <span className="text-3xs sm:text-2xs font-bold uppercase text-rose-700 tracking-tight shrink-0">
                               Holiday
                             </span>
                           ) : isMentorOrAdmin && dayItem.isCurrentMonth ? (
@@ -452,7 +452,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                                 e.stopPropagation();
                                 onSelectDateToSchedule(dayItem.dateString);
                               }}
-                              className="opacity-0 hover:opacity-100 focus:opacity-100 transition p-1 text-slate-400 hover:text-kulkul-purple hover:bg-slate-100 rounded-lg cursor-pointer"
+                              className="btn btn-icon-sm btn-ghost opacity-0 hover:opacity-100 focus:opacity-100"
                               title={`Schedule session on ${dayItem.dateString}`}
                             >
                               <Plus className="w-3.5 h-3.5" />
@@ -527,14 +527,14 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
 
           {/* Selected Date Quick Card for Mobile view */}
           {selectedDayItem && (
-            <div className="block sm:hidden bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3">
+            <div className="block sm:hidden panel space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-kulkul-purple/10 text-kulkul-purple flex items-center justify-center font-bold text-xs">
                     {selectedDayItem.dayNumber}
                   </div>
                   <div>
-                    <h4 className="text-xs font-extrabold text-slate-900">
+                    <h4 className="card-title">
                       {new Date(selectedDayItem.dateString + 'T00:00:00Z').toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -543,7 +543,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                         timeZone: 'UTC',
                       })}
                     </h4>
-                    <p className="text-2xs text-slate-500">
+                    <p className="meta-text">
                       {selectedDayItem.sessions.length} session{selectedDayItem.sessions.length === 1 ? '' : 's'} scheduled
                     </p>
                   </div>
@@ -553,7 +553,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectDateToSchedule(selectedDayItem.dateString)}
-                    className="btn btn-xs bg-kulkul-purple text-white font-bold"
+                    className="btn btn-sm btn-primary"
                   >
                     + Schedule
                   </button>
@@ -586,14 +586,14 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                           {sess.mentor_name && <span>&bull; {sess.mentor_name}</span>}
                         </div>
                       </div>
-                      <span className="text-2xs font-extrabold text-kulkul-purple bg-white px-2 py-1 rounded-lg border border-purple-200 shrink-0">
+                      <span className="text-2xs font-bold text-kulkul-purple shrink-0">
                         View
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 italic">No cohort sessions scheduled on this date.</p>
+                <p className="meta-text italic">No cohort sessions scheduled on this date.</p>
               )}
             </div>
           )}
@@ -604,11 +604,11 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
       {viewMode === 'agenda' && (
         <div className="space-y-3">
           {currentMonthAgenda.length === 0 ? (
-            <div className="bg-white rounded-2xl sm:rounded-3xl border-2 border-dashed border-slate-200 p-8 text-center space-y-3">
+            <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center mx-auto">
                 <CalendarIcon className="w-6 h-6" />
               </div>
-              <h4 className="text-sm font-extrabold text-slate-800">
+              <h4 className="card-title">
                 No Events in {MONTH_NAMES[currentMonth]} {currentYear}
               </h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
@@ -618,9 +618,9 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectDateToSchedule(normalizeDateString(new Date()))}
-                  className="btn btn-sm bg-kulkul-purple text-white font-bold"
+                  className="btn btn-sm btn-primary"
                 >
-                  <Plus className="w-4 h-4 mr-1" />
+                  <Plus className="w-3.5 h-3.5" />
                   Schedule First Session
                 </button>
               )}
@@ -632,7 +632,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
               return (
                 <div
                   key={agendaDay.dateString}
-                  className={`bg-white rounded-2xl sm:rounded-3xl border p-4 sm:p-5 shadow-sm transition flex flex-col sm:flex-row items-start gap-4 ${
+                  className={`bg-white rounded-2xl border p-4 sm:p-5 transition flex flex-col sm:flex-row items-start gap-4 ${
                     isNationalHoliday
                       ? 'border-rose-200 bg-rose-50/20'
                       : 'border-slate-200/80 hover:border-slate-300'
@@ -640,11 +640,11 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                 >
                   {/* Date Badge */}
                   <div className="flex sm:flex-col items-center gap-1.5 sm:gap-0.5 sm:w-16 shrink-0 bg-slate-50 sm:bg-transparent px-3 py-1.5 sm:p-0 rounded-xl border sm:border-0 border-slate-200">
-                    <span className="text-xs sm:text-2xs font-black uppercase text-slate-500">
+                    <span className="text-xs sm:text-2xs font-extrabold uppercase text-slate-500">
                       {agendaDay.weekdayShort}
                     </span>
                     <span
-                      className={`text-base sm:text-2xl font-black ${
+                      className={`text-base sm:text-2xl font-extrabold ${
                         isNationalHoliday ? 'text-rose-600' : 'text-slate-900'
                       }`}
                     >
@@ -664,7 +664,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                           <span className="font-extrabold">{agendaDay.holiday.name}</span>
                           <span className="text-2xs text-rose-600 block">Indonesian National Holiday &bull; Closed</span>
                         </div>
-                        <span className="text-2xs uppercase font-extrabold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-800 shrink-0">
+                        <span className="text-2xs uppercase font-bold text-rose-700 shrink-0">
                           Holiday
                         </span>
                       </div>
@@ -690,14 +690,14 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                             >
                               <div className="space-y-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                                  <h4 className="card-title truncate">
                                     {sess.title}
                                   </h4>
-                                  <span className="text-2xs font-extrabold uppercase px-2 py-0.5 rounded-md bg-purple-100 text-kulkul-purple">
+                                  <span className="text-2xs font-bold uppercase text-kulkul-purple">
                                     {sess.session_type.replace('_', ' ')}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-3 text-2xs text-slate-500 flex-wrap">
+                                <div className="meta-text flex items-center gap-3 flex-wrap">
                                   <span className="flex items-center gap-1 font-semibold text-slate-700">
                                     <Clock className="w-3 h-3 text-kulkul-purple" />
                                     {startTimeStr} &ndash; {endTimeStr}
@@ -723,7 +723,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => onSelectSession(sess)}
-                                  className="btn btn-xs sm:btn-sm btn-outline text-kulkul-purple border-purple-300 font-bold"
+                                  className="btn btn-sm btn-outline"
                                 >
                                   View Details
                                 </button>
@@ -740,7 +740,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onSelectDateToSchedule(agendaDay.dateString)}
-                          className="text-xs font-bold text-kulkul-purple hover:underline flex items-center gap-1 cursor-pointer"
+                          className="btn btn-sm btn-ghost"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Schedule session on {agendaDay.monthShort} {agendaDay.dayNumber}</span>
@@ -760,8 +760,8 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
         {syncIndonesianCalendar ? (
           <>
             {/* Left: Holidays list in current month */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
+            <div className="panel space-y-3">
+              <div className="card-title flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600" />
                 <span>
                   Public Holidays ({MONTH_NAMES[currentMonth]} {currentYear})
@@ -785,7 +785,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                         </span>
                         <span className="font-semibold">{h.name}</span>
                       </div>
-                      <span className="text-2xs uppercase font-extrabold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-800">
+                      <span className="text-2xs uppercase font-bold text-rose-700">
                         Holiday
                       </span>
                     </div>
@@ -795,8 +795,8 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
             </div>
 
             {/* Right: Calendar Legend & Instructions */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="text-slate-900 font-extrabold text-xs">
+            <div className="panel space-y-3">
+              <div className="card-title">
                 Fellowship Scheduling Guidelines
               </div>
               <div className="space-y-2 text-xs text-slate-600">
@@ -824,8 +824,8 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
         ) : (
           <>
             {/* Left: International mode notice */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
+            <div className="panel space-y-3">
+              <div className="card-title flex items-center gap-2">
                 <Globe className="w-4 h-4 text-kulkul-purple" />
                 <span>International Scheduling Mode</span>
               </div>
@@ -837,7 +837,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onToggleSyncIndonesianCalendar(true)}
-                    className="text-xs font-bold text-kulkul-purple hover:underline cursor-pointer inline-flex items-center gap-1"
+                    className="btn btn-sm btn-outline"
                   >
                     Enable Indonesian Calendar Sync &rarr;
                   </button>
@@ -846,8 +846,8 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
             </div>
 
             {/* Right: International Guidelines */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="text-slate-900 font-extrabold text-xs">
+            <div className="panel space-y-3">
+              <div className="card-title">
                 Global Cohort Scheduling Guidelines
               </div>
               <div className="space-y-2 text-xs text-slate-600">

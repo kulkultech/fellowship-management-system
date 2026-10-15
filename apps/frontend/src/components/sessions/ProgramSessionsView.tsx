@@ -55,7 +55,6 @@ interface ProgramSessionsViewProps {
 export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   showSummary = true,
   programId,
-  programName = 'Fellowship Cohort',
   isMentor = false,
   tracks = [],
   mentors = [],
@@ -511,34 +510,21 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     <div className="space-y-6">
       {/* Top Header & Metrics Banner */}
       {showSummary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="content-card space-y-1">
             <div className="flex items-center justify-between text-slate-500">
-              <span className="text-2xs font-extrabold uppercase tracking-wider">Cohort Sessions</span>
-              <Calendar className="w-4 h-4 text-kulkul-purple" />
-            </div>
-            <div className="text-2xl font-black text-slate-900">{cohortMetrics.totalSessions}</div>
-            <p className="text-2xs text-slate-500">Scheduled workshops &amp; syncs</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-2xs font-extrabold uppercase tracking-wider">Accepted Fellows</span>
+              <span className="stat-label">Accepted Fellows</span>
               <Users className="w-4 h-4 text-emerald-600" />
             </div>
-            <div className="text-2xl font-black text-slate-900">{cohortMetrics.totalFellows}</div>
-            <p className="text-2xs text-slate-500">Official cohort participants</p>
+            <div className="stat-value">{cohortMetrics.totalFellows}</div>
           </div>
 
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+          <div className="content-card space-y-1">
             <div className="flex items-center justify-between text-slate-500">
-              <span className="text-2xs font-extrabold uppercase tracking-wider">Cohort Attendance</span>
+              <span className="stat-label">Cohort Attendance</span>
               <TrendingUp className="w-4 h-4 text-blue-600" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-black text-slate-900">{cohortMetrics.avgAttendanceRate}%</div>
-              <span className="text-2xs font-bold text-slate-500">Average Rate</span>
-            </div>
+            <div className="stat-value">{cohortMetrics.avgAttendanceRate}%</div>
             <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
@@ -553,10 +539,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
+          <div className="content-card space-y-1">
             <div className="flex items-center justify-between text-slate-500">
-              <span className="text-2xs font-extrabold uppercase tracking-wider">Attendance Health</span>
-              <Award className="w-4 h-4 text-[#fe900d]" />
+              <span className="stat-label">Attendance Health</span>
+              <Award className="w-4 h-4 text-kulkul-orange" />
             </div>
             <div className="flex items-center gap-3 pt-0.5 text-2xs font-bold">
               <span className="text-emerald-700">
@@ -571,36 +557,18 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-2xs text-slate-500 pt-0.5">&ge;80% Good &bull; &lt;65% At Risk</p>
           </div>
         </div>
       )}
 
       {/* Main Container */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-        <div className="section-header">
-          <div>
-            <h3 className="section-title">Cohort Sessions &amp; Attendance</h3>
-            <p className="section-subtitle">{programName}</p>
-          </div>
-          <div className="section-actions">
-            <button onClick={() => openCreateModal()} className="btn btn-sm btn-primary">
-              <Plus className="w-3.5 h-3.5" />
-              <span>Schedule New Session</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tabs */}
+      <div className="content-card space-y-6">
+        {/* Tabs + primary action */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
             <button
               onClick={() => setActiveTab('sessions')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
-                activeTab === 'sessions'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
+              className={`tab-pill shrink-0 ${activeTab === 'sessions' ? 'tab-pill-active' : ''}`}
             >
               <Calendar className="w-4 h-4" />
               <span>Cohort Sessions ({sessions.length})</span>
@@ -608,11 +576,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
             <button
               onClick={() => setActiveTab('calendar')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
-                activeTab === 'calendar'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
+              className={`tab-pill shrink-0 ${activeTab === 'calendar' ? 'tab-pill-active' : ''}`}
             >
               <CalendarDays className="w-4 h-4" />
               <span>{syncIndonesianCalendar ? 'Calendar & ID Holidays' : 'Calendar & Schedule'}</span>
@@ -620,17 +584,17 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
             <button
               onClick={() => setActiveTab('summary')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
-                activeTab === 'summary'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
+              className={`tab-pill shrink-0 ${activeTab === 'summary' ? 'tab-pill-active' : ''}`}
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Attendance Tracker &amp; Risk Monitor</span>
             </button>
           </div>
 
+          <button onClick={() => openCreateModal()} className="btn btn-sm btn-primary shrink-0 self-end sm:self-auto">
+            <Plus className="w-3.5 h-3.5" />
+            <span>Schedule New Session</span>
+          </button>
         </div>
 
         {/* Tab 1: Cohort Sessions */}
@@ -678,12 +642,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center mx-auto">
                   <Calendar className="w-6 h-6" />
                 </div>
-                <h4 className="text-sm font-extrabold text-slate-800">No Fellowship Sessions Scheduled</h4>
+                <h4 className="card-title">No Fellowship Sessions Scheduled</h4>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
                   Get your cohort underway by scheduling live lectures, technical workshops, or weekly mentor syncs.
                 </p>
-                <button onClick={() => openCreateModal()} className="btn btn-sm btn-outline text-kulkul-purple mt-2">
-                  <Plus className="w-4 h-4 mr-1" />
+                <button onClick={() => openCreateModal()} className="btn btn-sm btn-outline mt-2">
+                  <Plus className="w-3.5 h-3.5" />
                   Schedule First Session
                 </button>
               </div>
@@ -692,7 +656,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 {filteredSessions.map((sess) => (
                   <div
                     key={sess.id}
-                    className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50/50 transition shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="panel hover:border-slate-300 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
                     <div className="flex items-start gap-3.5">
                       <div className="w-11 h-11 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-100">
@@ -700,7 +664,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
+                          <h4 className="card-title">{sess.title}</h4>
                           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                             {sess.session_type.replace('_', ' ')}
                           </span>
@@ -776,7 +740,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             href={sess.meeting_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn btn-sm btn-outline text-blue-700 border-blue-200 hover:bg-blue-50 font-bold flex items-center gap-1.5"
+                            className="btn btn-sm btn-outline"
                             title="Join Google Meet"
                           >
                             <Video className="w-3.5 h-3.5 text-blue-600" />
@@ -784,20 +748,22 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           </a>
                         )}
 
-                        <a
-                          href={getGoogleCalendarUrl(sess)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-purple-200 font-bold flex items-center gap-1.5"
-                          title="Add to Google Calendar"
-                        >
-                          <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
-                          <span>Calendar</span>
-                        </a>
+                        {!sess.google_calendar_event_id && (
+                          <a
+                            href={getGoogleCalendarUrl(sess)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-sm btn-outline"
+                            title="Add to Google Calendar"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
+                            <span>Calendar</span>
+                          </a>
+                        )}
 
                         <Link
                           to={`/sessions/${sess.id}/room`}
-                          className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
+                          className="btn btn-sm btn-outline"
                           title="Enter Live Workspace (Code Studio, Excalidraw Whiteboard, Notes)"
                         >
                           <Code2 className="w-3.5 h-3.5" />
@@ -808,15 +774,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           onClick={() => {
                             setActiveAttendanceSession(sess);
                           }}
-                          className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                          className="btn btn-sm btn-success"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Check Sheet</span>
+                          <span>Attendance</span>
                         </button>
 
                         <button
                           onClick={() => openEditModal(sess)}
-                          className="btn btn-sm btn-ghost text-slate-600 hover:text-slate-900"
+                          className="btn btn-icon-sm btn-ghost"
                           title="Edit Session"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -828,7 +794,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                               deleteSessionMutation.mutate(sess.id);
                             }
                           }}
-                          className="btn btn-sm btn-ghost text-rose-600 hover:text-rose-800 hover:bg-rose-50"
+                          className="btn btn-icon-sm btn-ghost-danger"
                           title="Delete Session"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -863,31 +829,26 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         {/* Tab 3: Attendance Summary & Risk Monitor */}
         {activeTab === 'summary' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h4 className="text-sm font-extrabold text-slate-900">
-                {summaryView === 'mentors' ? 'Mentor Attendance' : 'Cohort Attendance Health'}
-              </h4>
-              {canTrackMentors && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setSummaryView('fellows')}
-                    className={`tab-pill ${summaryView === 'fellows' ? 'tab-pill-active' : ''}`}
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>Fellows</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSummaryView('mentors')}
-                    className={`tab-pill ${summaryView === 'mentors' ? 'tab-pill-active' : ''}`}
-                  >
-                    <Award className="w-3.5 h-3.5" />
-                    <span>Mentors</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {canTrackMentors && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSummaryView('fellows')}
+                  className={`tab-pill ${summaryView === 'fellows' ? 'tab-pill-active' : ''}`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Fellows</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSummaryView('mentors')}
+                  className={`tab-pill ${summaryView === 'mentors' ? 'tab-pill-active' : ''}`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Mentors</span>
+                </button>
+              </div>
+            )}
 
             {summaryView === 'mentors' ? (
               isLoadingMentorSummaries ? (
@@ -898,7 +859,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               ) : mentorSummaries.length === 0 ? (
                 <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl p-8 space-y-2">
                   <Award className="w-8 h-8 text-slate-400 mx-auto" />
-                  <h4 className="text-sm font-bold text-slate-800">No Mentors Yet</h4>
+                  <h4 className="card-title">No Mentors Yet</h4>
                   <p className="text-xs text-slate-500">
                     Mentors assigned to this program, or leading one of its sessions, appear here.
                   </p>
@@ -979,7 +940,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             ) : summaries.length === 0 ? (
               <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl p-8 space-y-2">
                 <Users className="w-8 h-8 text-slate-400 mx-auto" />
-                <h4 className="text-sm font-bold text-slate-800">No Fellows in Cohort Yet</h4>
+                <h4 className="card-title">No Fellows in Cohort Yet</h4>
                 <p className="text-xs text-slate-500">
                   Accepted fellows will appear here automatically once moved to "Approved for Live" stage.
                 </p>
@@ -1070,26 +1031,26 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
       {/* MODAL 1: Schedule / Edit Session */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div className="modal-backdrop animate-in fade-in duration-200">
+          <div className="modal-panel max-w-xl">
+            <div className="section-header">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">
+                  <h3 className="section-title">
                     {editingSession ? 'Edit Fellowship Session' : 'Schedule Fellowship Session'}
                   </h3>
-                  <p className="text-sm text-slate-500 mt-0.5">Coordinate cohort live lectures, workshops, or syncs</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                className="btn btn-icon-sm btn-ghost"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1101,7 +1062,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="field-label">
                   Session Title *
                 </label>
                 <input
@@ -1110,13 +1071,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   placeholder="e.g. Distributed Systems Architecture & Sync"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white"
+                  className="form-input"
                 />
               </div>
 
               {/* Target Audience Selector */}
               <div className="space-y-2.5">
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="field-label">
                   Target Audience *
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1142,7 +1103,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       <Users className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-900">All Fellows</div>
+                      <div className="card-title">All Fellows</div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         {tracks.length > 0 ? 'Cohort or track-wide' : 'Cohort-wide'}
                       </div>
@@ -1173,7 +1134,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       <Users className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-900">Group Session</div>
+                      <div className="card-title">Group Session</div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         {selectedFellowIds.length > 0
                           ? `${selectedFellowIds.length} fellow${selectedFellowIds.length > 1 ? 's' : ''} selected`
@@ -1195,7 +1156,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="field-label">
                   Session Type
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1225,8 +1186,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
 
               {/* Indonesian Calendar Sync Switch for Admin / Mentor */}
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <div className="panel-muted flex items-center justify-between">
+                <div className="card-title flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
                   <span>Sync with Indonesian Calendar</span>
                 </div>
@@ -1254,7 +1215,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label className="field-label">
                     Start Date &amp; Time *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1263,10 +1224,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formStartDate}
                       onChange={(e) => setFormStartDate(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border transition bg-white ${
+                      className={`form-input ${
                         syncIndonesianCalendar && startHolidayInfo.isHoliday
-                          ? 'border-rose-400 bg-rose-50/30 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                          : 'border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20'
+                          ? 'border-rose-400 bg-rose-50/30 focus:ring-rose-200'
+                          : ''
                       }`}
                     />
                     <input
@@ -1274,13 +1235,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formStartTime}
                       onChange={(e) => setFormStartTime(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className="form-input"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label className="field-label">
                     End Date &amp; Time *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1289,10 +1250,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formEndDate}
                       onChange={(e) => setFormEndDate(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border transition bg-white ${
+                      className={`form-input ${
                         syncIndonesianCalendar && endHolidayInfo.isHoliday
-                          ? 'border-rose-400 bg-rose-50/30 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200'
-                          : 'border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20'
+                          ? 'border-rose-400 bg-rose-50/30 focus:ring-rose-200'
+                          : ''
                       }`}
                     />
                     <input
@@ -1300,7 +1261,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formEndTime}
                       onChange={(e) => setFormEndTime(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className="form-input"
                     />
                   </div>
                 </div>
@@ -1328,9 +1289,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               )}
 
               {/* Google Meet & Google Calendar Integration Card */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="panel-muted space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <div className="card-title flex items-center gap-1.5">
                     <Video className="w-3.5 h-3.5 text-kulkul-purple" />
                     <span>Google Meet &amp; Calendar Integration</span>
                   </div>
@@ -1352,7 +1313,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     />
                     <div>
                       <div className="text-xs font-bold text-slate-800">Auto-Generate Meet</div>
-                      <div className="text-2xs text-slate-500">Create unique Google Meet room</div>
+                      <div className="meta-text">Create unique Google Meet room</div>
                     </div>
                   </label>
 
@@ -1365,7 +1326,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     />
                     <div>
                       <div className="text-xs font-bold text-slate-800">Invite Attendees</div>
-                      <div className="text-2xs text-slate-500">Send Google Calendar &amp; email invites</div>
+                      <div className="meta-text">Send Google Calendar &amp; email invites</div>
                     </div>
                   </label>
                 </div>
@@ -1391,7 +1352,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-semibold text-slate-700">
+                  <label className="field-label mb-0">
                     Meeting URL (Google Meet) *
                   </label>
                   <button
@@ -1401,9 +1362,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       setFormMeetingUrl(newLink);
                       toast.success('Generated new Google Meet link');
                     }}
-                    className="btn btn-xs btn-outline text-slate-700 hover:text-kulkul-purple hover:border-kulkul-purple flex items-center gap-1"
+                    className="btn btn-sm btn-outline"
                   >
-                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Generate Meet Link</span>
                   </button>
                 </div>
@@ -1415,7 +1376,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     placeholder="https://meet.google.com/xyz-abcd-efg"
                     value={formMeetingUrl}
                     onChange={(e) => setFormMeetingUrl(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white"
+                    className="form-input pl-10"
                   />
                 </div>
               </div>
@@ -1423,13 +1384,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {tracks.length > 0 && (
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Assigned Track (Optional)
                     </label>
                     <select
                       value={formTrackId}
                       onChange={(e) => setFormTrackId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className="form-input"
                     >
                       <option value="">All Cohort Fellows</option>
                       {tracks.map((t) => (
@@ -1443,13 +1404,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
                 {mentors.length > 0 && (
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Session Host / Mentor
                     </label>
                     <select
                       value={formMentorId}
                       onChange={(e) => setFormMentorId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                      className="form-input"
                     >
                       <option value="">Select Mentor</option>
                       {mentors.map((m) => (
@@ -1463,7 +1424,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="field-label">
                   Description / Agenda (Optional)
                 </label>
                 <textarea
@@ -1471,15 +1432,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   placeholder="Outline topics covered, pre-read assignments, or prerequisites..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-900 border border-slate-300 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition placeholder:text-slate-400 bg-white resize-y"
+                  className="form-textarea resize-y"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="btn btn-sm btn-ghost text-slate-600 hover:bg-slate-100"
+                  className="btn btn-sm btn-outline"
                 >
                   Cancel
                 </button>
@@ -1487,11 +1448,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   type="submit"
                   disabled={saveSessionMutation.isPending || (syncIndonesianCalendar && isHolidaySelected)}
                   title={syncIndonesianCalendar && isHolidaySelected ? 'Cannot schedule on an Indonesian national holiday' : undefined}
-                  className="btn btn-sm bg-kulkul-purple hover:bg-[#250d43] text-white font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn btn-sm btn-primary"
                 >
                   {saveSessionMutation.isPending ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Saving...</span>
                     </>
                   ) : (
@@ -1506,29 +1467,19 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
       {/* MODAL 2: Interactive Attendance Check Sheet */}
       {activeAttendanceSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl border border-slate-100 space-y-6 max-h-[92vh] flex flex-col justify-between">
+        <div className="modal-backdrop animate-in fade-in duration-200">
+          <div className="modal-panel max-w-4xl flex flex-col justify-between">
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Attendance Check Sheet
-                  </span>
-                  <span className="text-xs text-slate-400">&bull;</span>
-                  <span className="text-xs font-medium text-slate-400">
-                    {formatDateTime(activeAttendanceSession.start_time)}
-                  </span>
-                </div>
-                <h3 className="text-lg font-black text-slate-900">{activeAttendanceSession.title}</h3>
-                <p className="text-xs text-slate-500">
-                  Track and verify cohort attendance. Fellows who entered the session in Program Room appear automatically.
-                </p>
+            <div className="section-header">
+              <div>
+                <h3 className="section-title">{activeAttendanceSession.title}</h3>
+                <p className="section-subtitle">{formatDateTime(activeAttendanceSession.start_time)}</p>
               </div>
 
               <button
                 onClick={() => setActiveAttendanceSession(null)}
-                className="btn btn-sm btn-ghost btn-circle text-slate-400 hover:text-slate-700 shrink-0"
+                className="btn btn-icon-sm btn-ghost shrink-0"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1558,17 +1509,17 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             {checkSheetTab === 'fellows' ? (
             <>
             {/* Quick Actions Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+            <div className="panel-muted flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleMarkAllPresent}
-                  className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold flex items-center gap-1.5 shadow-2xs"
+                  className="btn btn-sm btn-success"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   <span>Mark All Present</span>
                 </button>
-                <span className="text-2xs text-slate-500 hidden sm:inline">
+                <span className="meta-text hidden sm:inline">
                   Sets all fellows in this cohort to "Present" with 1-click.
                 </span>
               </div>
@@ -1624,7 +1575,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                                   key={st}
                                   type="button"
                                   onClick={() => handleToggleFellowStatus(item.applicant_id, st)}
-                                  className={`px-2.5 py-1 rounded-xl text-3xs font-black uppercase tracking-wider transition ${
+                                  className={`px-2.5 py-1 rounded-xl text-3xs font-extrabold uppercase tracking-wider transition ${
                                     item.status === st
                                       ? st === 'present'
                                         ? 'bg-emerald-600 text-white shadow-2xs'
@@ -1655,17 +1606,17 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                                   status: item.status,
                                 })
                               }
-                              className={`btn btn-xs font-bold flex items-center gap-1.5 mx-auto ${
+                              className={`btn btn-sm mx-auto ${
                                 item.status === 'pending_validation'
-                                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
-                                  : 'btn-outline text-slate-700 hover:bg-slate-100'
+                                  ? 'btn-primary'
+                                  : 'btn-outline'
                               }`}
                             >
                               <Eye className="w-3.5 h-3.5" />
                               <span>{item.status === 'pending_validation' ? 'Review Proof' : 'View Proof'}</span>
                             </button>
                           ) : (
-                            <span className="text-xs text-slate-400 italic">No screenshot</span>
+                            <span className="meta-text italic">No screenshot</span>
                           )}
                         </td>
                         <td>
@@ -1674,7 +1625,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             placeholder="Add remark..."
                             value={item.notes}
                             onChange={(e) => handleUpdateFellowNote(item.applicant_id, e.target.value)}
-                            className="input input-xs input-bordered w-full rounded-lg text-2xs"
+                            className="form-input py-1.5 text-xs"
                           />
                         </td>
                       </tr>
@@ -1687,7 +1638,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             ) : (
             <>
             {/* Mentor Quick Actions Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+            <div className="panel-muted flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setMentorSheet((prev) => prev.map((m) => ({ ...m, status: 'present' })))}
@@ -1741,7 +1692,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                                 key={st}
                                 type="button"
                                 onClick={() => updateMentorSheet(m.user_id, { status: st })}
-                                className={`px-2.5 py-1 rounded-xl text-3xs font-black uppercase tracking-wider transition ${
+                                className={`px-2.5 py-1 rounded-xl text-3xs font-extrabold uppercase tracking-wider transition ${
                                   m.status === st
                                     ? st === 'present'
                                       ? 'bg-emerald-600 text-white shadow-2xs'
@@ -1764,7 +1715,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             placeholder="Add remark..."
                             value={m.notes || ''}
                             onChange={(e) => updateMentorSheet(m.user_id, { notes: e.target.value })}
-                            className="input input-xs input-bordered w-full rounded-lg text-2xs"
+                            className="form-input py-1.5 text-xs"
                           />
                         </td>
                       </tr>
@@ -1777,15 +1728,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             )}
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <span className="text-2xs text-slate-500">
+            <div className="modal-footer justify-between">
+              <span className="meta-text">
                 Changes are applied immediately after confirming save.
               </span>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveAttendanceSession(null)}
-                  className="btn btn-sm btn-ghost text-slate-600"
+                  className="btn btn-sm btn-outline"
                 >
                   Cancel
                 </button>
@@ -1800,7 +1751,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   {saveAttendanceMutation.isPending || saveMentorAttendanceMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving Check Sheet...</span>
+                      <span>Saving Attendance...</span>
                     </>
                   ) : (
                     <>
@@ -1817,16 +1768,16 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
       {/* Mentor Proof Screenshot Lightbox Modal */}
       {previewProof && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between">
+        <div className="modal-backdrop animate-in fade-in">
+          <div className="modal-panel max-w-2xl space-y-4 animate-in zoom-in-95">
+            <div className="section-header">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200">
                   <Camera className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">{previewProof.fellow_name}</h3>
-                  <p className="text-2xs text-slate-500">
+                  <h3 className="section-title">{previewProof.fellow_name}</h3>
+                  <p className="section-subtitle">
                     Attendance Status: <span className="font-bold text-slate-800 uppercase">{previewProof.status}</span>
                   </p>
                 </div>
@@ -1834,9 +1785,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setPreviewProof(null)}
-                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                className="btn btn-icon-sm btn-ghost"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1861,7 +1813,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 href={previewProof.proof_image_url}
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-sm btn-outline font-bold flex items-center gap-1.5 shrink-0 ml-3"
+                className="btn btn-sm btn-outline shrink-0 ml-3"
               >
                 <span>Open Full Size</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -1871,7 +1823,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             {/* Mentor Validation Action Panel */}
             <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mentor Validation:</span>
+                <span className="subsection-title">Mentor Validation:</span>
                 {previewProof.status === 'pending_validation' ? (
                   <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 animate-pulse" />
@@ -1895,9 +1847,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       notes: previewProof.notes,
                     })
                   }
-                  className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                  className="btn btn-sm btn-success"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="w-3.5 h-3.5" />
                   <span>Validate as Present</span>
                 </button>
 
@@ -1911,9 +1863,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       notes: previewProof.notes,
                     })
                   }
-                  className="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                  className="btn btn-sm btn-outline"
                 >
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-3.5 h-3.5" />
                   <span>Validate as Late</span>
                 </button>
 
@@ -1927,9 +1879,9 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       notes: previewProof.notes ? `${previewProof.notes} (Proof rejected)` : 'Proof rejected by mentor',
                     })
                   }
-                  className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-2xs"
+                  className="btn btn-sm btn-danger"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                   <span>Reject Proof (Absent)</span>
                 </button>
               </div>

@@ -13,19 +13,14 @@ import {
   Search,
   ExternalLink,
   Layers,
-  Activity,
-  ShieldCheck,
   Calendar,
-  Server,
-  Database,
-  Cpu,
   Trash2,
   Pencil,
   X,
   Check,
   Users,
 } from 'lucide-react';
-import type { Organization } from '@/services/types';
+import type { Organization, Program } from '@/services/types';
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
 import toast from 'react-hot-toast';
 
@@ -42,7 +37,7 @@ export const SuperadminDashboardPage: React.FC = () => {
     }
   }, [user, navigate]);
 
-  const [activeTab, setActiveTab] = useState<'companies' | 'programs' | 'telemetry' | 'team'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'programs' | 'team'>('companies');
   const [companyStatusFilter, setCompanyStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -51,6 +46,12 @@ export const SuperadminDashboardPage: React.FC = () => {
     queryKey: ['superadmin-companies', companyStatusFilter],
     queryFn: () => adminService.listCompanies(companyStatusFilter),
     refetchOnMount: 'always',
+  });
+
+  // Unfiltered list for the metric tiles, so counts don't change with the status filter
+  const { data: allCompanies = [] } = useQuery({
+    queryKey: ['superadmin-companies', ''],
+    queryFn: () => adminService.listCompanies(''),
   });
 
   // 2. Load All Programs Across System
@@ -159,8 +160,27 @@ export const SuperadminDashboardPage: React.FC = () => {
     );
   });
 
-  const pendingCount = companiesList.filter((c) => c.status === 'pending_approval').length;
-  const approvedCount = companiesList.filter((c) => c.status === 'approved').length;
+  const pendingCount = allCompanies.filter((c) => c.status === 'pending_approval').length;
+  const approvedCount = allCompanies.filter((c) => c.status === 'approved').length;
+
+  const getProgramStatus = (prog: Program): { label: string; dot: string; text: string } => {
+    if (prog.status === 'draft') return { label: 'Draft', dot: 'bg-slate-400', text: 'text-slate-600' };
+    if (prog.status === 'archived') return { label: 'Archived', dot: 'bg-slate-400', text: 'text-slate-600' };
+    const now = Date.now();
+    if (now < new Date(prog.open_date).getTime()) {
+      return { label: 'Opening Soon', dot: 'bg-amber-500', text: 'text-amber-700' };
+    }
+    if (now > new Date(prog.end_date).getTime()) {
+      return { label: 'Closed', dot: 'bg-rose-500', text: 'text-rose-700' };
+    }
+    return { label: 'Admissions Open', dot: 'bg-emerald-500', text: 'text-emerald-700' };
+  };
+
+  const tabTitles: Record<typeof activeTab, string> = {
+    companies: 'Companies',
+    programs: 'Programs',
+    team: 'Superadmin Team',
+  };
 
   const navItems: NavItem[] = [
     {
@@ -176,11 +196,6 @@ export const SuperadminDashboardPage: React.FC = () => {
       icon: Layers,
     },
     {
-      id: 'telemetry',
-      label: 'Platform Telemetry',
-      icon: Activity,
-    },
-    {
       id: 'team',
       label: 'Superadmin Team',
       icon: Users,
@@ -190,7 +205,7 @@ export const SuperadminDashboardPage: React.FC = () => {
   return (
     <DashboardLayout
       portalType="superadmin"
-      title="KulKul Superadmin Portal"
+      title={tabTitles[activeTab]}
       navItems={navItems}
       activeNavId={activeTab}
       onNavChange={(id) => setActiveTab(id as any)}
@@ -199,70 +214,57 @@ export const SuperadminDashboardPage: React.FC = () => {
         {/* ========================================================================= */}
         {/* TOP METRIC CARDS */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Pending Approvals
+        {activeTab === 'companies' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="content-card flex items-center justify-between">
+              <div>
+                <div className="stat-label">
+                  Pending Approvals
+                </div>
+                <div className="stat-value mt-1">
+                  {pendingCount}
+                </div>
               </div>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                {pendingCount}
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                <Clock className="w-5 h-5" />
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Active Companies
+            <div className="content-card flex items-center justify-between">
+              <div>
+                <div className="stat-label">
+                  Active Companies
+                </div>
+                <div className="stat-value mt-1">
+                  {approvedCount}
+                </div>
               </div>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                {approvedCount}
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <Building2 className="w-5 h-5" />
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <Building2 className="w-5 h-5" />
-            </div>
-          </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Global Programs
+            <div className="content-card flex items-center justify-between">
+              <div>
+                <div className="stat-label">
+                  Global Programs
+                </div>
+                <div className="stat-value mt-1">
+                  {allPrograms.length}
+                </div>
               </div>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                {allPrograms.length}
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-kulkul-purple flex items-center justify-center font-bold">
+                <Layers className="w-5 h-5" />
               </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-kulkul-purple flex items-center justify-center font-bold">
-              <Layers className="w-5 h-5" />
             </div>
           </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                Platform Status
-              </div>
-              <div className="text-sm font-black text-emerald-600 mt-1 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Operational</span>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center font-bold">
-              <Activity className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* ========================================================================= */}
         {/* TAB 1: COMPANY APPROVALS & WORKSPACES */}
         {/* ========================================================================= */}
         {activeTab === 'companies' && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
+          <div className="content-card space-y-5">
             {/* Toolbar: search on the left, filters on the right */}
             <div className="table-toolbar">
               <div className="search-field">
@@ -286,11 +288,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                   <button
                     key={st.value}
                     onClick={() => setCompanyStatusFilter(st.value)}
-                    className={`btn btn-sm whitespace-nowrap ${
-                      companyStatusFilter === st.value
-                        ? 'btn-primary'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    className={`tab-pill ${companyStatusFilter === st.value ? 'tab-pill-active' : ''}`}
                   >
                     {st.label}
                   </button>
@@ -306,8 +304,8 @@ export const SuperadminDashboardPage: React.FC = () => {
             ) : filteredCompanies.length === 0 ? (
               <div className="data-table-wrap p-12 text-center text-slate-400">
                 <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <div className="text-base font-bold text-slate-700">No companies found</div>
-                <div className="text-xs text-slate-400 mt-1">
+                <div className="card-title">No companies found</div>
+                <div className="meta-text mt-1">
                   Adjust your search or filter query to see registered organizations.
                 </div>
               </div>
@@ -395,7 +393,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   <button
                                     onClick={() => rejectMutation.mutate(company.id)}
                                     disabled={rejectMutation.isPending}
-                                    className="btn btn-sm btn-danger-ghost disabled:opacity-50"
+                                    className="btn btn-sm btn-danger-ghost"
                                   >
                                     <XCircle className="w-3.5 h-3.5" />
                                     <span>Reject</span>
@@ -403,7 +401,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   <button
                                     onClick={() => approveMutation.mutate(company.id)}
                                     disabled={approveMutation.isPending}
-                                    className="btn btn-sm btn-success disabled:opacity-50"
+                                    className="btn btn-sm btn-success"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     <span>Approve</span>
@@ -414,7 +412,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                               {company.status === 'approved' && (
                                 <button
                                   onClick={() => navigate(`/admin/dashboard?org_id=${company.id}`)}
-                                  className="btn btn-sm bg-slate-900 hover:bg-kulkul-purple text-white shadow-xs"
+                                  className="btn btn-sm btn-primary"
                                   title="Access and manage this company's workspace as an admin"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
@@ -444,7 +442,7 @@ export const SuperadminDashboardPage: React.FC = () => {
 
                               {company.id === '00000000-0000-0000-0000-000000000001' ? (
                                 // The system company can't be deleted; keep the slot so actions line up across rows
-                                <span className="btn-icon-sm invisible border border-transparent" aria-hidden="true" />
+                                <span className="btn btn-icon-sm invisible" aria-hidden="true" />
                               ) : (
                                 <button
                                   type="button"
@@ -454,7 +452,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                     }
                                   }}
                                   disabled={deleteCompanyMutation.isPending}
-                                  className="btn-icon-sm hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200"
+                                  className="btn btn-icon-sm btn-ghost-danger"
                                   title="Delete company"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -476,7 +474,7 @@ export const SuperadminDashboardPage: React.FC = () => {
         {/* TAB 2: ALL SYSTEM PROGRAMS */}
         {/* ========================================================================= */}
         {activeTab === 'programs' && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
+          <div className="content-card space-y-5">
             <div className="data-table-wrap">
               <div className="overflow-x-auto">
                 <table className="data-table min-w-[820px]">
@@ -543,25 +541,30 @@ export const SuperadminDashboardPage: React.FC = () => {
                             <div className="flex items-center gap-1.5 h-10">
                               <Layers className="w-3.5 h-3.5 text-kulkul-purple shrink-0" />
                               <span className="text-xs font-semibold text-kulkul-purple">
-                                {prog.tracks ? prog.tracks.length : '2'} Tracks
+                                {prog.tracks ? `${prog.tracks.length} Tracks` : '—'}
                               </span>
                             </div>
                           </td>
 
                           <td className="align-middle whitespace-nowrap text-left">
-                            <div className="flex items-center gap-2 h-10">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                              <span className="text-xs font-semibold text-emerald-700">Admissions Open</span>
-                            </div>
+                            {(() => {
+                              const st = getProgramStatus(prog);
+                              return (
+                                <div className="flex items-center gap-2 h-10">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${st.dot}`}></span>
+                                  <span className={`text-xs font-semibold ${st.text}`}>{st.label}</span>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           <td className="align-middle text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-2 h-10 shrink-0">
                               <Link
                                 to={prog.organization_id ? `/admin/dashboard?org_id=${prog.organization_id}` : '/admin/dashboard'}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white transition text-xs font-bold shadow-2xs shrink-0"
+                                className="btn btn-sm btn-primary shrink-0"
                               >
-                                <Building2 className="w-3 h-3" />
+                                <Building2 className="w-3.5 h-3.5" />
                                 <span>Workspace</span>
                               </Link>
                               <a
@@ -571,7 +574,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                 className="btn btn-sm btn-outline shrink-0"
                               >
                                 <span>Public Page</span>
-                                <ExternalLink className="w-3 h-3" />
+                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                               <button
                                 onClick={() => {
@@ -584,7 +587,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                                   }
                                 }}
                                 disabled={deleteProgramMutation.isPending}
-                                className="btn-icon-sm hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 shrink-0"
+                                className="btn btn-icon-sm shrink-0 btn-ghost-danger"
                                 title="Delete program"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -601,73 +604,25 @@ export const SuperadminDashboardPage: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* TAB 3: PLATFORM TELEMETRY & SYSTEM HEALTH */}
-        {/* ========================================================================= */}
-        {activeTab === 'telemetry' && (
-          <div className="max-w-2xl">
-            <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs space-y-4">
-              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                <Server className="w-5 h-5 text-kulkul-purple" />
-                <span>Backend Services & Infrastructure</span>
-              </h3>
-
-              <div className="divide-y divide-slate-100 text-xs">
-                <div className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Database className="w-4 h-4 text-slate-400" />
-                    <span className="font-semibold text-slate-700">PostgreSQL Database</span>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Connected
-                  </span>
-                </div>
-
-                <div className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-slate-400" />
-                    <span className="font-semibold text-slate-700">AI Scoring Engine</span>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Operational
-                  </span>
-                </div>
-
-                <div className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-slate-400" />
-                    <span className="font-semibold text-slate-700">Auth & Token Middleware</span>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Active
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Edit Company Modal */}
         {editingCompany && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 animate-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="modal-backdrop animate-in fade-in duration-200">
+            <div className="modal-panel max-w-lg animate-in zoom-in-95 duration-200">
+              <div className="section-header">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0">
                     <Building2 className="w-5 h-5 text-kulkul-purple" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-slate-900">Edit Company Details</h3>
-                    <p className="text-xs text-slate-500 font-medium">Update organization profile, URL slug, and branding.</p>
+                    <h3 className="section-title">Edit Company Details</h3>
+                    <p className="section-subtitle">Update organization profile, URL slug, and branding.</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setEditingCompany(null)}
-                  className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                  className="btn btn-icon-sm btn-ghost self-start sm:self-center shrink-0"
+                  aria-label="Close"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -697,22 +652,22 @@ export const SuperadminDashboardPage: React.FC = () => {
                 className="space-y-4"
               >
                 {/* Company Name */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Company Name</label>
+                <div>
+                  <label className="field-label">Company Name</label>
                   <input
                     type="text"
                     required
                     value={editCompanyName}
                     onChange={(e) => setEditCompanyName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-input"
                     placeholder="e.g. Acme Corp"
                   />
                 </div>
 
                 {/* Company Slug */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Company URL Slug</label>
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="field-label mb-0">Company URL Slug</label>
                     <button
                       type="button"
                       onClick={() => {
@@ -722,7 +677,7 @@ export const SuperadminDashboardPage: React.FC = () => {
                           .replace(/^-+|-+$/g, '');
                         if (autoSlug) setEditCompanySlug(autoSlug);
                       }}
-                      className="text-2xs font-bold text-kulkul-purple hover:underline"
+                      className="btn btn-sm btn-ghost"
                     >
                       Generate from name
                     </button>
@@ -741,52 +696,52 @@ export const SuperadminDashboardPage: React.FC = () => {
                           .replace(/[^a-z0-9-]/g, '-');
                         setEditCompanySlug(sanitized);
                       }}
-                      className="w-full pl-24 pr-3.5 py-2 rounded-xl text-sm font-mono border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      className="form-input pl-24 font-mono"
                       placeholder="acme-corp"
                     />
                   </div>
-                  <p className="text-2xs text-slate-400">
+                  <p className="meta-text mt-1">
                     Determines applicant portals: <code className="font-mono text-kulkul-purple font-semibold">/programs/{editCompanySlug || 'slug'}/...</code>
                   </p>
                 </div>
 
                 {/* Contact Email */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Contact Email</label>
+                <div>
+                  <label className="field-label">Contact Email</label>
                   <input
                     type="email"
                     value={editCompanyEmail}
                     onChange={(e) => setEditCompanyEmail(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-input"
                     placeholder="admin@company.com"
                   />
                 </div>
 
                 {/* Logo URL */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Logo Image URL</label>
+                <div>
+                  <label className="field-label">Logo Image URL</label>
                   <input
                     type="url"
                     value={editCompanyLogo}
                     onChange={(e) => setEditCompanyLogo(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-input"
                     placeholder="https://..."
                   />
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <div className="modal-footer">
                   <button
                     type="button"
                     onClick={() => setEditingCompany(null)}
-                    className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition"
+                    className="btn btn-sm btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={updateCompanyMutation.isPending || !editCompanyName.trim() || !editCompanySlug.trim()}
-                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                    className="btn btn-sm btn-primary"
                   >
                     {updateCompanyMutation.isPending ? (
                       <span>Saving...</span>

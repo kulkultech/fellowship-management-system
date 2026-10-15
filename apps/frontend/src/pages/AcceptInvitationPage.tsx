@@ -158,21 +158,21 @@ export const AcceptInvitationPage: React.FC = () => {
         <div className="max-w-lg w-full">
           {/* Loading State */}
           {loading && (
-            <div className="stitch-card bg-white p-12 border border-slate-200 shadow-xl rounded-3xl text-center space-y-4">
+            <div className="content-card text-center space-y-4">
               <Loader2 className="w-12 h-12 text-kulkul-purple animate-spin mx-auto" />
-              <h2 className="text-xl font-bold text-slate-800">Verifying Invitation...</h2>
-              <p className="text-sm text-slate-500">Checking your invitation token securely.</p>
+              <h2 className="heading-page">Verifying Invitation...</h2>
+              <p className="text-sm text-slate-600">Checking your invitation token securely.</p>
             </div>
           )}
 
           {/* Error State */}
           {!loading && error && (
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+            <div className="content-card text-center space-y-6">
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
                 <XCircle className="w-9 h-9" />
               </div>
               <div className="space-y-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Invitation Unavailable
                 </h1>
                 <p className="text-sm text-slate-600 leading-relaxed">{error}</p>
@@ -181,13 +181,13 @@ export const AcceptInvitationPage: React.FC = () => {
               <div className="pt-2 flex flex-col gap-3">
                 <Link
                   to="/admin/login"
-                  className="w-full btn btn-primary py-3 rounded-xl font-bold shadow-md shadow-purple-900/10"
+                  className="w-full btn btn-md btn-primary"
                 >
                   Go to Login Page
                 </Link>
                 <Link
                   to="/"
-                  className="w-full btn btn-outline py-2.5 rounded-xl font-medium text-slate-600"
+                  className="w-full btn btn-md btn-outline"
                 >
                   Return to Home
                 </Link>
@@ -197,12 +197,12 @@ export const AcceptInvitationPage: React.FC = () => {
 
           {/* Success State */}
           {!loading && !error && isAccepted && (
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+            <div className="content-card text-center space-y-6">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
                 <CheckCircle2 className="w-9 h-9" />
               </div>
               <div className="space-y-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Welcome Aboard!
                 </h1>
                 <p className="text-sm text-slate-600 leading-relaxed">
@@ -225,10 +225,10 @@ export const AcceptInvitationPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(redirectUrl, { replace: true })}
-                  className="w-full btn btn-primary py-3.5 rounded-xl font-bold text-base shadow-lg shadow-purple-900/20 flex items-center justify-center gap-2"
+                  className="w-full btn btn-md btn-primary"
                 >
                   <span>Enter Dashboard</span>
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -236,20 +236,20 @@ export const AcceptInvitationPage: React.FC = () => {
 
           {/* Active Invitation Acceptance Form */}
           {!loading && !error && !isAccepted && invitation && (
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6">
+            <div className="content-card space-y-6">
               {/* Role Header */}
               <div className="text-center space-y-2">
-                <div className="text-xs font-bold uppercase tracking-wider text-kulkul-purple">
+                <div className="text-2xs font-bold uppercase tracking-wider text-kulkul-purple">
                   {formatRoleName(invitation.role)}
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   {invitation.organization_name
                     ? `Join ${invitation.organization_name}`
                     : 'Join FellowHire Leadership'}
                 </h1>
 
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-600">
                   {invitation.inviter_name || invitation.inviter_email
                     ? `${invitation.inviter_name || invitation.inviter_email} invited you to collaborate.`
                     : 'You have been invited to join the management team.'}
@@ -257,15 +257,15 @@ export const AcceptInvitationPage: React.FC = () => {
               </div>
 
               {/* Invitation Summary Pill */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between text-xs">
+              <div className="panel-muted flex items-center justify-between text-xs">
                 <div>
-                  <div className="text-slate-400 font-semibold uppercase text-3xs tracking-wider">
+                  <div className="subsection-title">
                     Invited Email Address
                   </div>
                   <div className="text-sm font-bold text-slate-900 mt-0.5">{invitation.email}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-slate-400 font-semibold uppercase text-3xs tracking-wider">
+                  <div className="subsection-title">
                     Assigned Role
                   </div>
                   <div className="font-bold text-kulkul-purple mt-0.5 capitalize">
@@ -275,16 +275,16 @@ export const AcceptInvitationPage: React.FC = () => {
               </div>
 
               {invitation.program_name && (
-                <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-4 flex items-center justify-between text-xs">
+                <div className="panel flex items-center justify-between text-xs">
                   <div>
-                    <div className="text-slate-400 font-semibold uppercase text-3xs tracking-wider">
+                    <div className="subsection-title">
                       Assigned Fellowship Program
                     </div>
                     <div className="text-sm font-bold text-slate-900 mt-0.5">
                       {invitation.program_name}
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-2xs font-extrabold bg-purple-100 text-kulkul-purple">
+                  <span className="text-2xs font-bold text-kulkul-purple">
                     Cohort
                   </span>
                 </div>
@@ -318,7 +318,7 @@ export const AcceptInvitationPage: React.FC = () => {
                           clearAuth();
                           queryClient.clear();
                         }}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 underline hover:text-amber-700"
+                        className="btn btn-sm btn-outline"
                       >
                         <LogOut className="w-3.5 h-3.5" />
                         Log out to accept with {invitation.email}
@@ -333,7 +333,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  className="w-full btn btn-outline py-3 rounded-xl border border-slate-300 hover:bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-3 shadow-xs transition"
+                  className="w-full btn btn-md btn-outline"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path
@@ -369,7 +369,7 @@ export const AcceptInvitationPage: React.FC = () => {
               <form onSubmit={handleAccept} className="space-y-4">
                 {!invitation.is_existing_user && (
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                    <label className="field-label">
                       Your Full Name
                     </label>
                     <input
@@ -377,7 +377,7 @@ export const AcceptInvitationPage: React.FC = () => {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="e.g. Alex Johnson"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      className="form-input"
                       required
                     />
                   </div>
@@ -390,7 +390,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 ) : (
                   <>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                      <label className="field-label">
                         {invitation.is_existing_user ? 'Current Password' : 'Create Password'}
                       </label>
                       <div className="relative">
@@ -400,18 +400,18 @@ export const AcceptInvitationPage: React.FC = () => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                          className="form-input pl-10"
                           required={!invitation.is_existing_user}
                         />
                       </div>
                       {!invitation.is_existing_user && (
-                        <p className="text-3xs text-slate-400 mt-1">Minimum 6 characters.</p>
+                        <p className="meta-text mt-1">Minimum 6 characters.</p>
                       )}
                     </div>
 
                     {!invitation.is_existing_user && (
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                        <label className="field-label">
                           Confirm Password
                         </label>
                         <div className="relative">
@@ -421,7 +421,7 @@ export const AcceptInvitationPage: React.FC = () => {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                            className="form-input pl-10"
                             required
                           />
                         </div>
@@ -433,7 +433,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full btn btn-primary py-3 rounded-xl font-bold text-sm shadow-md shadow-purple-900/10 flex items-center justify-center gap-2"
+                  className="w-full btn btn-md btn-primary"
                 >
                   {isSubmitting ? (
                     <>

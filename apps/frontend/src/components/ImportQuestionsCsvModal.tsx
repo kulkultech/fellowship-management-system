@@ -191,16 +191,16 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
   const displayedPreview = showAllPreview ? filteredPreview : filteredPreview.slice(0, 5);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-3xl animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
-        <div className="px-6 sm:px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="section-header">
           <div>
-            <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+            <h2 className="section-title flex items-center gap-2">
               <UploadCloud className="w-5 h-5 text-kulkul-purple" />
               <span>Import Questions from CSV</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="section-subtitle">
               {targetQuestionSet
                 ? `Importing into question set: "${targetQuestionSet.name}"`
                 : 'Create a new question bank or upload an assessment question set'}
@@ -209,14 +209,15 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+            className="btn btn-icon-sm btn-ghost"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 overflow-y-auto space-y-6 flex-1 text-slate-700">
+        <div className="space-y-6 text-slate-700">
           {/* File Picker / Drop Zone */}
           {!selectedFile ? (
             <div
@@ -246,7 +247,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                 Supports semicolon (;) and comma (,) delimited CSV files. Code snippets and quotes are automatically preserved.
               </p>
 
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-2xs text-slate-600 font-medium">
+              <div className="meta-text inline-flex items-center gap-2 font-medium">
                 <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
                 <span>Format: Question ; Option A ; Option B ; Option C ; Option D ; Answer Key (A/B/C/D) ; Category</span>
               </div>
@@ -263,7 +264,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                     <div className="font-extrabold text-sm text-slate-900 truncate">
                       {selectedFile.name}
                     </div>
-                    <div className="text-2xs text-slate-500">
+                    <div className="meta-text">
                       {(selectedFile.size / 1024).toFixed(1)} KB · {isParsing ? 'Parsing questions...' : `${parseResult?.questions.length || 0} questions parsed`}
                     </div>
                   </div>
@@ -272,7 +273,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                 <button
                   type="button"
                   onClick={handleResetFile}
-                  className="px-3 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600 transition shrink-0"
+                  className="btn btn-sm btn-outline shrink-0"
                 >
                   Choose Different File
                 </button>
@@ -281,33 +282,33 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
               {/* Parsing Stats Badges */}
               {parseResult && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50">
-                    <div className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">Valid Questions</div>
-                    <div className="text-xl font-extrabold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                  <div className="panel-muted">
+                    <div className="stat-label">Valid Questions</div>
+                    <div className="stat-value mt-0.5 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>{parseResult.questions.length}</span>
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50">
-                    <div className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">Delimiter</div>
-                    <div className="text-xl font-extrabold text-slate-900 mt-0.5">
+                  <div className="panel-muted">
+                    <div className="stat-label">Delimiter</div>
+                    <div className="stat-value mt-0.5">
                       <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-xs font-mono">
                         {parseResult.delimiter === ';' ? 'Semicolon (;)' : 'Comma (,)'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50">
-                    <div className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">Total Rows</div>
-                    <div className="text-xl font-extrabold text-slate-900 mt-0.5">
+                  <div className="panel-muted">
+                    <div className="stat-label">Total Rows</div>
+                    <div className="stat-value mt-0.5">
                       {parseResult.totalRows}
                     </div>
                   </div>
 
-                  <div className={`p-3.5 rounded-2xl border ${parseResult.errors.length > 0 ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200 bg-slate-50'}`}>
-                    <div className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">Skipped / Errors</div>
-                    <div className={`text-xl font-extrabold mt-0.5 flex items-center gap-1.5 ${parseResult.errors.length > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
+                  <div className={`panel-muted ${parseResult.errors.length > 0 ? 'border-amber-200 bg-amber-50/40' : ''}`}>
+                    <div className="stat-label">Skipped / Errors</div>
+                    <div className={`stat-value mt-0.5 flex items-center gap-1.5 ${parseResult.errors.length > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
                       {parseResult.errors.length > 0 ? <AlertTriangle className="w-4 h-4 text-amber-600" /> : <Check className="w-4 h-4 text-emerald-600" />}
                       <span>{parseResult.errors.length}</span>
                     </div>
@@ -344,8 +345,8 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
 
               {/* Target & Options Mode */}
               {targetQuestionSet ? (
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3">
-                  <div className="font-extrabold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="panel-muted space-y-3">
+                  <div className="subsection-title flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-kulkul-purple" />
                     <span>Import Destination & Mode</span>
                   </div>
@@ -368,7 +369,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                       />
                       <div>
                         <div className="text-xs font-bold text-slate-900">Replace existing questions</div>
-                        <div className="text-2xs text-slate-500 mt-0.5">
+                        <div className="meta-text mt-0.5">
                           Overwrites all current questions in "{targetQuestionSet.name}" with the {parseResult?.questions.length || 0} imported questions.
                         </div>
                       </div>
@@ -391,7 +392,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                       />
                       <div>
                         <div className="text-xs font-bold text-slate-900">Append to existing questions</div>
-                        <div className="text-2xs text-slate-500 mt-0.5">
+                        <div className="meta-text mt-0.5">
                           Preserves existing questions and appends the {parseResult?.questions.length || 0} new questions to the end.
                         </div>
                       </div>
@@ -400,15 +401,15 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                 </div>
               ) : (
                 /* New Question Bank Fields */
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-4">
-                  <div className="font-extrabold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="panel-muted space-y-4">
+                  <div className="subsection-title flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-kulkul-purple" />
                     <span>New Question Bank Details</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      <label className="field-label">
                         Question Set Name
                       </label>
                       <input
@@ -416,12 +417,12 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                         value={newSetName}
                         onChange={(e) => setNewSetName(e.target.value)}
                         placeholder="e.g. Fullstack & QA Assessment 2026"
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple bg-white text-slate-900"
+                        className="form-input"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      <label className="field-label">
                         Category
                       </label>
                       <input
@@ -429,12 +430,12 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                         value={newSetCategory}
                         onChange={(e) => setNewSetCategory(e.target.value)}
                         placeholder="e.g. General Assessment"
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple bg-white text-slate-900"
+                        className="form-input"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      <label className="field-label">
                         Duration (Minutes)
                       </label>
                       <input
@@ -443,12 +444,12 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                         max={180}
                         value={newSetDuration}
                         onChange={(e) => setNewSetDuration(Number(e.target.value))}
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple bg-white text-slate-900"
+                        className="form-input"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      <label className="field-label">
                         Passing Score (%)
                       </label>
                       <input
@@ -457,7 +458,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                         max={100}
                         value={newSetPassingScore}
                         onChange={(e) => setNewSetPassingScore(Number(e.target.value))}
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple bg-white text-slate-900"
+                        className="form-input"
                       />
                     </div>
                   </div>
@@ -466,9 +467,9 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
 
               {/* Questions Preview List */}
               {parseResult && parseResult.questions.length > 0 && (
-                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs space-y-0">
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
                   <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="font-extrabold text-xs text-slate-800">
+                    <div className="card-title">
                       Questions Preview ({filteredPreview.length} of {parseResult.questions.length})
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -477,7 +478,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                         placeholder="Filter preview questions..."
                         value={previewFilter}
                         onChange={(e) => setPreviewFilter(e.target.value)}
-                        className="px-3 py-1 text-2xs rounded-lg border border-slate-200 bg-white text-slate-800 w-full sm:w-48 focus:outline-hidden focus:ring-1 focus:ring-kulkul-purple"
+                        className="form-input text-xs sm:w-48"
                       />
                     </div>
                   </div>
@@ -493,7 +494,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                             <span className="whitespace-pre-wrap">{q.question_text}</span>
                           </div>
                           {q.category && (
-                            <span className="px-2 py-0.5 rounded-full text-3xs font-extrabold bg-purple-50 text-kulkul-purple border border-purple-100 shrink-0">
+                            <span className="text-3xs font-extrabold text-kulkul-purple shrink-0">
                               {q.category}
                             </span>
                           )}
@@ -518,7 +519,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                                   <span>{opt.text}</span>
                                 </div>
                                 {isCorrect && (
-                                  <span className="px-1.5 py-0.2 rounded-md bg-emerald-600 text-white font-mono text-3xs shrink-0">
+                                  <span className="font-mono text-3xs font-bold text-emerald-700 shrink-0">
                                     KEY
                                   </span>
                                 )}
@@ -535,7 +536,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
                       <button
                         type="button"
                         onClick={() => setShowAllPreview(!showAllPreview)}
-                        className="text-xs font-bold text-kulkul-purple hover:underline"
+                        className="btn btn-sm btn-ghost"
                       >
                         {showAllPreview ? 'Show first 5 only' : `Show all ${filteredPreview.length} questions`}
                       </button>
@@ -548,12 +549,12 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 sm:px-8 py-4 border-t border-slate-100 bg-slate-50/70 flex items-center justify-end gap-3">
+        <div className="modal-footer">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition disabled:opacity-50"
+            className="btn btn-sm btn-outline"
           >
             Cancel
           </button>
@@ -562,7 +563,7 @@ export const ImportQuestionsCsvModal: React.FC<ImportQuestionsCsvModalProps> = (
             type="button"
             onClick={handleConfirmImport}
             disabled={isSubmitting || isParsing || !parseResult || parseResult.questions.length === 0}
-            className="px-6 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+            className="btn btn-sm btn-primary"
           >
             {isSubmitting ? (
               <>

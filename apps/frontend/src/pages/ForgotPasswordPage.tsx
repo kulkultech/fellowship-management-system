@@ -39,7 +39,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">
-          <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+          <div className="content-card text-center space-y-6">
             {!submitted ? (
               <>
                 <div className="mx-auto w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-2 shadow-inner">
@@ -48,14 +48,14 @@ export const ForgotPasswordPage: React.FC = () => {
 
                 <div>
                   <h1 className="heading-page">Forgot Password?</h1>
-                  <p className="text-body-sm mt-2 text-slate-600">
+                  <p className="text-sm text-slate-600 mt-1.5">
                     Enter the email address associated with your account, and we'll send you a link to reset your password.
                   </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-left pt-2">
                   <div>
-                    <label className="form-label">Email Address</label>
+                    <label className="field-label">Email Address</label>
                     <div className="relative">
                       <input
                         type="email"
@@ -63,17 +63,17 @@ export const ForgotPasswordPage: React.FC = () => {
                         placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 input-md"
+                        className="form-input pl-10 pr-4"
                         autoFocus
                       />
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading || !email.trim()}
-                    className="w-full btn-primary py-3 flex items-center justify-center gap-2 group shadow-lg shadow-primary/20 disabled:opacity-60"
+                    className="w-full btn btn-md btn-primary group"
                   >
                     {loading ? (
                       <>
@@ -113,13 +113,13 @@ export const ForgotPasswordPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <h1 className="heading-page text-slate-900">Check Your Inbox</h1>
-                  <p className="text-body-sm text-slate-600 leading-relaxed">
+                  <h1 className="heading-page">Check Your Inbox</h1>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     If an account exists for <strong className="text-slate-900">{submittedEmail}</strong>, you will receive an email with password reset instructions shortly.
                   </p>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left text-xs text-slate-600 space-y-1.5">
+                <div className="panel-muted text-left text-xs text-slate-600 space-y-1.5">
                   <div className="font-bold text-slate-800">What to do next:</div>
                   <ul className="list-disc pl-4 space-y-1 text-slate-500">
                     <li>Click the link in the email within <strong>1 hour</strong>.</li>
@@ -135,7 +135,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       setSubmitted(false);
                       setEmail('');
                     }}
-                    className="w-full btn-outline py-2.5 text-xs font-semibold text-slate-700"
+                    className="w-full btn btn-md btn-outline"
                   >
                     Try another email address
                   </button>

@@ -170,7 +170,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ value, onChange, dis
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+          className="btn btn-sm btn-outline"
         >
           <Upload className="w-3.5 h-3.5" />
           <span>Upload Image</span>
@@ -179,12 +179,12 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ value, onChange, dis
           type="button"
           onClick={handleClear}
           disabled={disabled || !hasInk}
-          className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+          className="btn btn-sm btn-outline"
         >
           <Eraser className="w-3.5 h-3.5" />
           <span>Clear</span>
         </button>
-        <span className="text-3xs text-slate-400">PNG with transparent background works best.</span>
+        <span className="meta-text">PNG with transparent background works best.</span>
         <input
           ref={fileInputRef}
           type="file"

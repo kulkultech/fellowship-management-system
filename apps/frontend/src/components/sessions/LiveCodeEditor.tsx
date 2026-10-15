@@ -740,7 +740,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
             type="button"
             onClick={handleRunCode}
             disabled={isRunning}
-            className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold flex items-center gap-1.5 shadow-sm"
+            className="btn btn-sm btn-success"
             title="Execute Code (Ctrl/Cmd + Enter)"
           >
             {isRunning ? (
@@ -756,7 +756,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
             <div className="relative group">
               <button
                 type="button"
-                className="btn btn-sm btn-ghost text-slate-300 hover:text-white flex items-center gap-1"
+                className="btn btn-sm btn-ghost text-slate-300 hover:text-white hover:bg-slate-800"
                 title="Select Starter Template"
               >
                 <BookOpen className="w-3.5 h-3.5" />
@@ -1120,16 +1120,8 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       </div>
 
       {/* 4. FOOTER STATUS BAR */}
-      <div className="bg-slate-950 px-4 py-1.5 border-t border-slate-800 text-3xs text-slate-500 flex items-center justify-between">
-        <span className="font-medium text-slate-400">Monaco Engine</span>
-
-        <div className="flex items-center gap-3">
-          <span>Encoding: UTF-8</span>
-          <span>&bull;</span>
-          <span>Spaces: 2</span>
-          <span>&bull;</span>
-          <span>Press <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Ctrl+Enter</kbd> to Run</span>
-        </div>
+      <div className="bg-slate-950 px-4 py-1.5 border-t border-slate-800 text-3xs text-slate-500 flex items-center justify-end">
+        <span>Press <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Ctrl+Enter</kbd> to Run</span>
       </div>
     </div>
   );

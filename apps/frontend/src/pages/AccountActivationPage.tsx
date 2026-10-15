@@ -114,40 +114,40 @@ export const AccountActivationPage: React.FC = () => {
         <div className="max-w-md w-full">
           {loading ? (
             /* Loading State */
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6 animate-pulse">
+            <div className="content-card text-center space-y-6 animate-pulse">
               <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 text-kulkul-purple flex items-center justify-center mx-auto">
                 <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
               </div>
               <div>
-                <h2 className="heading-card">Activating Your Account</h2>
-                <p className="text-body-sm mt-2">
+                <h2 className="heading-page">Activating Your Account</h2>
+                <p className="text-sm text-slate-600 mt-1.5">
                   Verifying your security credentials and initializing your platform access...
                 </p>
               </div>
             </div>
           ) : isPendingApproval && activatedUser ? (
             /* Pending Approval State */
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-amber-200 shadow-xl rounded-3xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="content-card border-amber-200 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
                 <Clock className="w-8 h-8" />
               </div>
 
               <div>
-                <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                <span className="text-2xs font-bold text-amber-700 uppercase tracking-wider">
                   Email Verified &middot; Awaiting Approval
                 </span>
-                <h1 className="text-2xl font-black text-slate-900 mt-3">
+                <h1 className="heading-page mt-3">
                   Email Confirmed!
                 </h1>
-                <p className="text-body-sm mt-2 text-slate-600">
+                <p className="text-sm text-slate-600 mt-1.5">
                   Hello <strong className="text-slate-900">{activatedUser.name || activatedUser.email}</strong>, your email has been confirmed. Your company application for <strong>{activatedUser.organization?.name || 'your company'}</strong> is pending approval by the platform administrator.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left text-xs space-y-2">
+              <div className="panel-muted text-left text-xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-medium">Company Status:</span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-amber-700">
                     <Clock className="w-3 h-3 text-amber-600" />
                     <span>Pending Superadmin Approval</span>
                   </span>
@@ -166,14 +166,14 @@ export const AccountActivationPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/admin/login')}
-                  className="w-full btn btn-lg btn-outline"
+                  className="w-full btn btn-md btn-outline"
                 >
                   Go to Sign In
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('/')}
-                  className="w-full btn btn-md btn-ghost text-slate-600"
+                  className="w-full btn btn-md btn-ghost"
                 >
                   Return to Homepage
                 </button>
@@ -181,24 +181,24 @@ export const AccountActivationPage: React.FC = () => {
             </div>
           ) : activatedUser ? (
             /* Success State */
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-emerald-200 shadow-xl rounded-3xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="content-card border-emerald-200 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
 
               <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+                <span className="text-2xs font-bold text-emerald-700 uppercase tracking-wider">
                   Email Verified &middot; Account Active
                 </span>
-                <h1 className="text-2xl font-black text-slate-900 mt-3">
+                <h1 className="heading-page mt-3">
                   Welcome to FellowHire!
                 </h1>
-                <p className="text-body-sm mt-2 text-slate-600">
+                <p className="text-sm text-slate-600 mt-1.5">
                   Hello <strong className="text-slate-900">{activatedUser.name || activatedUser.email}</strong>, your email has been confirmed. Your account is now fully active.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left text-xs space-y-2">
+              <div className="panel-muted text-left text-xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-medium">Account Role:</span>
                   <span className="font-bold text-slate-900 capitalize flex items-center gap-1.5">
@@ -219,7 +219,7 @@ export const AccountActivationPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(getDashboardPath(activatedUser.role))}
-                className="w-full btn btn-lg btn-primary shadow-lg hover:shadow-xl gap-2"
+                className="w-full btn btn-md btn-primary"
               >
                 <span>Go to {activatedUser.role === 'candidate' ? 'Candidate Portal' : 'Admin Workspace'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -227,16 +227,16 @@ export const AccountActivationPage: React.FC = () => {
             </div>
           ) : error ? (
             /* Error / Expired State */
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+            <div className="content-card text-center space-y-6">
               <div className="w-16 h-16 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
                 <XCircle className="w-8 h-8" />
               </div>
 
               <div>
-                <h1 className="heading-page text-xl text-rose-700">
+                <h1 className="heading-page">
                   Activation Link Expired
                 </h1>
-                <p className="text-body-sm mt-2 text-slate-600">
+                <p className="text-sm text-slate-600 mt-1.5">
                   {error}
                 </p>
               </div>
@@ -248,7 +248,7 @@ export const AccountActivationPage: React.FC = () => {
               ) : (
                 <form onSubmit={handleResend} className="space-y-4 text-left pt-1">
                   <div>
-                    <label className="form-label">
+                    <label className="field-label">
                       Resend Activation Email
                     </label>
                     <div className="relative">
@@ -258,16 +258,16 @@ export const AccountActivationPage: React.FC = () => {
                         placeholder="e.g. jane@example.com"
                         value={resendEmail}
                         onChange={(e) => setResendEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 input-md"
+                        className="form-input pl-10 pr-4"
                       />
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={resendLoading}
-                    className="w-full btn btn-md btn-secondary"
+                    className="w-full btn btn-md btn-primary"
                   >
                     {resendLoading ? 'Sending Link...' : 'Send New Activation Link'}
                   </button>
@@ -286,7 +286,7 @@ export const AccountActivationPage: React.FC = () => {
             </div>
           ) : (
             /* No Token Provided - Prompt for Email Resend */
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+            <div className="content-card text-center space-y-6">
               <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 text-kulkul-purple flex items-center justify-center mx-auto">
                 <Mail className="w-8 h-8" />
               </div>
@@ -295,7 +295,7 @@ export const AccountActivationPage: React.FC = () => {
                 <h1 className="heading-page">
                   Account Activation
                 </h1>
-                <p className="text-body-sm mt-2">
+                <p className="text-sm text-slate-600 mt-1.5">
                   Enter your email address below to receive a new activation link for your FellowHire account.
                 </p>
               </div>
@@ -307,7 +307,7 @@ export const AccountActivationPage: React.FC = () => {
               ) : (
                 <form onSubmit={handleResend} className="space-y-4 text-left">
                   <div>
-                    <label className="form-label">
+                    <label className="field-label">
                       Your Registered Email
                     </label>
                     <div className="relative">
@@ -317,16 +317,16 @@ export const AccountActivationPage: React.FC = () => {
                         placeholder="e.g. user@example.com"
                         value={resendEmail}
                         onChange={(e) => setResendEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 input-md"
+                        className="form-input pl-10 pr-4"
                       />
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={resendLoading}
-                    className="w-full btn btn-lg btn-primary"
+                    className="w-full btn btn-md btn-primary"
                   >
                     {resendLoading ? 'Sending...' : 'Send Activation Email'}
                   </button>

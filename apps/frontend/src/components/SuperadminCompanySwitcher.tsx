@@ -139,13 +139,13 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="btn btn-sm bg-white text-slate-800 hover:text-kulkul-purple border border-amber-300 hover:border-kulkul-purple shadow-2xs hover:bg-purple-50/50 cursor-pointer"
+          className="btn btn-sm btn-outline"
           title="Click to switch to another company workspace"
         >
           <Menu className="w-3.5 h-3.5 text-amber-600" />
           <span className="font-extrabold max-w-[150px] truncate">{displayCompanyName}</span>
           {displayCompanySlug && (
-            <span className="text-[10px] font-mono text-slate-400">/{displayCompanySlug}</span>
+            <span className="text-3xs font-mono text-slate-400">/{displayCompanySlug}</span>
           )}
           <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
@@ -153,7 +153,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="btn-icon-sm bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:text-kulkul-purple shadow-2xs cursor-pointer"
+          className="btn btn-icon-sm btn-outline"
           title={`Active company: ${displayCompanyName}. Click to switch company.`}
         >
           <Menu className="w-4 h-4 text-kulkul-purple" />
@@ -163,10 +163,8 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`h-10 inline-flex items-center gap-2.5 px-3.5 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold border transition active:scale-[0.98] shadow-2xs whitespace-nowrap cursor-pointer ${
-            isOpen
-              ? 'bg-slate-100 text-slate-900 border-slate-300 ring-2 ring-slate-400/20'
-              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+          className={`btn btn-md btn-outline whitespace-nowrap ${
+            isOpen ? 'bg-slate-100 text-slate-900 border-slate-300' : ''
           }`}
           title="Switch Company Workspace (Superadmin)"
           aria-expanded={isOpen}
@@ -192,7 +190,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
             )}
           </div>
 
-          <span className="font-bold text-xs sm:text-sm truncate max-w-[130px] sm:max-w-[200px] text-slate-800">
+          <span className="truncate max-w-[130px] sm:max-w-[200px] text-slate-800">
             {displayCompanyName}
           </span>
 
@@ -214,20 +212,21 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                 <Building2 className="w-4 h-4 text-kulkul-purple" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <h4 className="card-title flex items-center gap-1.5">
                   <span>Switch Company</span>
-                  <span className="text-[11px] font-extrabold text-kulkul-purple">
+                  <span className="text-2xs font-extrabold text-kulkul-purple">
                     (Superadmin)
                   </span>
                 </h4>
-                <p className="text-[11px] text-slate-500">
+                <p className="meta-text">
                   Select an organization to manage its programs
                 </p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition"
+              className="btn btn-icon-sm btn-ghost shrink-0"
+              aria-label="Close"
             >
               <X className="w-4 h-4" />
             </button>
@@ -235,20 +234,21 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
 
           {/* Search Filter */}
           <div className="p-3 border-b border-slate-100 bg-white">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <div className="search-field sm:w-full">
+              <Search />
               <input
                 type="text"
                 autoFocus
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 placeholder="Search company or slug..."
-                className="w-full pl-8 pr-8 input-sm focus:bg-white font-medium"
+                className="search-input pr-9"
               />
               {searchFilter && (
                 <button
                   onClick={() => setSearchFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  className="btn btn-icon-xs btn-ghost absolute right-1.5 top-1/2 -translate-y-1/2"
+                  aria-label="Clear search"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -265,7 +265,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
             ) : filteredCompanies.length === 0 ? (
               <div className="p-6 text-center">
                 <p className="text-xs text-slate-500 font-semibold">No companies match "{searchFilter}"</p>
-                <p className="text-2xs text-slate-400 mt-1">Try a different name or slug</p>
+                <p className="meta-text mt-1">Try a different name or slug</p>
               </div>
             ) : (
               filteredCompanies.map((company) => {
@@ -306,12 +306,12 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                             {company.name}
                           </span>
                           {company.status === 'pending_approval' && (
-                            <span className="px-1.5 py-0.5 rounded text-3xs font-extrabold bg-amber-100 text-amber-800">
+                            <span className="text-3xs font-extrabold text-amber-700">
                               Pending
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] font-mono text-slate-400 mt-0.5 truncate">
+                        <div className="text-2xs font-mono text-slate-400 mt-0.5 truncate">
                           /programs/{company.slug}
                         </div>
                       </div>
@@ -340,7 +340,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
             <button
               type="button"
               onClick={handleSelectDefaultCompany}
-              className="px-3 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-white transition text-2xs font-bold border border-transparent hover:border-slate-200"
+              className="btn btn-sm btn-ghost"
               title="Switch back to primary organization default"
             >
               Primary Workspace
@@ -352,7 +352,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
                 setIsOpen(false);
                 navigate('/superadmin/dashboard');
               }}
-              className="px-3 py-1.5 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition text-2xs font-bold flex items-center gap-1.5 border border-slate-200 bg-white"
+              className="btn btn-sm btn-outline"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-slate-600" />
               <span>Superadmin Console</span>

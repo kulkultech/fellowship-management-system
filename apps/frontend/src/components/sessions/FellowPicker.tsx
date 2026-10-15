@@ -93,16 +93,16 @@ export const FellowPicker: React.FC<FellowPickerProps> = ({
   };
 
   return (
-    <div className="space-y-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
+    <div className="panel-muted space-y-3 mt-2">
       {/* Fellow Groups */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-bold text-slate-700">Fellow Groups</span>
+          <span className="field-label mb-0">Fellow Groups</span>
           {selectedIds.length > 0 && !isNamingGroup && (
             <button
               type="button"
               onClick={() => setIsNamingGroup(true)}
-              className="text-xs font-semibold text-kulkul-purple hover:underline"
+              className="btn btn-sm btn-ghost"
             >
               Save selection as group
             </button>
@@ -141,7 +141,7 @@ export const FellowPicker: React.FC<FellowPickerProps> = ({
         )}
 
         {groups.length === 0 ? (
-          <p className="text-2xs text-slate-400">
+          <p className="meta-text">
             No groups yet. Tick fellows below, then save them as a group to reuse next time.
           </p>
         ) : (
@@ -191,29 +191,28 @@ export const FellowPicker: React.FC<FellowPickerProps> = ({
 
       {/* Individual fellows */}
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200">
-        <div className="relative flex-1 mt-2">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="search-field flex-1 mt-2 sm:w-auto">
+          <Search />
           <input
             type="text"
             placeholder={showTracks ? 'Search fellows by name, email, or track...' : 'Search fellows by name or email...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-2 rounded-xl text-sm border border-slate-200 focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 bg-white"
+            className="search-input bg-white"
           />
         </div>
-        <div className="flex items-center gap-2 shrink-0 mt-2">
+        <div className="flex items-center gap-1 shrink-0 mt-2">
           <button
             type="button"
             onClick={() => onChange(fellows.map((f) => f.id))}
-            className="text-xs font-semibold text-kulkul-purple hover:underline cursor-pointer"
+            className="btn btn-sm btn-ghost"
           >
             Select All
           </button>
-          <span className="text-slate-300">|</span>
           <button
             type="button"
             onClick={() => onChange([])}
-            className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
+            className="btn btn-sm btn-ghost"
           >
             Clear
           </button>
@@ -222,7 +221,7 @@ export const FellowPicker: React.FC<FellowPickerProps> = ({
 
       <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
         {filteredFellows.length === 0 ? (
-          <div className="text-center py-4 text-xs text-slate-400">
+          <div className="meta-text text-center py-4">
             {search ? `No fellows found matching "${search}"` : 'No fellows in this program yet'}
           </div>
         ) : (
@@ -244,11 +243,11 @@ export const FellowPicker: React.FC<FellowPickerProps> = ({
                   />
                   <div className="truncate">
                     <span className="font-semibold text-slate-900">{fellow.full_name}</span>
-                    <span className="text-slate-400 text-xs ml-1.5">({fellow.email})</span>
+                    <span className="meta-text ml-1.5">({fellow.email})</span>
                   </div>
                 </div>
                 {fellow.track_name && showTracks && (
-                  <span className="text-xs text-slate-500 shrink-0 font-medium ml-2">{fellow.track_name}</span>
+                  <span className="meta-text shrink-0 font-medium ml-2">{fellow.track_name}</span>
                 )}
               </label>
             );
@@ -256,7 +255,7 @@ export const FellowPicker: React.FC<FellowPickerProps> = ({
         )}
       </div>
 
-      <div className="text-xs text-slate-500 font-medium flex items-center justify-between pt-1">
+      <div className="meta-text font-medium flex items-center justify-between pt-1">
         <span>{summaryLabel(selectedIds.length)}</span>
         {selectedIds.length > 0 && (
           <span className="text-kulkul-purple font-semibold">

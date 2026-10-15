@@ -14,7 +14,6 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  Users,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -201,7 +200,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl p-12 border border-slate-200 shadow-sm flex items-center justify-center gap-2 text-xs text-slate-500">
+      <div className="content-card p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
         <Loader2 className="w-4 h-4 animate-spin" />
         <span>Loading GitHub activity…</span>
       </div>
@@ -210,7 +209,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
 
   if (isError) {
     return (
-      <div className="bg-white rounded-3xl p-12 border border-slate-200 shadow-sm text-center space-y-3">
+      <div className="content-card p-12 text-center space-y-3">
         <p className="text-xs text-slate-500">Could not load GitHub activity for this program.</p>
         <button type="button" onClick={() => refetch()} className="btn btn-sm btn-outline">
           Try Again
@@ -223,40 +222,27 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
     <div className="space-y-6">
       {/* Metrics Banner */}
       {showSummary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { label: 'Tracked Repos', value: repos.length, note: 'Repositories being analyzed', icon: Github, color: 'text-kulkul-purple' },
-            {
-              label: 'Fellows on GitHub',
-              value: `${linkedCount} / ${fellows.length}`,
-              note: 'Fellows with a GitHub profile',
-              icon: Users,
-              color: 'text-emerald-600',
-            },
-            { label: 'PRs Merged', value: programTotals.merged, note: 'Across all tracked repos', icon: GitMerge, color: 'text-blue-600' },
-            { label: 'Commits', value: programTotals.commits, note: 'By fellows on default branches', icon: GitCommitHorizontal, color: 'text-[#fe900d]' },
+            { label: 'PRs Merged', value: programTotals.merged, icon: GitMerge, color: 'text-blue-600' },
+            { label: 'Commits', value: programTotals.commits, icon: GitCommitHorizontal, color: 'text-kulkul-orange' },
           ].map((card) => (
-            <div key={card.label} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500">
-                <span className="text-2xs font-extrabold uppercase tracking-wider">{card.label}</span>
+            <div key={card.label} className="content-card p-5 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="stat-label">{card.label}</span>
                 <card.icon className={`w-4 h-4 ${card.color}`} />
               </div>
-              <div className="text-2xl font-black text-slate-900">{card.value}</div>
-              <p className="text-2xs text-slate-500">{card.note}</p>
+              <div className="stat-value">{card.value}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Tracked Repositories */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+      <div className="content-card space-y-5">
         <div className="section-header">
           <div>
             <h3 className="section-title">Tracked Repositories</h3>
-            <p className="section-subtitle">
-              Add the repositories fellows work on. Contributions are matched to fellows by the GitHub profile on
-              their application.
-            </p>
           </div>
         </div>
 
@@ -269,7 +255,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
               onChange={(e) => setRepoInput(e.target.value)}
               placeholder="https://github.com/owner/repo or owner/repo"
               disabled={addRepoMutation.isPending}
-              className="w-full pl-9 pr-4 py-2 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-kulkul-purple bg-slate-50/50 disabled:opacity-60"
+              className="form-input pl-9 disabled:opacity-60"
             />
           </div>
           <button
@@ -277,15 +263,15 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
             disabled={addRepoMutation.isPending || !repoInput.trim()}
             className="btn btn-sm btn-primary shrink-0 disabled:opacity-60"
           >
-            {addRepoMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {addRepoMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
             <span>{addRepoMutation.isPending ? 'Adding…' : 'Add Repository'}</span>
           </button>
         </form>
 
         {isAdmin && !data?.github_token_configured && (
-          <p className="text-2xs text-slate-400">
+          <p className="meta-text">
             Only public repositories can be tracked right now, and syncing is limited to a few repositories per hour.
-            Ask your developer to add a GitHub token to the server to track private repositories.
+            {user?.role === 'superadmin' && ' Ask your developer to add a GitHub token to the server to track private repositories.'}
           </p>
         )}
 
@@ -325,7 +311,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
                     type="button"
                     onClick={() => handleRemove(repo)}
                     disabled={removeMutation.isPending}
-                    className="btn btn-sm btn-outline text-rose-600 border-rose-200 hover:bg-rose-50 disabled:opacity-60"
+                    className="btn btn-sm btn-danger-ghost disabled:opacity-60"
                     aria-label={`Stop tracking ${repo.full_name}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -339,7 +325,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
       </div>
 
       {/* Fellow Contributions */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+      <div className="content-card space-y-5">
         <div className="section-header">
           <div>
             <h3 className="section-title">Fellow Contributions</h3>
@@ -393,7 +379,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
                             onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
                             placeholder="username or profile link"
                             disabled={updateGitHubMutation.isPending}
-                            className="w-36 px-2.5 py-1 rounded-lg border border-slate-200 text-2xs focus:outline-none focus:border-kulkul-purple bg-white disabled:opacity-60"
+                            className="form-input w-36 px-2.5 py-1 text-2xs rounded-lg disabled:opacity-60"
                           />
                           <button
                             type="submit"
@@ -429,7 +415,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
                           <button
                             type="button"
                             onClick={() => setEditing({ applicantId: fellow.applicant_id, value: fellow.github_login || '' })}
-                            className="text-slate-300 hover:text-kulkul-purple transition"
+                            className="btn btn-icon-xs btn-ghost"
                             aria-label={`Edit GitHub profile of ${fellow.full_name}`}
                             title="Edit GitHub profile"
                           >
@@ -462,7 +448,7 @@ export const ProgramGitHubActivityView: React.FC<ProgramGitHubActivityViewProps>
                       </td>
                     ))}
                     <td
-                      className={`px-3 py-3.5 text-center font-black ${
+                      className={`px-3 py-3.5 text-center font-extrabold ${
                         fellow.github_login && totalOf(counts) > 0 ? 'text-kulkul-purple' : 'text-slate-300'
                       }`}
                     >

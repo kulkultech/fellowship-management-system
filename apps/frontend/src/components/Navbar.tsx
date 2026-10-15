@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-3 group"
             >
               <img src="/kulkul-logo.svg" alt="FellowHire" className="h-9 sm:h-11 w-auto object-contain transition group-hover:opacity-90" />
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 group-hover:text-kulkul-purple transition leading-none">
+              <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 group-hover:text-kulkul-purple transition leading-none">
                 FellowHire
               </span>
             </Link>
@@ -76,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </a>
               <button
                 onClick={() => navigate('/register-company')}
-                className="hover:text-kulkul-purple transition font-semibold text-sm sm:text-base text-slate-600"
+                className="nav-link"
               >
                 Register Company
               </button>
@@ -102,10 +102,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 onClick={handleLogout}
-                className="btn btn-md btn-secondary"
+                className="btn btn-md btn-outline"
                 title="Sign out of portal"
               >
-                <LogOut className="w-4 h-4 text-white" />
+                <LogOut className="w-4 h-4" />
                 <span>Sign Out</span>
               </button>
             </div>
@@ -124,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       ? '/mentor/dashboard'
                       : '/candidate/dashboard'
                   }
-                  className="btn btn-md bg-purple-50 hover:bg-purple-100 text-kulkul-purple border border-purple-200 shadow-2xs hover:shadow-xs"
+                  className="btn btn-md btn-outline"
                 >
                   {user.role === 'candidate' ? (
                     <User className="w-4 h-4 text-kulkul-orange" />
@@ -155,10 +155,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Sign Out Action */}
               <button
                 onClick={handleLogout}
-                className="btn btn-md btn-secondary"
+                className="btn btn-md btn-outline"
                 title="Sign out"
               >
-                <LogOut className="w-4 h-4 text-white" />
+                <LogOut className="w-4 h-4" />
                 <span>Sign Out</span>
               </button>
             </div>

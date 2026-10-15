@@ -16,7 +16,6 @@ import {
   GitBranch,
   Layers,
   Compass,
-  PenTool,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -435,44 +434,36 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
     >
       {/* Studio Header Toolbar */}
       <div className="bg-white border-b border-slate-100 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
-        {/* Left: Studio Info */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-purple-50 text-kulkul-purple border border-purple-100 flex items-center justify-center shrink-0">
-            <PenTool className="w-4 h-4" />
-          </div>
-          <div className="text-sm font-extrabold text-slate-900">Whiteboard Studio</div>
-        </div>
-
-        {/* Middle: Architecture Templates */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl">
-          <span className="text-xs font-bold text-slate-500 px-2 hidden lg:inline">
+        {/* Left: Architecture Templates */}
+        <div className="flex items-center gap-1.5">
+          <span className="subsection-title px-1 hidden lg:inline">
             Templates:
           </span>
           <button
             type="button"
             onClick={loadMicroservicesTemplate}
-            className="btn btn-sm btn-ghost text-slate-700 hover:text-kulkul-purple hover:bg-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs"
+            className="btn btn-sm btn-outline"
             title="Load Microservices Architecture Diagram"
           >
-            <Layers className="w-4 h-4 text-kulkul-purple" />
+            <Layers className="w-3.5 h-3.5 text-kulkul-purple" />
             <span>Microservices</span>
           </button>
           <button
             type="button"
             onClick={loadCleanArchTemplate}
-            className="btn btn-sm btn-ghost text-slate-700 hover:text-kulkul-purple hover:bg-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs"
+            className="btn btn-sm btn-outline"
             title="Load Clean Architecture Diagram"
           >
-            <FileCode className="w-4 h-4 text-emerald-600" />
+            <FileCode className="w-3.5 h-3.5 text-emerald-600" />
             <span>Clean Arch</span>
           </button>
           <button
             type="button"
             onClick={loadFlowchartTemplate}
-            className="btn btn-sm btn-ghost text-slate-700 hover:text-kulkul-purple hover:bg-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs"
+            className="btn btn-sm btn-outline"
             title="Load Process Flowchart"
           >
-            <GitBranch className="w-4 h-4 text-amber-600" />
+            <GitBranch className="w-3.5 h-3.5 text-amber-600" />
             <span>Flowchart</span>
           </button>
         </div>
@@ -482,41 +473,41 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
           <button
             type="button"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            className="btn btn-sm btn-ghost text-slate-600 hover:bg-slate-100 font-bold rounded-xl flex items-center gap-1.5"
+            className="btn btn-sm btn-ghost"
             title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
           >
             {theme === 'light' ? (
-              <Moon className="w-4 h-4" />
+              <Moon className="w-3.5 h-3.5" />
             ) : (
-              <Sun className="w-4 h-4 text-amber-500" />
+              <Sun className="w-3.5 h-3.5 text-amber-500" />
             )}
-            <span className="hidden sm:inline capitalize text-xs">{theme}</span>
+            <span className="hidden sm:inline capitalize">{theme}</span>
           </button>
 
           <button
             type="button"
             onClick={handleFitToContent}
-            className="btn btn-sm btn-outline border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl flex items-center gap-1.5"
+            className="btn btn-sm btn-outline"
             title="Fit to Content"
           >
-            <Compass className="w-4 h-4 text-slate-500" />
-            <span className="text-xs">Fit Content</span>
+            <Compass className="w-3.5 h-3.5 text-slate-500" />
+            <span>Fit Content</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportJSON}
-            className="btn btn-sm btn-outline border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl flex items-center gap-1.5"
+            className="btn btn-sm btn-outline"
             title="Export Diagram as JSON file"
           >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span className="text-xs">Export</span>
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export</span>
           </button>
 
           <button
             type="button"
             onClick={handleClear}
-            className="btn btn-sm btn-ghost text-rose-600 hover:bg-rose-50 font-bold rounded-xl"
+            className="btn btn-icon-sm btn-ghost-danger"
             title="Clear Canvas"
           >
             <Trash2 className="w-4 h-4" />
@@ -525,7 +516,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
           <button
             type="button"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="btn btn-sm btn-ghost text-slate-600 hover:bg-slate-100 rounded-xl"
+            className="btn btn-icon-sm btn-ghost"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
             {isFullscreen ? (

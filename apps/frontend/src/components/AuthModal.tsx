@@ -85,43 +85,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-kulkul-purple/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="modal-backdrop">
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        {/* Top Gradient Header */}
-        <div className="bg-gradient-to-r from-kulkul-purple via-[#4a1b85] to-kulkul-purple text-white p-6 sm:p-7 relative">
+      <div className="modal-panel max-w-lg animate-in fade-in zoom-in-95 duration-150">
+        {/* Header */}
+        <div className="section-header">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <img src="/kulkul-logo.svg" alt="Logo" className="h-5 w-auto object-contain" />
+              <span className="text-2xs font-bold uppercase tracking-wider text-kulkul-orange">
+                FellowHire
+              </span>
+            </div>
+            <h2 className="section-title">
+              Welcome to the Platform
+            </h2>
+            <p className="section-subtitle">
+              Choose your portal role to sign in or get started.
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition"
+            className="btn btn-icon-sm btn-ghost self-start"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
-
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-8 px-2 py-0.5 rounded-lg bg-white shadow-xs flex items-center justify-center">
-              <img src="/kulkul-logo.svg" alt="Logo" className="h-5 w-auto object-contain" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-kulkul-orange">
-              FellowHire
-            </span>
-          </div>
-
-          <h2 className="text-2xl font-bold tracking-tight text-white">
-            Welcome to the Platform
-          </h2>
-          <p className="text-white/80 text-sm mt-1">
-            Choose your portal role to sign in or get started.
-          </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-2 p-2 bg-slate-50 border-b border-slate-100">
+        <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600">
           <button
             onClick={() => handleTabChange('participant')}
-            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-sm font-bold transition ${
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition ${
               activeTab === 'participant'
-                ? 'bg-white text-kulkul-purple shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'hover:text-slate-900 text-slate-500'
             }`}
           >
             <User className="w-4 h-4" />
@@ -130,10 +129,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <button
             onClick={() => handleTabChange('company')}
-            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-sm font-bold transition ${
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition ${
               activeTab === 'company'
-                ? 'bg-white text-kulkul-purple shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'hover:text-slate-900 text-slate-500'
             }`}
           >
             <Building2 className="w-4 h-4" />
@@ -142,11 +141,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 sm:p-7">
+        <div>
           {activeTab === 'company' ? (
             <div className="space-y-5">
               <div className="text-center space-y-1.5 pb-1">
-                <h3 className="text-lg font-bold text-slate-900">Company Reviewer Portal</h3>
+                <h3 className="card-title">Company Reviewer Portal</h3>
                 <p className="text-xs text-slate-500">
                   Authenticate securely with your organization's Google Workspace account to access fellowship cohorts and candidate pipelines.
                 </p>
@@ -156,9 +155,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleGoogleSignIn('company')}
-                className="w-full flex items-center justify-center gap-3 py-3.5 px-5 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition"
+                className="w-full btn btn-md btn-outline"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -179,7 +178,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <span>Continue with Google Workspace</span>
               </button>
 
-              <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl flex items-start gap-2.5 text-2xs text-slate-600">
+              <div className="panel-muted flex items-start gap-2.5 text-2xs text-slate-600">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
                   Single Sign-On (SSO) active. Only whitelisted company emails and verified administrators are granted workspace access.
@@ -220,9 +219,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleGoogleSignIn('participant')}
-                className="w-full flex items-center justify-center gap-3 py-3.5 px-5 bg-white hover:bg-slate-50 active:scale-[0.98] border border-slate-300 rounded-full text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition"
+                className="w-full btn btn-md btn-outline"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -258,7 +257,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="field-label">
                   Your Full Name
                 </label>
                 <div className="relative">
@@ -270,13 +269,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={candidateName}
                     onChange={(e) => setCandidateName(e.target.value)}
                     placeholder="e.g. Jane Doe"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:border-kulkul-orange focus:ring-2 focus:ring-kulkul-orange/20 outline-none transition"
+                    className="form-input pl-10 pr-4"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="field-label">
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -289,7 +288,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={candidateEmail}
                     onChange={(e) => setCandidateEmail(e.target.value)}
                     placeholder="e.g. jane.doe@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:border-kulkul-orange focus:ring-2 focus:ring-kulkul-orange/20 outline-none transition"
+                    className="form-input pl-10 pr-4"
                   />
                 </div>
               </div>
@@ -297,7 +296,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full text-sm font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-md hover:shadow-lg transition active:scale-[0.98]"
+                  className="w-full btn btn-md btn-primary"
                 >
                   <span>Start Assessment / Intake</span>
                   <ArrowRight className="w-4 h-4" />

@@ -57,7 +57,7 @@ export function ProtectedRoute({ allowedRoles, redirectTo }: ProtectedRouteProps
             <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
               Pending Superadmin Approval
             </span>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-2">
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">
               Application Under Review
             </h2>
             <p className="text-sm text-slate-600 dark:text-zinc-400 mt-2 leading-relaxed">
@@ -92,7 +92,7 @@ export function ProtectedRoute({ allowedRoles, redirectTo }: ProtectedRouteProps
             <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
               Registration Declined
             </span>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-2">
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">
               Company Registration Declined
             </h2>
             <p className="text-sm text-slate-600 dark:text-zinc-400 mt-2 leading-relaxed">

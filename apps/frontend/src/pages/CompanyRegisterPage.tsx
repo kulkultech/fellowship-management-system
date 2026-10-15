@@ -176,19 +176,19 @@ export const CompanyRegisterPage: React.FC = () => {
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {isActivationSent ? (
           /* ACTIVATION EMAIL SENT CONFIRMATION */
-          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-purple-200">
+          <div className="content-card border-purple-200 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300">
             <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 text-kulkul-purple flex items-center justify-center mx-auto shadow-2xs">
               <Mail className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="text-xs font-bold text-kulkul-purple uppercase tracking-wider">
+              <span className="text-2xs font-bold text-kulkul-purple uppercase tracking-wider">
                 Activation Link Dispatched
               </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-4">
+              <h2 className="heading-page mt-4">
                 Verify Your Work Email
               </h2>
-              <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-md mx-auto leading-relaxed">
+              <p className="text-sm text-slate-600 mt-1.5 max-w-md mx-auto leading-relaxed">
                 We've initialized the organization workspace for <strong>{companyName}</strong>. To protect platform integrity, an activation email has been sent to:
               </p>
               <div className="mt-3 font-mono font-bold text-slate-900">
@@ -196,7 +196,7 @@ export const CompanyRegisterPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs sm:text-sm space-y-2.5 text-slate-600">
+            <div className="panel-muted text-left text-xs sm:text-sm space-y-2.5 text-slate-600">
               <div className="flex items-center justify-between font-medium">
                 <span className="text-slate-500">Company Name:</span>
                 <span className="font-bold text-slate-900">{companyName}</span>
@@ -241,24 +241,24 @@ export const CompanyRegisterPage: React.FC = () => {
           </div>
         ) : isSuccess ? (
           /* REGISTRATION SUBMITTED - PENDING APPROVAL CONFIRMATION */
-          <div className="stitch-card bg-white p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl rounded-3xl border border-amber-200">
+          <div className="content-card border-amber-200 text-center max-w-2xl mx-auto space-y-6 animate-in fade-in zoom-in duration-300">
             <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
               <Clock className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+              <span className="text-2xs font-bold text-amber-700 uppercase tracking-wider">
                 Registration Submitted &middot; Pending Review
               </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-3">
+              <h2 className="heading-page mt-3">
                 Application Received!
               </h2>
-              <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-md mx-auto leading-relaxed">
+              <p className="text-sm text-slate-600 mt-1.5 max-w-md mx-auto leading-relaxed">
                 Thank you for registering <strong>{companyName}</strong>. Your company registration has been submitted and is currently pending approval by the platform administrator.
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs sm:text-sm space-y-2.5 text-slate-600">
+            <div className="panel-muted text-left text-xs sm:text-sm space-y-2.5 text-slate-600">
               <div className="flex items-center justify-between font-medium">
                 <span className="text-slate-500">Company Name:</span>
                 <span className="font-bold text-slate-900">{companyName}</span>
@@ -273,7 +273,7 @@ export const CompanyRegisterPage: React.FC = () => {
               </div>
               <div className="flex items-center justify-between font-medium">
                 <span className="text-slate-500">Current Status:</span>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-amber-700">
                   <Clock className="w-3 h-3 text-amber-600" />
                   <span>Pending Approval</span>
                 </span>
@@ -311,7 +311,7 @@ export const CompanyRegisterPage: React.FC = () => {
                   <span>Google Verified: {authUser.email}</span>
                 </div>
               ) : (
-                <span className="text-xs font-bold text-kulkul-purple uppercase tracking-wider">
+                <span className="text-2xs font-bold text-kulkul-purple uppercase tracking-wider">
                   Organization Onboarding
                 </span>
               )}
@@ -319,7 +319,7 @@ export const CompanyRegisterPage: React.FC = () => {
               <h1 className="heading-page">
                 Register Your Company
               </h1>
-              <p className="text-body">
+              <p className="text-sm text-slate-600">
                 Set up your company workspace to host custom MCQ assessments, conversational AI technical interviews, and automated reviewer scorecards.
               </p>
             </div>
@@ -330,17 +330,17 @@ export const CompanyRegisterPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="stitch-card bg-white p-6 sm:p-10 space-y-8">
+            <form onSubmit={handleSubmit} className="content-card space-y-8">
               {/* Section 1: Company Profile */}
               <div>
                 <div className="flex items-center gap-2 pb-3 border-b border-slate-100 mb-6">
                   <Building2 className="w-5 h-5 text-kulkul-purple" />
-                  <h3 className="text-base font-bold text-slate-900">1. Company Profile</h3>
+                  <h3 className="section-title">1. Company Profile</h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="field-label">
                       Company / Organization Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -349,12 +349,12 @@ export const CompanyRegisterPage: React.FC = () => {
                       placeholder="e.g. Acme AI Technologies"
                       value={companyName}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      className="form-input"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="field-label">
                       Company Slug (URL Identifier) <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -364,16 +364,16 @@ export const CompanyRegisterPage: React.FC = () => {
                         placeholder="e.g. acme"
                         value={companySlug}
                         onChange={(e) => setCompanySlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-mono"
+                        className="form-input font-mono"
                       />
                     </div>
-                    <span className="text-[11px] text-slate-400 mt-1.5 block font-mono">
+                    <span className="meta-text mt-1 block font-mono">
                       Public URL: /programs/{companySlug || 'your-company'}/:program_slug
                     </span>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="field-label">
                       Contact / Support Email
                     </label>
                     <input
@@ -381,7 +381,7 @@ export const CompanyRegisterPage: React.FC = () => {
                       placeholder="e.g. talent@acme.ai"
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      className="form-input"
                     />
                   </div>
                 </div>
@@ -392,9 +392,9 @@ export const CompanyRegisterPage: React.FC = () => {
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-6">
                   <div className="flex items-center gap-2">
                     <Upload className="w-5 h-5 text-kulkul-orange" />
-                    <h3 className="text-base font-bold text-slate-900">2. Company Logo (Optional)</h3>
+                    <h3 className="section-title">2. Company Logo (Optional)</h3>
                   </div>
-                  <span className="text-2xs text-slate-400 font-medium">PNG, JPG, SVG, or WebP (max. 5MB)</span>
+                  <span className="meta-text">PNG, JPG, SVG, or WebP (max. 5MB)</span>
                 </div>
 
                 <div>
@@ -404,7 +404,7 @@ export const CompanyRegisterPage: React.FC = () => {
                       <span className="text-xs font-bold text-kulkul-purple">Uploading logo...</span>
                     </div>
                   ) : logoURL ? (
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+                    <div className="panel-muted flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <img
                           src={resolveMediaUrl(logoURL)}
@@ -419,7 +419,7 @@ export const CompanyRegisterPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleRemoveLogo}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition"
+                        className="btn btn-sm btn-danger-ghost"
                       >
                         <X className="w-3.5 h-3.5" />
                         <span>Remove</span>
@@ -450,7 +450,7 @@ export const CompanyRegisterPage: React.FC = () => {
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-6">
                   <div className="flex items-center gap-2">
                     <UserCheck className="w-5 h-5 text-emerald-600" />
-                    <h3 className="text-base font-bold text-slate-900">3. Company Administrator</h3>
+                    <h3 className="section-title">3. Company Administrator</h3>
                   </div>
                   {authUser?.email ? (
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
@@ -461,9 +461,9 @@ export const CompanyRegisterPage: React.FC = () => {
                       type="button"
                       onClick={handleGoogleSignIn}
                       disabled={authLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"
+                      className="btn btn-sm btn-outline"
                     >
-                      <Sparkles className="w-3 h-3 text-kulkul-orange" />
+                      <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
                       <span>Use Google SSO Instead</span>
                     </button>
                   )}
@@ -471,7 +471,7 @@ export const CompanyRegisterPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="field-label">
                       Admin Full Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -480,12 +480,12 @@ export const CompanyRegisterPage: React.FC = () => {
                       placeholder="e.g. Alex Mercer"
                       value={adminName}
                       onChange={(e) => setAdminName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                      className="form-input"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="field-label">
                       Admin Work Email <span className="text-red-500">*</span>
                     </label>
                     {authUser?.email ? (
@@ -494,9 +494,9 @@ export const CompanyRegisterPage: React.FC = () => {
                           type="email"
                           readOnly
                           value={adminEmail}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-sm cursor-not-allowed font-medium"
+                          className="form-input bg-slate-50 text-slate-600 cursor-not-allowed"
                         />
-                        <span className="text-2xs text-emerald-600 font-semibold mt-1.5 block">
+                        <span className="text-2xs text-emerald-600 font-semibold mt-1 block">
                           ✓ Authenticated via Google OAuth
                         </span>
                       </>
@@ -508,9 +508,9 @@ export const CompanyRegisterPage: React.FC = () => {
                           placeholder="e.g. alex@acme.ai"
                           value={adminEmail}
                           onChange={(e) => setAdminEmail(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                          className="form-input"
                         />
-                        <span className="text-2xs text-slate-400 mt-1.5 block">
+                        <span className="meta-text mt-1 block">
                           An activation link will be sent to this email address.
                         </span>
                       </>
@@ -518,7 +518,7 @@ export const CompanyRegisterPage: React.FC = () => {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="field-label">
                       Password {authUser?.email ? '(Optional Fallback)' : '<span className="text-red-500">*</span>'}
                     </label>
                     <div className="relative">
@@ -528,11 +528,11 @@ export const CompanyRegisterPage: React.FC = () => {
                         placeholder={authUser?.email ? 'Optional — you can always log in with Google' : 'Create a secure password (min. 6 characters)'}
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                        className="form-input pl-10 pr-4"
                       />
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     </div>
-                    <span className="text-2xs text-slate-400 mt-1 block">
+                    <span className="meta-text mt-1 block">
                       {authUser?.email
                         ? 'Leave empty to continue using Google Single Sign-On exclusively.'
                         : 'Used to sign in directly to the Reviewer & Administrator portal.'}
@@ -555,7 +555,7 @@ export const CompanyRegisterPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full sm:w-auto btn btn-lg btn-secondary shadow-lg hover:shadow-xl"
+                  className="w-full sm:w-auto btn btn-md btn-primary"
                 >
                   {loading ? (
                     <span>Submitting Registration...</span>

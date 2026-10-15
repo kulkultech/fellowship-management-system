@@ -15,7 +15,6 @@ import {
   Play,
   Award,
   FileText,
-  ShieldCheck,
   Sparkles,
   HelpCircle,
 } from 'lucide-react';
@@ -255,7 +254,7 @@ export const TestPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-kulkul-purple/30 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-base font-bold text-kulkul-purple">Loading Assessment Session...</p>
+          <p className="text-sm font-bold text-kulkul-purple">Loading Assessment Session...</p>
         </div>
       </div>
     );
@@ -264,15 +263,15 @@ export const TestPage: React.FC = () => {
   if (isError || !testSession) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full stitch-card p-8 text-center bg-white">
+        <div className="max-w-md w-full content-card text-center">
           <AlertTriangle className="w-12 h-12 text-kulkul-orange mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Session Expired or Not Found</h2>
+          <h2 className="heading-page mb-2">Session Expired or Not Found</h2>
           <p className="text-slate-600 text-sm mb-6">
             The assessment token could not be verified or has already been evaluated.
           </p>
           <button
             onClick={() => navigate(-1)}
-            className="w-full py-3 px-4 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full shadow transition"
+            className="w-full btn btn-md btn-primary"
           >
             Return to Previous Page
           </button>
@@ -304,7 +303,7 @@ export const TestPage: React.FC = () => {
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
-            <div className="stitch-card bg-white p-8 sm:p-12 text-center border border-slate-200 shadow-xl rounded-3xl space-y-6 animate-in fade-in zoom-in duration-300">
+            <div className="content-card text-center space-y-6 animate-in fade-in zoom-in duration-300">
               <div
                 className={`w-14 h-14 rounded-2xl ${
                   isPassed ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
@@ -314,21 +313,18 @@ export const TestPage: React.FC = () => {
               </div>
 
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-2xs font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 mb-2">
-                  <span>Assessment Recorded</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Thank You for Submitting Your Assessment!
                 </h1>
-                <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-lg mx-auto leading-relaxed">
-                  Your responses for <span className="font-bold text-slate-900">{testSession.track_name || testSession.program_name}</span> have been successfully recorded and evaluated.
+                <p className="text-sm text-slate-600 mt-2 max-w-lg mx-auto leading-relaxed">
+                  Your responses have been successfully recorded and evaluated.
                 </p>
               </div>
 
               {!isPassed ? (
                 <>
                   <div className="p-6 rounded-2xl bg-amber-50/80 border border-amber-200/90 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-amber-800 font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-amber-800 font-bold text-sm">
                       <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                       <span>Assessment Score Evaluated</span>
                     </div>
@@ -342,14 +338,14 @@ export const TestPage: React.FC = () => {
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => navigate(`/result/${testToken}`)}
-                      className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto btn btn-md btn-outline"
                     >
                       <span>View Official Scorecard</span>
                       <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -359,7 +355,7 @@ export const TestPage: React.FC = () => {
               ) : isFormNext ? (
                 <>
                   <div className="p-6 rounded-2xl bg-purple-50/80 border border-purple-200/90 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm">
                       <FileText className="w-5 h-5 text-kulkul-purple shrink-0" />
                       <span>Next Step: Complete Application Profile</span>
                     </div>
@@ -370,7 +366,7 @@ export const TestPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
+                  <div className="panel-muted text-xs text-slate-500 text-left space-y-1.5">
                     <p className="font-bold text-slate-700">Next step instructions:</p>
                     <ul className="list-disc list-inside space-y-1 text-slate-600">
                       <li>You will provide your personal details, academic background, and upload your resume.</li>
@@ -382,7 +378,7 @@ export const TestPage: React.FC = () => {
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -391,7 +387,7 @@ export const TestPage: React.FC = () => {
                     {submitResult?.redirect_url && (
                       <button
                         onClick={() => navigate(submitResult.redirect_url!)}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full sm:w-auto btn btn-md btn-outline"
                       >
                         <span>Fill Application Form Now</span>
                         <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -402,7 +398,7 @@ export const TestPage: React.FC = () => {
               ) : isAIInterviewNext ? (
                 <>
                   <div className="p-6 rounded-2xl bg-purple-50/80 border border-purple-200/90 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm">
                       <Sparkles className="w-5 h-5 text-kulkul-orange shrink-0" />
                       <span>Next Step: Interactive AI Technical Screening</span>
                     </div>
@@ -413,20 +409,10 @@ export const TestPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
-                    <p className="font-bold text-slate-700">Before entering the AI screening chamber:</p>
-                    <ul className="list-disc list-inside space-y-1 text-slate-600">
-                      <li>Use a laptop or desktop computer with a supported browser (Chrome or Edge).</li>
-                      <li>Verify your webcam and microphone permissions before starting.</li>
-                      <li>Find a quiet, well-lit room free from background noise and distractions.</li>
-                      <li>Take the interview at your convenience &mdash; your session is saved in your Candidate Dashboard.</li>
-                    </ul>
-                  </div>
-
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs sm:text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -435,7 +421,7 @@ export const TestPage: React.FC = () => {
                     {submitResult?.ai_interview_invite_token && (
                       <button
                         onClick={() => navigate(`/interview/${submitResult.ai_interview_invite_token}`)}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full sm:w-auto btn btn-md btn-outline"
                       >
                         <span>Start AI Interview Now</span>
                         <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -446,7 +432,7 @@ export const TestPage: React.FC = () => {
               ) : (
                 <>
                   <div className="p-6 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm">
                       <Mail className="w-5 h-5 text-kulkul-purple shrink-0" />
                       <span>Submission Confirmation &amp; Results Emailed</span>
                     </div>
@@ -456,7 +442,7 @@ export const TestPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
+                  <div className="panel-muted text-xs text-slate-500 text-left space-y-1.5">
                     <p className="font-medium text-slate-700">What happens next:</p>
                     <ul className="list-disc list-inside space-y-1 text-slate-600">
                       <li>Our admissions committee will review your submission and assessment performance.</li>
@@ -467,7 +453,7 @@ export const TestPage: React.FC = () => {
                   <div className="pt-2 flex items-center justify-center">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -508,7 +494,7 @@ export const TestPage: React.FC = () => {
               <div className="flex items-center gap-3">
                 {user?.email && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
-                    <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-black">
+                    <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-extrabold">
                       {(user.name || user.email || 'C').charAt(0).toUpperCase()}
                     </div>
                     <span className="max-w-[130px] truncate">{user.name || user.email}</span>
@@ -517,7 +503,7 @@ export const TestPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/candidate/dashboard')}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-full hover:bg-slate-100 transition"
+                  className="btn btn-sm btn-ghost"
                 >
                   Dashboard
                 </button>
@@ -526,19 +512,19 @@ export const TestPage: React.FC = () => {
           </header>
 
           <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center">
-            <div className="stitch-card bg-white p-6 sm:p-10 border border-slate-200/80 shadow-xl rounded-3xl space-y-8 animate-in fade-in duration-300">
+            <div className="content-card space-y-8 animate-in fade-in duration-300">
               {/* Header Badge & Title */}
               <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   {testSession.track_name ? `${testSession.track_name} Aptitude Assessment` : 'Technical & Logic Assessment'}
                 </h1>
-                <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-2xl leading-relaxed">
+                <p className="text-sm text-slate-600 mt-2 max-w-2xl leading-relaxed">
                   Welcome! Before you begin your timed screening assessment for <span className="font-bold text-slate-900">{testSession.program_name}</span>, please review the session structure, duration, and rules below.
                 </p>
               </div>
 
-              {/* 4 Metric Highlight Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              {/* 3 Metric Highlight Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 {/* 1. Duration */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-3">
@@ -548,7 +534,7 @@ export const TestPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                    <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                       {testSession.duration_minutes} <span className="text-xs sm:text-sm font-bold text-slate-600">min</span>
                     </div>
                     <p className="text-2xs sm:text-xs text-amber-900/70 mt-1 font-medium">Non-stop timer</p>
@@ -564,7 +550,7 @@ export const TestPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                    <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                       {testSession.question_count || questions.length} <span className="text-xs sm:text-sm font-bold text-slate-600">items</span>
                     </div>
                     <p className="text-2xs sm:text-xs text-kulkul-purple/70 mt-1 font-medium">Multiple choice</p>
@@ -580,76 +566,43 @@ export const TestPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
+                    <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                       {testSession.passing_score ?? 70}%
                     </div>
                     <p className="text-2xs sm:text-xs text-emerald-800/70 mt-1 font-medium">Required to qualify</p>
                   </div>
                 </div>
-
-                {/* 4. Attempts */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-2xs font-extrabold text-indigo-800 uppercase tracking-wider">Attempts</span>
-                    <div className="w-8 h-8 rounded-xl bg-indigo-100/90 flex items-center justify-center text-indigo-700">
-                      <ShieldCheck className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                      1 <span className="text-xs sm:text-sm font-bold text-slate-600">sitting</span>
-                    </div>
-                    <p className="text-2xs sm:text-xs text-indigo-800/70 mt-1 font-medium">Single attempt only</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Candidate Details Strip */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-kulkul-purple text-white font-black flex items-center justify-center text-sm shrink-0">
-                    {(testSession.candidate_name || user?.name || 'C').charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-900 text-sm">{testSession.candidate_name || user?.name || 'Candidate'}</div>
-                    <div className="text-slate-500 text-xs">{testSession.candidate_email}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 font-semibold self-start sm:self-center text-xs">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Verified Candidate Session</span>
-                </div>
               </div>
 
               {/* Instructions & Guidelines */}
               <div className="space-y-4 pt-2">
-                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <h2 className="section-title flex items-center gap-2">
                   <HelpCircle className="w-5 h-5 text-kulkul-purple" />
                   <span>Important Instructions &amp; Rules</span>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs sm:text-sm text-slate-700">
-                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
                     <div>
                       <strong className="text-slate-900 block font-bold mb-0.5">Continuous Countdown</strong>
-                      Once you click &quot;Begin Timed Assessment&quot;, your {testSession.duration_minutes}-minute timer starts immediately and cannot be paused.
+                      Once you click &quot;Begin Timed Assessment&quot;, your timer starts immediately and cannot be paused.
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
                     <div>
                       <strong className="text-slate-900 block font-bold mb-0.5">Free Question Navigation</strong>
                       You can navigate freely between questions using the question selector or Previous / Next buttons at any point.
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</div>
                     <div>
                       <strong className="text-slate-900 block font-bold mb-0.5">Automatic Submission</strong>
                       When the countdown timer reaches 00:00, all answered questions will be automatically submitted for scoring.
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">4</div>
                     <div>
                       <strong className="text-slate-900 block font-bold mb-0.5">No Negative Marking</strong>
@@ -677,7 +630,7 @@ export const TestPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/candidate/dashboard')}
-                    className="w-full sm:w-auto btn btn-lg btn-ghost"
+                    className="w-full sm:w-auto btn btn-md btn-ghost"
                   >
                     Take Assessment Later
                   </button>
@@ -686,7 +639,7 @@ export const TestPage: React.FC = () => {
                     type="button"
                     disabled={!isReadyConfirmed || startMutation.isPending}
                     onClick={() => startMutation.mutate()}
-                    className="w-full sm:w-auto btn btn-lg btn-primary shadow-md hover:shadow-lg"
+                    className="w-full sm:w-auto btn btn-md btn-primary"
                   >
                     {startMutation.isPending ? (
                       <>
@@ -717,8 +670,8 @@ export const TestPage: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <img src="/kulkul-logo.svg" alt="Kulkul" className="h-10 sm:h-12 w-auto object-contain" />
                   <div className="hidden sm:flex flex-col">
-                    <span className="font-extrabold text-kulkul-purple text-base">{testSession.program_name}</span>
-                    <div className="text-xs text-slate-500 font-medium">Timed Logic Assessment &middot; 1 Attempt Only</div>
+                    <span className="font-extrabold text-kulkul-purple text-sm">{testSession.program_name}</span>
+                    <div className="text-2xs text-slate-500 font-medium">Timed Logic Assessment &middot; 1 Attempt Only</div>
                   </div>
                 </div>
 
@@ -726,7 +679,7 @@ export const TestPage: React.FC = () => {
                   {/* Candidate Info (if authenticated) */}
                   {user?.email && (
                     <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
-                      <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-black">
+                      <div className="w-5 h-5 rounded-full bg-kulkul-purple text-white flex items-center justify-center text-2xs font-extrabold">
                         {(user.name || user.email || 'C').charAt(0).toUpperCase()}
                       </div>
                       <span className="max-w-[130px] truncate">{user.name || user.email}</span>
@@ -763,7 +716,7 @@ export const TestPage: React.FC = () => {
           {/* Main Content Area */}
           <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col gap-6">
             {/* Progress & Stepper */}
-            <div className="stitch-card p-5 bg-white">
+            <div className="content-card">
               <div className="flex items-center justify-between text-sm font-bold text-kulkul-purple mb-3">
                 <span>
                   Question {currentIndex + 1} of {questions.length}
@@ -799,10 +752,10 @@ export const TestPage: React.FC = () => {
 
             {/* Current Question Card */}
             {currentQ && (
-              <div className="stitch-card p-6 sm:p-8 bg-white flex flex-col">
+              <div className="content-card flex flex-col">
                 {/* Category & Points */}
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-kulkul-purple-light text-kulkul-purple text-xs font-bold uppercase tracking-wider">
+                  <span className="text-2xs font-bold uppercase tracking-wider text-kulkul-purple">
                     {currentQ.category}
                   </span>
                   <span className="text-xs font-bold text-slate-400">{currentQ.points} Points</span>
@@ -828,7 +781,7 @@ export const TestPage: React.FC = () => {
                         }`}
                       >
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 transition ${
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold uppercase shrink-0 transition ${
                             isSelected
                               ? 'bg-kulkul-orange text-white shadow-sm'
                               : 'bg-slate-100 text-slate-600 border border-slate-300'
@@ -868,7 +821,7 @@ export const TestPage: React.FC = () => {
                       type="button"
                       onClick={handleSubmit}
                       disabled={submitMutation.isPending}
-                      className="btn btn-md btn-secondary"
+                      className="btn btn-md btn-primary"
                     >
                       <span>Submit Assessment</span>
                       <CheckCircle2 className="w-4 h-4" />

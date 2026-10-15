@@ -17,7 +17,6 @@ import {
   AlertCircle,
   ExternalLink,
   Building2,
-  Laptop,
   Mail,
   Lock,
   User,
@@ -72,13 +71,12 @@ export const CandidateDashboardPage: React.FC = () => {
   const { user: authUser, logout: authLogout, login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  type CandidateTab = 'home' | 'applications' | 'assessments' | 'ai_interview' | 'program_room' | 'calendar' | 'credentials';
+  type CandidateTab = 'home' | 'applications' | 'assessments' | 'ai_interview' | 'calendar' | 'credentials';
   const [activeTab, setActiveTab] = useState<CandidateTab>(() => {
     const tab = searchParams.get('tab');
     return tab === 'applications' ||
       tab === 'assessments' ||
       tab === 'ai_interview' ||
-      tab === 'program_room' ||
       tab === 'calendar' ||
       tab === 'credentials'
       ? tab
@@ -271,14 +269,14 @@ export const CandidateDashboardPage: React.FC = () => {
           <div className="max-w-md w-full">
             {activationPendingEmail ? (
               /* Activation Confirmation Screen */
-              <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6 animate-in fade-in">
+              <div className="content-card text-center space-y-6 animate-in fade-in">
                 <div className="w-16 h-16 mx-auto rounded-full bg-purple-100 flex items-center justify-center text-kulkul-purple">
                   <Mail className="w-8 h-8" />
                 </div>
 
                 <div>
                   <h1 className="heading-page">Check Your Email</h1>
-                  <p className="text-body-sm mt-2 text-slate-600">
+                  <p className="text-sm text-slate-600 mt-2">
                     We sent an account activation link to:
                   </p>
                   <p className="font-bold text-slate-900 mt-1 break-all">
@@ -286,12 +284,12 @@ export const CandidateDashboardPage: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 text-left space-y-2">
+                <div className="panel-muted text-xs text-slate-600 text-left space-y-2">
                   <div className="flex items-start gap-2">
                     <Sparkles className="w-4 h-4 text-kulkul-purple shrink-0 mt-0.5" />
                     <span>Click the activation link in your email to verify your account and start tracking your applications.</span>
                   </div>
-                  <div className="text-2xs text-slate-400">
+                  <div className="meta-text">
                     The link is valid for 24 hours. Don't see it? Check your spam or promotions folder.
                   </div>
                 </div>
@@ -306,7 +304,7 @@ export const CandidateDashboardPage: React.FC = () => {
                     type="button"
                     onClick={() => handleResendActivation(activationPendingEmail)}
                     disabled={isResending}
-                    className="w-full btn btn-md btn-outline gap-2"
+                    className="w-full btn btn-md btn-outline"
                   >
                     <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
                     <span>{isResending ? 'Resending...' : 'Resend Activation Email'}</span>
@@ -321,7 +319,7 @@ export const CandidateDashboardPage: React.FC = () => {
                       setCandidateAuthMode('signin');
                       setCandidateAuthTab('password');
                     }}
-                    className="text-xs font-bold text-kulkul-purple hover:underline"
+                    className="btn btn-sm btn-ghost"
                   >
                     &larr; Return to Sign In
                   </button>
@@ -329,10 +327,10 @@ export const CandidateDashboardPage: React.FC = () => {
               </div>
             ) : (
               /* Main Auth Card */
-              <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+              <div className="content-card text-center space-y-6">
                 <div>
                   <h1 className="heading-page">Candidate Portal</h1>
-                  <p className="text-body-sm mt-2">
+                  <p className="text-sm text-slate-600 mt-2">
                     Access your fellowship applications, logic assessments, and AI screening results.
                   </p>
                 </div>
@@ -403,9 +401,9 @@ export const CandidateDashboardPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleGoogleSignIn}
-                          className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
+                          className="w-full btn btn-md btn-outline"
                         >
-                          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                             <path
                               fill="#4285F4"
                               d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -429,7 +427,7 @@ export const CandidateDashboardPage: React.FC = () => {
                     ) : (
                       <form onSubmit={handlePasswordSignIn} className="space-y-4 text-left pt-1">
                         <div>
-                          <label className="form-label">Email Address</label>
+                          <label className="field-label">Email Address</label>
                           <div className="relative">
                             <input
                               type="email"
@@ -437,18 +435,18 @@ export const CandidateDashboardPage: React.FC = () => {
                               placeholder="e.g. candidate@example.com"
                               value={formEmail}
                               onChange={(e) => setFormEmail(e.target.value)}
-                              className="w-full pl-10 pr-4 input-md"
+                              className="form-input pl-10 pr-4"
                             />
-                            <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                            <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           </div>
                         </div>
 
                         <div>
                           <div className="flex items-center justify-between mb-1">
-                            <label className="form-label mb-0">Password</label>
+                            <label className="field-label mb-0">Password</label>
                             <Link
                               to="/forgot-password"
-                              className="text-xs font-semibold text-primary hover:text-primary-dark hover:underline transition"
+                              className="text-xs font-semibold text-kulkul-purple hover:underline transition"
                             >
                               Forgot password?
                             </Link>
@@ -460,9 +458,9 @@ export const CandidateDashboardPage: React.FC = () => {
                               placeholder="Your password"
                               value={formPassword}
                               onChange={(e) => setFormPassword(e.target.value)}
-                              className="w-full pl-10 pr-4 input-md"
+                              className="form-input pl-10 pr-4"
                             />
-                            <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                            <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           </div>
                         </div>
 
@@ -484,9 +482,9 @@ export const CandidateDashboardPage: React.FC = () => {
                                 type="button"
                                 onClick={() => handleResendActivation(unverifiedEmail)}
                                 disabled={isResending}
-                                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs rounded-xl transition disabled:opacity-60"
+                                className="w-full btn btn-sm btn-outline"
                               >
-                                <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
                                 <span>{isResending ? 'Resending...' : 'Resend Activation Email'}</span>
                               </button>
                             )}
@@ -496,7 +494,7 @@ export const CandidateDashboardPage: React.FC = () => {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="w-full btn btn-lg btn-primary"
+                          className="w-full btn btn-md btn-primary"
                         >
                           {isSubmitting ? (
                             <span>Signing in...</span>
@@ -517,9 +515,9 @@ export const CandidateDashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleGoogleSignIn}
-                      className="w-full btn btn-lg btn-outline gap-3 text-slate-800"
+                      className="w-full btn btn-md btn-outline"
                     >
-                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path
                           fill="#4285F4"
                           d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -542,7 +540,7 @@ export const CandidateDashboardPage: React.FC = () => {
 
                     <div className="relative flex py-1 items-center">
                       <div className="flex-grow border-t border-slate-200"></div>
-                      <span className="flex-shrink mx-3 text-2xs font-bold text-slate-400 uppercase tracking-wider">
+                      <span className="flex-shrink mx-3 subsection-title">
                         Or register with email
                       </span>
                       <div className="flex-grow border-t border-slate-200"></div>
@@ -550,7 +548,7 @@ export const CandidateDashboardPage: React.FC = () => {
 
                     <form onSubmit={handleRegisterCandidate} className="space-y-4 text-left">
                       <div>
-                        <label className="form-label">Full Name</label>
+                        <label className="field-label">Full Name</label>
                         <div className="relative">
                           <input
                             type="text"
@@ -558,14 +556,14 @@ export const CandidateDashboardPage: React.FC = () => {
                             placeholder="e.g. Jane Doe"
                             value={formName}
                             onChange={(e) => setFormName(e.target.value)}
-                            className="w-full pl-10 pr-4 input-md"
+                            className="form-input pl-10 pr-4"
                           />
-                          <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="form-label">Email Address</label>
+                        <label className="field-label">Email Address</label>
                         <div className="relative">
                           <input
                             type="email"
@@ -573,14 +571,14 @@ export const CandidateDashboardPage: React.FC = () => {
                             placeholder="e.g. jane.doe@example.com"
                             value={formEmail}
                             onChange={(e) => setFormEmail(e.target.value)}
-                            className="w-full pl-10 pr-4 input-md"
+                            className="form-input pl-10 pr-4"
                           />
-                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="form-label">Create Password</label>
+                        <label className="field-label">Create Password</label>
                         <div className="relative">
                           <input
                             type="password"
@@ -588,9 +586,9 @@ export const CandidateDashboardPage: React.FC = () => {
                             placeholder="At least 8 characters"
                             value={formPassword}
                             onChange={(e) => setFormPassword(e.target.value)}
-                            className="w-full pl-10 pr-4 input-md"
+                            className="form-input pl-10 pr-4"
                           />
-                          <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         </div>
                       </div>
 
@@ -604,7 +602,7 @@ export const CandidateDashboardPage: React.FC = () => {
                       <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="w-full btn btn-lg btn-primary"
+                        className="w-full btn btn-md btn-primary"
                       >
                         {isSubmitting ? (
                           <span>Creating Account...</span>
@@ -641,11 +639,8 @@ export const CandidateDashboardPage: React.FC = () => {
     (a) => a.current_stage === 'approved_for_live' && Boolean(a.program_room_invited_at)
   );
 
-  const singleRoomUrl =
-    acceptedCohortApps.length === 1
-      ? acceptedCohortApps[0].redirect_url ||
-        `/programs/${acceptedCohortApps[0].org_slug}/${acceptedCohortApps[0].program_slug}/room`
-      : null;
+  const roomUrl = (a: CandidateApplicationItem) =>
+    a.redirect_url || `/programs/${a.org_slug}/${a.program_slug}/room`;
 
   const navItems: NavItem[] = [
     {
@@ -682,14 +677,14 @@ export const CandidateDashboardPage: React.FC = () => {
             icon: GraduationCap,
             badge: acceptedCohortApps.length,
             badgeColor: 'bg-emerald-100 text-emerald-800',
-            onClick: singleRoomUrl ? () => navigate(singleRoomUrl) : undefined,
+            // Opens the (first) room; with several rooms the children list each one
+            onClick: () => navigate(roomUrl(acceptedCohortApps[0])),
             children:
               acceptedCohortApps.length > 1
                 ? acceptedCohortApps.map((a) => ({
                     id: `room-${a.program_id}`,
                     label: a.program_name,
-                    onClick: () =>
-                      navigate(a.redirect_url || `/programs/${a.org_slug}/${a.program_slug}/room`),
+                    onClick: () => navigate(roomUrl(a)),
                   }))
                 : undefined,
           },
@@ -714,7 +709,6 @@ export const CandidateDashboardPage: React.FC = () => {
     applications: 'My Applications',
     assessments: 'Logic MCQ Tests',
     ai_interview: 'AI Technical Screen',
-    program_room: 'Program Room',
     calendar: 'Calendar',
     credentials: 'Badges & Certificates',
   };
@@ -736,6 +730,10 @@ export const CandidateDashboardPage: React.FC = () => {
     )
     .slice(0, 8);
   const firstName = candidateName.split(' ')[0];
+  const showAppProgram = applications.length > 1;
+  const showEventProgram = schedulePrograms.length > 1;
+  const mcqApps = applications.filter((a) => a.test_token || a.test_status);
+  const interviewApps = applications.filter((a) => a.interview_token || a.interview_status);
 
   return (
     <DashboardLayout
@@ -757,7 +755,7 @@ export const CandidateDashboardPage: React.FC = () => {
                 <Building2 className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-900">
+                <h4 className="card-title">
                   Company Administrator Session Active ({authUser.role})
                 </h4>
                 <p className="text-xs text-slate-600 mt-0.5">
@@ -798,16 +796,7 @@ export const CandidateDashboardPage: React.FC = () => {
                 <div className="section-header">
                   <div>
                     <h3 className="section-title">What&apos;s next</h3>
-                    <p className="section-subtitle">Your next steps, upcoming sessions, and assignment deadlines.</p>
                   </div>
-                  {schedulePrograms.length > 0 && (
-                    <div className="section-actions">
-                      <button type="button" onClick={() => setActiveTab('calendar')} className="btn btn-sm btn-outline">
-                        <CalendarDays className="w-3.5 h-3.5" />
-                        <span>Open Calendar</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 {isLoading || isLoadingSchedule ? (
@@ -839,7 +828,9 @@ export const CandidateDashboardPage: React.FC = () => {
                               {actionLabels[app.next_step!].title}
                             </span>
                           </div>
-                          <div className="text-2xs text-slate-500 mt-0.5 truncate">{app.program_name}</div>
+                          {showAppProgram && (
+                            <div className="text-2xs text-slate-500 mt-0.5 truncate">{app.program_name}</div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Link to={app.redirect_url!} className="btn btn-sm btn-primary">
@@ -853,6 +844,12 @@ export const CandidateDashboardPage: React.FC = () => {
                       const start = new Date(item.start);
                       const isLive =
                         item.kind === 'session' && item.end && start.getTime() <= nowMs && new Date(item.end).getTime() >= nowMs;
+                      const metaLine = [
+                        showEventProgram ? item.programName : '',
+                        item.kind === 'assignment' ? 'Assignment deadline' : item.subtitle || '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ');
                       return (
                         <li key={`${item.kind}-${item.id}`} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
                           <div className="sm:w-36 shrink-0">
@@ -879,10 +876,7 @@ export const CandidateDashboardPage: React.FC = () => {
                               <span className="text-sm font-bold text-slate-900 truncate">{item.title}</span>
                               {isLive && <span className="text-2xs font-bold text-emerald-700 shrink-0">Live now</span>}
                             </div>
-                            <div className="text-2xs text-slate-500 mt-0.5 truncate">
-                              {item.programName}
-                              {item.kind === 'assignment' ? ' · Assignment deadline' : item.subtitle ? ` · ${item.subtitle}` : ''}
-                            </div>
+                            {metaLine && <div className="text-2xs text-slate-500 mt-0.5 truncate">{metaLine}</div>}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {item.kind === 'session' && item.meetingUrl && (
@@ -903,10 +897,8 @@ export const CandidateDashboardPage: React.FC = () => {
 
                     {waitingItems.map((app) => (
                       <li key={`waiting-${app.applicant_id}`} className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
-                        <div className="sm:w-36 shrink-0">
-                          <div className="text-xs font-bold text-slate-900">In review</div>
-                          <div className="text-2xs text-slate-500">No action needed</div>
-                        </div>
+                        {/* The title already says the state; keep the column only for alignment */}
+                        <div className="hidden sm:block sm:w-36 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-slate-400 shrink-0" />
@@ -916,7 +908,9 @@ export const CandidateDashboardPage: React.FC = () => {
                                 : 'Your application is being reviewed'}
                             </span>
                           </div>
-                          <div className="text-2xs text-slate-500 mt-0.5 truncate">{app.program_name}</div>
+                          {showAppProgram && (
+                            <div className="text-2xs text-slate-500 mt-0.5 truncate">{app.program_name}</div>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -952,16 +946,16 @@ export const CandidateDashboardPage: React.FC = () => {
           {activeTab === 'applications' && (
             <div className="space-y-6">
               {isLoading ? (
-                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center">
+                <div className="content-card p-12 text-center">
                   <div className="w-10 h-10 border-4 border-kulkul-purple border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                   <p className="text-sm text-slate-500 font-medium">Loading your applications...</p>
                 </div>
               ) : applications.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center">
+                <div className="content-card p-12 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-4">
                     <AlertCircle className="w-7 h-7" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">No applications found</h3>
+                  <h3 className="section-title">No applications found</h3>
                   <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
                     We didn't find any fellowship applications associated with <span className="font-semibold text-slate-700">{authUser?.email}</span>. Please use the application link shared by the company to apply.
                   </p>
@@ -971,9 +965,9 @@ export const CandidateDashboardPage: React.FC = () => {
                   {applications.map((app) => (
                     <div
                       key={app.applicant_id}
-                      className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs hover:shadow-md transition"
+                      className="content-card hover:shadow-md transition"
                     >
-                      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+                      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                         <div className="flex items-start gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 font-bold text-lg shadow-2xs">
                             {app.org_logo_url ? (
@@ -988,7 +982,7 @@ export const CandidateDashboardPage: React.FC = () => {
                           </div>
                           <div>
                             <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <h3 className="text-xl font-bold text-slate-900">{app.program_name}</h3>
+                              <h3 className="section-title">{app.program_name}</h3>
                               {app.track_name && (
                                 <span className="inline-flex items-center text-xs font-bold text-kulkul-purple">
                                   {app.track_name}
@@ -1014,11 +1008,11 @@ export const CandidateDashboardPage: React.FC = () => {
                                   navigate(`/programs/${app.org_slug}/${app.program_slug}/apply`);
                                 }
                               }}
-                              className="w-full lg:w-auto btn btn-md btn-primary"
+                              className="w-full lg:w-auto btn btn-sm btn-primary"
                             >
-                              <FileText className="w-4 h-4 text-kulkul-orange" />
+                              <FileText className="w-3.5 h-3.5 text-kulkul-orange" />
                               <span>Complete Profile Form</span>
-                              <ArrowRight className="w-4 h-4" />
+                              <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           )}
 
@@ -1034,42 +1028,25 @@ export const CandidateDashboardPage: React.FC = () => {
                                   navigate(`/programs/${app.org_slug}/${app.program_slug}/apply`);
                                 }
                               }}
-                              className="w-full lg:w-auto btn btn-md btn-secondary"
+                              className="w-full lg:w-auto btn btn-sm btn-primary"
                             >
                               <span>Take Timed Test</span>
-                              <ArrowRight className="w-4 h-4" />
+                              <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           )}
 
                           {/* Case 3: Needs to take AI interview */}
                           {app.interview_token && (app.next_step === 'ai_interview' || app.current_stage === 'ai_interview_invited') && (
-                            <div className="flex flex-col sm:items-end gap-1.5 w-full lg:w-auto">
-                              <button
-                                onClick={() => navigate(`/interview/${app.interview_token}`)}
-                                className="w-full lg:w-auto btn btn-md btn-primary animate-pulse"
-                              >
-                                <Terminal className="w-4 h-4 text-kulkul-orange" />
-                                <span>Join AI Interview Room</span>
-                              </button>
-                              <span className="text-3xs text-slate-500 font-medium flex items-center gap-1">
-                                <Laptop className="w-3 h-3 text-kulkul-purple" />
-                                <span>Laptop/Desktop &amp; Chrome/Edge required</span>
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Case 4: View Scorecard (when test is completed and not pending form completion) */}
-                          {app.test_token && (app.current_stage === 'test_completed' || app.current_stage === 'test_failed') && app.next_step !== 'fill_form' && (
                             <button
-                              onClick={() => navigate(`/result/${app.test_token}`)}
-                              className="w-full lg:w-auto btn btn-md btn-outline text-kulkul-purple border-kulkul-purple/20"
+                              onClick={() => navigate(`/interview/${app.interview_token}`)}
+                              className="w-full lg:w-auto btn btn-sm btn-primary animate-pulse"
                             >
-                              <span>View Scorecard</span>
-                              <ExternalLink className="w-4 h-4" />
+                              <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
+                              <span>Join AI Interview Room</span>
                             </button>
                           )}
 
-                          {/* Case 5: Approved for Live Cohort / Program Room */}
+                          {/* Case 4: Approved for Live Cohort / Program Room */}
                           {app.current_stage === 'approved_for_live' && (
                             app.program_room_invited_at ? (
                               <button
@@ -1080,11 +1057,11 @@ export const CandidateDashboardPage: React.FC = () => {
                                     navigate(`/programs/${app.org_slug}/${app.program_slug}/room`);
                                   }
                                 }}
-                                className="w-full lg:w-auto btn btn-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 flex items-center gap-2"
+                                className="w-full lg:w-auto btn btn-sm btn-primary"
                               >
-                                <Sparkles className="w-4 h-4 text-emerald-200" />
+                                <Sparkles className="w-3.5 h-3.5" />
                                 <span>Enter Program Room</span>
-                                <ArrowRight className="w-4 h-4" />
+                                <ArrowRight className="w-3.5 h-3.5" />
                               </button>
                             ) : (
                               <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
@@ -1093,58 +1070,6 @@ export const CandidateDashboardPage: React.FC = () => {
                               </div>
                             )
                           )}
-                        </div>
-                      </div>
-
-                      {/* Celebratory Banner for Accepted Fellows */}
-                      {app.current_stage === 'approved_for_live' && (
-                        <div className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 border border-emerald-200/80 flex items-center justify-between gap-4">
-                          <div className="flex items-start sm:items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                              <Sparkles className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-extrabold text-slate-900">
-                                Congratulations! You have been accepted into the Fellowship Cohort!
-                              </h4>
-                              <p className="text-xs text-slate-600 mt-0.5">
-                                {app.program_room_invited_at
-                                  ? 'Your Program Room has been unlocked! Use the "Enter Program Room" button above to access onboarding materials, schedules, and cohort channels.'
-                                  : 'Our admissions committee has officially accepted your application. Your Program Room invitation email is currently being prepared.'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Detailed Metric Strips */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
-                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                          <div className="text-2xs font-bold uppercase tracking-wider text-slate-500">Logic Assessment Score</div>
-                          <div className="text-xl font-extrabold text-slate-900 mt-1">
-                            {app.test_status === 'completed' ? `${app.test_score}%` : 'Not Completed'}
-                          </div>
-                          <div className="text-2xs text-slate-500 mt-0.5">
-                            {app.test_passed ? 'Cleared passing mark' : app.test_status === 'completed' ? 'Below passing mark' : 'Pending test start'}
-                          </div>
-                        </div>
-
-                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                          <div className="text-2xs font-bold uppercase tracking-wider text-slate-500">AI Screening Evaluation</div>
-                          <div className="text-xl font-extrabold text-slate-900 mt-1">
-                            {app.interview_status === 'completed' ? `${app.interview_score}/100` : app.interview_token ? 'Invited' : 'Pending'}
-                          </div>
-                          <div className="text-2xs text-slate-500 mt-0.5">
-                            {app.interview_status === 'completed' ? 'Evaluated by AI Screener' : 'Technical conversation gate'}
-                          </div>
-                        </div>
-
-                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                          <div className="text-2xs font-bold uppercase tracking-wider text-slate-500">Selection Status</div>
-                          <div className="text-xl font-extrabold text-kulkul-purple mt-1 capitalize">
-                            {app.current_stage.replace(/_/g, ' ')}
-                          </div>
-                          <div className="text-2xs text-slate-500 mt-0.5">Reviewed by program committee</div>
                         </div>
                       </div>
                     </div>
@@ -1159,42 +1084,47 @@ export const CandidateDashboardPage: React.FC = () => {
           {/* ========================================================================= */}
           {activeTab === 'assessments' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {applications.map((app) => (
-                  <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      {app.track_name ? (
-                        <span className="text-xs font-bold text-kulkul-purple">
-                          {app.track_name}
+              {mcqApps.length === 0 ? (
+                <div className="content-card p-12 text-center">
+                  <p className="text-sm text-slate-500">No Logic MCQ tests yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {mcqApps.map((app) => (
+                    <div key={app.applicant_id} className="content-card space-y-4">
+                      <div className="flex items-center justify-between">
+                        {app.track_name ? (
+                          <span className="text-xs font-bold text-kulkul-purple">
+                            {app.track_name}
+                          </span>
+                        ) : <span />}
+                        {getStageBadge(app.current_stage, app.test_passed)}
+                      </div>
+
+                      <div>
+                        <h3 className="section-title">{app.program_name}</h3>
+                      </div>
+
+                      <div className="panel-muted p-4 sm:p-4 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 font-semibold">Your Score:</span>
+                        <span className={`text-base font-extrabold ${app.test_passed ? 'text-emerald-600' : 'text-slate-700'}`}>
+                          {app.test_status === 'completed' ? `${app.test_score}%` : 'Not Completed'}
                         </span>
-                      ) : <span />}
-                      {getStageBadge(app.current_stage, app.test_passed)}
-                    </div>
+                      </div>
 
-                    <div>
-                      <h3 className="font-extrabold text-slate-900 text-lg">{app.program_name}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">30-Minute Timed Logic & Technical Evaluation</p>
+                      {app.test_token && (
+                        <button
+                          onClick={() => navigate(app.test_status === 'completed' ? `/result/${app.test_token}` : `/test/${app.test_token}`)}
+                          className="w-full btn btn-sm btn-primary"
+                        >
+                          <span>{app.test_status === 'completed' ? 'View Itemized Scorecard' : 'Start Logic Assessment'}</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-slate-500 font-semibold">Your Score:</span>
-                      <span className={`text-base font-extrabold ${app.test_passed ? 'text-emerald-600' : 'text-slate-700'}`}>
-                        {app.test_status === 'completed' ? `${app.test_score}%` : 'Not Completed'}
-                      </span>
-                    </div>
-
-                    {app.test_token && (
-                      <button
-                        onClick={() => navigate(app.test_status === 'completed' ? `/result/${app.test_token}` : `/test/${app.test_token}`)}
-                        className="w-full btn btn-md btn-primary"
-                      >
-                        <span>{app.test_status === 'completed' ? 'View Itemized Scorecard' : 'Start Logic Assessment'}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1203,121 +1133,63 @@ export const CandidateDashboardPage: React.FC = () => {
           {/* ========================================================================= */}
           {activeTab === 'ai_interview' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {applications.map((app) => (
-                  <div key={app.applicant_id} className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      {app.track_name ? (
-                        <span className="text-xs font-bold text-kulkul-purple">
-                          {app.track_name}
-                        </span>
-                      ) : <span />}
-                      {app.interview_status === 'completed' ? (
-                        <span className="text-2xs font-bold text-emerald-700">
-                          Interview Completed
-                        </span>
-                      ) : app.interview_token ? (
-                        <span className="text-2xs font-bold text-amber-700 animate-pulse">
-                          Invite Ready
-                        </span>
-                      ) : (
-                        <span className="text-2xs font-bold text-slate-500">
-                          Pending MCQ Clearance
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="font-extrabold text-slate-900 text-lg">{app.program_name}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Conversational AI Technical Evaluation Session</p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-slate-500 font-semibold">AI Evaluation Score:</span>
-                      <span className="text-base font-extrabold text-kulkul-purple">
-                        {app.interview_status === 'completed' ? `${app.interview_score}/100` : 'Pending'}
-                      </span>
-                    </div>
-
-                    {app.interview_token && (
-                      <div className="space-y-1.5">
-                        <button
-                          onClick={() => navigate(`/interview/${app.interview_token}`)}
-                          className="w-full btn btn-md btn-primary"
-                        >
-                          <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
-                          <span>{app.interview_status === 'completed' ? 'Review AI Transcript' : 'Enter AI Interview Room'}</span>
-                        </button>
-                        {app.interview_status !== 'completed' && (
-                          <p className="text-3xs text-slate-500 text-center font-medium">
-                            Laptop/Desktop &amp; Chrome/Edge recommended
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 4: FELLOWSHIP PROGRAM ROOM */}
-          {/* ========================================================================= */}
-          {activeTab === 'program_room' && (
-            <div className="space-y-6">
-              {acceptedCohortApps.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-4">
-                    <GraduationCap className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">No Active Fellowship Rooms</h3>
-                  <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                    Program rooms are unlocked once your application is officially accepted by the fellowship committee.
-                  </p>
+              {interviewApps.length === 0 ? (
+                <div className="content-card p-12 text-center">
+                  <p className="text-sm text-slate-500">No AI interviews yet.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {acceptedCohortApps.map((app) => (
-                    <div
-                      key={app.applicant_id}
-                      className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs hover:shadow-md transition space-y-5 flex flex-col justify-between"
-                    >
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-700">
-                            Accepted Fellow
+                  {interviewApps.map((app) => (
+                    <div key={app.applicant_id} className="content-card space-y-4">
+                      <div className="flex items-center justify-between">
+                        {app.track_name ? (
+                          <span className="text-xs font-bold text-kulkul-purple">
+                            {app.track_name}
                           </span>
-                          <span className="text-xs font-semibold text-slate-500">
-                            {app.org_name}
+                        ) : <span />}
+                        {app.interview_status === 'completed' ? (
+                          <span className="text-2xs font-bold text-emerald-700">
+                            Interview Completed
                           </span>
-                        </div>
-
-                        <div>
-                          <h3 className="font-extrabold text-slate-900 text-xl">{app.program_name}</h3>
-                          {app.track_name && (
-                            <p className="text-xs font-bold text-kulkul-purple mt-1">Track: {app.track_name}</p>
-                          )}
-                          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                            Access your cohort onboarding materials, live lecture links, scheduled workshops, and attendance tracker in your dedicated program room.
-                          </p>
-                        </div>
+                        ) : app.interview_token ? (
+                          <span className="text-2xs font-bold text-amber-700 animate-pulse">
+                            Invite Ready
+                          </span>
+                        ) : (
+                          <span className="text-2xs font-bold text-slate-500">
+                            Pending MCQ Clearance
+                          </span>
+                        )}
                       </div>
 
-                      <button
-                        onClick={() => {
-                          if (app.redirect_url) {
-                            navigate(app.redirect_url);
-                          } else {
-                            navigate(`/programs/${app.org_slug}/${app.program_slug}/room`);
-                          }
-                        }}
-                        className="w-full btn btn-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
-                      >
-                        <Sparkles className="w-4 h-4 text-emerald-200" />
-                        <span>Enter Program Room</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                      <div>
+                        <h3 className="section-title">{app.program_name}</h3>
+                        <p className="section-subtitle">Conversational AI Technical Evaluation Session</p>
+                      </div>
+
+                      <div className="panel-muted p-4 sm:p-4 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 font-semibold">AI Evaluation Score:</span>
+                        <span className="text-base font-extrabold text-kulkul-purple">
+                          {app.interview_status === 'completed' ? `${app.interview_score}/100` : 'Pending'}
+                        </span>
+                      </div>
+
+                      {app.interview_token && (
+                        <div className="space-y-1.5">
+                          <button
+                            onClick={() => navigate(`/interview/${app.interview_token}`)}
+                            className="w-full btn btn-sm btn-primary"
+                          >
+                            <Terminal className="w-3.5 h-3.5 text-kulkul-orange" />
+                            <span>{app.interview_status === 'completed' ? 'Review AI Transcript' : 'Enter AI Interview Room'}</span>
+                          </button>
+                          {app.interview_status !== 'completed' && (
+                            <p className="meta-text text-center">
+                              Laptop/Desktop &amp; Chrome/Edge recommended
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1330,62 +1202,29 @@ export const CandidateDashboardPage: React.FC = () => {
           {/* ========================================================================= */}
           {activeTab === 'credentials' && (
             <div className="space-y-6">
-              {/* Header Info */}
-              <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple border border-purple-100 flex items-center justify-center shrink-0">
-                      <Award className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="badge badge-sm bg-purple-100 text-kulkul-purple">
-                          Verified Credentials
-                        </span>
-                        <span className="badge badge-sm bg-slate-100 text-slate-600 font-mono">
-                          Open Badges v2.0
-                        </span>
-                      </div>
-                      <h2 className="heading-page text-xl sm:text-2xl">Your Digital Credentials & Badges</h2>
-                      <p className="text-body text-xs sm:text-sm mt-1 max-w-2xl">
-                        FellowHire credentials comply with 1EdTech / IMS Global Open Badges specifications. Your achievements are cryptographically signed and publicly shareable.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Certificate Section */}
               <div className="space-y-4">
-                <h3 className="heading-section text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="section-title flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>Official Certificate of Completion</span>
                 </h3>
 
                 {credentialsData?.certificate ? (
-                  <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-2xs hover:shadow-md transition">
+                  <div className="content-card hover:shadow-md transition">
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                       <div className="flex items-start gap-4">
                         <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
                           <Award className="w-8 h-8 text-amber-600" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <span className="badge badge-sm bg-emerald-100 text-emerald-800">
-                              Issued & Verified
-                            </span>
-                            <span className="text-xs text-slate-500 font-mono">
-                              ID: {credentialsData.certificate.certificate_number}
-                            </span>
+                          <div className="text-xs text-slate-500 font-mono">
+                            ID: {credentialsData.certificate.certificate_number}
                           </div>
-                          <h4 className="heading-card text-xl text-slate-900 mt-1">
+                          <h4 className="section-title mt-1">
                             {credentialsData.certificate.title || 'Certificate of Completion'}
                           </h4>
-                          <p className="text-body mt-1">
-                            Awarded to <strong className="text-slate-900">{credentialsData.certificate.recipient_name}</strong> for completing{' '}
-                            <strong className="text-slate-900">{credentialsData.certificate.program_name}</strong>.
-                          </p>
-                          <div className="text-caption mt-2">
+                          <p className="text-body mt-1">{credentialsData.certificate.program_name}</p>
+                          <div className="meta-text mt-2">
                             Issued on {new Date(credentialsData.certificate.issue_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
@@ -1394,9 +1233,9 @@ export const CandidateDashboardPage: React.FC = () => {
                       <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto shrink-0">
                         <Link
                           to={`/verify/certificate/${credentialsData.certificate.certificate_number}`}
-                          className="btn btn-md btn-primary flex-1 sm:flex-none"
+                          className="btn btn-sm btn-primary flex-1 sm:flex-none"
                         >
-                          <ExternalLink className="w-4 h-4" />
+                          <ExternalLink className="w-3.5 h-3.5" />
                           <span>View Certificate</span>
                         </Link>
                         {credentialsData.certificate.linked_in_url && (
@@ -1404,9 +1243,9 @@ export const CandidateDashboardPage: React.FC = () => {
                             href={credentialsData.certificate.linked_in_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn btn-md bg-[#0a66c2] hover:bg-[#084e96] text-white flex-1 sm:flex-none shadow-sm"
+                            className="btn btn-sm btn-outline flex-1 sm:flex-none"
                           >
-                            <Share2 className="w-4 h-4" />
+                            <Share2 className="w-3.5 h-3.5" />
                             <span>Add to LinkedIn</span>
                           </a>
                         )}
@@ -1414,12 +1253,12 @@ export const CandidateDashboardPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-slate-50 rounded-3xl border border-dashed border-slate-300 p-8 text-center">
+                  <div className="panel-muted border-dashed border-slate-300 p-8 sm:p-8 text-center">
                     <div className="w-12 h-12 rounded-2xl bg-slate-200/80 text-slate-500 mx-auto flex items-center justify-center mb-3">
                       <Award className="w-6 h-6" />
                     </div>
-                    <h4 className="heading-card text-base text-slate-800">Certificate In Progress</h4>
-                    <p className="text-body-sm text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                    <h4 className="card-title">Certificate In Progress</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
                       Your official Certificate of Completion will be generated automatically upon graduating and completing your fellowship program benchmarks.
                     </p>
                   </div>
@@ -1428,40 +1267,35 @@ export const CandidateDashboardPage: React.FC = () => {
 
               {/* Open Badges Section */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="heading-section text-slate-900 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-kulkul-purple" />
-                    <span>Earned Open Badges (v2.0)</span>
-                  </h3>
-                  <span className="text-caption font-semibold">
-                    1EdTech / IMS Global Compatible
-                  </span>
-                </div>
+                <h3 className="section-title flex items-center gap-2">
+                  <Award className="w-4 h-4 text-kulkul-purple" />
+                  <span>Badges</span>
+                </h3>
 
                 {credentialsData?.badges && credentialsData.badges.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {credentialsData.badges.map((badge) => (
                       <div
                         key={badge.id}
-                        className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xs hover:shadow-md transition flex flex-col justify-between"
+                        className="content-card hover:shadow-md transition flex flex-col justify-between"
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-20 h-20 bg-purple-50/70 border border-purple-100 rounded-2xl p-2 flex items-center justify-center shrink-0 shadow-2xs">
                             <img src={badge.image_url} alt={badge.name} className="w-full h-full object-contain filter drop-shadow-sm" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span className={`badge badge-sm mb-1 ${
+                            <span className={`inline-block mb-1 text-2xs font-bold uppercase tracking-wider ${
                               badge.badge_type === 'member'
-                                ? 'bg-purple-100 text-kulkul-purple'
-                                : 'bg-amber-100 text-amber-900'
+                                ? 'text-kulkul-purple'
+                                : 'text-amber-700'
                             }`}>
                               {badge.badge_type === 'member' ? 'Cohort Member' : 'Program Graduate'}
                             </span>
-                            <h4 className="heading-card text-base text-slate-900 truncate">{badge.name}</h4>
-                            <p className="text-body-sm text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                            <h4 className="card-title truncate">{badge.name}</h4>
+                            <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
                               {badge.description}
                             </p>
-                            <div className="text-caption mt-2">
+                            <div className="meta-text mt-2">
                               Awarded {new Date(badge.issued_at).toLocaleDateString()}
                             </div>
                           </div>
@@ -1480,7 +1314,7 @@ export const CandidateDashboardPage: React.FC = () => {
                             target="_blank"
                             rel="noreferrer"
                             download
-                            className="btn btn-sm btn-ghost text-slate-600"
+                            className="btn btn-sm btn-ghost"
                           >
                             Download Vector SVG
                           </a>
@@ -1489,12 +1323,12 @@ export const CandidateDashboardPage: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-slate-50 rounded-3xl border border-dashed border-slate-300 p-8 text-center">
+                  <div className="panel-muted border-dashed border-slate-300 p-8 sm:p-8 text-center">
                     <div className="w-12 h-12 rounded-2xl bg-purple-100 text-kulkul-purple mx-auto flex items-center justify-center mb-3">
                       <Award className="w-6 h-6" />
                     </div>
-                    <h4 className="heading-card text-base text-slate-800">No Badges Awarded Yet</h4>
-                    <p className="text-body-sm text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                    <h4 className="card-title">No Badges Awarded Yet</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
                       You will earn your <strong>Cohort Member Badge</strong> upon formal acceptance into a fellowship cohort, and your <strong>Program Graduate Badge</strong> upon completion!
                     </p>
                   </div>

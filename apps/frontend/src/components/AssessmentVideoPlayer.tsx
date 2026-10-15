@@ -64,7 +64,7 @@ export const AssessmentVideoPlayer: React.FC<AssessmentVideoPlayerProps> = ({ ur
                 type="button"
                 onClick={handleRetry}
                 disabled={isRetrying}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition"
+                className="btn btn-sm btn-outline"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
                 <span>Retry</span>
@@ -73,7 +73,7 @@ export const AssessmentVideoPlayer: React.FC<AssessmentVideoPlayerProps> = ({ ur
                 href={resolvedUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium rounded-lg transition"
+                className="btn btn-sm btn-primary"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Open in New Tab</span>

@@ -9,7 +9,7 @@ export const Footer: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
           <Link to="/" className="flex items-center gap-2">
             <img src="/kulkul-logo.svg" alt="FellowHire" className="h-7 sm:h-8 w-auto object-contain" />
-            <span className="font-black text-slate-900 text-base">FellowHire</span>
+            <span className="font-extrabold text-slate-900 text-base">FellowHire</span>
           </Link>
           <span className="hidden sm:inline-block text-slate-300">|</span>
           <p className="text-xs text-slate-500 font-medium">

@@ -77,7 +77,7 @@ export const ProgramJobPostPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-kulkul-purple/30 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-base font-bold text-kulkul-purple">Loading program listing...</p>
+          <p className="text-sm font-bold text-kulkul-purple">Loading program listing...</p>
         </div>
       </div>
     );
@@ -88,15 +88,15 @@ export const ProgramJobPostPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center p-4">
-          <div className="max-w-md w-full stitch-card p-8 text-center bg-white">
+          <div className="max-w-md w-full content-card text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Program Not Found</h2>
+            <h2 className="heading-page mb-2">Program Not Found</h2>
             <p className="text-slate-600 text-sm mb-6">
               The requested program "{programSlug}" under "{orgSlug}" does not exist or has expired.
             </p>
             <button
               onClick={() => navigate('/')}
-              className="w-full py-3 px-4 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full shadow transition"
+              className="w-full btn btn-md btn-primary"
             >
               Back to Home
             </button>
@@ -118,7 +118,7 @@ export const ProgramJobPostPage: React.FC = () => {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* Cover Banner */}
-        <div className="stitch-card bg-white overflow-hidden shadow-sm border border-slate-100 rounded-3xl">
+        <div className="content-card p-0 sm:p-0 overflow-hidden">
           {/* Banner Cover Image Showcase */}
           <div className="relative w-full bg-slate-950 overflow-hidden flex items-center justify-center">
             <img
@@ -145,7 +145,7 @@ export const ProgramJobPostPage: React.FC = () => {
                 ) : (
                   <Building className="w-4 h-4 text-kulkul-purple" />
                 )}
-                <span className="text-xs font-black uppercase tracking-wider">
+                <span className="text-xs font-extrabold uppercase tracking-wider">
                   {org?.name || 'Organization'}
                 </span>
               </div>
@@ -164,11 +164,11 @@ export const ProgramJobPostPage: React.FC = () => {
             </div>
 
             <div>
-              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+              <h1 className="heading-page">
                 {program.name}
               </h1>
               {program.description && (
-                <p className="text-slate-600 text-sm sm:text-base mt-2.5 max-w-3xl leading-relaxed">
+                <p className="text-sm text-slate-600 mt-2.5 max-w-3xl leading-relaxed whitespace-pre-line">
                   {program.description}
                 </p>
               )}
@@ -177,14 +177,14 @@ export const ProgramJobPostPage: React.FC = () => {
 
           {/* Quick Benchmark Bar */}
           <div className="p-6 bg-white border-t border-slate-100 space-y-5">
-            <div className={`grid grid-cols-2 ${tracks.length > 0 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3.5`}>
+            <div className={`grid grid-cols-2 ${tracks.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-3.5`}>
               {tracks.length > 0 && (
-                <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+                <div className="panel-muted flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center shrink-0 shadow-xs">
                     <Layers className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Tracks</div>
+                    <div className="stat-label">Tracks</div>
                     <div className="text-sm font-extrabold text-slate-900 truncate">
                       {tracks.length} Available
                     </div>
@@ -192,37 +192,27 @@ export const ProgramJobPostPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <div className="panel-muted flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-kulkul-orange-light text-kulkul-orange flex items-center justify-center shrink-0 shadow-xs">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Assessment</div>
+                  <div className="stat-label">Assessment</div>
                   <div className="text-sm font-extrabold text-slate-900 truncate" title={program.question_set_name || 'Timed Logic'}>
                     {program.enable_mcq ? `${program.question_set_name || 'Timed Logic'} (${program.logic_test_duration_minutes}m)` : 'Not Required'}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <div className="panel-muted flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-stitch-blue-light text-stitch-blue flex items-center justify-center shrink-0 shadow-xs">
                   <Bot className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Technical Screen</div>
+                  <div className="stat-label">Technical Screen</div>
                   <div className="text-sm font-extrabold text-slate-900 truncate">
                     {program.enable_ai_interview ? 'Conversational AI' : 'Not Required'}
                   </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-xs">
-                  <Award className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-2xs font-bold uppercase tracking-wider text-slate-400">Evaluation</div>
-                  <div className="text-sm font-extrabold text-slate-900 truncate">Instant Scorecard</div>
                 </div>
               </div>
             </div>
@@ -230,27 +220,18 @@ export const ProgramJobPostPage: React.FC = () => {
             {/* CTA / Opening Soon Countdown Bar */}
             <div className="pt-4 border-t border-slate-100">
               {isBeforeOpen ? (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-2.5">
-                    <Clock className="w-5 h-5 text-kulkul-purple" />
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-kulkul-purple">
-                      Opening Soon
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-center sm:justify-end">
-                    {openDate && (
-                      <CountdownTimer
-                        targetDate={openDate}
-                        variant="compact"
-                        size="md"
-                        onExpire={() => {
-                          setIsOpeningSoon(false);
-                          refetch();
-                        }}
-                      />
-                    )}
-                  </div>
+                <div className="flex items-center justify-center sm:justify-end">
+                  {openDate && (
+                    <CountdownTimer
+                      targetDate={openDate}
+                      variant="compact"
+                      size="md"
+                      onExpire={() => {
+                        setIsOpeningSoon(false);
+                        refetch();
+                      }}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-end">
@@ -265,7 +246,7 @@ export const ProgramJobPostPage: React.FC = () => {
                         navigate(`/programs/${orgSlug}/${programSlug}/apply${previewQuery}`);
                       }
                     }}
-                    className="w-full sm:w-auto stitch-pill stitch-pill-purple text-sm px-7 py-3 justify-center shadow-md hover:shadow-lg transition active:scale-95 shrink-0"
+                    className="w-full sm:w-auto btn btn-md btn-primary shrink-0"
                   >
                     <span>{tracks.length > 0 ? 'Select Track & Apply' : 'Apply Now'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -279,22 +260,15 @@ export const ProgramJobPostPage: React.FC = () => {
         {/* Available Tracks Section (Only rendered if the program has tracks) */}
         {tracks.length > 0 && (
           <div id="available-tracks" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-extrabold text-kulkul-purple">
-                  Available Fellowship Tracks
-                </h2>
-              </div>
-              <span className="hidden sm:inline-block text-xs font-extrabold text-kulkul-purple">
-                ({tracks.length} {tracks.length === 1 ? 'Track' : 'Tracks'} Open)
-              </span>
-            </div>
+            <h2 className="section-title">
+              Available Fellowship Tracks
+            </h2>
 
             <div className="grid grid-cols-1 gap-5">
               {tracks.map((track, idx) => (
                 <div
                   key={track.id || track.slug}
-                  className="stitch-card p-6 sm:p-7 bg-white hover:border-kulkul-purple/40 hover:shadow-xl transition duration-200 flex flex-col justify-between group"
+                  className="content-card hover:border-kulkul-purple/40 hover:shadow-md transition duration-200 flex flex-col justify-between group"
                 >
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-4">
@@ -302,14 +276,9 @@ export const ProgramJobPostPage: React.FC = () => {
                         <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-kulkul-purple to-kulkul-purple-hover text-white flex items-center justify-center font-extrabold text-sm shadow-md">
                           0{idx + 1}
                         </div>
-                        <div>
-                          <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-kulkul-purple transition">
-                            {track.name}
-                          </h3>
-                          <span className="text-xs font-semibold text-slate-400">
-                            Track ID: {track.slug}
-                          </span>
-                        </div>
+                        <h3 className="section-title group-hover:text-kulkul-purple transition">
+                          {track.name}
+                        </h3>
                       </div>
                     </div>
 
@@ -322,7 +291,7 @@ export const ProgramJobPostPage: React.FC = () => {
                       <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                         <Clock className="w-4 h-4 text-kulkul-orange shrink-0" />
                         <div className="text-xs">
-                          <span className="text-slate-400 block text-2xs uppercase font-bold">Logic Test</span>
+                          <span className="block subsection-title">Logic Test</span>
                           <span className="font-bold text-slate-800">{track.logic_test_duration_minutes} Mins</span>
                         </div>
                       </div>
@@ -330,7 +299,7 @@ export const ProgramJobPostPage: React.FC = () => {
                       <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                         <Award className="w-4 h-4 text-emerald-600 shrink-0" />
                         <div className="text-xs">
-                          <span className="text-slate-400 block text-2xs uppercase font-bold">Pass Score</span>
+                          <span className="block subsection-title">Pass Score</span>
                           <span className="font-bold text-slate-800">{track.logic_test_passing_score}% Score</span>
                         </div>
                       </div>
@@ -338,7 +307,7 @@ export const ProgramJobPostPage: React.FC = () => {
                       <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-1">
                         <Bot className="w-4 h-4 text-kulkul-purple shrink-0" />
                         <div className="text-xs">
-                          <span className="text-slate-400 block text-2xs uppercase font-bold">AI Screen</span>
+                          <span className="block subsection-title">AI Screen</span>
                           <span className="font-bold text-slate-800">
                             {track.enable_ai_interview ? 'Enabled' : 'Not Required'}
                           </span>
@@ -347,60 +316,29 @@ export const ProgramJobPostPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Action Button */}
-                  <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
-                    {isBeforeOpen ? (
-                      <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 bg-purple-50/70 border border-purple-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
-                        <Clock className="w-3.5 h-3.5 text-kulkul-purple animate-pulse" />
-                        <span className="font-black text-kulkul-purple uppercase text-2xs tracking-wider">
-                          Opening Soon
-                        </span>
-                        {openDate && (
-                          <CountdownTimer targetDate={openDate} variant="pill" />
-                        )}
-                      </div>
-                    ) : (
+                  {/* Action Button (hidden before opening; the header shows the countdown) */}
+                  {!isBeforeOpen && (
+                    <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
                       <button
                         onClick={() => handleApplyTrack(track.slug)}
-                        className="stitch-pill stitch-pill-orange text-sm px-6 py-2.5 justify-center shadow hover:shadow-md transition active:scale-95"
+                        className="btn btn-md btn-primary"
                       >
                         <span>Apply to {track.name}</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Overview Card */}
-        <div className="stitch-card p-6 sm:p-8 bg-white space-y-4 shadow-sm border border-slate-100">
-          <h2 className="text-xl font-bold text-kulkul-purple">Program Overview</h2>
-          <p className="text-slate-700 leading-relaxed text-sm sm:text-base whitespace-pre-line">
-            {program.description}
-          </p>
-
-          <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="font-bold text-slate-900 text-sm mb-1">Host Organization</div>
-              <p className="text-xs text-slate-600">{org?.name || 'Acme Academy'}</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="font-bold text-slate-900 text-sm mb-1">Assessment Technology</div>
-              <p className="text-xs text-slate-600">
-                {tracks.length > 0 ? 'FellowHire Multi-Track Assessment Engine' : 'FellowHire Assessment Engine'}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Application & Selection Stages (Dynamic) */}
-        <div className="stitch-card p-6 sm:p-8 bg-white space-y-6 shadow-sm border border-slate-100">
+        <div className="content-card space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-kulkul-purple">Application & Assessment Stages</h2>
-            <span className="text-xs font-semibold text-slate-400">Step-by-step candidate journey</span>
+            <h2 className="section-title">Application & Assessment Stages</h2>
+            <span className="meta-text">Step-by-step candidate journey</span>
           </div>
 
           <div className="space-y-4">
@@ -460,7 +398,7 @@ export const ProgramJobPostPage: React.FC = () => {
               return (
                 <div
                   key={stage.step_number || idx}
-                  className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-100 hover:border-slate-200 transition"
+                  className="panel-muted flex items-start gap-4"
                 >
                   <div
                     className={`w-8 h-8 rounded-full ${badgeClass} font-extrabold flex items-center justify-center text-sm shrink-0 shadow-sm`}
@@ -468,7 +406,7 @@ export const ProgramJobPostPage: React.FC = () => {
                     {stage.step_number || idx + 1}
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-sm">{stage.title}</h3>
+                    <h3 className="card-title">{stage.title}</h3>
                     <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{stage.description}</p>
                   </div>
                 </div>

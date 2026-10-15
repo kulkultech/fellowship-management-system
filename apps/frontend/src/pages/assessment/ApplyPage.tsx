@@ -29,7 +29,6 @@ import {
   Hash,
   Globe,
   Clock,
-  Terminal,
   Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -577,16 +576,16 @@ export const ApplyPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <Navbar hideAdminButton={true} />
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-          <div className="max-w-lg w-full stitch-card bg-white p-8 sm:p-10 border border-slate-200/90 shadow-xl rounded-3xl text-center space-y-6">
+          <div className="max-w-lg w-full content-card text-center space-y-6">
             <div className="w-16 h-16 rounded-3xl bg-purple-50 border border-purple-200/80 text-kulkul-purple flex items-center justify-center mx-auto shadow-sm">
               <Clock className="w-8 h-8 animate-pulse text-kulkul-purple" />
             </div>
 
             <div className="space-y-2.5">
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200/90 text-kulkul-purple text-xs font-black uppercase tracking-wider">
+              <div className="inline-flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wider text-kulkul-purple">
                 <span>Opening Soon</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 Applications Open Soon
               </h1>
               <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
@@ -631,10 +630,10 @@ export const ApplyPage: React.FC = () => {
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-xl w-full">
             {/* Main Gate Card */}
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
+            <div className="content-card space-y-6 text-center">
               {/* Program & Track Context Badge */}
               <div className="flex flex-col items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Apply to {program?.name || 'Fellowship Program'}
                 </h1>
                 {currentTrack && (
@@ -643,7 +642,7 @@ export const ApplyPage: React.FC = () => {
                     <span className="font-extrabold text-kulkul-purple">{currentTrack.name}</span>
                   </div>
                 )}
-                <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md mx-auto">
+                <p className="text-sm text-slate-600 mt-2 max-w-md mx-auto">
                   Please sign in with your Google account to begin. Your verified Google account connects your application directly to your personal Candidate Dashboard for tracking assessments and AI interviews.
                 </p>
               </div>
@@ -692,9 +691,9 @@ export const ApplyPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  className="w-full flex items-center justify-center gap-3.5 py-4 px-6 bg-white hover:bg-slate-50 active:scale-[0.98] border-2 border-slate-200 hover:border-kulkul-purple/50 rounded-2xl text-sm sm:text-base font-extrabold text-slate-800 shadow-md hover:shadow-lg transition duration-150"
+                  className="w-full btn btn-md btn-outline"
                 >
-                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -748,16 +747,16 @@ export const ApplyPage: React.FC = () => {
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
-            <div className="stitch-card bg-white p-8 sm:p-12 text-center border border-slate-200 shadow-xl rounded-3xl space-y-6 animate-in fade-in zoom-in duration-300">
+            <div className="content-card text-center space-y-6 animate-in fade-in zoom-in duration-300">
               <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
 
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Thank You for Submitting the Form, {submittedData.candidateName}!
                 </h1>
-                <p className="text-slate-600 text-sm sm:text-base mt-2 max-w-lg mx-auto leading-relaxed">
+                <p className="text-sm text-slate-600 mt-2 max-w-lg mx-auto leading-relaxed">
                   Your application profile for <span className="font-bold text-slate-900">{submittedData.programName} &mdash; {submittedData.trackName}</span> has been successfully received.
                 </p>
               </div>
@@ -766,7 +765,7 @@ export const ApplyPage: React.FC = () => {
                 <>
                   {/* Email & Dashboard Notification Box for AI Interview */}
                   <div className="p-6 rounded-2xl bg-purple-50/80 border border-purple-200/90 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm">
                       <Sparkles className="w-5 h-5 text-kulkul-orange shrink-0" />
                       <span>Next Step: Interactive AI Technical Screening</span>
                     </div>
@@ -777,21 +776,11 @@ export const ApplyPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-left space-y-1.5">
-                    <p className="font-bold text-slate-700">Before entering the AI screening chamber:</p>
-                    <ul className="list-disc list-inside space-y-1 text-slate-600">
-                      <li>Use a laptop or desktop computer with a supported browser (Chrome or Edge).</li>
-                      <li>Verify your webcam and microphone permissions before starting.</li>
-                      <li>Find a quiet, well-lit room free from background noise and distractions.</li>
-                      <li>Take the interview at your convenience &mdash; your session is saved in your Candidate Dashboard.</li>
-                    </ul>
-                  </div>
-
                   {/* Action Buttons */}
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs sm:text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -800,7 +789,7 @@ export const ApplyPage: React.FC = () => {
                     {submittedData.aiInterviewInviteToken && (
                       <button
                         onClick={() => navigate(`/interview/${submittedData.aiInterviewInviteToken}`)}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full sm:w-auto btn btn-md btn-outline"
                       >
                         <span>Start AI Interview Now</span>
                         <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -812,7 +801,7 @@ export const ApplyPage: React.FC = () => {
                 <>
                   {/* Email & Dashboard Notification Box for MCQ Test */}
                   <div className="p-6 rounded-2xl bg-purple-50/80 border border-purple-200/90 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-kulkul-purple font-bold text-sm">
                       <Mail className="w-5 h-5 text-kulkul-purple shrink-0" />
                       <span>Next Step: Timed Logic Assessment</span>
                     </div>
@@ -827,7 +816,7 @@ export const ApplyPage: React.FC = () => {
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -836,7 +825,7 @@ export const ApplyPage: React.FC = () => {
                     {submittedData.testToken && (
                       <button
                         onClick={() => navigate(`/test/${submittedData.testToken}`)}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold border border-slate-200 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full sm:w-auto btn btn-md btn-outline"
                       >
                         <span>Begin Logic Test Now</span>
                         <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -848,7 +837,7 @@ export const ApplyPage: React.FC = () => {
                 <>
                   {/* Final Application Submission Confirmation */}
                   <div className="p-6 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 text-left space-y-3">
-                    <div className="flex items-center gap-2.5 text-emerald-800 font-bold text-sm sm:text-base">
+                    <div className="flex items-center gap-2.5 text-emerald-800 font-bold text-sm">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                       <span>Application Under Committee Review</span>
                     </div>
@@ -861,7 +850,7 @@ export const ApplyPage: React.FC = () => {
                   <div className="pt-2 flex items-center justify-center">
                     <button
                       onClick={() => navigate('/candidate/dashboard')}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-sm font-bold shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto btn btn-md btn-primary"
                     >
                       <span>Go to Candidate Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -904,37 +893,21 @@ export const ApplyPage: React.FC = () => {
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
+            <div className="content-card space-y-6 text-center">
               {/* Context Header */}
               <div className="flex flex-col items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Timed Logic &amp; Technical MCQ
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+                <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
                   Welcome, <strong className="text-slate-800">{user?.name || user?.email}</strong>! This fellowship begins with an initial timed qualifying assessment.
                 </p>
               </div>
 
-              {/* Verified Identity Pill */}
-              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-left text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-800">{user?.name || 'Verified Candidate'}</div>
-                    <div className="text-slate-500 text-2xs">{user?.email}</div>
-                  </div>
-                </div>
-                <span className="text-3xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Google Verified
-                </span>
-              </div>
-
               {/* Specialization Track Selector (if tracks exist) */}
               {tracks.length > 0 && (
-                <div className="text-left space-y-2 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-kulkul-purple">
+                <div className="panel-muted text-left space-y-2">
+                  <label className="field-label">
                     Select Your Intended Track <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -957,7 +930,7 @@ export const ApplyPage: React.FC = () => {
                           <div>
                             <div className="text-xs font-bold text-slate-900">{t.name}</div>
                             {t.description && (
-                              <div className="text-3xs text-slate-500 line-clamp-1 mt-0.5">{t.description}</div>
+                              <div className="meta-text line-clamp-1 mt-0.5">{t.description}</div>
                             )}
                           </div>
                           {isSelected && <CheckCircle2 className="w-4 h-4 text-kulkul-purple shrink-0" />}
@@ -970,22 +943,22 @@ export const ApplyPage: React.FC = () => {
 
               {/* Assessment Rules & Specifications */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-bold uppercase text-slate-400">Duration</div>
+                <div className="panel-muted">
+                  <div className="stat-label">Duration</div>
                   <div className="text-base font-extrabold text-slate-900 mt-0.5">{durationMinutes} Minutes</div>
-                  <div className="text-3xs text-slate-500 mt-0.5">Strict auto-countdown</div>
+                  <div className="meta-text mt-0.5">Strict auto-countdown</div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-bold uppercase text-slate-400">Passing Benchmark</div>
+                <div className="panel-muted">
+                  <div className="stat-label">Passing Benchmark</div>
                   <div className="text-base font-extrabold text-kulkul-purple mt-0.5">
                     {program?.logic_test_passing_score || 70}%
                   </div>
-                  <div className="text-3xs text-slate-500 mt-0.5">Required to advance</div>
+                  <div className="meta-text mt-0.5">Required to advance</div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="text-2xs font-bold uppercase text-slate-400">Next Stage</div>
+                <div className="panel-muted">
+                  <div className="stat-label">Next Stage</div>
                   <div className="text-base font-extrabold text-slate-900 mt-0.5">Application Form</div>
-                  <div className="text-3xs text-slate-500 mt-0.5">Unlocked upon passing</div>
+                  <div className="meta-text mt-0.5">Unlocked upon passing</div>
                 </div>
               </div>
 
@@ -995,7 +968,7 @@ export const ApplyPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(`/test/${existingTestToken}`)}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+                    className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                   >
                     <span>Resume Test Session</span>
                     <ArrowRight className="w-4 h-4" />
@@ -1005,7 +978,7 @@ export const ApplyPage: React.FC = () => {
                     type="button"
                     disabled={startProgramMutation.isPending}
                     onClick={() => startProgramMutation.mutate()}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-orange hover:bg-kulkul-orange-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                    className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                   >
                     <span>{startProgramMutation.isPending ? 'Starting Session...' : 'Begin Logic Assessment'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -1014,13 +987,13 @@ export const ApplyPage: React.FC = () => {
 
                 <Link
                   to="/candidate/dashboard"
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-full font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition text-center text-xs"
+                  className="w-full sm:w-auto btn btn-md btn-outline"
                 >
                   Candidate Dashboard
                 </Link>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 text-2xs text-slate-400">
+              <div className="pt-2 border-t border-slate-100 meta-text">
                 Ensure you are on a laptop/desktop with a stable internet connection before beginning.
               </div>
             </div>
@@ -1041,16 +1014,12 @@ export const ApplyPage: React.FC = () => {
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
-            <div className="stitch-card bg-white p-8 sm:p-10 border-2 border-kulkul-purple shadow-xl rounded-3xl space-y-6 text-center">
+            <div className="content-card border-2 border-kulkul-purple space-y-6 text-center">
               <div className="flex flex-col items-center gap-2">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 text-kulkul-purple text-xs font-extrabold uppercase tracking-wide">
-                  <Terminal className="w-4 h-4 text-kulkul-orange" />
-                  <span>Interactive Technical Screening</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="heading-page">
                   Autonomous AI Screening Interview
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
                   Congratulations, <strong className="text-slate-900">{user?.name || user?.email}</strong>! You have cleared preliminary stages for {program?.name}. Please proceed to your asynchronous video screening.
                 </p>
               </div>
@@ -1060,7 +1029,7 @@ export const ApplyPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(`/interview/${inviteToken}`)}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 mx-auto active:scale-98 animate-pulse"
+                    className="w-full sm:w-auto btn btn-md btn-primary mx-auto animate-pulse"
                   >
                     <span>Enter Technical Screen Room</span>
                     <ArrowRight className="w-4 h-4" />
@@ -1092,21 +1061,21 @@ export const ApplyPage: React.FC = () => {
 
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl w-full">
-            <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl space-y-6 text-center">
+            <div className="content-card space-y-6 text-center">
               <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 Application &amp; Assessments Complete!
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+              <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
                 You have completed all admission steps for <strong className="text-slate-900">{program?.name}</strong>. Your submissions are now being reviewed by the fellowship admissions committee.
               </p>
               <div className="pt-2">
                 <button
                   type="button"
                   onClick={() => navigate('/candidate/dashboard')}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 mx-auto active:scale-98"
+                  className="w-full sm:w-auto btn btn-md btn-primary mx-auto"
                 >
                   <span>Go to Candidate Dashboard</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1145,14 +1114,14 @@ export const ApplyPage: React.FC = () => {
           )}
 
           {/* Header Card */}
-          <div className="stitch-card p-6 sm:p-8 mb-6 bg-white shadow-sm border border-slate-100">
+          <div className="content-card mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
               <div>
                 <h1 className="heading-page">
                   {schema.title || 'Candidate Intake Form'}
                 </h1>
                 {schema.description && (
-                  <p className="text-body-sm mt-1">
+                  <p className="text-sm text-slate-600 mt-1">
                     {schema.description}
                   </p>
                 )}
@@ -1168,45 +1137,45 @@ export const ApplyPage: React.FC = () => {
           </div>
 
           {/* Form Card */}
-          <form onSubmit={handleSubmit} className="stitch-card p-6 sm:p-8 bg-white space-y-6 shadow-sm border border-slate-100">
+          <form onSubmit={handleSubmit} className="content-card space-y-6">
             <div className="space-y-5">
               {/* Section: Personal Info */}
               <div className="border-b border-slate-100 pb-2">
-                <h2 className="heading-section text-kulkul-purple">Personal Details</h2>
+                <h2 className="section-title">Personal Details</h2>
               </div>
 
               {/* First Name & Last Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="field-label">
                     First Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={formData.firstName}
                       onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                       placeholder="e.g. Jane"
-                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                      className="form-input pl-10"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="field-label">
                     Last Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                       placeholder="e.g. Doe"
-                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                      className="form-input pl-10"
                     />
                   </div>
                 </div>
@@ -1214,52 +1183,49 @@ export const ApplyPage: React.FC = () => {
 
               {/* Email Address (Locked & Verified via Google) */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="field-label">
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
                     required
                     readOnly
                     value={formData.email}
-                    className="w-full pl-11 pr-36 py-3 rounded-xl border border-slate-200 bg-slate-50/90 text-sm font-semibold text-slate-800 cursor-not-allowed select-none focus:outline-none"
+                    className="form-input pl-10 pr-36 bg-slate-50 text-slate-800 cursor-not-allowed select-none"
                     placeholder="candidate@example.com"
                   />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 text-2xs font-bold text-emerald-700">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Verified Google</span>
                   </div>
                 </div>
-                <p className="text-2xs text-slate-500 mt-1 pl-1 font-medium">
-                  Verified with your Google account. All assessments, invitations, and scorecards are synced with your Candidate Dashboard.
-                </p>
               </div>
 
               {/* Section: Specialization Track (Optional / Only if tracks configured) */}
               {tracks.length > 0 && (
                 <>
                   <div className="border-b border-slate-100 pb-2 pt-3">
-                    <h2 className="heading-section text-kulkul-purple">Specialization Track</h2>
+                    <h2 className="section-title">Specialization Track</h2>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Chosen Specialization Track <span className="text-red-500">*</span>
                     </label>
                     <select
                       required
                       value={formData.chosenCourse}
                       onChange={(e) => handleCourseChange(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white font-semibold text-slate-900"
+                      className="form-input"
                     >
                       <option value="" disabled>Select specialization track</option>
                       {tracks.map((t) => (
                         <option key={t.slug || t.id} value={t.name}>{t.name}</option>
                       ))}
                     </select>
-                    <p className="text-2xs text-slate-400 mt-1 pl-1">
+                    <p className="meta-text mt-1">
                       Your logic and technical questions will be calibrated for the chosen track.
                     </p>
                   </div>
@@ -1270,7 +1236,7 @@ export const ApplyPage: React.FC = () => {
               {activeFieldOrder.length > 0 && (
                 <>
                   <div className="border-b border-slate-100 pb-2 pt-3">
-                    <h2 className="heading-section text-kulkul-purple">
+                    <h2 className="section-title">
                       Application Questions & Details
                     </h2>
                   </div>
@@ -1281,18 +1247,18 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.phone?.required;
                         return (
                           <div key="phone">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               Phone Number {req && <span className="text-red-500">*</span>}
                             </label>
                             <div className="relative">
-                              <Phone className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="tel"
                                 required={req}
                                 value={formData.phone}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 placeholder="e.g. +62 812-3456-7890"
-                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                                className="form-input pl-10"
                               />
                             </div>
                           </div>
@@ -1303,7 +1269,7 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.date_of_birth?.required;
                         return (
                           <div key="date_of_birth">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               Date of Birth {req && <span className="text-red-500">*</span>}
                             </label>
                             <input
@@ -1311,7 +1277,7 @@ export const ApplyPage: React.FC = () => {
                               required={req}
                               value={formData.dateOfBirth}
                               onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white"
+                              className="form-input"
                             />
                           </div>
                         );
@@ -1321,7 +1287,7 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.linkedin_url?.required;
                         return (
                           <div key="linkedin_url">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               LinkedIn Profile URL{' '}
                               {req ? (
                                 <span className="text-red-500">*</span>
@@ -1330,14 +1296,14 @@ export const ApplyPage: React.FC = () => {
                               )}
                             </label>
                             <div className="relative">
-                              <Linkedin className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <Linkedin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="url"
                                 required={req}
                                 value={formData.linkedinUrl}
                                 onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
                                 placeholder="https://linkedin.com/in/yourname"
-                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                                className="form-input pl-10"
                               />
                             </div>
                           </div>
@@ -1348,7 +1314,7 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.github_url?.required;
                         return (
                           <div key="github_url">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               GitHub / Portfolio URL{' '}
                               {req ? (
                                 <span className="text-red-500">*</span>
@@ -1357,14 +1323,14 @@ export const ApplyPage: React.FC = () => {
                               )}
                             </label>
                             <div className="relative">
-                              <Github className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <Github className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="url"
                                 required={req}
                                 value={formData.githubUrl}
                                 onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
                                 placeholder="https://github.com/yourusername"
-                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                                className="form-input pl-10"
                               />
                             </div>
                           </div>
@@ -1375,18 +1341,18 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.university?.required;
                         return (
                           <div key="university">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               University Name {req && <span className="text-red-500">*</span>}
                             </label>
                             <div className="relative">
-                              <GraduationCap className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="text"
                                 required={req}
                                 value={formData.university}
                                 onChange={(e) => setFormData({ ...formData, university: e.target.value })}
                                 placeholder="e.g. Universitas Indonesia / ITB / Telkom University"
-                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                                className="form-input pl-10"
                               />
                             </div>
                           </div>
@@ -1397,14 +1363,14 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.major?.required;
                         return (
                           <div key="major">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               Major {req && <span className="text-red-500">*</span>}
                             </label>
                             <select
                               required={req}
                               value={formData.major}
                               onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                              className="form-input"
                             >
                               <option value="" disabled>Select major</option>
                               {majorOptions.map((m) => (
@@ -1415,7 +1381,7 @@ export const ApplyPage: React.FC = () => {
                             {/* Specific Major Input if Other is selected */}
                             {formData.major.includes('Other') && (
                               <div className="mt-3">
-                                <label className="block text-2xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                                <label className="field-label">
                                   Specific Major Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -1424,7 +1390,7 @@ export const ApplyPage: React.FC = () => {
                                   value={customMajor}
                                   onChange={(e) => setCustomMajor(e.target.value)}
                                   placeholder="e.g. Game Development / Bio-informatics / Network Security"
-                                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-slate-50/70"
+                                  className="form-input"
                                 />
                               </div>
                             )}
@@ -1436,14 +1402,14 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.semester?.required;
                         return (
                           <div key="semester">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               Semester / Academic Status {req && <span className="text-red-500">*</span>}
                             </label>
                             <select
                               required={req}
                               value={formData.semester}
                               onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                              className="form-input"
                             >
                               <option value="" disabled>Select semester status</option>
                               {semesterOptions.map((s) => (
@@ -1458,14 +1424,14 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.referral_source?.required;
                         return (
                           <div key="referral_source">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               How did you hear about us? {req && <span className="text-red-500">*</span>}
                             </label>
                             <select
                               required={req}
                               value={formData.referralSource}
                               onChange={(e) => setFormData({ ...formData, referralSource: e.target.value })}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                              className="form-input"
                             >
                               <option value="" disabled>Choose one option</option>
                               {referralOptions.map((r) => (
@@ -1480,7 +1446,7 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.profile_picture?.required;
                         return (
                           <div key="profile_picture">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               Candidate Profile Photo{' '}
                               {req ? (
                                 <span className="text-red-500">*</span>
@@ -1509,7 +1475,7 @@ export const ApplyPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={handleRemoveProfilePhoto}
-                                  className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+                                  className="btn btn-icon-sm btn-ghost"
                                   title="Remove photo"
                                 >
                                   <X className="w-4 h-4" />
@@ -1540,7 +1506,7 @@ export const ApplyPage: React.FC = () => {
                         const req = fieldConfigs.resume?.required;
                         return (
                           <div key="resume">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            <label className="field-label">
                               Resume / CV{' '}
                               {req ? (
                                 <span className="text-red-500">*</span>
@@ -1567,7 +1533,7 @@ export const ApplyPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={handleRemoveResume}
-                                  className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+                                  className="btn btn-icon-sm btn-ghost"
                                   title="Remove file"
                                 >
                                   <X className="w-4 h-4" />
@@ -1598,11 +1564,11 @@ export const ApplyPage: React.FC = () => {
 
                       return (
                         <div key={field.id} className="space-y-1.5">
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                          <label className="field-label mb-0">
                             {field.label} {field.required && <span className="text-red-500">*</span>}
                           </label>
                           {field.help_text && (
-                            <p className="text-2xs text-slate-500">{field.help_text}</p>
+                            <p className="meta-text">{field.help_text}</p>
                           )}
 
                           {field.type === 'text' && (
@@ -1612,7 +1578,7 @@ export const ApplyPage: React.FC = () => {
                               value={customResponses[field.id] || ''}
                               onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
                               placeholder={field.placeholder || 'Enter your response'}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                              className="form-input"
                             />
                           )}
 
@@ -1623,34 +1589,34 @@ export const ApplyPage: React.FC = () => {
                               value={customResponses[field.id] || ''}
                               onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
                               placeholder={field.placeholder || 'Write your response here...'}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition resize-y"
+                              className="form-textarea resize-y"
                             />
                           )}
 
                           {field.type === 'number' && (
                             <div className="relative">
-                              <Hash className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <Hash className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="number"
                                 required={field.required}
                                 value={customResponses[field.id] || ''}
                                 onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
                                 placeholder={field.placeholder || '0'}
-                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                                className="form-input pl-10"
                               />
                             </div>
                           )}
 
                           {field.type === 'url' && (
                             <div className="relative">
-                              <Globe className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                              <Globe className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="url"
                                 required={field.required}
                                 value={customResponses[field.id] || ''}
                                 onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
                                 placeholder={field.placeholder || 'https://...'}
-                                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition"
+                                className="form-input pl-10"
                               />
                             </div>
                           )}
@@ -1660,7 +1626,7 @@ export const ApplyPage: React.FC = () => {
                               required={field.required}
                               value={customResponses[field.id] || ''}
                               onChange={(e) => setCustomResponses((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 transition bg-white text-slate-900"
+                              className="form-input"
                             >
                               <option value="" disabled>Select an option</option>
                               {(field.options || []).map((opt) => (
@@ -1712,7 +1678,7 @@ export const ApplyPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveCustomFile(field.id)}
-                                    className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition"
+                                    className="btn btn-icon-sm btn-ghost"
                                     title="Remove file"
                                   >
                                     <X className="w-4 h-4" />
@@ -1745,7 +1711,7 @@ export const ApplyPage: React.FC = () => {
             </div>
 
             {/* Terms / Notice */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+            <div className="panel-muted flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-kulkul-orange shrink-0 mt-0.5" />
               <p className="text-2xs text-slate-600 leading-relaxed">
                 {enableMCQ ? (
@@ -1762,7 +1728,7 @@ export const ApplyPage: React.FC = () => {
             <button
               type="submit"
               disabled={applyMutation.isPending}
-              className="w-full btn btn-lg btn-secondary shadow-lg hover:shadow-xl"
+              className="w-full btn btn-md btn-primary"
             >
               {applyMutation.isPending ? (
                 <div className="flex items-center gap-2">
@@ -1780,7 +1746,7 @@ export const ApplyPage: React.FC = () => {
                         : 'Submit Application'
                     )}
                   </span>
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>

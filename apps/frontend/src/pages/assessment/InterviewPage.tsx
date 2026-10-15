@@ -2522,7 +2522,7 @@ export const InterviewPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-kulkul-purple/20 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-base font-bold text-slate-900">Connecting to Video Interview Room...</p>
+          <p className="text-sm font-bold text-slate-900">Connecting to Video Interview Room...</p>
           <p className="text-xs text-slate-500 mt-1">Establishing WebRTC media stream</p>
         </div>
       </div>
@@ -2533,15 +2533,15 @@ export const InterviewPage: React.FC = () => {
   if (isError || !session) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="stitch-card max-w-md w-full bg-white border border-slate-200/90 rounded-3xl p-8 text-center text-slate-900 shadow-2xs">
+        <div className="content-card max-w-md w-full text-center">
           <AlertCircle className="w-14 h-14 text-rose-500 mx-auto mb-4 animate-bounce" />
-          <h2 className="text-xl font-black text-slate-900 mb-2">Interview Session Invalid</h2>
+          <h2 className="heading-page mb-2">Interview Session Invalid</h2>
           <p className="text-slate-600 text-sm mb-6">
             The interview invitation token has expired or could not be found in the database.
           </p>
           <button
             onClick={() => navigate('/candidate/dashboard')}
-            className="w-full py-3.5 bg-kulkul-purple hover:bg-kulkul-purple-hover font-bold text-white rounded-full transition shadow-sm"
+            className="w-full btn btn-md btn-primary"
           >
             Return to Candidate Dashboard
           </button>
@@ -2565,10 +2565,10 @@ export const InterviewPage: React.FC = () => {
         <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center animate-in fade-in duration-300">
           {/* Header Title */}
           <div className="text-center max-w-2xl mx-auto mb-6">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            <h1 className="heading-page">
               Candidate Readiness Check
             </h1>
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-slate-600 mt-2">
               Welcome, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Complete the steps below to verify your device, review the rules, and test your camera &amp; microphone.
             </p>
           </div>
@@ -2583,9 +2583,9 @@ export const InterviewPage: React.FC = () => {
               <button
                 onClick={handleResetDemo}
                 disabled={isResetting}
-                className="px-3.5 py-1.5 rounded-full bg-white border border-purple-200 text-2xs font-bold text-slate-700 hover:text-kulkul-purple flex items-center gap-1.5 transition shadow-2xs"
+                className="btn btn-sm btn-outline"
               >
-                <RefreshCw className={`w-3 h-3 ${isResetting ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
                 <span>Reset Demo Progress</span>
               </button>
             </div>
@@ -2624,7 +2624,7 @@ export const InterviewPage: React.FC = () => {
                 <span
                   className={`text-2xs font-extrabold uppercase tracking-wider transition ${
                     preflightStep === 1
-                      ? 'text-kulkul-purple font-black'
+                      ? 'text-kulkul-purple font-extrabold'
                       : preflightStep > 1
                       ? 'text-emerald-700'
                       : 'text-slate-400'
@@ -2658,7 +2658,7 @@ export const InterviewPage: React.FC = () => {
                 <span
                   className={`text-2xs font-extrabold uppercase tracking-wider transition ${
                     preflightStep === 2
-                      ? 'text-kulkul-purple font-black'
+                      ? 'text-kulkul-purple font-extrabold'
                       : preflightStep > 2
                       ? 'text-emerald-700'
                       : 'text-slate-400'
@@ -2692,7 +2692,7 @@ export const InterviewPage: React.FC = () => {
                 </div>
                 <span
                   className={`text-2xs font-extrabold uppercase tracking-wider transition ${
-                    preflightStep === 3 ? 'text-kulkul-purple font-black' : 'text-slate-400'
+                    preflightStep === 3 ? 'text-kulkul-purple font-extrabold' : 'text-slate-400'
                   }`}
                 >
                   3. Camera &amp; Mic Check
@@ -2702,82 +2702,82 @@ export const InterviewPage: React.FC = () => {
           </div>
 
           {/* WIZARD STEP CARD */}
-          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-xl space-y-6">
+          <div className="content-card space-y-6">
             {/* ================= STEP 1: DEVICE REQUIREMENTS ================= */}
             {preflightStep === 1 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  <h2 className="section-title">
                     Minimum Device &amp; Hardware Requirements
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
                     The AI technical interview relies on real-time browser audio speech recognition, neural voice synthesis, and video recording. Please ensure your setup meets all requirements below:
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-600">
                   {/* Req 1: Computer / Device */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center shrink-0 mt-0.5">
                       <Laptop className="w-4 h-4" />
                     </div>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Laptop or Desktop Computer</strong>
+                      <strong className="card-title block mb-0.5">Laptop or Desktop Computer</strong>
                       <span className="leading-relaxed">Must be taken on a physical PC or Mac with a keyboard. Smartphones and tablets are not supported.</span>
                     </div>
                   </div>
 
                   {/* Req 2: Web Browser */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
                       <Globe className="w-4 h-4" />
                     </div>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Supported Modern Browser</strong>
+                      <strong className="card-title block mb-0.5">Supported Modern Browser</strong>
                       <span className="leading-relaxed">Latest version of Google Chrome, Brave, Microsoft Edge, or Apple Safari with WebRTC audio/video enabled.</span>
                     </div>
                   </div>
 
                   {/* Req 3: Webcam & Lighting */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
                       <Video className="w-4 h-4 text-kulkul-orange" />
                     </div>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">720p HD Webcam &amp; Lighting</strong>
+                      <strong className="card-title block mb-0.5">720p HD Webcam &amp; Lighting</strong>
                       <span className="leading-relaxed">Front-facing camera placed at eye level. Sit in a well-lit space where your face is clearly illuminated.</span>
                     </div>
                   </div>
 
                   {/* Req 4: Microphone & Headphones */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
                       <Headphones className="w-4 h-4" />
                     </div>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Microphone &amp; Headphones</strong>
+                      <strong className="card-title block mb-0.5">Microphone &amp; Headphones</strong>
                       <span className="leading-relaxed">Headphones or earphones are strongly recommended to prevent microphone audio feedback during AI speech.</span>
                     </div>
                   </div>
 
                   {/* Req 5: Internet Connection */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
                       <Wifi className="w-4 h-4" />
                     </div>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Stable High-Speed Internet</strong>
+                      <strong className="card-title block mb-0.5">Stable High-Speed Internet</strong>
                       <span className="leading-relaxed">Minimum 5 Mbps connection speed. Avoid hotspot connections or sharing bandwidth during the interview.</span>
                     </div>
                   </div>
 
                   {/* Req 6: Hardware Resources */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs flex items-start gap-3">
+                  <div className="panel-muted flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
                       <Cpu className="w-4 h-4" />
                     </div>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">4 GB RAM &amp; System Health</strong>
+                      <strong className="card-title block mb-0.5">4 GB RAM &amp; System Health</strong>
                       <span className="leading-relaxed">Close heavy background applications, games, and extra browser tabs before entering the interview room.</span>
                     </div>
                   </div>
@@ -2805,7 +2805,7 @@ export const InterviewPage: React.FC = () => {
                       setPreflightStep(2);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="w-full sm:w-auto btn btn-md btn-primary"
                   >
                     <span>Continue to Interview Rules</span>
                     <ArrowRight className="w-4 h-4 text-kulkul-orange" />
@@ -2818,43 +2818,43 @@ export const InterviewPage: React.FC = () => {
             {preflightStep === 2 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  <h2 className="section-title">
                     Interview Rules &amp; Code of Conduct
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
                     Please review the evaluation standards below. The conversational AI assesses clarity, problem-solving, and technical depth.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-600">
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                  <div className="panel-muted flex items-start gap-3">
                     <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Camera Always On</strong>
+                      <strong className="card-title block mb-0.5">Camera Always On</strong>
                       <span className="leading-relaxed">Keep your camera active with your face clearly visible and centered in frame throughout the entire session.</span>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                  <div className="panel-muted flex items-start gap-3">
                     <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Quiet &amp; Private Environment</strong>
+                      <strong className="card-title block mb-0.5">Quiet &amp; Private Environment</strong>
                       <span className="leading-relaxed">Conduct the interview in a private, well-lit space without background voices, music, or interruptions.</span>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                  <div className="panel-muted flex items-start gap-3">
                     <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Authentic &amp; Independent Responses</strong>
+                      <strong className="card-title block mb-0.5">Authentic &amp; Independent Responses</strong>
                       <span className="leading-relaxed">Speak naturally in your own words. External assistance, second screens, AI bots, or scripts are strictly prohibited.</span>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                  <div className="panel-muted flex items-start gap-3">
                     <span className="w-6 h-6 rounded-full bg-purple-100 text-kulkul-purple font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">4</span>
                     <div>
-                      <strong className="text-slate-900 text-sm block mb-0.5">Sequential Questions</strong>
+                      <strong className="card-title block mb-0.5">Sequential Questions</strong>
                       <span className="leading-relaxed">Questions appear one at a time with optional follow-ups. Once you complete a response, you cannot revisit previous questions.</span>
                     </div>
                   </div>
@@ -2891,7 +2891,7 @@ export const InterviewPage: React.FC = () => {
                       setPreflightStep(1);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="px-6 py-3 rounded-full text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm transition flex items-center gap-1.5"
+                    className="btn btn-md btn-ghost"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>Back to Device Setup</span>
@@ -2905,7 +2905,7 @@ export const InterviewPage: React.FC = () => {
                       if (!stream) startCamera();
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm hover:shadow transition active:scale-[0.98] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="w-full sm:w-auto btn btn-md btn-primary"
                   >
                     <span>Continue to Camera &amp; Mic Check</span>
                     <ArrowRight className="w-4 h-4 text-kulkul-orange" />
@@ -2918,10 +2918,10 @@ export const InterviewPage: React.FC = () => {
             {preflightStep === 3 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  <h2 className="section-title">
                     Test Your Camera &amp; Microphone
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
                     Preview your video feed and speak into your microphone to verify audio detection before entering the interview chamber.
                   </p>
                 </div>
@@ -2955,7 +2955,7 @@ export const InterviewPage: React.FC = () => {
                         <button
                           onClick={startCamera}
                           disabled={isRequestingMedia}
-                          className="mt-4 px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-xs font-bold text-white shadow-xs transition"
+                          className="mt-4 btn btn-sm btn-primary"
                         >
                           {isRequestingMedia ? 'Requesting Access...' : 'Allow Camera & Mic'}
                         </button>
@@ -3041,15 +3041,15 @@ export const InterviewPage: React.FC = () => {
 
                 {/* Diagnostic Status Pills */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                  <div className="panel-muted flex items-center gap-2.5 text-xs font-bold text-slate-800">
                     <div className={`w-2.5 h-2.5 rounded-full ${stream && !isCameraOff ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                     <span>Camera: {stream && !isCameraOff ? 'Active & Ready' : 'Inactive'}</span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                  <div className="panel-muted flex items-center gap-2.5 text-xs font-bold text-slate-800">
                     <div className={`w-2.5 h-2.5 rounded-full ${stream && !isMicMuted ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                     <span>Microphone: {stream && !isMicMuted ? (audioLevel > 5 ? 'Audio Detected' : 'Listening') : 'Muted'}</span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                  <div className="panel-muted flex items-center gap-2.5 text-xs font-bold text-slate-800">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span>System: Calibration OK</span>
                   </div>
@@ -3063,7 +3063,7 @@ export const InterviewPage: React.FC = () => {
                       setPreflightStep(2);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="w-full sm:w-auto px-6 py-3 rounded-full text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5"
+                    className="w-full sm:w-auto btn btn-md btn-ghost"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>Back to Rules</span>
@@ -3072,7 +3072,7 @@ export const InterviewPage: React.FC = () => {
                   <button
                     onClick={handleEnterChamber}
                     disabled={!stream && !isDemo}
-                    className="w-full sm:w-auto py-4 px-8 rounded-full font-black text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md hover:shadow-lg transition active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                    className="w-full sm:w-auto btn btn-md btn-primary"
                   >
                     <span>Enter AI Video Interview Room</span>
                     <ArrowRight className="w-4 h-4 text-kulkul-orange" />
@@ -3111,7 +3111,7 @@ export const InterviewPage: React.FC = () => {
                   const lastAiMsg = [...chatMessages].reverse().find((m) => m.sender === 'ai');
                   if (lastAiMsg) speakAI(lastAiMsg.text);
                 }}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2 text-xs cursor-pointer border border-amber-300"
+                className="btn btn-md btn-primary shadow-xl"
               >
                 <Volume2 className="w-4 h-4" />
                 <span>Tap here to enable AI Interviewer Voice</span>
@@ -3120,28 +3120,28 @@ export const InterviewPage: React.FC = () => {
           )}
 
           {/* Top Session Progress & Status Header */}
-          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="content-card p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Left: Program, Applicant, Question Counter */}
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-kulkul-purple to-purple-800 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-kulkul-purple to-purple-800 text-white flex items-center justify-center font-extrabold shadow-xs shrink-0">
                 <Bot className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-black text-slate-900 tracking-tight">{session.program_name}</span>
+                  <span className="text-sm font-extrabold text-slate-900 tracking-tight">{session.program_name}</span>
                   {isDemo && (
                     <button
                       onClick={handleResetDemo}
-                      className="px-2.5 py-0.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-3xs font-extrabold uppercase border border-amber-200 transition cursor-pointer flex items-center gap-1"
+                      className="btn btn-sm btn-outline"
                       title="Reset demo transcript and start from Question 1"
                     >
-                      <RefreshCw className="w-2.5 h-2.5" />
+                      <RefreshCw className="w-3.5 h-3.5" />
                       <span>Restart Demo</span>
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                  <span>{session.applicant_name} &bull; Question {currentQIndex + 1} of {questions.length}</span>
+                  <span>Question {currentQIndex + 1} of {questions.length}</span>
                 </div>
               </div>
             </div>
@@ -3173,7 +3173,7 @@ export const InterviewPage: React.FC = () => {
             {/* Right: Master Continuous REC Badge & Turn Status */}
             <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-end">
               {/* Continuous Session Recording Pill */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs tracking-wide shadow-2xs">
+              <div className="inline-flex items-center gap-2 text-rose-700 font-bold text-xs tracking-wide">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600" />
@@ -3185,7 +3185,7 @@ export const InterviewPage: React.FC = () => {
 
               {/* Real-time Turn Status Badge */}
               {isAiSpeaking ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-kulkul-purple text-xs font-bold">
+                <div className="inline-flex items-center gap-1.5 text-kulkul-purple text-xs font-bold">
                   <span className="flex items-center gap-0.5 h-2">
                     <span className="w-1 h-2 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.3s]" />
                     <span className="w-1 h-3 bg-kulkul-purple rounded-full animate-bounce [animation-delay:-0.15s]" />
@@ -3194,12 +3194,12 @@ export const InterviewPage: React.FC = () => {
                   <span>AI Speaking</span>
                 </div>
               ) : isEvaluatingAnswer ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                <div className="inline-flex items-center gap-1.5 text-amber-700 text-xs font-bold">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
                   <span>Evaluating...</span>
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                <div className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-bold">
                   <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
                   <span>Listening</span>
                 </div>
@@ -3210,7 +3210,7 @@ export const InterviewPage: React.FC = () => {
           {/* Main Dual-Column Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 items-start min-h-0">
             {/* LEFT COLUMN: Candidate Live Studio Feed (Bigger Video: 7 cols on lg, 8 cols on xl) */}
-            <div className="lg:col-span-7 xl:col-span-8 stitch-card bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+            <div className="lg:col-span-7 xl:col-span-8 content-card p-4 sm:p-5 flex flex-col justify-between">
               <div className="flex-1 flex flex-col justify-center">
                 {/* Live Camera Viewport */}
                 <div className="relative aspect-video w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shadow-inner">
@@ -3323,7 +3323,7 @@ export const InterviewPage: React.FC = () => {
                         }
                       }}
                       disabled={isEvaluatingAnswer || isUploadingRecording}
-                      className="px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
+                      className="btn btn-md btn-success shrink-0"
                       title="Finish and submit video interview"
                     >
                       {isEvaluatingAnswer || isUploadingRecording ? (
@@ -3346,7 +3346,7 @@ export const InterviewPage: React.FC = () => {
                         );
                       }}
                       disabled={isEvaluatingAnswer || isUploadingRecording}
-                      className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
+                      className="btn btn-md btn-primary shrink-0"
                       title="Submit current answer"
                     >
                       {isEvaluatingAnswer ? (
@@ -3367,7 +3367,7 @@ export const InterviewPage: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Real-Time Clean Chat Stream (Smaller Chat: 5 cols on lg, 4 cols on xl) */}
-            <div className="lg:col-span-5 xl:col-span-4 stitch-card bg-white border border-slate-200/90 rounded-3xl shadow-2xs flex flex-col h-[560px] lg:h-[620px] xl:h-[640px] max-h-[calc(100vh-180px)] min-h-[460px] overflow-hidden lg:sticky lg:top-24">
+            <div className="lg:col-span-5 xl:col-span-4 content-card p-0 sm:p-0 flex flex-col h-[560px] lg:h-[620px] xl:h-[640px] max-h-[calc(100vh-180px)] min-h-[460px] overflow-hidden lg:sticky lg:top-24">
               {/* Clean Chat Header */}
               <div className="p-3.5 sm:p-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -3567,7 +3567,7 @@ export const InterviewPage: React.FC = () => {
 
             {/* Header copy */}
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              <h1 className="heading-page text-white">
                 Finalizing Your Video Assessment
               </h1>
               <p className="text-sm text-slate-400 max-w-md mx-auto">
@@ -3674,34 +3674,14 @@ export const InterviewPage: React.FC = () => {
       {/* STAGE 3: INTERVIEW COMPLETED & DATABASE VERIFICATION SCREEN */}
       {uiStage === 'completed' && (
         <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center gap-6">
-          <div className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-2xs text-center space-y-6">
+          <div className="content-card text-center space-y-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="heading-page">
                 Video Interview Successfully Recorded
               </h1>
               <p className="text-sm text-slate-600 max-w-xl mx-auto mt-2">
                 Thank you, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Your technical responses have been encrypted, verified, and saved to the review database for the fellowship admissions committee.
               </p>
-
-              {isDemo && (
-                <div className="max-w-xl mx-auto mt-4 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-left shadow-2xs">
-                  <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-5 h-5 text-kulkul-purple shrink-0" />
-                    <p className="text-xs text-slate-700 font-medium">
-                      <span className="font-bold text-slate-900 block">KulKul Interactive Demo Completed</span>
-                      You can reset and test the interview chamber again anytime.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleResetDemo}
-                    disabled={isResetting}
-                    className="px-4 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 shrink-0"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
-                    <span>Restart Demo</span>
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Recorded Video Playback Player */}
@@ -3743,40 +3723,40 @@ export const InterviewPage: React.FC = () => {
             </div>
 
             {/* What Happens Next / Admissions Review Information */}
-            <div className="max-w-3xl mx-auto w-full mt-6 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 text-left space-y-6 shadow-2xs">
+            <div className="max-w-3xl mx-auto w-full mt-6 panel text-left space-y-6">
               <div className="border-b border-slate-100 pb-4">
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">What Happens Next?</h2>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                <h2 className="section-title">What Happens Next?</h2>
+                <p className="section-subtitle">
                   Our admissions committee is currently processing your interview submission. Here is what to expect:
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="panel-muted space-y-2">
                   <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-bold text-sm">
                     1
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900">Admissions Review</h3>
+                  <h3 className="card-title">Admissions Review</h3>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     Our technical reviewers and evaluators will review your video responses and communication depth.
                   </p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="panel-muted space-y-2">
                   <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
                     2
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900">Email Notification</h3>
+                  <h3 className="card-title">Email Notification</h3>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     You will receive an official decision email with details about your cohort acceptance and next steps.
                   </p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="panel-muted space-y-2">
                   <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
                     3
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900">Track on Dashboard</h3>
+                  <h3 className="card-title">Track on Dashboard</h3>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     Check your live admissions progress anytime by visiting your personal Candidate Dashboard.
                   </p>
@@ -3790,7 +3770,7 @@ export const InterviewPage: React.FC = () => {
                 <button
                   onClick={handleResetDemo}
                   disabled={isResetting}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-kulkul-orange hover:bg-kulkul-orange-hover text-white font-bold rounded-full transition shadow-sm hover:shadow active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto btn btn-md btn-outline"
                 >
                   <RefreshCw className={`w-4 h-4 ${isResetting ? 'animate-spin' : ''}`} />
                   <span>{isResetting ? 'Resetting...' : 'Restart Demo & Try Again'}</span>
@@ -3798,13 +3778,13 @@ export const InterviewPage: React.FC = () => {
               )}
               <button
                 onClick={() => navigate('/candidate/dashboard')}
-                className="w-full sm:w-auto px-8 py-3.5 bg-kulkul-purple hover:bg-kulkul-purple-hover text-white font-bold rounded-full transition shadow-sm hover:shadow active:scale-[0.98]"
+                className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
               >
                 Go to Candidate Dashboard
               </button>
               <button
                 onClick={() => navigate('/')}
-                className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-full transition shadow-2xs active:scale-[0.98]"
+                className="w-full sm:w-auto btn btn-md btn-outline"
               >
                 Back to Homepage
               </button>

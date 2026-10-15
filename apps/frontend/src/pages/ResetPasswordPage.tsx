@@ -102,11 +102,11 @@ export const ResetPasswordPage: React.FC = () => {
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-md w-full">
-          <div className="stitch-card bg-white p-8 sm:p-10 border border-slate-200 shadow-xl rounded-3xl text-center space-y-6">
+          <div className="content-card text-center space-y-6">
             {verifying ? (
               <div className="py-12 space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-                <div className="text-body-sm text-slate-600 font-medium">
+                <div className="text-sm text-slate-600 font-medium">
                   Validating reset link...
                 </div>
               </div>
@@ -117,8 +117,8 @@ export const ResetPasswordPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <h1 className="heading-page text-slate-900">Reset Link Expired</h1>
-                  <p className="text-body-sm text-slate-600 leading-relaxed">
+                  <h1 className="heading-page">Reset Link Expired</h1>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {verifyError}
                   </p>
                 </div>
@@ -126,14 +126,14 @@ export const ResetPasswordPage: React.FC = () => {
                 <div className="space-y-3 pt-2">
                   <Link
                     to="/forgot-password"
-                    className="w-full btn-primary py-3 flex items-center justify-center gap-2"
+                    className="w-full btn btn-md btn-primary"
                   >
                     <span>Request New Reset Link</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <Link
                     to="/admin/login"
-                    className="w-full btn-outline py-2.5 text-xs font-semibold text-slate-700 block"
+                    className="w-full btn btn-md btn-outline"
                   >
                     Back to Sign In
                   </Link>
@@ -146,8 +146,8 @@ export const ResetPasswordPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <h1 className="heading-page text-slate-900">Password Reset!</h1>
-                  <p className="text-body-sm text-slate-600 leading-relaxed">
+                  <h1 className="heading-page">Password Reset!</h1>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     Your password has been successfully updated. You can now use your new password to sign in.
                   </p>
                 </div>
@@ -156,7 +156,7 @@ export const ResetPasswordPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/admin/login')}
-                    className="w-full btn-primary py-3 flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                    className="w-full btn btn-md btn-primary"
                   >
                     <span>Proceed to Sign In</span>
                     <ArrowRight className="w-4 h-4" />
@@ -164,7 +164,7 @@ export const ResetPasswordPage: React.FC = () => {
 
                   <Link
                     to="/candidate/dashboard"
-                    className="w-full btn-outline py-2.5 text-xs font-semibold text-slate-700 block"
+                    className="w-full btn btn-md btn-outline"
                   >
                     Candidate Dashboard Sign In
                   </Link>
@@ -179,7 +179,7 @@ export const ResetPasswordPage: React.FC = () => {
 
                 <div>
                   <h1 className="heading-page">Set New Password</h1>
-                  <p className="text-body-sm mt-2 text-slate-600">
+                  <p className="text-sm text-slate-600 mt-1.5">
                     {accountEmail ? (
                       <>
                         Resetting password for <strong className="text-slate-900">{accountEmail}</strong>.
@@ -192,7 +192,7 @@ export const ResetPasswordPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-left pt-1">
                   <div>
-                    <label className="form-label">New Password</label>
+                    <label className="field-label">New Password</label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
@@ -200,14 +200,14 @@ export const ResetPasswordPage: React.FC = () => {
                         placeholder="At least 8 characters"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full pl-10 pr-10 input-md"
+                        className="form-input pl-10 pr-10"
                         autoFocus
                       />
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 transition"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -215,7 +215,7 @@ export const ResetPasswordPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="form-label">Confirm New Password</label>
+                    <label className="field-label">Confirm New Password</label>
                     <div className="relative">
                       <input
                         type={showConfirmPassword ? 'text' : 'password'}
@@ -223,13 +223,13 @@ export const ResetPasswordPage: React.FC = () => {
                         placeholder="Re-enter your new password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-10 pr-10 input-md"
+                        className="form-input pl-10 pr-10"
                       />
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 transition"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
                       >
                         {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -262,7 +262,7 @@ export const ResetPasswordPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={submitting || newPassword.length < 8 || newPassword !== confirmPassword}
-                    className="w-full btn-primary py-3 flex items-center justify-center gap-2 group shadow-lg shadow-primary/20 disabled:opacity-60"
+                    className="w-full btn btn-md btn-primary group"
                   >
                     {submitting ? (
                       <>

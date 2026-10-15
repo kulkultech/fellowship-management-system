@@ -12,7 +12,6 @@ import {
   Trash2,
   RefreshCw,
   Clock,
-  CheckCircle2,
   X,
   Search,
   Loader2,
@@ -196,7 +195,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
         return <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">Reviewer</span>;
       case 'mentor':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 whitespace-nowrap">
             <GraduationCap className="w-3.5 h-3.5" />
             Mentor
           </span>
@@ -218,54 +217,15 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-              Active Members
-            </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">{members.length}</div>
-          </div>
-          <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-              Pending Invitations
-            </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">{invitations.length}</div>
-          </div>
-          <Clock className="w-6 h-6 text-amber-500 shrink-0" />
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-              Total Seats
-            </div>
-            <div className="text-2xl font-black text-slate-900 mt-1">
-              {members.length + invitations.length}
-            </div>
-          </div>
-          <Users className="w-6 h-6 text-kulkul-purple shrink-0" />
-        </div>
-      </div>
-
       {/* Main Content Card with Navigation Tabs & Actions */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
+      <div className="content-card space-y-5">
         {/* Header: tabs on the left, actions on the right */}
         <div className="section-header">
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab('members')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap ${
-                activeTab === 'members'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
+              className={`tab-pill ${activeTab === 'members' ? 'tab-pill-active' : ''}`}
             >
               <Users className="w-3.5 h-3.5" />
               <span>Active Members ({members.length})</span>
@@ -273,11 +233,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('invitations')}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap ${
-                activeTab === 'invitations'
-                  ? 'bg-kulkul-purple text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
+              className={`tab-pill ${activeTab === 'invitations' ? 'tab-pill-active' : ''}`}
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Pending Invitations ({invitations.length})</span>
@@ -389,13 +345,11 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                             : '—'}
                         </td>
                         <td className="text-right whitespace-nowrap">
-                          {isSelf ? (
-                            <span className="text-xs text-slate-400 italic">Active session</span>
-                          ) : (
+                          {!isSelf && (
                             <button
                               type="button"
                               onClick={() => setMemberToRemove(member)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              className="btn btn-icon-sm btn-ghost-danger"
                               title="Remove member"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -466,10 +420,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                         )}
                         <td className="whitespace-nowrap">
                           <span className={`text-xs font-semibold ${isExpired ? 'text-red-600' : 'text-amber-600'}`}>
-                            {isExpired ? 'Expired' : 'Pending'}
-                          </span>
-                          <span className="text-xs text-slate-400 ml-1.5">
-                            ({formatExpiresIn(inv.expires_at)})
+                            {formatExpiresIn(inv.expires_at)}
                           </span>
                         </td>
                         <td className="text-slate-500 whitespace-nowrap">
@@ -487,7 +438,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                               type="button"
                               onClick={() => resendMutation.mutate(inv.id)}
                               disabled={resendMutation.isPending}
-                              className="p-1.5 text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 rounded-lg transition"
+                              className="btn btn-icon-sm btn-ghost"
                               title="Resend invitation email (renews 7 days)"
                             >
                               <Send className="w-4 h-4" />
@@ -495,7 +446,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                             <button
                               type="button"
                               onClick={() => setInvitationToRevoke(inv)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              className="btn btn-icon-sm btn-ghost"
                               title="Revoke invitation"
                             >
                               <X className="w-4 h-4" />
@@ -514,32 +465,33 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
       {/* Modal 1: Invite Admin Modal */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="stitch-card bg-white w-full max-w-md rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
+        <div className="modal-backdrop animate-in fade-in duration-150">
+          <div className="modal-panel max-w-md animate-in zoom-in-95 duration-150">
+            <div className="section-header">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0">
                   <UserPlus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  <h3 className="section-title">
                     Invite Administrator
                   </h3>
-                  <p className="text-xs text-slate-500">Send an email invitation link</p>
+                  <p className="section-subtitle">Send an email invitation link</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsInviteModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition"
+                className="btn btn-icon-sm btn-ghost self-start sm:self-center shrink-0"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleSendInvite} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                <label className="field-label">
                   Email Address
                 </label>
                 <div className="relative">
@@ -549,7 +501,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="colleague@company.com"
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm"
+                    className="form-input pl-10"
                     required
                   />
                 </div>
@@ -557,7 +509,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
               {/* Role Selection */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                <label className="field-label">
                   Role &amp; Permissions
                 </label>
                 <div className="grid grid-cols-1 gap-2">
@@ -582,7 +534,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                           <ShieldCheck className="w-3.5 h-3.5 text-kulkul-purple" />
                           Platform Superadmin
                         </div>
-                        <div className="text-3xs text-slate-500 mt-0.5">
+                        <div className="meta-text mt-0.5">
                           Full system-wide administrative control across all companies and programs.
                         </div>
                       </div>
@@ -609,7 +561,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                         <Building2 className="w-3.5 h-3.5 text-indigo-600" />
                         Company Administrator
                       </div>
-                      <div className="text-3xs text-slate-500 mt-0.5">
+                      <div className="meta-text mt-0.5">
                         Can launch fellowship programs, edit question banks, and evaluate candidates.
                       </div>
                     </div>
@@ -635,7 +587,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                         <GraduationCap className="w-3.5 h-3.5 text-purple-600" />
                         Program Mentor
                       </div>
-                      <div className="text-3xs text-slate-500 mt-0.5">
+                      <div className="meta-text mt-0.5">
                         Guides cohort fellows, conducts mentor sessions, and monitors candidate progress.
                       </div>
                     </div>
@@ -646,13 +598,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               {/* Program Selection (when inviting a mentor) */}
               {inviteRole === 'mentor' && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  <label className="field-label">
                     Assign to Program (Optional)
                   </label>
                   <select
                     value={selectedProgramId}
                     onChange={(e) => setSelectedProgramId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
+                    className="form-input"
                   >
                     <option value="">Select a fellowship program (or assign later)...</option>
                     {programsList.map((prog) => (
@@ -661,7 +613,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                       </option>
                     ))}
                   </select>
-                  <p className="text-3xs text-slate-400 mt-1">
+                  <p className="meta-text mt-1">
                     The mentor will be automatically granted access to this program upon registration.
                   </p>
                 </div>
@@ -670,13 +622,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               {/* Company Selection (only if superadmin inviting for a company) */}
               {isSuperadmin && inviteRole !== 'superadmin' && !organizationId && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  <label className="field-label">
                     Assign to Company
                   </label>
                   <select
                     value={selectedOrgId}
                     onChange={(e) => setSelectedOrgId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple text-sm font-medium"
+                    className="form-input"
                     required
                   >
                     <option value="" disabled>
@@ -691,7 +643,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 </div>
               )}
 
-              <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 text-3xs text-slate-600 flex items-start gap-2">
+              <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 text-2xs text-slate-600 flex items-start gap-2">
                 <Clock className="w-4 h-4 text-kulkul-purple shrink-0 mt-0.5" />
                 <span>
                   The invitee will receive an email with a secure link valid for <strong>7 days</strong>.
@@ -699,18 +651,18 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setIsInviteModalOpen(false)}
-                  className="btn btn-sm btn-outline px-4 text-slate-600"
+                  className="btn btn-sm btn-outline"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={inviteMutation.isPending}
-                  className="btn btn-sm btn-primary px-5 shadow-sm shadow-purple-900/10 flex items-center gap-2"
+                  className="btn btn-sm btn-primary"
                 >
                   {inviteMutation.isPending ? (
                     <>
@@ -732,23 +684,25 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
       {/* Modal 2: Confirm Remove Member */}
       {memberToRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="stitch-card bg-white w-full max-w-sm rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150 text-center">
-            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-lg font-black text-slate-900">Remove Team Member?</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Are you sure you want to remove <strong>{memberToRemove.name || memberToRemove.email}</strong>? They will immediately lose administrative access.
-              </p>
+        <div className="modal-backdrop animate-in fade-in duration-150">
+          <div className="modal-panel max-w-md animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="section-title">Remove Team Member?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Are you sure you want to remove <strong>{memberToRemove.name || memberToRemove.email}</strong>? They will immediately lose administrative access.
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="modal-footer">
               <button
                 type="button"
                 onClick={() => setMemberToRemove(null)}
-                className="w-full btn btn-sm btn-outline text-slate-600"
+                className="btn btn-sm btn-outline"
               >
                 Cancel
               </button>
@@ -756,7 +710,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 type="button"
                 onClick={() => removeMemberMutation.mutate(memberToRemove.id)}
                 disabled={removeMemberMutation.isPending}
-                className="w-full btn btn-sm bg-red-600 hover:bg-red-700 text-white font-bold border-none shadow-sm shadow-red-900/10 flex items-center justify-center gap-1.5"
+                className="btn btn-sm btn-danger"
               >
                 {removeMemberMutation.isPending ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -771,23 +725,25 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
       {/* Modal 3: Confirm Revoke Invitation */}
       {invitationToRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="stitch-card bg-white w-full max-w-sm rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150 text-center">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-              <X className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-lg font-black text-slate-900">Revoke Invitation?</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Revoke the pending invitation for <strong>{invitationToRevoke.email}</strong>? Their invitation link will be rendered invalid.
-              </p>
+        <div className="modal-backdrop animate-in fade-in duration-150">
+          <div className="modal-panel max-w-md animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
+                <X className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="section-title">Revoke Invitation?</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Revoke the pending invitation for <strong>{invitationToRevoke.email}</strong>? Their invitation link will be rendered invalid.
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="modal-footer">
               <button
                 type="button"
                 onClick={() => setInvitationToRevoke(null)}
-                className="w-full btn btn-sm btn-outline text-slate-600"
+                className="btn btn-sm btn-outline"
               >
                 Cancel
               </button>
@@ -795,7 +751,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 type="button"
                 onClick={() => revokeMutation.mutate(invitationToRevoke.id)}
                 disabled={revokeMutation.isPending}
-                className="w-full btn btn-sm bg-amber-600 hover:bg-amber-700 text-white font-bold border-none shadow-sm shadow-amber-900/10 flex items-center justify-center gap-1.5"
+                className="btn btn-sm btn-danger"
               >
                 {revokeMutation.isPending ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

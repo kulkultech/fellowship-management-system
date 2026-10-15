@@ -126,7 +126,6 @@ import {
   Users,
   Search,
   CheckCircle2,
-  ChevronRight,
   X,
   ExternalLink,
   Check,
@@ -144,13 +143,11 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  ArrowLeft,
   RotateCcw,
   Save,
   ShieldCheck,
   Video,
   Download,
-  PlusCircle,
   Upload,
   UploadCloud,
   Sliders,
@@ -213,7 +210,7 @@ const DEFAULT_STAGES: ApplicationStageItem[] = [
 ];
 
 export interface DashboardPageProps {
-  defaultView?: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github';
+  defaultView?: 'programs' | 'pipeline' | 'stages' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github';
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
@@ -241,8 +238,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   }, [user, impersonatedOrgId, navigate]);
 
   const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'companies' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'>(initialView);
+  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'
+  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'>(initialView);
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
@@ -489,13 +486,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     category: 'Software Engineering',
     duration_minutes: 35,
     passing_score: 70,
-  });
-
-  // Superadmin: Load Companies list
-  const { data: companiesList = [], refetch: refetchCompanies } = useQuery({
-    queryKey: ['admin-companies-list'],
-    queryFn: () => adminService.listCompanies(),
-    enabled: isSuperadmin || currentView === 'companies',
   });
 
   // Create Program Form State
@@ -1052,34 +1042,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  openReviewModal(app);
-                }}
-                className="p-2 rounded-xl hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple transition"
-                title="Review candidate mark & notes"
-              >
-                <Award className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
                   setApplicantToDelete({ id: app.id, name: app.full_name, email: app.email });
                 }}
-                className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
+                className="btn btn-icon-sm btn-ghost-danger"
                 title="Delete application data (Reset for re-testing)"
               >
                 <Trash2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedApplicantId(app.id);
-                }}
-                className="p-2 rounded-xl hover:bg-slate-200 text-slate-500 hover:text-kulkul-purple transition"
-                title="View details"
-              >
-                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </td>
@@ -1946,24 +1914,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     },
   });
 
-  const approveCompanyMutation = useMutation({
-    mutationFn: (companyId: string) => adminService.approveCompany(companyId),
-    onSuccess: (data) => {
-      toast.success(`Approved company "${data.name}"!`);
-      refetchCompanies();
-    },
-    onError: () => toast.error('Failed to approve company'),
-  });
-
-  const rejectCompanyMutation = useMutation({
-    mutationFn: (companyId: string) => adminService.rejectCompany(companyId),
-    onSuccess: (data) => {
-      toast.error(`Company "${data.name}" application declined`);
-      refetchCompanies();
-    },
-    onError: () => toast.error('Failed to update company status'),
-  });
-
   // Helper to extract comparable values for candidate table column sorting
   const getApplicantSortValue = (app: ApplicantListItem, colId: string): string | number | null => {
     switch (colId) {
@@ -2228,8 +2178,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
 
 
-  const pendingCompaniesCount = companiesList.filter((c) => c.status === 'pending_approval').length;
-
   const renderStageBadge = (stage: string) => {
     switch (stage) {
       case 'registered':
@@ -2422,45 +2370,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       icon: Users,
       onClick: () => setCurrentView('team'),
     },
-    ...(isSuperadmin
-      ? [
-          {
-            id: 'superadmin_portal',
-            label: 'Superadmin Console',
-            icon: ShieldCheck,
-            badge: pendingCompaniesCount > 0 ? pendingCompaniesCount : undefined,
-            badgeColor: 'bg-amber-500 text-white',
-            onClick: () => navigate('/superadmin/dashboard'),
-          },
-        ]
-      : []),
   ];
 
-  const isProgramScopedView = !['programs', 'questions', 'team', 'create_program', 'companies'].includes(currentView);
+  const isProgramScopedView = !['programs', 'questions', 'team', 'create_program'].includes(currentView);
 
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2.5">
-      {/* Program switcher: only visible when a program is opened and multiple programs exist */}
-      {isProgramScopedView && programId && allPrograms.length > 1 && (
-        <select
-          value={activeProgramSlug}
-          onChange={(e) => setActiveProgramSlug(e.target.value)}
-          className="h-8 px-3 max-w-[16rem] truncate text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kulkul-purple shadow-2xs"
-        >
-          {allPrograms.map((p) => (
-            <option key={p.slug} value={p.slug}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      )}
-
       {/* Edit Active Program Details & Banner */}
       {isProgramScopedView && program && (
         <button
           type="button"
           onClick={() => handleOpenEditProgramModal(program)}
-          className="btn btn-sm btn-outline shadow-2xs"
+          className="btn btn-sm btn-outline"
           title="Edit program details, banner image, and schedule"
         >
           <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
@@ -2472,20 +2393,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       <button
         type="button"
         onClick={() => setIsCompanySettingsOpen(true)}
-        className="btn btn-sm btn-outline shadow-2xs"
+        className="btn btn-sm btn-outline"
         title="Manage company profile, name, and URL slug"
       >
         <Building2 className="w-3.5 h-3.5 text-kulkul-purple" />
         <span className="hidden sm:inline">Company Settings</span>
-      </button>
-
-      {/* Create New Program Button */}
-      <button
-        onClick={() => setCurrentView('create_program')}
-        className="btn btn-sm btn-primary shadow-sm"
-      >
-        <Plus className="w-4 h-4 text-kulkul-orange" />
-        <span>New Program</span>
       </button>
     </div>
   );
@@ -2516,11 +2428,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           ? `${program?.name || 'Program'} - GitHub Activity`
           : program?.name || 'Candidate Pipeline'
       }
-      subtitle={
-        currentView === 'create_program'
-          ? 'Set up a new fellowship or cohort with specialization tracks, screening modules, and candidate assessments.'
-          : undefined
-      }
       companyName={orgProfile?.name || user?.organization?.name || 'Acme Academy'}
       companyLogoUrl={orgProfile?.logo_url || user?.organization?.logo_url}
       navItems={navItems}
@@ -2537,27 +2444,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* ================================================================================= */}
         {currentView === 'programs' && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="section-header">
-                <h2 className="section-title">Active Fellowship Cohorts</h2>
-
-                <div className="section-actions">
-                  <span className="text-xs font-bold text-slate-500">
-                    {allPrograms.length} {allPrograms.length === 1 ? 'Program' : 'Programs'} Hosted
-                  </span>
-                </div>
-              </div>
-
+            <div className="content-card space-y-6">
               {allPrograms.length === 0 ? (
-                <div className="stitch-card p-12 bg-white text-center">
+                <div className="panel p-12 text-center">
                   <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <h3 className="font-bold text-slate-700">No programs created yet</h3>
+                  <h3 className="card-title">No programs created yet</h3>
                   <p className="text-xs text-slate-500 mt-1 mb-4">
                     Create your first fellowship program to host multiple specialization tracks and candidate assessments.
                   </p>
                   <button
                     onClick={() => setCurrentView('create_program')}
-                    className="px-5 py-2 rounded-full bg-kulkul-purple text-white text-xs font-bold"
+                    className="btn btn-sm btn-primary"
                   >
                     Create First Program
                   </button>
@@ -2641,30 +2538,36 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               </td>
 
                               <td className="align-middle whitespace-nowrap text-left">
-                                <div className="flex items-center gap-2 h-10">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                                  <span className="text-xs font-semibold text-emerald-700">Admissions Open</span>
-                                </div>
+                                {(() => {
+                                  const now = Date.now();
+                                  const openAt = prog.open_date ? new Date(prog.open_date).getTime() : NaN;
+                                  const endAt = prog.end_date ? new Date(prog.end_date).getTime() : NaN;
+                                  const state =
+                                    prog.status === 'draft'
+                                      ? { label: 'Draft', dot: 'bg-slate-400', text: 'text-slate-600' }
+                                      : prog.status === 'archived'
+                                      ? { label: 'Archived', dot: 'bg-slate-400', text: 'text-slate-600' }
+                                      : !Number.isNaN(openAt) && now < openAt
+                                      ? { label: 'Opening Soon', dot: 'bg-amber-500', text: 'text-amber-700' }
+                                      : !Number.isNaN(endAt) && now > endAt
+                                      ? { label: 'Closed', dot: 'bg-slate-400', text: 'text-slate-600' }
+                                      : { label: 'Admissions Open', dot: 'bg-emerald-500', text: 'text-emerald-700' };
+                                  return (
+                                    <div className="flex items-center gap-2 h-10">
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${state.dot}`}></span>
+                                      <span className={`text-xs font-semibold ${state.text}`}>{state.label}</span>
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                               <td className="align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-2 h-10">
-                                  <button
-                                    onClick={() => {
-                                      setActiveProgramSlug(prog.slug);
-                                      setCurrentView('pipeline');
-                                    }}
-                                    className="px-4 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
-                                  >
-                                    <span>Manage</span>
-                                    <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
-                                  </button>
-
                                   <a
                                     href={getPublicProgramUrl(prog.slug)}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900 border border-slate-200 transition"
+                                    className="btn btn-icon-sm btn-outline"
                                     title="Open public overview page"
                                   >
                                     <ExternalLink className="w-3.5 h-3.5" />
@@ -2672,7 +2575,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                                   <button
                                     onClick={() => handleOpenPipelineConfig(prog)}
-                                    className="p-1.5 rounded-full hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-slate-200 transition"
+                                    className="btn btn-icon-sm btn-outline"
                                     title="Configure Question Set & Logic Test"
                                   >
                                     <BrainCircuit className="w-3.5 h-3.5 text-amber-600" />
@@ -2680,7 +2583,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                                   <button
                                     onClick={() => handleOpenEditProgramModal(prog)}
-                                    className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                    className="btn btn-icon-sm btn-outline"
                                     title="Edit program details & schedule"
                                   >
                                     <Sliders className="w-3.5 h-3.5" />
@@ -2697,7 +2600,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       }
                                     }}
                                     disabled={deleteProgramMutation.isPending}
-                                    className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition"
+                                    className="btn btn-icon-sm btn-ghost-danger"
                                     title="Delete program"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -2716,109 +2619,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           </div>
         )}
 
-        {/* ================================================================================= */}
-        {/* VIEW 1: SUPERADMIN COMPANY APPROVALS WORKSPACE */}
-        {/* ================================================================================= */}
-        {currentView === 'companies' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Registered Companies & Verification</h2>
-                <p className="text-xs text-slate-500">
-                  Review incoming company workspace applications. Approving enables them to log in and launch assessment programs.
-                </p>
-              </div>
-
-              <span className="text-xs font-bold text-slate-500">
-                Total Companies: {companiesList.length}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {companiesList.map((company) => (
-                <div
-                  key={company.id}
-                  className="stitch-card bg-white p-6 border border-slate-200 flex flex-col justify-between space-y-5"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        {company.logo_url ? (
-                          <img
-                            src={resolveMediaUrl(company.logo_url)}
-                            alt={company.name}
-                            className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-1"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-kulkul-purple text-white flex items-center justify-center font-bold text-lg">
-                            {company.name.substring(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <h3 className="text-base font-extrabold text-slate-900 leading-tight">{company.name}</h3>
-                          <span className="text-xs font-mono text-slate-500">slug: {company.slug}</span>
-                        </div>
-                      </div>
-
-                      {company.status === 'approved' ? (
-                        <span className="text-2xs font-bold text-emerald-700 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Approved
-                        </span>
-                      ) : company.status === 'rejected' ? (
-                        <span className="text-2xs font-bold text-red-700">
-                          Rejected
-                        </span>
-                      ) : (
-                        <span className="text-2xs font-bold text-amber-800 animate-pulse flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Pending Review
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1.5 text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span>Contact Email:</span>
-                        <span className="font-semibold text-slate-800">{company.contact_email || 'Not provided'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Submitted On:</span>
-                        <span className="text-slate-500">
-                          {company.created_at ? new Date(company.created_at).toLocaleDateString() : 'Recent'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                    {company.status !== 'approved' && (
-                      <button
-                        onClick={() => approveCompanyMutation.mutate(company.id)}
-                        disabled={approveCompanyMutation.isPending}
-                        className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Approve</span>
-                      </button>
-                    )}
-
-                    {company.status !== 'rejected' && company.slug !== 'acme' && (
-                      <button
-                        onClick={() => rejectCompanyMutation.mutate(company.id)}
-                        disabled={rejectCompanyMutation.isPending}
-                        className="px-3.5 py-2 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 text-xs font-bold transition"
-                      >
-                        Decline
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
 
 
@@ -2828,7 +2628,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {currentView === 'stages' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* 1. CANDIDATE ADMISSION FLOW SEQUENCER (RUNTIME LOGIC & PIPELINE ORDER) */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="content-card space-y-6">
               <div className="section-header">
                 <div>
                   <h2 className="section-title">Candidate Admission Flow</h2>
@@ -2856,83 +2656,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
               </div>
 
-              {/* Live Flow Pipeline Visualization */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-slate-50 to-orange-50/50 border border-slate-200/80">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-                  {/* Pinned Step 1 */}
-                  <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border-2 border-kulkul-purple/40 shadow-xs font-bold text-slate-800">
-                    <span className="w-5 h-5 rounded-full bg-kulkul-purple text-white text-3xs font-black flex items-center justify-center">1</span>
-                    <span className="flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-kulkul-purple" />
-                      Google Sign-In
-                    </span>
-                  </div>
-
-                  <span className="text-slate-300 font-bold shrink-0">&rarr;</span>
-
-                  {editableCandidateFlow.map((stepKey, idx) => {
-                    const stepNum = idx + 2;
-                    const isMCQ = stepKey === 'mcq_test';
-                    const isForm = stepKey === 'fill_form';
-                    const isAI = stepKey === 'ai_interview';
-                    const isEnabled = isMCQ
-                      ? (program?.enable_mcq ?? true)
-                      : isAI
-                      ? (program?.enable_ai_interview ?? true)
-                      : true;
-
-                    const title = isForm
-                      ? 'Candidate Form'
-                      : isMCQ
-                      ? 'Timed Logic MCQ'
-                      : 'AI Interview';
-
-                    return (
-                      <React.Fragment key={stepKey}>
-                        <div
-                          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-xs font-bold ${
-                            isEnabled
-                              ? 'bg-white border-slate-200 text-slate-800'
-                              : 'bg-slate-100/80 border-dashed border-slate-300 text-slate-400 line-through'
-                          }`}
-                        >
-                          <span
-                            className={`w-5 h-5 rounded-full text-3xs font-black flex items-center justify-center ${
-                              isEnabled ? 'bg-slate-800 text-white' : 'bg-slate-300 text-slate-600'
-                            }`}
-                          >
-                            {stepNum}
-                          </span>
-                          <span>{title}</span>
-                          {!isEnabled && (
-                            <span className="text-3xs no-underline text-amber-700 font-bold">
-                              Disabled
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-slate-300 font-bold shrink-0">&rarr;</span>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs font-bold text-emerald-900">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Admissions Review</span>
-                  </div>
-                </div>
-              </div>
-
               {/* Sequential Steps List */}
               <div className="space-y-3">
                 {/* Step 1: Google Authentication (Locked) */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/90 border-2 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="panel-muted flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-start sm:items-center gap-3.5">
                     <span className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 font-extrabold flex items-center justify-center text-xs shrink-0">
                       1
                     </span>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-black text-slate-800">Google Identity Verification</h4>
+                        <h4 className="card-title">Google Identity Verification</h4>
                         <span className="inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                           <Lock className="w-2.5 h-2.5" />
                           Locked Initial Step
@@ -2942,9 +2676,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         Mandatory verification gate. Ensures verified email identity, session tracking, and direct access to candidate dashboard.
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 italic shrink-0 self-end sm:self-auto">
-                    <span>Non-reorderable</span>
                   </div>
                 </div>
 
@@ -2988,10 +2719,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           </span>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-sm font-black text-slate-900">{title}</h4>
-                              <span className="text-3xs font-extrabold uppercase tracking-wider text-kulkul-purple whitespace-nowrap">
-                                {isForm ? 'Profile Form' : isMCQ ? 'Logic MCQ' : 'AI Interview'}
-                              </span>
+                              <h4 className="card-title">{title}</h4>
                               {!isEnabled && (
                                 <span className="text-3xs font-bold uppercase tracking-wider text-amber-700 whitespace-nowrap">
                                   Disabled in Settings (Bypassed)
@@ -3008,7 +2736,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             type="button"
                             onClick={() => handleMoveFlowStepUp(idx)}
                             disabled={idx === 0}
-                            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 disabled:hover:bg-transparent transition"
+                            className="btn btn-icon-sm btn-ghost"
                             title="Move Up in candidate admission order"
                           >
                             <ArrowUp className="w-4 h-4" />
@@ -3017,7 +2745,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             type="button"
                             onClick={() => handleMoveFlowStepDown(idx)}
                             disabled={idx === editableCandidateFlow.length - 1}
-                            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 disabled:hover:bg-transparent transition"
+                            className="btn btn-icon-sm btn-ghost"
                             title="Move Down in candidate admission order"
                           >
                             <ArrowDown className="w-4 h-4" />
@@ -3031,7 +2759,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
 
             {/* 2. PUBLIC APPLICATION & ASSESSMENT STAGES (MARKETING & CURRICULUM SHOWCASE) */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="content-card space-y-6">
               <div className="section-header">
                 <div>
                   <h2 className="section-title">Public Program Stages</h2>
@@ -3071,15 +2799,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 {editableStages.map((stage, idx) => (
                   <div
                     key={idx}
-                    className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-kulkul-purple/30 transition space-y-4"
+                    className="panel-muted hover:border-kulkul-purple/30 transition space-y-4"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <span className="w-8 h-8 rounded-full bg-kulkul-purple text-white font-extrabold flex items-center justify-center text-xs shadow-sm">
                           {idx + 1}
-                        </span>
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Step 0{idx + 1}
                         </span>
                       </div>
 
@@ -3087,7 +2812,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <button
                           onClick={() => handleMoveStageUp(idx)}
                           disabled={idx === 0}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                          className="btn btn-icon-sm btn-ghost"
                           title="Move Up"
                         >
                           <ArrowUp className="w-4 h-4" />
@@ -3095,14 +2820,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <button
                           onClick={() => handleMoveStageDown(idx)}
                           disabled={idx === editableStages.length - 1}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                          className="btn btn-icon-sm btn-ghost"
                           title="Move Down"
                         >
                           <ArrowDown className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteStage(idx)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                          className="btn btn-icon-sm btn-ghost-danger"
                           title="Delete Stage"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -3136,21 +2861,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
                 ))}
               </div>
-
-              {/* Bottom Save Action */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                <span className="text-xs text-slate-400 font-medium">
-                  {editableStages.length} {editableStages.length === 1 ? 'stage' : 'stages'} configured for {program?.name || activeProgramSlug}
-                </span>
-                <button
-                  onClick={() => updateStagesMutation.mutate(editableStages)}
-                  disabled={updateStagesMutation.isPending}
-                  className="btn btn-sm btn-primary"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{updateStagesMutation.isPending ? 'Saving Stages...' : 'Save Application Stages'}</span>
-                </button>
-              </div>
             </div>
           </div>
         )}
@@ -3159,7 +2869,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* VIEW: CANDIDATE PIPELINE (FILTERED BY TREE SELECTION) */}
         {/* ================================================================================= */}
         {currentView === 'pipeline' && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5 animate-in fade-in duration-200">
+          <div className="content-card space-y-5 animate-in fade-in duration-200">
             {/* Candidate Pipeline Toolbar: search left, filters and actions right */}
             <div className="table-toolbar lg:items-start">
               <div className="search-field shrink-0">
@@ -3218,10 +2928,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <button
                     key={st.value}
                     onClick={() => setSelectedStage(st.value)}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                    className={`tab-pill ${
                       selectedStage === st.value
-                        ? 'bg-kulkul-purple text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'tab-pill-active'
+                        : ''
                     }`}
                   >
                     <span>{st.label}</span>
@@ -3244,9 +2954,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 >
                   <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
                   <span>Customize Columns</span>
-                  <span className="text-2xs font-extrabold text-kulkul-purple">
-                    ({activeColumns.length})
-                  </span>
                 </button>
 
                 {/* Export Candidates to Excel Button */}
@@ -3276,9 +2983,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                       )}
                       <span>Export to Excel</span>
-                      <span className="text-2xs font-extrabold text-slate-400">
-                        {hasActiveCandidateFilters ? filteredApplicants.length : applicants.length}
-                      </span>
                     </button>
                     {hasActiveCandidateFilters && (
                       <button
@@ -3302,7 +3006,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       />
                       <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
                         <div className="px-3 py-2 border-b border-slate-100">
-                          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400">
+                          <p className="subsection-title">
                             Select Export Scope
                           </p>
                           <p className="text-xs font-semibold text-slate-700">
@@ -3402,7 +3106,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             </div>
 
             {/* Candidates Table */}
-            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+            <div className="data-table-wrap overflow-hidden flex flex-col">
               <div className="overflow-auto max-h-[calc(100vh-270px)] min-h-[360px] relative scrollbar-thin">
                 <table className="data-table min-w-[960px]">
                   <thead className="sticky top-0 z-20">
@@ -3447,7 +3151,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               }`}
                             >
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <span className={isCurrentSorted ? 'font-black text-kulkul-purple' : ''}>
+                                <span className={isCurrentSorted ? 'font-extrabold text-kulkul-purple' : ''}>
                                   {colDef.label}
                                 </span>
                                 {isSortable && (
@@ -3460,7 +3164,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                           <ArrowDown className="w-3.5 h-3.5 text-kulkul-purple stroke-[2.5]" />
                                         )}
                                         {sortRules.length > 1 && (
-                                          <span className="text-2xs font-black text-kulkul-purple tabular-nums">
+                                          <span className="text-2xs font-extrabold text-kulkul-purple tabular-nums">
                                             {sortIndex + 1}
                                           </span>
                                         )}
@@ -3502,7 +3206,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       <tr>
                         <td colSpan={activeColumns.length} className="text-center text-slate-400">
                           <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                          <div className="text-base font-bold text-slate-700">
+                          <div className="card-title">
                             {hasActiveCandidateFilters ? 'No candidates matching filters' : 'No applicants yet'}
                           </div>
                           <div className="text-xs text-slate-400 mt-1">
@@ -3519,7 +3223,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 setSelectedTrackFilter('');
                                 setSortRules([]);
                               }}
-                              className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-kulkul-purple bg-purple-50 hover:bg-purple-100 transition"
+                              className="mt-3 btn btn-sm btn-outline"
                             >
                               Reset all filters
                             </button>
@@ -3551,7 +3255,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           <div className="space-y-6 animate-in fade-in duration-200">
             {!openedQuestionSetId ? (
               /* Simple Question Banks Table View */
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="content-card space-y-6">
                 <div className="section-header">
                   <h2 className="section-title">Assessment Question Banks</h2>
 
@@ -3577,23 +3281,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 {allQuestionSets.length === 0 ? (
-                  <div className="stitch-card p-12 bg-white text-center">
+                  <div className="panel p-12 text-center">
                     <HelpCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <h3 className="font-bold text-slate-700">No question sets found</h3>
+                    <h3 className="card-title">No question sets found</h3>
                     <p className="text-xs text-slate-500 mt-1 mb-6">
                       Create your first reusable question bank or import existing questions from a CSV file.
                     </p>
                     <div className="flex items-center justify-center gap-3">
                       <button
                         onClick={handleOpenCsvImportNew}
-                        className="px-5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                        className="btn btn-sm btn-outline"
                       >
                         <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
                         <span>Import from CSV</span>
                       </button>
                       <button
                         onClick={() => setIsCreateQuestionSetModalOpen(true)}
-                        className="px-5 py-2.5 rounded-full bg-kulkul-purple text-white text-xs font-bold shadow-sm hover:bg-kulkul-purple-hover transition"
+                        className="btn btn-sm btn-primary"
                       >
                         Create Question Set
                       </button>
@@ -3643,7 +3347,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                                 <td className="align-middle whitespace-nowrap">
                                   <span className="text-2xs font-extrabold text-slate-600">
-                                    {qs.category || 'Logic Assessment'}
+                                    {qs.category || 'General'}
                                   </span>
                                 </td>
 
@@ -3666,22 +3370,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       type="button"
                                       onClick={() => {
                                         setSelectedQuestionSetId(qs.id);
-                                        setOpenedQuestionSetId(qs.id);
-                                      }}
-                                      className="px-3.5 py-1.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1"
-                                    >
-                                      <span>Open Set</span>
-                                      <ChevronRight className="w-3.5 h-3.5 text-kulkul-orange" />
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedQuestionSetId(qs.id);
                                         setCsvImportTargetSet(qs);
                                         setIsImportCsvModalOpen(true);
                                       }}
-                                      className="p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                      className="btn btn-icon-sm btn-outline"
                                       title="Import questions from CSV into this set"
                                     >
                                       <UploadCloud className="w-3.5 h-3.5" />
@@ -3690,7 +3382,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                     <button
                                       type="button"
                                       onClick={() => duplicateQuestionSetMutation.mutate(qs.id)}
-                                      className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-kulkul-purple border border-slate-200 transition"
+                                      className="btn btn-icon-sm btn-outline"
                                       title="Duplicate question set"
                                     >
                                       <Copy className="w-3.5 h-3.5" />
@@ -3704,7 +3396,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                             deleteQuestionSetMutation.mutate(qs.id);
                                           }
                                         }}
-                                        className="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 transition"
+                                        className="btn btn-icon-sm btn-ghost-danger"
                                         title="Delete question set"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -3724,134 +3416,74 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             ) : (
               /* Opened Question Set Detail / Questions Editor */
               <div className="space-y-6">
-                {/* Top Action Bar with Back button */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                {/* Top Action Bar */}
+                <div className="flex items-center justify-end gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setOpenedQuestionSetId(null)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
+                    onClick={handleOpenCsvImportForCurrentSet}
+                    className="btn btn-sm btn-outline"
+                    title="Import questions from CSV into this set"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to Question Banks</span>
+                    <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
+                    <span>Import CSV</span>
                   </button>
-
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={handleOpenCsvImportForCurrentSet}
-                      className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-                      title="Import questions from CSV into this set"
-                    >
-                      <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
-                      <span>Import CSV</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleAddQuestion}
-                      className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-kulkul-purple" />
-                      <span>Add Question</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => saveActiveQuestionSetMutation.mutate()}
-                      disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
-                      className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      <Save className="w-3.5 h-3.5 text-kulkul-orange" />
-                      {saveActiveQuestionSetMutation.isPending ? <span>Saving...</span> : <span>Save Question Set</span>}
-                    </button>
-                  </div>
                 </div>
 
                 {/* Active Set Metrics & Settings */}
                 {activeQuestionSet && (
-                  <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                      <div>
-                        <h3 className="text-base font-black text-slate-900">
-                          {activeQuestionSet.name}
-                        </h3>
-                        <p className="text-2xs text-slate-400 font-mono mt-0.5">
-                          ID: {activeQuestionSet.id}
-                        </p>
-                      </div>
-
-                      <span className="text-xs font-bold text-kulkul-purple">
-                        {editingQuestions.length} Questions Configured
-                      </span>
-                    </div>
-
+                  <div className="content-card space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div>
-                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Set Name</label>
+                        <label className="field-label">Set Name</label>
                         <input
                           type="text"
                           value={editingSetName}
                           onChange={(e) => setEditingSetName(e.target.value)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          className="form-input"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Category</label>
+                        <label className="field-label">Category</label>
                         <input
                           type="text"
                           value={editingSetCategory}
                           onChange={(e) => setEditingSetCategory(e.target.value)}
                           placeholder="e.g. Software Engineering, QA"
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          className="form-input"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Duration (Minutes)</label>
+                        <label className="field-label">Duration (Minutes)</label>
                         <input
                           type="number"
                           min={5}
                           max={180}
                           value={editingSetDuration}
                           onChange={(e) => setEditingSetDuration(parseInt(e.target.value) || 30)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          className="form-input font-mono"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">Passing Score (%)</label>
+                        <label className="field-label">Passing Score (%)</label>
                         <input
                           type="number"
                           min={10}
                           max={100}
                           value={editingSetPassingScore}
                           onChange={(e) => setEditingSetPassingScore(parseInt(e.target.value) || 70)}
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          className="form-input font-mono"
                         />
                       </div>
                     </div>
 
                     {/* Metrics Bar */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <div className="text-2xs font-extrabold uppercase text-slate-400">Total Questions</div>
-                        <div className="text-lg font-black text-slate-900 mt-0.5">{editingQuestions.length}</div>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <div className="text-2xs font-extrabold uppercase text-slate-400">Time Limit</div>
-                        <div className="text-lg font-black text-kulkul-purple mt-0.5">{editingSetDuration} mins</div>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <div className="text-2xs font-extrabold uppercase text-slate-400">Passing Score</div>
-                        <div className="text-lg font-black text-emerald-600 mt-0.5">{editingSetPassingScore}%</div>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
-                        <div className="text-2xs font-extrabold uppercase text-slate-400">Total Points</div>
-                        <div className="text-lg font-black text-slate-900 mt-0.5">
+                      <div className="panel-muted p-3">
+                        <div className="stat-label">Total Points</div>
+                        <div className="stat-value mt-0.5">
                           {editingQuestions.reduce((acc, q) => acc + (q.points || 10), 0)} pts
                         </div>
                       </div>
@@ -3862,9 +3494,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 {/* Questions List */}
                 <div className="space-y-6">
                   {editingQuestions.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+                    <div className="content-card p-12 text-center text-slate-400">
                       <HelpCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                      <h3 className="text-base font-bold text-slate-800">No questions in this set yet</h3>
+                      <h3 className="card-title">No questions in this set yet</h3>
                       <p className="text-xs text-slate-400 mt-1 mb-6 max-w-sm mx-auto">
                         Add multiple choice logic and domain questions to build this assessment set.
                       </p>
@@ -3872,7 +3504,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <button
                           type="button"
                           onClick={handleOpenCsvImportForCurrentSet}
-                          className="px-5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition flex items-center gap-1.5"
+                          className="btn btn-sm btn-outline"
                         >
                           <UploadCloud className="w-3.5 h-3.5 text-kulkul-purple" />
                           <span>Import Questions from CSV</span>
@@ -3880,7 +3512,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         <button
                           type="button"
                           onClick={handleAddQuestion}
-                          className="px-5 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                          className="btn btn-sm btn-primary"
                         >
                           <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
                           <span>Add Question Manually</span>
@@ -3891,11 +3523,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     editingQuestions.map((q, qIdx) => (
                       <div
                         key={qIdx}
-                        className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-5"
+                        className="content-card space-y-5"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="px-3 py-1 rounded-full bg-kulkul-purple text-white text-xs font-extrabold tracking-wide">
+                            <span className="card-title">
                               Question {qIdx + 1}
                             </span>
                             <input
@@ -3903,14 +3535,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               value={q.category || 'Problem Solving'}
                               onChange={(e) => handleQuestionChange(qIdx, 'category', e.target.value)}
                               placeholder="Category (e.g. Logic, Algorithms, QA)"
-                              className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-kulkul-purple"
+                              className="form-input w-auto text-xs"
                             />
                           </div>
 
                           <button
                             type="button"
                             onClick={() => handleRemoveQuestion(qIdx)}
-                            className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition"
+                            className="btn btn-icon-sm btn-ghost-danger"
                             title="Delete question"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -3919,7 +3551,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                         {/* Question Prompt */}
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          <label className="field-label">
                             Question Prompt <span className="text-red-500">*</span>
                           </label>
                           <textarea
@@ -3928,13 +3560,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             value={q.question_text}
                             onChange={(e) => handleQuestionChange(qIdx, 'question_text', e.target.value)}
                             placeholder="Enter the question text or problem description..."
-                            className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple focus:bg-white transition"
+                            className="form-textarea"
                           />
                         </div>
 
                         {/* Multiple Choice Options & Correct Selection */}
                         <div className="space-y-3">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          <label className="field-label mb-0">
                             Options & Answer Key (Select radio button for the correct answer):
                           </label>
 
@@ -3964,7 +3596,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   value={opt.text}
                                   onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
                                   placeholder={`Option ${optIdx + 1} text`}
-                                  className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                                  className="form-input flex-1"
                                 />
                                 {q.correct_option_id === opt.id && (
                                   <span className="text-2xs font-extrabold text-emerald-700 shrink-0">
@@ -3975,7 +3607,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveOption(qIdx, optIdx)}
-                                    className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-slate-100"
+                                    className="btn btn-icon-sm btn-danger-ghost"
                                     title="Remove option"
                                   >
                                     <X className="w-4 h-4" />
@@ -3988,7 +3620,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <button
                             type="button"
                             onClick={() => handleAddOption(qIdx)}
-                            className="text-xs font-bold text-kulkul-purple hover:text-kulkul-orange transition flex items-center gap-1.5 pt-1"
+                            className="btn btn-sm btn-ghost"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>Add Option Choice</span>
@@ -3998,7 +3630,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         {/* Explanation & Points */}
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
                           <div className="sm:col-span-3">
-                            <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            <label className="field-label">
                               Scorecard Explanation (Displayed to candidates after submission)
                             </label>
                             <input
@@ -4006,12 +3638,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               value={q.explanation || ''}
                               onChange={(e) => handleQuestionChange(qIdx, 'explanation', e.target.value)}
                               placeholder="Provide the rationale or proof for the correct option..."
-                              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                              className="form-input"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            <label className="field-label">
                               Points
                             </label>
                             <input
@@ -4020,7 +3652,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               max={100}
                               value={q.points || 10}
                               onChange={(e) => handleQuestionChange(qIdx, 'points', parseInt(e.target.value) || 10)}
-                              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-bold"
+                              className="form-input"
                             />
                           </div>
                         </div>
@@ -4044,13 +3676,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {/* Sticky Bottom Save Bar */}
                   <div className="sticky bottom-4 z-20 p-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between gap-4">
                     <div className="text-xs text-slate-600">
-                      Editing <strong>{editingQuestions.length} questions</strong> in set <strong>{editingSetName || activeQuestionSet?.name}</strong>.
+                      <strong>{editingQuestions.length} questions</strong>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={() => setOpenedQuestionSetId(null)}
-                        className="px-4 py-2 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                        className="btn btn-sm btn-outline"
                       >
                         Back to Question Banks
                       </button>
@@ -4058,9 +3690,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         type="button"
                         onClick={() => saveActiveQuestionSetMutation.mutate()}
                         disabled={saveActiveQuestionSetMutation.isPending || !selectedQuestionSetId}
-                        className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-md transition flex items-center gap-2 disabled:opacity-50"
+                        className="btn btn-sm btn-primary"
                       >
-                        <Save className="w-4 h-4 text-kulkul-orange" />
+                        <Save className="w-3.5 h-3.5 text-kulkul-orange" />
                         {saveActiveQuestionSetMutation.isPending ? <span>Saving Changes...</span> : <span>Save Question Set</span>}
                       </button>
                     </div>
@@ -4082,13 +3714,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <h2 className="section-title">
                     {editingTrack ? `Edit Track: ${editingTrack.name}` : 'Create Specialization Track'}
                   </h2>
-                  <p className="section-subtitle">{program?.name || activeProgramSlug}</p>
-                </div>
-                <div className="section-actions">
-                  <button type="button" onClick={() => setCurrentView('pipeline')} className="btn btn-sm btn-outline">
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to Pipeline</span>
-                  </button>
                 </div>
               </div>
 
@@ -4105,7 +3730,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               >
                 {/* Section 1: Track Details */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-extrabold text-slate-900">
+                  <h3 className="card-title">
                     1. Track Information
                   </h3>
 
@@ -4155,15 +3780,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       placeholder="Focus areas, required skillsets, expectations..."
                       value={trackForm.description}
                       onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
-                      className="form-input"
+                      className="form-textarea"
                     />
                   </div>
                 </div>
 
                 {/* Section 2: Question Bank & Logic MCQ */}
-                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <div className="panel-muted space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <h3 className="card-title flex items-center gap-2">
                       <HelpCircle className="w-4 h-4 text-kulkul-purple" />
                       <span>2. Timed Logic & Domain MCQ Assessment</span>
                     </h3>
@@ -4231,7 +3856,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={180}
                             value={trackForm.logic_test_duration_minutes}
                             onChange={(e) => setTrackForm({ ...trackForm, logic_test_duration_minutes: parseInt(e.target.value) || 35 })}
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                            className="form-input"
                           />
                         </div>
 
@@ -4245,7 +3870,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={100}
                             value={trackForm.logic_test_passing_score}
                             onChange={(e) => setTrackForm({ ...trackForm, logic_test_passing_score: parseInt(e.target.value) || 70 })}
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                            className="form-input"
                           />
                         </div>
                       </div>
@@ -4254,9 +3879,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 {/* Section 3: AI Technical Screening */}
-                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <div className="panel-muted space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <h3 className="card-title flex items-center gap-2">
                       <Bot className="w-4 h-4 text-kulkul-purple" />
                       <span>3. Autonomous AI Technical Screening Room</span>
                     </h3>
@@ -4300,7 +3925,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             })
                           }
                           placeholder="Enter domain-specific questions for the AI interviewer..."
-                          className="w-full p-4 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple leading-relaxed"
+                          className="form-textarea leading-relaxed"
                         />
                       </div>
                     </div>
@@ -4318,9 +3943,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         }
                       }}
                       disabled={deleteTrackMutation.isPending}
-                      className="btn btn-sm btn-ghost text-red-600 hover:bg-red-50"
+                      className="btn btn-sm btn-danger-ghost"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                       <span>Delete Track</span>
                     </button>
                   ) : (
@@ -4391,8 +4016,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               </div>
 
               {/* General Timing & Screening Parameters */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <div className="panel-muted space-y-4">
+                <h3 className="card-title flex items-center gap-2">
                   <Clock className="w-4 h-4 text-kulkul-purple" />
                   <span>Screening Chamber & Timing Parameters</span>
                 </h3>
@@ -4414,7 +4039,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             preparation_time_seconds: parseInt(e.target.value) || 60,
                           })
                         }
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-mono"
+                        className="form-input font-mono"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-slate-400">
                         sec
@@ -4438,7 +4063,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             response_time_seconds: parseInt(e.target.value) || 90,
                           })
                         }
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-mono"
+                        className="form-input font-mono"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-slate-400">
                         sec
@@ -4484,7 +4109,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       })
                     }
                     placeholder="e.g. Do not penalize Indonesian regional accent if communication is clear..."
-                    className="w-full p-3.5 rounded-xl border border-slate-200 text-xs bg-white leading-relaxed focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-textarea leading-relaxed"
                   />
                 </div>
               </div>
@@ -4493,7 +4118,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <h3 className="card-title flex items-center gap-2">
                       <FileText className="w-4 h-4 text-kulkul-purple" />
                       <span>AI Video Prompts & Criteria ({rubricForm.questions?.length || 0} Questions)</span>
                     </h3>
@@ -4513,12 +4138,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {(rubricForm.questions || []).map((q, qIdx) => (
                     <div
                       key={qIdx}
-                      className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 relative hover:border-purple-300 transition"
+                      className="panel space-y-4 relative hover:border-purple-300 transition"
                     >
                       {/* Question Header */}
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
-                          <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-900 font-black text-xs flex items-center justify-center shrink-0">
+                          <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-900 font-extrabold text-xs flex items-center justify-center shrink-0">
                             0{qIdx + 1}
                           </span>
                           <input
@@ -4526,7 +4151,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             value={q.theme}
                             onChange={(e) => handleUpdateRubricQuestion(qIdx, 'theme', e.target.value)}
                             placeholder="Theme / Competency area..."
-                            className="w-full sm:w-96 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-kulkul-purple"
+                            className="form-input sm:w-96"
                           />
                         </div>
 
@@ -4541,14 +4166,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               onChange={(e) =>
                                 handleUpdateRubricQuestion(qIdx, 'max_points', parseInt(e.target.value) || 0)
                               }
-                              className="w-16 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-purple-900 text-center font-mono"
+                              className="form-input w-16 px-2.5 text-center font-mono"
                             />
                           </div>
 
                           <button
                             type="button"
                             onClick={() => handleDeleteRubricQuestion(qIdx)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="btn btn-icon-sm btn-ghost-danger"
                             title="Delete Question"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -4566,20 +4191,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           value={q.question}
                           onChange={(e) => handleUpdateRubricQuestion(qIdx, 'question', e.target.value)}
                           placeholder="Enter the spoken technical or situational prompt..."
-                          className="w-full p-3.5 rounded-xl border border-slate-200 text-xs bg-slate-50/50 leading-relaxed focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                          className="form-textarea leading-relaxed"
                         />
                       </div>
 
                       {/* Criteria Sub-table */}
-                      <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-4 space-y-3">
+                      <div className="panel-muted p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-700">
+                          <span className="card-title">
                             Itemized Scoring Rubric Criteria ({q.criteria?.length || 0})
                           </span>
                           <button
                             type="button"
                             onClick={() => handleAddRubricCriterion(qIdx)}
-                            className="text-2xs font-bold text-kulkul-purple hover:underline flex items-center gap-1"
+                            className="btn btn-sm btn-ghost"
                           >
                             <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
                             <span>Add Criterion</span>
@@ -4596,7 +4221,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   handleUpdateRubricCriterion(qIdx, cIdx, 'criterion', e.target.value)
                                 }
                                 placeholder="Criterion description (e.g. Clearly describes situation or problem)..."
-                                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-kulkul-purple"
+                                className="form-input flex-1"
                               />
                               <div className="flex items-center gap-1 shrink-0">
                                 <input
@@ -4612,14 +4237,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       parseInt(e.target.value) || 0
                                     )
                                   }
-                                  className="w-16 px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-purple-900 text-center font-mono bg-white"
+                                  className="form-input w-16 px-2.5 text-center font-mono"
                                 />
                                 <span className="text-3xs text-slate-500 font-medium">pts</span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleDeleteRubricCriterion(qIdx, cIdx)}
-                                className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition"
+                                className="btn btn-icon-sm btn-danger-ghost"
                                 title="Delete criterion"
                               >
                                 <X className="w-4 h-4" />
@@ -4632,39 +4257,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   ))}
                 </div>
               </div>
-
-              {/* Action Footer Bar */}
-              <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs text-slate-500">
-                  Total Allocated: <strong className="text-slate-900">{rubricTotalPts} points</strong>
-                  {rubricTotalPts !== 100 && (
-                    <span className="text-amber-600 ml-2 font-medium">
-                      (Recommended standard is 100 points)
-                    </span>
-                  )}
-                </div>
-
-                <div className="section-actions">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!rubricTargetProgram) return;
-                      updateProgramRubricMutation.mutate({
-                        programId: rubricTargetProgram.id,
-                        rubric: {
-                          ...rubricForm,
-                          total_points: rubricTotalPts,
-                        },
-                      });
-                    }}
-                    disabled={updateProgramRubricMutation.isPending}
-                    className="btn btn-sm btn-primary"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{updateProgramRubricMutation.isPending ? 'Saving...' : 'Save Rubric'}</span>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -4674,31 +4266,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* ================================================================================= */}
         {currentView === 'create_program' && (
           <div className="space-y-6 animate-in fade-in duration-200 max-w-4xl">
-            {/* Top Navigation / Breadcrumb */}
-            <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentView('programs')}
-                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-kulkul-purple px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition shadow-2xs"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Programs</span>
-              </button>
-            </div>
-
             {/* Main Form Card */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-8">
-              <div className="border-b border-slate-100 pb-5 flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200 shrink-0 shadow-2xs">
-                  <PlusCircle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">
-                    Launch New Program
-                  </h2>
-                </div>
-              </div>
-
+            <div className="content-card space-y-8">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -4726,13 +4295,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               >
                 {/* Section 1: Program Information */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <h3 className="subsection-title">
                     1. Program Information
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      <label className="field-label">
                         Program Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -4759,12 +4328,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             );
                           }
                         }}
-                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                        className="form-input"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      <label className="field-label">
                         URL Slug <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -4780,16 +4349,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               .replace(/\s+/g, '-')
                           )
                         }
-                        className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                        className="form-input font-mono"
                       />
-                      <p className="text-2xs text-slate-400 mt-1 font-mono">
+                      <p className="meta-text mt-1 font-mono">
                         Public candidate URL: /programs/{orgSlug}/{newProgSlug || 'slug'}
                       </p>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    <label className="field-label">
                       Description
                     </label>
                     <textarea
@@ -4797,14 +4366,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       placeholder="Overview of the program, requirements, and cohort dates..."
                       value={newProgDesc}
                       onChange={(e) => setNewProgDesc(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                      className="form-textarea"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                      Cover Banner Photo
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="field-label mb-0">
+                        Cover Banner Photo
+                      </label>
+                      {newProgImage && !uploadingBanner && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdjustBannerSrc(resolveMediaUrl(newProgImage));
+                            setAdjustBannerTarget('create');
+                            setAdjustBannerModalOpen(true);
+                          }}
+                          className="text-2xs font-bold text-kulkul-purple hover:underline flex items-center gap-1"
+                        >
+                          <Sliders className="w-3 h-3 text-kulkul-orange" />
+                          <span>Adjust Framing &amp; Ratio</span>
+                        </button>
+                      )}
+                    </div>
 
                     {uploadingBanner ? (
                       <div className="flex flex-col items-center justify-center rounded-2xl border border-purple-200 bg-purple-50/40 p-8 aspect-[3/1] max-h-56 w-full animate-pulse">
@@ -4820,19 +4405,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             className="w-full max-h-72 object-cover block"
                           />
                           <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAdjustBannerSrc(resolveMediaUrl(newProgImage));
-                                setAdjustBannerTarget('create');
-                                setAdjustBannerModalOpen(true);
-                              }}
-                              className="px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5"
-                            >
-                              <Sliders className="w-3.5 h-3.5 text-kulkul-purple" />
-                              <span>Adjust Framing &amp; Ratio</span>
-                            </button>
-                            <label className="cursor-pointer px-3.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition shadow-md flex items-center gap-1.5">
+                            <label className="btn btn-sm btn-outline cursor-pointer">
                               <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
                               <span>Change Photo</span>
                               <input
@@ -4845,27 +4418,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             <button
                               type="button"
                               onClick={() => setNewProgImage('')}
-                              className="px-3.5 py-2 rounded-full bg-red-600/90 hover:bg-red-600 text-white text-xs font-bold transition shadow-md flex items-center gap-1.5"
+                              className="btn btn-sm btn-danger"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               <span>Remove</span>
                             </button>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
-                          <span>Adjustable banner ratio &amp; focal point</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAdjustBannerSrc(resolveMediaUrl(newProgImage));
-                              setAdjustBannerTarget('create');
-                              setAdjustBannerModalOpen(true);
-                            }}
-                            className="font-bold text-kulkul-purple hover:underline flex items-center gap-1"
-                          >
-                            <Sliders className="w-3 h-3 text-kulkul-orange" />
-                            <span>Adjust Framing &amp; Ratio</span>
-                          </button>
                         </div>
                       </div>
                     ) : (
@@ -4888,9 +4446,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
 
                   {/* Cohort Dates & Status */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-purple-50/40 border border-purple-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 panel-muted p-4">
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                      <label className="field-label flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-kulkul-purple" />
                         <span>Application Open Date</span>
                       </label>
@@ -4898,15 +4456,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         type="datetime-local"
                         value={newProgOpenDate}
                         onChange={(e) => setNewProgOpenDate(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                        className="form-input"
                       />
-                      <p className="text-[10px] leading-tight text-slate-400 mt-1">
+                      <p className="meta-text mt-1 leading-tight">
                         If set in the future, candidate overview shows a live countdown timer until open.
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                      <label className="field-label flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5 text-kulkul-orange" />
                         <span>Application Deadline</span>
                       </label>
@@ -4914,27 +4472,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         type="datetime-local"
                         value={newProgEndDate}
                         onChange={(e) => setNewProgEndDate(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                        className="form-input"
                       />
-                      <p className="text-[10px] leading-tight text-slate-400 mt-1">
+                      <p className="meta-text mt-1 leading-tight">
                         Optional timestamp when applications close.
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-2xs font-bold text-slate-700 uppercase mb-1">
+                      <label className="field-label">
                         Program Status
                       </label>
                       <select
                         value={newProgStatus}
                         onChange={(e) => setNewProgStatus(e.target.value as any)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                        className="form-input"
                       >
                         <option value="published">Published (Live / Opening Soon)</option>
                         <option value="draft">Draft (Hidden)</option>
                         <option value="archived">Archived</option>
                       </select>
-                      <p className="text-3xs text-slate-500 mt-1">
+                      <p className="meta-text mt-1">
                         Initial visibility for this cohort.
                       </p>
                     </div>
@@ -4942,8 +4500,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 {/* Section 2: Screening Pipeline Modules */}
-                <div className="space-y-4 p-6 rounded-2xl bg-slate-50 border border-slate-200">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                <div className="panel-muted space-y-4">
+                  <h3 className="subsection-title">
                     2. Screening Pipeline Modules
                   </h3>
 
@@ -4978,10 +4536,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {newProgEnableMCQ && (
                     <div className="space-y-3 pt-2">
                       <div>
-                        <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                        <label className="field-label flex items-center justify-between">
                           <span>Question Bank / Reusable Test Set</span>
                           {newProgQuestionSetId && (
-                            <span className="text-[10px] text-emerald-600 font-semibold lowercase">
+                            <span className="text-3xs text-emerald-600 font-semibold lowercase">
                               ready to link
                             </span>
                           )}
@@ -4997,7 +4555,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               if (selectedSet.passing_score) setNewProgPassingScore(selectedSet.passing_score);
                             }
                           }}
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-medium focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                          className="form-input"
                         >
                           <option value="">-- Choose Question Set from Bank --</option>
                           {allQuestionSets.map((qs) => (
@@ -5012,7 +4570,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             This Question Set will be automatically served to all applicants taking the logic test for this program.
                           </p>
                         ) : (
-                          <p className="text-2xs text-slate-400 mt-1.5">
+                          <p className="meta-text mt-1.5">
                             Select a question bank to serve to applicants, or create tracks later to customize per specialization.
                           </p>
                         )}
@@ -5020,7 +4578,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                          <label className="field-label">
                             MCQ Duration (Minutes)
                           </label>
                           <input
@@ -5029,11 +4587,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={180}
                             value={newProgDuration}
                             onChange={(e) => setNewProgDuration(parseInt(e.target.value) || 30)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"
+                            className="form-input"
                           />
                         </div>
                         <div>
-                          <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                          <label className="field-label">
                             Passing Score Benchmark (%)
                           </label>
                           <input
@@ -5042,7 +4600,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={100}
                             value={newProgPassingScore}
                             onChange={(e) => setNewProgPassingScore(parseInt(e.target.value) || 70)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"
+                            className="form-input"
                           />
                         </div>
                       </div>
@@ -5055,16 +4613,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <button
                     type="button"
                     onClick={() => setCurrentView('programs')}
-                    className="px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs"
+                    className="btn btn-sm btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={createProgramMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                    className="btn btn-sm btn-primary"
                   >
-                    <Plus className="w-4 h-4 text-kulkul-orange" />
+                    <Plus className="w-3.5 h-3.5 text-kulkul-orange" />
                     <span>{createProgramMutation.isPending ? 'Launching Program...' : 'Launch Program'}</span>
                   </button>
                 </div>
@@ -5080,7 +4638,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           <div className="animate-in fade-in duration-200">
             {/* Programs may still be loading when this page is opened directly or refreshed */}
             {!(allPrograms.find((p) => p.slug === activeProgramSlug) || program || allPrograms[0]) ? (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <div className="content-card p-12 flex items-center justify-center gap-2 text-xs text-slate-500">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Loading application form…</span>
               </div>
@@ -5121,7 +4679,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 return (
                   <div className="content-card p-12 text-center">
                     <Mail className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
+                    <h3 className="card-title">No Program Selected</h3>
                     <p className="text-xs text-slate-500 mt-1">
                       Please select or create a fellowship cohort to configure candidate email templates.
                     </p>
@@ -5151,7 +4709,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             ) : (
               <div className="content-card p-12 text-center">
                 <Github className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
+                <h3 className="card-title">No Program Selected</h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Please select a fellowship cohort to track its GitHub repositories and fellow contributions.
                 </p>
@@ -5174,7 +4732,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             ) : (
               <div className="content-card p-12 text-center">
                 <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-slate-800">No Program Selected</h3>
+                <h3 className="card-title">No Program Selected</h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Please select a fellowship cohort to manage its scheduled sessions and attendance check sheet.
                 </p>
@@ -5187,20 +4745,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* MODAL 3: CREATE NEW QUESTION SET MODAL */}
         {/* ================================================================================= */}
         {isCreateQuestionSetModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="modal-backdrop">
+            <div className="modal-panel max-w-lg animate-in fade-in zoom-in-95 duration-200">
+              <div className="section-header">
                 <div className="flex items-center gap-2.5">
                   <HelpCircle className="w-5 h-5 text-kulkul-purple" />
-                  <h2 className="text-lg font-extrabold text-slate-900">
+                  <h2 className="section-title">
                     Create New Question Set
                   </h2>
                 </div>
                 <button
                   onClick={() => setIsCreateQuestionSetModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -5214,7 +4773,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 className="space-y-4"
               >
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                  <label className="field-label">
                     Question Set Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -5223,12 +4782,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     placeholder="e.g. Data Engineering & Python Screening"
                     value={newQuestionSetForm.name}
                     onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                  <label className="field-label">
                     Category <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -5237,12 +4796,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     placeholder="e.g. Software Engineering, QA, AI / ML, General Logic"
                     value={newQuestionSetForm.category}
                     onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, category: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                  <label className="field-label">
                     Description
                   </label>
                   <textarea
@@ -5250,13 +4809,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     placeholder="Assessment scope, topics covered, target skill level..."
                     value={newQuestionSetForm.description}
                     onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, description: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                    className="form-textarea"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-2 gap-4 panel-muted p-4">
                   <div>
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                    <label className="field-label">
                       Duration (Mins)
                     </label>
                     <input
@@ -5265,11 +4824,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       max={180}
                       value={newQuestionSetForm.duration_minutes}
                       onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, duration_minutes: parseInt(e.target.value) || 35 })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                      className="form-input"
                     />
                   </div>
                   <div>
-                    <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
+                    <label className="field-label">
                       Passing Score (%)
                     </label>
                     <input
@@ -5278,23 +4837,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       max={100}
                       value={newQuestionSetForm.passing_score}
                       onChange={(e) => setNewQuestionSetForm({ ...newQuestionSetForm, passing_score: parseInt(e.target.value) || 70 })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                      className="form-input"
                     />
                   </div>
                 </div>
 
-                <div className="pt-3 flex items-center justify-end gap-3">
+                <div className="modal-footer">
                   <button
                     type="button"
                     onClick={() => setIsCreateQuestionSetModalOpen(false)}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100"
+                    className="btn btn-sm btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={createQuestionSetMutation.isPending}
-                    className="px-6 py-2.5 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold shadow-sm transition"
+                    className="btn btn-sm btn-primary"
                   >
                     {createQuestionSetMutation.isPending ? 'Creating Set...' : 'Create Question Set'}
                   </button>
@@ -5339,73 +4898,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <h2 className="text-xl font-extrabold text-slate-900">
+                    <h2 className="section-title">
                       {applicantDetail?.applicant.full_name || 'Candidate Details'}
                     </h2>
                     {applicantDetail && renderStageBadge(applicantDetail.applicant.current_stage)}
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">{applicantDetail?.applicant.email}</p>
+                  {applicantDetail?.applicant.email && (
+                    <p className="section-subtitle">
+                      <a href={`mailto:${applicantDetail.applicant.email}`} className="hover:text-kulkul-purple hover:underline">
+                        {applicantDetail.applicant.email}
+                      </a>
+                    </p>
+                  )}
                 </div>
 
                 <button
                   onClick={() => setSelectedApplicantId(null)}
-                  className="p-1.5 rounded-xl hover:bg-slate-200 text-slate-500 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Accepted Cohort Status Banner */}
-              {applicantDetail?.applicant.current_stage === 'approved_for_live' && (
-                <div className="mx-6 mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-5 h-5 text-emerald-700" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-2">
-                        <span>Candidate Accepted into Fellowship Cohort</span>
-                        {applicantDetail.applicant.program_room_invited_at && (
-                          <span className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-700">
-                            <Check className="w-3 h-3" />
-                            Room Invited
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-2xs text-emerald-700 mt-0.5">
-                        {applicantDetail.applicant.program_room_invited_at
-                          ? `Program Room access email dispatched on ${new Date(applicantDetail.applicant.program_room_invited_at).toLocaleString()}`
-                          : 'Candidate has passed all screening stages. Click "Invite to Program Room" below to unlock their portal access.'}
-                      </p>
-                    </div>
-                  </div>
-                  {applicantDetail.applicant.program_room_invited_at ? (
-                    <button
-                      type="button"
-                      onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
-                      disabled={inviteProgramRoomMutation.isPending}
-                      className="px-3.5 py-1.5 rounded-xl border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-bold transition flex items-center gap-1.5 shrink-0 self-start sm:self-auto disabled:opacity-60"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${inviteProgramRoomMutation.isPending ? 'animate-spin' : ''}`} />
-                      <span>Resend Invite</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
-                      disabled={inviteProgramRoomMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 shrink-0 self-start sm:self-auto disabled:opacity-60"
-                    >
-                      {inviteProgramRoomMutation.isPending ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-                      )}
-                      <span>Invite to Program Room</span>
-                    </button>
-                  )}
-                </div>
-              )}
 
               {/* Drawer Tabs */}
               <div className="flex border-b border-slate-200 bg-white px-6">
@@ -5495,23 +5009,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 ) : activeDrawerTab === 'answers' ? (
                   applicantDetail?.submission ? (
                     <div className="space-y-6">
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                      <div className="panel-muted p-4 flex items-center justify-between">
                         <div>
-                          <div className="text-xs text-slate-500">Overall Score</div>
+                          <div className="stat-label">Overall Score</div>
                           <div
-                            className={`text-2xl font-black ${
+                            className={`stat-value ${
                               applicantDetail.submission.passed ? 'text-emerald-600' : 'text-red-600'
                             }`}
                           >
                             {applicantDetail.submission.total_score}%
                           </div>
                         </div>
+                        {(() => {
+                          // Same rule as the backend grader: a track's own pass mark wins, else the program's.
+                          const trackPassingScore = programTracks.find((t) => t.id === applicantDetail.track?.id)?.logic_test_passing_score;
+                          const programPassingScore =
+                            program && (!applicantDetail.applicant.program_id || program.id === applicantDetail.applicant.program_id)
+                              ? program.logic_test_passing_score
+                              : undefined;
+                          const passingScore = trackPassingScore && trackPassingScore > 0 ? trackPassingScore : programPassingScore;
+                          if (!passingScore) return null;
+                          return (
+                            <div>
+                              <div className="stat-label">Benchmark</div>
+                              <div className="text-sm font-bold text-slate-700">{passingScore}% to pass</div>
+                            </div>
+                          );
+                        })()}
                         <div>
-                          <div className="text-xs text-slate-500">Benchmark</div>
-                          <div className="text-sm font-bold text-slate-700">70% to pass</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-500">Time Taken</div>
+                          <div className="stat-label">Time Taken</div>
                           <div className="text-sm font-bold text-slate-700">
                             {Math.round(applicantDetail.submission.time_spent_seconds / 60)} minutes
                           </div>
@@ -5529,7 +5055,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             }`}
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-2xs font-bold text-slate-500 uppercase">
+                              <span className="subsection-title">
                                 Question {idx + 1} &middot; {ans.category}
                               </span>
                               <span
@@ -5578,28 +5104,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     <div className="space-y-6">
                       {/* Video Recording Inspection Player */}
                       <div className="stitch-card bg-slate-900 border border-slate-800 p-4 rounded-2xl overflow-hidden shadow-lg text-white space-y-3">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                          <div className="flex items-center gap-2">
-                            <Video className="w-4 h-4 text-purple-400" />
-                            <span className="text-xs font-bold text-white uppercase tracking-wider">
-                              Candidate Video Assessment Recording
-                            </span>
+                        {!applicantDetail.ai_screen.recording_url && (
+                          <div className="flex items-center justify-end">
+                            {applicantDetail.ai_screen.status === 'invited' ? (
+                              <span className="text-3xs font-bold uppercase tracking-wider text-slate-400">
+                                Not Started Yet
+                              </span>
+                            ) : applicantDetail.ai_screen.status === 'in_progress' ? (
+                              <span className="text-3xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                                Chamber In Progress
+                              </span>
+                            ) : (
+                              <span className="text-3xs font-bold uppercase tracking-wider text-amber-400">
+                                Recording Pending
+                              </span>
+                            )}
                           </div>
-                          {applicantDetail.ai_screen.recording_url ? null : applicantDetail.ai_screen.status === 'invited' ? (
-                            <span className="text-3xs font-bold uppercase tracking-wider text-slate-400">
-                              Not Started Yet
-                            </span>
-                          ) : applicantDetail.ai_screen.status === 'in_progress' ? (
-                            <span className="text-3xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                              Chamber In Progress
-                            </span>
-                          ) : (
-                            <span className="text-3xs font-bold uppercase tracking-wider text-amber-400">
-                              Recording Pending
-                            </span>
-                          )}
-                        </div>
+                        )}
 
                         {applicantDetail.ai_screen.recording_url ? (
                           <AssessmentVideoPlayer url={applicantDetail.ai_screen.recording_url} />
@@ -5623,10 +5145,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       {/* Re-invite to AI Interview (e.g. when the video never arrived) */}
                       {applicantDetail.applicant.current_stage !== 'approved_for_live' &&
                         applicantDetail.applicant.current_stage !== 'completed' && (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                          <div className="panel space-y-3">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <div className="text-sm font-extrabold text-slate-900">Re-invite to AI Interview</div>
+                                <div className="card-title">Re-invite to AI Interview</div>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                   {applicantDetail.ai_screen.status === 'invited'
                                     ? 'Resend the interview link and give them 7 more days.'
@@ -5697,8 +5219,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                       {/* Earlier takes kept when the candidate was re-invited */}
                       {(applicantDetail.ai_previous_attempts?.length ?? 0) > 0 && (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
-                          <div className="text-sm font-extrabold text-slate-900">Previous Attempts</div>
+                        <div className="panel space-y-2">
+                          <div className="card-title">Previous Attempts</div>
                           {applicantDetail.ai_previous_attempts!.map((attempt) => (
                             <div
                               key={attempt.id}
@@ -5736,15 +5258,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       )}
 
                       {applicantDetail.ai_screen.summary_evaluation && (
-                        <div className="stitch-card bg-purple-50/50 p-5 border border-purple-200 space-y-4">
+                        <div className="panel-muted space-y-4">
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                            <span className="text-xs font-bold uppercase text-purple-900 tracking-wider">
+                            <span className="subsection-title">
                               AI Screening Scorecard
                             </span>
                             <div className="flex items-center gap-3 flex-wrap">
-                              <span className="text-sm font-extrabold text-purple-900">
-                                Score: {applicantDetail.ai_screen.summary_evaluation.overall_score}/100
-                              </span>
                               {applicantDetail.ai_screen.summary_evaluation.recommendation && (
                                 <span
                                   className={`text-xs font-extrabold uppercase tracking-wider ${
@@ -5775,21 +5294,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
                           {/* Metric breakdown */}
                           <div className="grid grid-cols-3 gap-2 pt-1 border-t border-purple-100 text-2xs">
-                            <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
-                              <span className="text-slate-400 block font-bold uppercase">Technical</span>
-                              <span className="text-sm font-black text-purple-900">
+                            <div className="panel p-2 text-center">
+                              <span className="stat-label block">Technical</span>
+                              <span className="text-sm font-extrabold text-purple-900">
                                 {applicantDetail.ai_screen.summary_evaluation.technical_acumen}/10
                               </span>
                             </div>
-                            <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
-                              <span className="text-slate-400 block font-bold uppercase">Communication</span>
-                              <span className="text-sm font-black text-purple-900">
+                            <div className="panel p-2 text-center">
+                              <span className="stat-label block">Communication</span>
+                              <span className="text-sm font-extrabold text-purple-900">
                                 {applicantDetail.ai_screen.summary_evaluation.communication}/10
                               </span>
                             </div>
-                            <div className="bg-white p-2 rounded-xl border border-purple-100 text-center">
-                              <span className="text-slate-400 block font-bold uppercase">Problem Solving</span>
-                              <span className="text-sm font-black text-purple-900">
+                            <div className="panel p-2 text-center">
+                              <span className="stat-label block">Problem Solving</span>
+                              <span className="text-sm font-extrabold text-purple-900">
                                 {applicantDetail.ai_screen.summary_evaluation.problem_solving}/10
                               </span>
                             </div>
@@ -5800,23 +5319,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             applicantDetail.ai_screen.summary_evaluation.question_evaluations.length > 0 && (
                               <div className="pt-3 border-t border-purple-200/80 space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-2xs font-extrabold uppercase text-purple-900 tracking-wider">
-                                    Itemized Rubric Criteria Breakdown ({applicantDetail.ai_screen.summary_evaluation.question_evaluations.length} Questions)
+                                  <span className="subsection-title">
+                                    Itemized Rubric Criteria Breakdown
                                   </span>
-                                  <span className="text-3xs text-purple-600 font-mono">Cloudflare AI Proctor</span>
                                 </div>
 
                                 <div className="space-y-3">
                                   {applicantDetail.ai_screen.summary_evaluation.question_evaluations.map((qe, qIdx) => (
                                     <div
                                       key={qIdx}
-                                      className="bg-white p-3.5 rounded-2xl border border-purple-100 shadow-2xs space-y-2"
+                                      className="panel p-3.5 space-y-2"
                                     >
                                       <div className="flex items-center justify-between gap-2">
                                         <span className="text-xs font-bold text-slate-900">
                                           Q{qe.question_id}: {qe.theme}
                                         </span>
-                                        <span className="text-xs font-black text-purple-900 font-mono shrink-0">
+                                        <span className="text-xs font-extrabold text-purple-900 font-mono shrink-0">
                                           {qe.score} / {qe.max_points ?? qe.max_score ?? 20} pts
                                         </span>
                                       </div>
@@ -5830,7 +5348,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                       {((qe.criteria_scores && qe.criteria_scores.length > 0) ||
                                         (qe.criteria && qe.criteria.length > 0)) && (
                                         <div className="space-y-1 pt-1">
-                                          <span className="text-3xs font-extrabold uppercase text-slate-400 block">
+                                          <span className="subsection-title block">
                                             Criteria Scores:
                                           </span>
                                           {(qe.criteria_scores || qe.criteria || []).map(
@@ -5859,7 +5377,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       )}
 
                       <div className="space-y-3">
-                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        <h4 className="subsection-title">
                           Dialogue Transcript
                         </h4>
                         {applicantDetail.ai_screen.transcript?.map((msg, idx) => (
@@ -5891,11 +5409,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 ) : activeDrawerTab === 'credentials' ? (
                   <div className="space-y-6">
                     {/* Certificate Management Card */}
-                    <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="panel-muted space-y-4">
                       <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                          <h4 className="text-sm font-extrabold text-slate-900">
+                          <h4 className="card-title">
                             Fellowship Certificate
                           </h4>
                         </div>
@@ -5916,12 +5434,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               <span className="text-slate-400 block font-medium">Certificate Number</span>
                               <span className="font-mono font-bold text-slate-900 text-sm">
                                 {applicantCredentials.certificate.certificate_number}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-slate-400 block font-medium">Verification Hash</span>
-                              <span className="font-mono font-bold text-emerald-600">
-                                {applicantCredentials.certificate.verification_code}
                               </span>
                             </div>
                             <div>
@@ -5953,7 +5465,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               href={`/verify/certificate/${applicantCredentials.certificate.certificate_number}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="btn btn-sm btn-primary inline-flex items-center gap-1.5"
+                              className="btn btn-sm btn-primary"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                               <span>View Public Certificate</span>
@@ -5962,7 +5474,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               type="button"
                               onClick={() => sendCertEmailMutation.mutate(applicantCredentials.certificate!.id)}
                               disabled={sendCertEmailMutation.isPending}
-                              className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+                              className="btn btn-sm btn-outline"
                             >
                               <Mail className="w-3.5 h-3.5 text-kulkul-purple" />
                               <span>{sendCertEmailMutation.isPending ? 'Sending...' : 'Send Certificate to Email'}</span>
@@ -5986,17 +5498,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     </div>
 
                     {/* Open Badges Card */}
-                    <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="panel-muted space-y-4">
                       <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                         <div className="flex items-center gap-2">
                           <Award className="w-5 h-5 text-purple-600" />
-                          <h4 className="text-sm font-extrabold text-slate-900">
-                            Earned Open Badges (v2.0)
+                          <h4 className="card-title">
+                            Badges
                           </h4>
                         </div>
-                        <span className="text-xs font-medium text-slate-400">
-                          {applicantCredentials?.badges?.length || 0} badges
-                        </span>
                       </div>
 
                       {applicantCredentials?.badges && applicantCredentials.badges.length > 0 ? (
@@ -6004,14 +5513,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           {applicantCredentials.badges.map((b) => (
                             <div
                               key={b.id}
-                              className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3"
+                              className="panel p-3.5 flex items-center gap-3"
                             >
                               <div className="w-12 h-12 bg-slate-900 rounded-xl p-1 border border-slate-800 shrink-0 flex items-center justify-center">
                                 <img src={b.image_url} alt={b.name} className="w-full h-full object-contain" />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <h5 className="text-xs font-bold text-slate-900 truncate">{b.name}</h5>
-                                <div className="text-2xs text-slate-400 mt-0.5">
+                                <div className="meta-text mt-0.5">
                                   {b.badge_type === 'member' ? 'Member badge' : 'Graduate badge'} &middot; Awarded{' '}
                                   {new Date(b.issued_at).toLocaleDateString()}
                                 </div>
@@ -6020,7 +5529,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 href={`/verify/badge/${b.id}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-purple-600 transition"
+                                className="btn btn-icon-sm btn-ghost"
                                 title="View Badge Assertion"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -6038,31 +5547,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 ) : activeDrawerTab === 'review' ? (
                   <div className="space-y-6">
                     {/* Reviewer Evaluation Panel */}
-                    <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200/80 shadow-2xs space-y-5">
-                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-kulkul-purple shrink-0">
-                            <Award className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-extrabold text-slate-900">Reviewer Evaluation</h4>
-                          </div>
-                        </div>
-                        {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
-                          <div className="text-right">
-                            <span className="text-3xs uppercase font-extrabold tracking-wider text-slate-400 block">
-                              Recorded Score
-                            </span>
-                            <span className="text-lg font-black text-kulkul-purple">
-                              {applicantDetail.applicant.reviewer_mark}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
+                    <div className="panel-muted space-y-5">
                       <form onSubmit={handleSaveDrawerReview} className="space-y-5">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                          <label className="field-label">
                             Reviewer Mark / Score
                           </label>
                           <div className="flex flex-col sm:flex-row gap-3">
@@ -6074,16 +5562,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               value={drawerReviewMark}
                               onChange={(e) => setDrawerReviewMark(e.target.value)}
                               placeholder="e.g. 85 or 90.5"
-                              className="w-full sm:max-w-xs px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 bg-white"
+                              className="form-input sm:max-w-xs"
                             />
                           </div>
-                          <p className="text-3xs text-slate-400 mt-1.5">
-                            Set a numerical mark or evaluation score reflecting the candidate's interview and technical performance.
-                          </p>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                          <label className="field-label">
                             Reviewer Notes / Feedback
                           </label>
                           <textarea
@@ -6091,27 +5576,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             value={drawerReviewNotes}
                             onChange={(e) => setDrawerReviewNotes(e.target.value)}
                             placeholder="Write comprehensive reviewer feedback, interview observations, technical depth, strengths, red flags, or recommendation notes..."
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 resize-none leading-relaxed bg-white"
+                            className="form-textarea resize-none leading-relaxed"
                           />
-                          <p className="text-3xs text-slate-400 mt-1">
-                            Notes are shared across program reviewers and admissions administrators.
-                          </p>
                         </div>
 
                         <div className="flex items-center justify-end gap-3 pt-2">
                           <button
                             type="submit"
                             disabled={updateApplicantReviewMutation.isPending}
-                            className="px-6 py-2.5 rounded-xl bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-2"
+                            className="btn btn-sm btn-primary"
                           >
                             {updateApplicantReviewMutation.isPending ? (
                               <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                 <span>Saving Evaluation...</span>
                               </>
                             ) : (
                               <>
-                                <Save className="w-4 h-4" />
+                                <Save className="w-3.5 h-3.5" />
                                 <span>Save Evaluation</span>
                               </>
                             )}
@@ -6122,71 +5604,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Reviewer Evaluation Summary Card in Profile Tab */}
-                    <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200/80 flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-300 flex items-center justify-center text-kulkul-purple shrink-0 mt-0.5">
-                          <Award className="w-4 h-4" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider">
-                              Reviewer Evaluation
-                            </span>
-                            {applicantDetail?.applicant.reviewer_mark !== undefined && applicantDetail.applicant.reviewer_mark !== null && (
-                              <span className="px-2 py-0.5 rounded-full text-2xs font-black bg-kulkul-purple text-white">
-                                Mark: {applicantDetail.applicant.reviewer_mark}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-700 leading-relaxed">
-                            {applicantDetail?.applicant.reviewer_notes || applicantDetail?.applicant.notes || (
-                              <span className="italic text-slate-400">No reviewer notes added yet.</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveDrawerTab('review')}
-                        className="px-3 py-1.5 rounded-xl bg-white border border-purple-200 text-kulkul-purple hover:bg-purple-100 text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-2xs"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                        <span>Edit Review</span>
-                      </button>
-                    </div>
-
-                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
+                    <div className="panel-muted space-y-4 text-xs">
                       <div className="border-b border-slate-200 pb-2">
-                        <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider">
+                        <span className="subsection-title">
                           Candidate Intake Profile
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <span className="text-slate-400 block font-medium">Full Name</span>
-                          <span className="font-bold text-slate-900 text-sm">
-                            {applicantDetail?.applicant.full_name ||
-                              `${applicantDetail?.applicant.first_name || ''} ${applicantDetail?.applicant.last_name || ''}`}
-                          </span>
-                        </div>
-
-                        <div>
                           <span className="text-slate-400 block font-medium">Date of Birth</span>
                           <span className="font-bold text-slate-900">
                             {applicantDetail?.applicant.date_of_birth || '-'}
                           </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400 block font-medium">Email Address</span>
-                          <a
-                            href={`mailto:${applicantDetail?.applicant.email}`}
-                            className="font-bold text-kulkul-purple hover:underline"
-                          >
-                            {applicantDetail?.applicant.email}
-                          </a>
                         </div>
 
                         <div>
@@ -6198,7 +5628,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </div>
 
                       <div className="border-t border-slate-200 pt-3 space-y-3">
-                        <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
+                        <span className="subsection-title">
                           Academic Background
                         </span>
 
@@ -6227,7 +5657,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       </div>
 
                       <div className="border-t border-slate-200 pt-3 space-y-3">
-                        <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
+                        <span className="subsection-title">
                           Program & Scholarship Details
                         </span>
 
@@ -6235,7 +5665,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <div>
                             <span className="text-slate-400 block font-medium">Chosen Course / Track</span>
                             <span className="font-extrabold text-kulkul-purple">
-                              {applicantDetail?.track?.name || 'Full Stack Developer'}
+                              {applicantDetail?.track?.name || 'General'}
                             </span>
                           </div>
 
@@ -6306,7 +5736,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           {applicantDetail?.applicant.custom_responses &&
                             Object.keys(applicantDetail.applicant.custom_responses).length > 0 && (
                               <div className="sm:col-span-2 pt-3 border-t border-slate-200/80 space-y-2">
-                                <span className="text-2xs font-extrabold uppercase text-kulkul-purple tracking-wider block">
+                                <span className="subsection-title block">
                                   Custom Form Responses
                                 </span>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -6375,7 +5805,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               {/* Drawer Footer Actions */}
               <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-500 hidden sm:inline">Decision Stage</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -6387,7 +5816,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                         });
                       }
                     }}
-                    className="px-3.5 py-1.5 rounded-full border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                    className="btn btn-sm btn-danger-ghost"
                     title="Delete candidate application data so they can re-apply"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -6398,16 +5827,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <div className="flex items-center gap-2">
                   {applicantDetail?.applicant.current_stage === 'completed' ? (
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700">
-                        <Award className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Fellowship Graduated</span>
-                      </span>
                       {/* Shortcut to the certificate tab; hidden when it is already open */}
                       {activeDrawerTab !== 'credentials' && (
                         <button
                           type="button"
                           onClick={() => setActiveDrawerTab('credentials')}
-                          className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm"
+                          className="btn btn-sm btn-primary"
                         >
                           <ShieldCheck className="w-3.5 h-3.5 text-kulkul-orange" />
                           <span>Manage Certificate</span>
@@ -6418,7 +5843,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     <>
                       {applicantDetail.applicant.program_room_invited_at ? (
                         <div className="flex items-center gap-2">
-                          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                          <div
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700"
+                            title={`Invited on ${new Date(applicantDetail.applicant.program_room_invited_at).toLocaleString()}`}
+                          >
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
                             <span>In Program Room</span>
                           </div>
@@ -6431,7 +5859,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               })
                             }
                             disabled={updateStageMutation.isPending}
-                            className="btn btn-sm btn-secondary inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                            className="btn btn-sm btn-primary"
                             title="Mark fellow as completed/graduated: awards completion badge and auto-generates certificate"
                           >
                             <Award className="w-3.5 h-3.5" />
@@ -6441,7 +5869,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             type="button"
                             onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
                             disabled={inviteProgramRoomMutation.isPending}
-                            className="btn btn-sm btn-outline inline-flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
+                            className="btn btn-sm btn-outline"
                             title="Resend Program Room invitation email"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${inviteProgramRoomMutation.isPending ? 'animate-spin' : ''}`} />
@@ -6458,7 +5886,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 stage: 'rejected',
                               })
                             }
-                            className="px-4 py-2 rounded-full bg-slate-200 hover:bg-red-50 hover:text-red-700 text-slate-700 text-xs font-bold transition"
+                            className="btn btn-sm btn-danger-ghost"
                           >
                             Reject
                           </button>
@@ -6466,7 +5894,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             type="button"
                             onClick={() => inviteProgramRoomMutation.mutate(selectedApplicantId)}
                             disabled={inviteProgramRoomMutation.isPending}
-                            className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-60"
+                            className="btn btn-sm btn-primary"
                           >
                             {inviteProgramRoomMutation.isPending ? (
                               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -6484,7 +5912,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               })
                             }
                             disabled={updateStageMutation.isPending}
-                            className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-60"
+                            className="btn btn-sm btn-primary"
                           >
                             <Award className="w-3.5 h-3.5 text-amber-300" />
                             <span>Graduate</span>
@@ -6502,7 +5930,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             stage: 'rejected',
                           })
                         }
-                        className="px-4 py-2 rounded-full bg-slate-200 hover:bg-red-50 hover:text-red-700 text-slate-700 text-xs font-bold transition"
+                        className="btn btn-sm btn-danger-ghost"
                       >
                         Reject
                       </button>
@@ -6515,7 +5943,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             stage: 'approved_for_live',
                           })
                         }
-                        className="px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                        className="btn btn-sm btn-success"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>Accept Candidate</span>
@@ -6532,27 +5960,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
         {/* MODAL: PIPELINE MODULES CONFIGURATION (LOGIC TEST & AI INTERVIEW SELECTION) */}
         {/* ================================================================================= */}
         {isPipelineConfigModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="modal-backdrop">
+            <div className="modal-panel max-w-lg animate-in fade-in zoom-in-95 duration-200">
+              <div className="section-header">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center border border-purple-200 shadow-2xs">
                     <Sliders className="w-5 h-5 text-kulkul-purple" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-extrabold text-slate-900">
+                    <h2 className="section-title">
                       Pipeline Modules
                     </h2>
-                    <p className="text-xs text-slate-500 font-medium truncate max-w-[280px]">
+                    <p className="section-subtitle truncate max-w-[280px]">
                       {pipelineConfigProgName}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsPipelineConfigModalOpen(false)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -6574,7 +6003,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 }}
                 className="space-y-5"
               >
-                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-2xl p-3.5 leading-relaxed">
+                <div className="panel-muted p-3.5 text-xs text-slate-600 leading-relaxed">
                   Choose which screening stages your applicants must complete. You can choose only the <span className="font-bold text-slate-800">Logic Test</span>, only the <span className="font-bold text-slate-800">AI Interview</span>, or <span className="font-bold text-slate-800">both</span>.
                 </div>
 
@@ -6597,7 +6026,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       className="w-4 h-4 mt-0.5 text-kulkul-purple rounded border-slate-300 focus:ring-kulkul-purple"
                     />
                     <div className="flex-1">
-                      <label htmlFor="modalConfigEnableMCQ" className="text-sm font-bold text-slate-800 block cursor-pointer">
+                      <label htmlFor="modalConfigEnableMCQ" className="card-title block cursor-pointer">
                         Timed Logic Test (MCQ)
                       </label>
                       <span className="text-xs text-slate-500 block mt-0.5">
@@ -6609,11 +6038,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {/* MCQ Configuration Sub-fields */}
                   {pipelineConfigEnableMCQ && (
                     <div className="space-y-3 pl-8 animate-in fade-in duration-150">
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
+                      <div className="panel-muted p-3">
+                        <label className="field-label flex items-center justify-between">
                           <span>Question Bank / Reusable Test Set</span>
                           {pipelineConfigQuestionSetId && (
-                            <span className="text-[10px] text-emerald-600 font-semibold lowercase">
+                            <span className="text-3xs text-emerald-600 font-semibold lowercase">
                               linked
                             </span>
                           )}
@@ -6629,7 +6058,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               if (selectedSet.passing_score) setPipelineConfigPassingScore(selectedSet.passing_score);
                             }
                           }}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+                          className="form-input"
                         >
                           <option value="">-- Choose Question Set from Bank --</option>
                           {allQuestionSets.map((qs) => (
@@ -6644,15 +6073,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             Direct applicants to this program will receive questions from this Question Set.
                           </p>
                         ) : (
-                          <p className="text-3xs text-slate-400 mt-1.5">
+                          <p className="meta-text mt-1.5">
                             Select a question set to attach to this program, or customize per track.
                           </p>
                         )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        <div className="panel-muted p-3">
+                          <label className="field-label">
                             Duration (Mins)
                           </label>
                           <input
@@ -6661,11 +6090,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={180}
                             value={pipelineConfigDuration}
                             onChange={(e) => setPipelineConfigDuration(parseInt(e.target.value) || 30)}
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
+                            className="form-input"
                           />
                         </div>
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        <div className="panel-muted p-3">
+                          <label className="field-label">
                             Pass Score (%)
                           </label>
                           <input
@@ -6674,7 +6103,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={100}
                             value={pipelineConfigPassingScore}
                             onChange={(e) => setPipelineConfigPassingScore(parseInt(e.target.value) || 70)}
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white"
+                            className="form-input"
                           />
                         </div>
                       </div>
@@ -6699,7 +6128,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       className="w-4 h-4 mt-0.5 text-kulkul-orange rounded border-slate-300 focus:ring-kulkul-purple"
                     />
                     <div className="flex-1">
-                      <label htmlFor="modalConfigEnableAI" className="text-sm font-bold text-slate-800 block cursor-pointer">
+                      <label htmlFor="modalConfigEnableAI" className="card-title block cursor-pointer">
                         AI Video Interview
                       </label>
                       <span className="text-xs text-slate-500 block mt-0.5">
@@ -6709,18 +6138,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <div className="modal-footer">
                   <button
                     type="button"
                     onClick={() => setIsPipelineConfigModalOpen(false)}
-                    className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                    className="btn btn-sm btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={updatePipelineConfigMutation.isPending}
-                    className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                    className="btn btn-sm btn-primary"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{updatePipelineConfigMutation.isPending ? 'Updating...' : 'Save Pipeline Modules'}</span>
@@ -6733,24 +6162,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
         {/* EDIT PROGRAM DETAILS MODAL */}
         {isEditProgramModalOpen && editTargetProgram && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
-            <div className="stitch-card bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-kulkul-purple-light text-kulkul-purple flex items-center justify-center font-bold">
-                    <Sliders className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900">Edit Program Details</h3>
-                    <p className="text-xs text-slate-500 font-mono">/{orgSlug}/{editTargetProgram.slug}</p>
-                  </div>
+          <div className="modal-backdrop animate-in fade-in">
+            <div className="modal-panel max-w-2xl">
+              <div className="section-header">
+                <div>
+                  <h3 className="section-title">Edit Program Details</h3>
                 </div>
                 <button
                   onClick={() => {
                     setIsEditProgramModalOpen(false);
                     setEditTargetProgram(null);
                   }}
-                  className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -6786,7 +6210,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Program Title <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -6795,18 +6219,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       value={editFormName}
                       onChange={(e) => setEditFormName(e.target.value)}
                       placeholder="e.g. Acme Academy Fellowship 2026"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-sm font-semibold text-slate-900 outline-none transition"
+                      className="form-input"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    <label className="field-label">
                       Status
                     </label>
                     <select
                       value={editFormStatus}
                       onChange={(e) => setEditFormStatus(e.target.value as any)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-semibold text-slate-900 outline-none transition bg-white"
+                      className="form-input"
                     >
                       <option value="published">Published</option>
                       <option value="draft">Draft</option>
@@ -6818,7 +6242,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 {/* Program URL Slug */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="field-label mb-0">
                       Program URL Slug <span className="text-rose-500">*</span>
                     </label>
                     <button
@@ -6853,16 +6277,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       className="w-full px-3.5 py-2.5 text-xs font-mono font-semibold text-slate-900 outline-none bg-transparent min-w-0"
                     />
                   </div>
-                  <p className="text-2xs text-slate-400 mt-1.5 flex items-center gap-1.5 flex-wrap">
-                    <span>Candidate portal URL:</span>
-                    <code className="font-mono text-kulkul-purple font-semibold bg-purple-50 px-1.5 py-0.5 rounded text-3xs">
-                      /programs/{orgSlug}/{editFormSlug || 'slug'}
-                    </code>
-                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="field-label">
                     Program Description
                   </label>
                   <textarea
@@ -6870,14 +6288,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     value={editFormDesc}
                     onChange={(e) => setEditFormDesc(e.target.value)}
                     placeholder="Brief description of this cohort or fellowship..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 text-xs font-medium text-slate-700 outline-none transition"
+                    className="form-textarea"
                   />
                 </div>
 
                 {/* Cover Banner */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="field-label mb-0">
                       Cover Banner Image
                     </label>
                     {editFormImage && (
@@ -6908,20 +6326,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           className="w-full max-h-56 object-cover block"
                         />
                         <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAdjustBannerSrc(resolveMediaUrl(editFormImage));
-                              setAdjustBannerTarget('edit');
-                              setAdjustBannerModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 rounded-full bg-white text-slate-800 text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-slate-50"
-                          >
-                            <Sliders className="w-3 h-3 text-kulkul-purple" />
-                            <span>Adjust</span>
-                          </button>
-                          <label className="cursor-pointer px-3 py-1.5 rounded-full bg-white text-slate-800 text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-slate-50">
-                            <Upload className="w-3 h-3 text-kulkul-purple" />
+                          <label className="btn btn-sm btn-outline cursor-pointer">
+                            <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
                             <span>Change</span>
                             <input
                               type="file"
@@ -6933,27 +6339,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           <button
                             type="button"
                             onClick={() => setEditFormImage('')}
-                            className="px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-bold transition shadow-xs flex items-center gap-1 hover:bg-red-700"
+                            className="btn btn-sm btn-danger"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                             <span>Remove</span>
                           </button>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
-                        <span>Adjustable banner ratio &amp; focal point</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAdjustBannerSrc(resolveMediaUrl(editFormImage));
-                            setAdjustBannerTarget('edit');
-                            setAdjustBannerModalOpen(true);
-                          }}
-                          className="font-semibold text-kulkul-purple hover:underline flex items-center gap-1"
-                        >
-                          <Sliders className="w-3 h-3 text-kulkul-orange" />
-                          <span>Reposition / Zoom / Ratio</span>
-                        </button>
                       </div>
                     </div>
                   ) : (
@@ -6971,9 +6362,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 {/* Application Dates */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 panel-muted p-4">
                   <div>
-                    <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                    <label className="field-label flex items-center gap-1">
                       <Clock className="w-3 h-3 text-kulkul-purple" />
                       <span>Application Open Date</span>
                     </label>
@@ -6981,15 +6372,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       type="datetime-local"
                       value={editFormOpenDate}
                       onChange={(e) => setEditFormOpenDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                      className="form-input"
                     />
-                    <p className="text-[10px] leading-tight text-slate-400 mt-1">
+                    <p className="meta-text mt-1 leading-tight">
                       If set in the future, public visitors see a live countdown timer until this timestamp.
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-2xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                    <label className="field-label flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-kulkul-orange" />
                       <span>Application Deadline</span>
                     </label>
@@ -6997,24 +6388,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       type="datetime-local"
                       value={editFormEndDate}
                       onChange={(e) => setEditFormEndDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 outline-none"
+                      className="form-input"
                     />
-                    <p className="text-[10px] leading-tight text-slate-400 mt-1">
+                    <p className="meta-text mt-1 leading-tight">
                       Optional timestamp when public submissions close.
                     </p>
                   </div>
                 </div>
 
                 {/* Timed Logic Test & Question Set Configuration */}
-                <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+                <div className="panel-muted p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
                         <BrainCircuit className="w-4 h-4 text-amber-700" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Timed Logic Test & Question Bank</h4>
-                        <p className="text-[11px] text-slate-500">Choose the question set used for logic screening tests.</p>
+                        <h4 className="card-title">Timed Logic Test & Question Bank</h4>
+                        <p className="meta-text">Choose the question set used for logic screening tests.</p>
                       </div>
                     </div>
                     <label className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -7029,12 +6420,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
 
                   {editFormEnableMCQ && (
-                    <div className="space-y-3 pt-2 border-t border-amber-100 animate-in fade-in duration-150">
+                    <div className="space-y-3 pt-2 border-t border-slate-200 animate-in fade-in duration-150">
                       <div>
-                        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
+                        <label className="field-label flex items-center justify-between">
                           <span>Question Bank / Reusable Test Set</span>
                           {editFormQuestionSetId && (
-                            <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                            <span className="text-3xs text-emerald-700 font-semibold flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                               Linked
                             </span>
@@ -7051,7 +6442,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                               if (selectedSet.passing_score) setEditFormPassingScore(selectedSet.passing_score);
                             }
                           }}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:border-kulkul-purple focus:ring-2 focus:ring-kulkul-purple/20 font-medium outline-none transition"
+                          className="form-input"
                         >
                           <option value="">-- Choose Question Set from Bank --</option>
                           {allQuestionSets.map((qs) => (
@@ -7061,22 +6452,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           ))}
                         </select>
                         {editFormQuestionSetId ? (
-                          <p className="text-[10px] text-emerald-700 mt-1 font-semibold flex items-center gap-1">
+                          <p className="text-3xs text-emerald-700 mt-1 font-semibold flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
                             <span>
                               Applicants taking this program's test will receive questions from this bank.
                             </span>
                           </p>
                         ) : (
-                          <p className="text-[10px] text-slate-500 mt-1">
+                          <p className="meta-text mt-1">
                             Select a question set to attach to this program, or customize per track.
                           </p>
                         )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
-                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        <div className="panel p-2.5">
+                          <label className="field-label">
                             Duration (Mins)
                           </label>
                           <input
@@ -7085,11 +6476,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={180}
                             value={editFormDuration}
                             onChange={(e) => setEditFormDuration(parseInt(e.target.value) || 30)}
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white outline-none focus:border-kulkul-purple"
+                            className="form-input"
                           />
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
-                          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        <div className="panel p-2.5">
+                          <label className="field-label">
                             Passing Score (%)
                           </label>
                           <input
@@ -7098,7 +6489,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             max={100}
                             value={editFormPassingScore}
                             onChange={(e) => setEditFormPassingScore(parseInt(e.target.value) || 70)}
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white outline-none focus:border-kulkul-purple"
+                            className="form-input"
                           />
                         </div>
                       </div>
@@ -7107,8 +6498,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 </div>
 
                 {/* Test Mode Link Box */}
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-2">
-                  <label className="block text-xs font-bold text-slate-700">
+                <div className="panel-muted p-4 space-y-2">
+                  <label className="field-label mb-0">
                     Test mode
                   </label>
                   <div className="flex items-center gap-2">
@@ -7116,12 +6507,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       type="text"
                       readOnly
                       value={`${window.location.origin}/programs/${orgSlug}/${editTargetProgram.slug}/apply?preview=${editTargetProgram.preview_token || ''}`}
-                      className="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-2xs font-mono text-slate-700 select-all outline-none"
+                      className="form-input font-mono text-2xs select-all"
                     />
                     <button
                       type="button"
                       onClick={() => handleCopyTestLink(editTargetProgram.preview_token, editTargetProgram.slug)}
-                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-purple-100 border border-purple-300 text-kulkul-purple text-xs font-bold transition shrink-0 flex items-center gap-1 shadow-2xs"
+                      className="btn btn-sm btn-outline shrink-0"
                     >
                       {isTestLinkCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{isTestLinkCopied ? 'Copied' : 'Copy'}</span>
@@ -7130,7 +6521,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                       href={`${window.location.origin}/programs/${orgSlug}/${editTargetProgram.slug}/apply?preview=${editTargetProgram.preview_token || ''}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-1.5 rounded-lg bg-kulkul-purple text-white hover:bg-kulkul-purple-hover text-xs font-bold transition shrink-0 flex items-center gap-1 shadow-2xs"
+                      className="btn btn-sm btn-primary shrink-0"
                     >
                       <span>Open Form</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -7138,21 +6529,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <div className="modal-footer">
                   <button
                     type="button"
                     onClick={() => {
                       setIsEditProgramModalOpen(false);
                       setEditTargetProgram(null);
                     }}
-                    className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition"
+                    className="btn btn-sm btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={updateProgramMutation.isPending || !editFormName.trim()}
-                    className="px-5 py-2 rounded-full bg-kulkul-purple hover:bg-kulkul-purple-hover text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                    className="btn btn-sm btn-primary"
                   >
                     {updateProgramMutation.isPending ? (
                       <span>Saving...</span>
@@ -7177,43 +6568,43 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 setApplicantToDelete(null);
               }
             }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+            className="modal-backdrop cursor-pointer"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200 cursor-default"
+              className="modal-panel max-w-md animate-in fade-in zoom-in-95 duration-200 cursor-default"
             >
               <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
                 <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-200 shadow-2xs shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
+                  <h3 className="section-title">
                     Delete Candidate Application?
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium">
+                  <p className="section-subtitle">
                     Reset application for testing & re-application
                   </p>
                 </div>
               </div>
 
-              <div className="text-xs text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+              <div className="panel-muted p-4 text-xs text-slate-600 leading-relaxed space-y-2">
                 <p>
                   Are you sure you want to permanently delete application data for{' '}
                   <span className="font-extrabold text-slate-900">{applicantToDelete.name}</span>{' '}
                   (<span className="font-mono text-slate-700">{applicantToDelete.email}</span>)?
                 </p>
-                <p className="text-slate-500 text-2xs">
+                <p className="meta-text">
                   This removes their intake profile, test submissions, and AI interview records for this program. Once deleted, the user can apply to this program again from scratch.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="modal-footer">
                 <button
                   type="button"
                   disabled={deleteApplicantMutation.isPending}
                   onClick={() => setApplicantToDelete(null)}
-                  className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition disabled:opacity-50"
+                  className="btn btn-sm btn-outline"
                 >
                   Cancel
                 </button>
@@ -7221,7 +6612,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   type="button"
                   disabled={deleteApplicantMutation.isPending}
                   onClick={() => deleteApplicantMutation.mutate(applicantToDelete.id)}
-                  className="px-5 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  className="btn btn-sm btn-danger"
                 >
                   {deleteApplicantMutation.isPending ? (
                     <span>Deleting...</span>
@@ -7245,20 +6636,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 setReviewModalApplicant(null);
               }
             }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+            className="modal-backdrop cursor-pointer"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 space-y-5 cursor-default"
+              className="modal-panel max-w-lg animate-in fade-in zoom-in-95 duration-150 cursor-default"
             >
-              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+              <div className="section-header">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-kulkul-purple shrink-0">
                     <Award className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-extrabold text-slate-900">Review Candidate</h3>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <h3 className="section-title">Review Candidate</h3>
+                    <p className="section-subtitle">
                       {reviewModalApplicant.full_name} &bull; <span className="font-mono text-slate-400">{reviewModalApplicant.email}</span>
                     </p>
                   </div>
@@ -7266,15 +6657,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 <button
                   type="button"
                   onClick={() => setReviewModalApplicant(null)}
-                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="flex items-center gap-2 text-xs">
                 <span className="font-bold text-slate-500">Track:</span>
-                <span className="font-bold text-kulkul-purple bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                <span className="font-bold text-kulkul-purple">
                   {reviewModalApplicant.track_name || 'General'}
                 </span>
                 <span className="text-slate-300">|</span>
@@ -7284,7 +6676,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
               <form onSubmit={handleSaveQuickReview} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="field-label">
                     Reviewer Mark / Score
                   </label>
                   <input
@@ -7295,15 +6687,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     value={reviewMarkInput}
                     onChange={(e) => setReviewMarkInput(e.target.value)}
                     placeholder="e.g. 85 or 92.5"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900"
+                    className="form-input"
                   />
-                  <p className="text-3xs text-slate-400 mt-1">
+                  <p className="meta-text mt-1">
                     Enter the numerical mark or score evaluated by the reviewer (e.g. out of 100).
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="field-label">
                     Reviewer Notes / Feedback
                   </label>
                   <textarea
@@ -7311,26 +6703,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     value={reviewNotesInput}
                     onChange={(e) => setReviewNotesInput(e.target.value)}
                     placeholder="Write candidate assessment notes, strengths, weaknesses, interview findings, or evaluation comments..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 resize-none leading-relaxed"
+                    className="form-textarea resize-none leading-relaxed"
                   />
-                  <p className="text-3xs text-slate-400 mt-1">
+                  <p className="meta-text mt-1">
                     Qualitative feedback visible to program reviewers and administrators.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <div className="modal-footer">
                   <button
                     type="button"
                     disabled={updateApplicantReviewMutation.isPending}
                     onClick={() => setReviewModalApplicant(null)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition disabled:opacity-50"
+                    className="btn btn-sm btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={updateApplicantReviewMutation.isPending}
-                    className="px-5 py-2 rounded-xl bg-kulkul-purple hover:bg-[#250d43] text-white text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                    className="btn btn-sm btn-primary"
                   >
                     {updateApplicantReviewMutation.isPending ? (
                       <>

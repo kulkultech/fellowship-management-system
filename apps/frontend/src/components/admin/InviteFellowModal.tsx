@@ -57,11 +57,11 @@ export const InviteFellowModal: React.FC<InviteFellowModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+      className="modal-backdrop animate-in fade-in"
       onClick={onClose}
     >
       <div
-        className="content-card max-w-lg w-full shadow-2xl space-y-5 my-8"
+        className="modal-panel max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="section-header">
@@ -72,7 +72,7 @@ export const InviteFellowModal: React.FC<InviteFellowModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+            className="btn btn-icon-sm btn-ghost"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -80,9 +80,8 @@ export const InviteFellowModal: React.FC<InviteFellowModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            They join the program directly, without applying. They get an email with a link to the Program Room
-            and sign in with this email address to enter.
+          <p className="text-xs text-slate-600">
+            They join without applying and get an email with a link to the Program Room.
           </p>
 
           <div>
@@ -135,7 +134,7 @@ export const InviteFellowModal: React.FC<InviteFellowModalProps> = ({
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn btn-sm btn-outline">
               Cancel
             </button>

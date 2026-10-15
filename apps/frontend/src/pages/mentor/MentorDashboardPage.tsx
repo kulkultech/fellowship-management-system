@@ -21,7 +21,6 @@ import {
   Video,
   X,
   Building2,
-  TrendingUp,
   Calendar,
 } from 'lucide-react';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
@@ -29,7 +28,7 @@ import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignme
 import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
 
 // Every menu uses the same card shape as the shared sessions, assignments, and GitHub views
-const cardShell = 'bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8';
+const cardShell = 'content-card';
 
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -222,7 +221,6 @@ export const MentorDashboardPage: React.FC = () => {
               <div className="section-header">
                 <div>
                   <h3 className="section-title">What&apos;s next</h3>
-                  <p className="section-subtitle">Upcoming sessions and assignment deadlines in your programs.</p>
                 </div>
               </div>
 
@@ -335,7 +333,7 @@ export const MentorDashboardPage: React.FC = () => {
             ) : programs.length === 0 ? (
               <div className={`${cardShell} text-center space-y-3`}>
                 <GraduationCap className="w-8 h-8 text-slate-300 mx-auto" />
-                <h4 className="text-sm font-bold text-slate-800">No Programs Assigned Yet</h4>
+                <h4 className="card-title">No Programs Assigned Yet</h4>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
                   Ask your organization administrator to add you as a mentor to a program.
                 </p>
@@ -358,12 +356,12 @@ export const MentorDashboardPage: React.FC = () => {
                           {prog.fellow_count} Fellow{prog.fellow_count !== 1 ? 's' : ''}
                         </span>
                       </span>
-                      <span className="text-slate-500">{prog.role_title || 'Program Mentor'}</span>
+                      {prog.role_title && <span className="text-slate-500">{prog.role_title}</span>}
                     </div>
-                    <h3 className="text-lg font-extrabold text-slate-900">{prog.program_name}</h3>
-                    <p className="text-xs text-slate-500 line-clamp-2">
-                      {prog.description || 'Fellowship program for ambitious software engineers.'}
-                    </p>
+                    <h3 className="section-title">{prog.program_name}</h3>
+                    {prog.description && (
+                      <p className="text-xs text-slate-500 line-clamp-2">{prog.description}</p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -464,7 +462,6 @@ export const MentorDashboardPage: React.FC = () => {
                     <tr>
                       <th>Fellow Details</th>
                       {hasTracks && <th className="whitespace-nowrap">Track</th>}
-                      <th className="whitespace-nowrap">Stage</th>
                       <th className="whitespace-nowrap">Assessment</th>
                       <th className="whitespace-nowrap">Profiles</th>
                       <th className="text-right whitespace-nowrap">Action</th>
@@ -506,20 +503,6 @@ export const MentorDashboardPage: React.FC = () => {
                         )}
 
                         <td className="whitespace-nowrap">
-                          <span
-                            className={`text-2xs font-bold capitalize ${
-                              fellow.current_stage === 'accepted'
-                                ? 'text-emerald-700'
-                                : fellow.current_stage === 'rejected'
-                                ? 'text-rose-700'
-                                : 'text-amber-700'
-                            }`}
-                          >
-                            {fellow.current_stage?.replace(/_/g, ' ') || 'Submitted'}
-                          </span>
-                        </td>
-
-                        <td className="whitespace-nowrap">
                           <div className="space-y-0.5">
                             {fellow.mcq_score !== undefined && (
                               <div className="text-2xs font-semibold text-slate-700">
@@ -544,7 +527,7 @@ export const MentorDashboardPage: React.FC = () => {
                                 href={fellow.github_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                                className="btn btn-icon-sm btn-ghost"
                                 title="View GitHub"
                               >
                                 <Github className="w-4 h-4" />
@@ -555,10 +538,10 @@ export const MentorDashboardPage: React.FC = () => {
                                 href={fellow.linkedin_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                                className="btn btn-icon-sm btn-ghost"
                                 title="View LinkedIn"
                               >
-                                <Linkedin className="w-4 h-4" />
+                                <Linkedin className="w-4 h-4 text-blue-600" />
                               </a>
                             )}
                             {fellow.resume_url && (
@@ -566,7 +549,7 @@ export const MentorDashboardPage: React.FC = () => {
                                 href={fellow.resume_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 text-slate-500 hover:text-kulkul-purple hover:bg-purple-50 rounded-lg transition"
+                                className="btn btn-icon-sm btn-ghost"
                                 title="View Resume / CV"
                               >
                                 <FileText className="w-4 h-4" />
@@ -582,7 +565,7 @@ export const MentorDashboardPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedFellow(fellow)}
-                            className="btn btn-xs btn-outline text-slate-600 hover:text-kulkul-purple hover:border-kulkul-purple"
+                            className="btn btn-sm btn-outline"
                           >
                             Details
                           </button>
@@ -600,96 +583,48 @@ export const MentorDashboardPage: React.FC = () => {
         {/* 5. FELLOW DETAILS DRAWER / MODAL */}
         {/* ========================================================================= */}
         {selectedFellow && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="stitch-card bg-white w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="modal-backdrop animate-in fade-in duration-150">
+            <div className="modal-panel max-w-xl animate-in zoom-in-95 duration-150">
+              <div className="section-header">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-black text-lg">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-kulkul-purple flex items-center justify-center font-extrabold text-lg">
                     {selectedFellow.full_name?.charAt(0) || 'F'}
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-slate-900">
+                    <h3 className="section-title">
                       {selectedFellow.full_name}
                     </h3>
-                    <p className="text-xs text-slate-500">{selectedFellow.email}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedFellow(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Quick Info Grid */}
-              <div className={`grid ${selectedFellow.track_name ? 'grid-cols-2' : 'grid-cols-1'} gap-3 text-xs`}>
-                {selectedFellow.track_name && (
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <span className="text-3xs font-extrabold uppercase text-slate-400">Track</span>
-                    <div className="font-bold text-slate-800 mt-0.5">
-                      {selectedFellow.track_name}
-                    </div>
-                  </div>
-                )}
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-3xs font-extrabold uppercase text-slate-400">Stage</span>
-                  <div className="font-bold text-emerald-700 capitalize mt-0.5">
-                    {selectedFellow.current_stage?.replace(/_/g, ' ') || 'Active'}
-                  </div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-3xs font-extrabold uppercase text-slate-400">University</span>
+              {/* University / major (phone, track, email and scores are in the table row) */}
+              {selectedFellow.university && (
+                <div className="panel-muted p-3 sm:p-3 text-xs">
+                  <span className="stat-label">University</span>
                   <div className="font-bold text-slate-800 mt-0.5">
-                    {selectedFellow.university || 'Not specified'}
+                    {selectedFellow.university} {selectedFellow.major ? `(${selectedFellow.major})` : ''}
                   </div>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-3xs font-extrabold uppercase text-slate-400">Phone</span>
-                  <div className="font-bold text-slate-800 mt-0.5">
-                    {selectedFellow.phone || 'Not specified'}
-                  </div>
-                </div>
-              </div>
+              )}
 
-              {/* AI Interview Assessment Scores (if available) */}
-              {(selectedFellow.ai_score !== undefined ||
-                selectedFellow.mcq_score !== undefined) && (
-                <div className="p-4 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-3">
-                  <div className="text-xs font-bold text-kulkul-purple flex items-center gap-1.5">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>Candidate Evaluation Snapshot</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    {selectedFellow.mcq_score !== undefined && (
-                      <div>
-                        <div className="text-3xs text-slate-500 uppercase font-bold">Logic Test</div>
-                        <div className="text-base font-black text-slate-900">
-                          {selectedFellow.mcq_score}%
-                        </div>
-                      </div>
-                    )}
-                    {selectedFellow.ai_score !== undefined && (
-                      <div>
-                        <div className="text-3xs text-slate-500 uppercase font-bold">AI Interview</div>
-                        <div className="text-base font-black text-purple-900">
-                          {selectedFellow.ai_score}%
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {selectedFellow.ai_recommendation && (
-                    <div className="text-2xs text-slate-600 bg-white/80 p-2.5 rounded-xl border border-purple-100">
-                      <strong>AI Summary:</strong> {selectedFellow.ai_recommendation}
-                    </div>
-                  )}
+              {selectedFellow.ai_recommendation && (
+                <div className="p-4 bg-purple-50/60 rounded-2xl border border-purple-100 text-2xs text-slate-600">
+                  <strong>AI Summary:</strong> {selectedFellow.ai_recommendation}
                 </div>
               )}
 
               {/* Profiles & Links */}
               <div className="space-y-2">
-                <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <div className="subsection-title">
                   External Profiles
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -698,9 +633,9 @@ export const MentorDashboardPage: React.FC = () => {
                       href={selectedFellow.github_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-sm btn-outline text-slate-700 flex items-center gap-2"
+                      className="btn btn-sm btn-outline"
                     >
-                      <Github className="w-4 h-4" />
+                      <Github className="w-3.5 h-3.5" />
                       <span>GitHub</span>
                       <ExternalLink className="w-3 h-3 text-slate-400" />
                     </a>
@@ -710,9 +645,9 @@ export const MentorDashboardPage: React.FC = () => {
                       href={selectedFellow.linkedin_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-sm btn-outline text-blue-700 border-blue-200 hover:bg-blue-50 flex items-center gap-2"
+                      className="btn btn-sm btn-outline"
                     >
-                      <Linkedin className="w-4 h-4" />
+                      <Linkedin className="w-3.5 h-3.5 text-blue-600" />
                       <span>LinkedIn</span>
                       <ExternalLink className="w-3 h-3 text-blue-400" />
                     </a>
@@ -722,9 +657,9 @@ export const MentorDashboardPage: React.FC = () => {
                       href={selectedFellow.resume_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-sm btn-outline text-slate-700 flex items-center gap-2"
+                      className="btn btn-sm btn-outline"
                     >
-                      <FileText className="w-4 h-4" />
+                      <FileText className="w-3.5 h-3.5" />
                       <span>Resume / CV</span>
                       <ExternalLink className="w-3 h-3 text-slate-400" />
                     </a>
@@ -738,17 +673,18 @@ export const MentorDashboardPage: React.FC = () => {
               </div>
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setSelectedFellow(null)}
-                  className="btn btn-sm btn-outline px-4 text-slate-600"
+                  className="btn btn-sm btn-outline"
                 >
                   Close
                 </button>
                 <a
                   href={`mailto:${selectedFellow.email}`}
-                  className="btn btn-sm btn-primary px-4 flex items-center gap-1.5"
+                  className="btn btn-sm btn-primary"
+                  title={selectedFellow.email}
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>Send Email</span>
@@ -764,12 +700,12 @@ export const MentorDashboardPage: React.FC = () => {
         {activeNavId === 'sessions' && (
           <div className="space-y-6">
             {programs.length > 1 && (
-              <div className="flex items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 shadow-sm px-6 sm:px-8 py-4">
+              <div className="content-card py-4 flex items-center justify-between gap-4">
                 <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
                   onChange={(e) => setSelectedProgramId(e.target.value)}
-                  className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  className="filter-select"
                 >
                   {programs.map((p) => (
                     <option key={p.program_id} value={p.program_id}>
@@ -801,12 +737,12 @@ export const MentorDashboardPage: React.FC = () => {
         {activeNavId === 'assignments' && (
           <div className="space-y-6">
             {programs.length > 1 && (
-              <div className="flex items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 shadow-sm px-6 sm:px-8 py-4">
+              <div className="content-card py-4 flex items-center justify-between gap-4">
                 <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
                   onChange={(e) => setSelectedProgramId(e.target.value)}
-                  className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  className="filter-select"
                 >
                   {programs.map((p) => (
                     <option key={p.program_id} value={p.program_id}>
@@ -836,12 +772,12 @@ export const MentorDashboardPage: React.FC = () => {
         {activeNavId === 'github' && (
           <div className="space-y-6">
             {programs.length > 1 && (
-              <div className="flex items-center justify-between gap-4 bg-white rounded-3xl border border-slate-200 shadow-sm px-6 sm:px-8 py-4">
+              <div className="content-card py-4 flex items-center justify-between gap-4">
                 <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
                   onChange={(e) => setSelectedProgramId(e.target.value)}
-                  className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                  className="filter-select"
                 >
                   {programs.map((p) => (
                     <option key={p.program_id} value={p.program_id}>

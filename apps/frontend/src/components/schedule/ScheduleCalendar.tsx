@@ -115,10 +115,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ events }) =>
           >
             Today
           </button>
-          <button type="button" onClick={() => shiftMonth(-1)} className="btn btn-sm btn-outline" aria-label="Previous month">
+          <button type="button" onClick={() => shiftMonth(-1)} className="btn btn-icon-sm btn-outline" aria-label="Previous month">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button type="button" onClick={() => shiftMonth(1)} className="btn btn-sm btn-outline" aria-label="Next month">
+          <button type="button" onClick={() => shiftMonth(1)} className="btn btn-icon-sm btn-outline" aria-label="Next month">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -127,7 +127,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ events }) =>
       <div className="rounded-2xl border border-slate-200 overflow-hidden">
         <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
           {WEEKDAYS.map((w) => (
-            <div key={w} className="px-2 py-2 text-2xs font-extrabold uppercase tracking-wider text-slate-500 text-center sm:text-left">
+            <div key={w} className="subsection-title px-2 py-2 text-center sm:text-left">
               {w}
             </div>
           ))}
@@ -192,49 +192,57 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ events }) =>
           {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </h3>
         {selectedEvents.length === 0 ? (
-          <p className="text-xs text-slate-400">Nothing scheduled on this day.</p>
+          <p className="meta-text">Nothing scheduled on this day.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {selectedEvents.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="sm:w-32 shrink-0 text-xs font-bold text-slate-900">
-                  {e.kind === 'assignment'
-                    ? `Due ${timeLabel(e.start)}`
-                    : `${timeLabel(e.start)}${e.end ? ` – ${timeLabel(e.end)}` : ''}`}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {e.kind === 'session' ? (
-                      <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+            {selectedEvents.map((e) => {
+              // Program name only matters when the schedule spans several programs
+              const metaLine = [
+                multiProgram ? e.programName : '',
+                e.kind === 'assignment' ? 'Assignment deadline' : e.subtitle || '',
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <li key={`${e.kind}-${e.id}`} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <div className="sm:w-32 shrink-0 text-xs font-bold text-slate-900">
+                    {e.kind === 'assignment'
+                      ? `Due ${timeLabel(e.start)}`
+                      : `${timeLabel(e.start)}${e.end ? ` – ${timeLabel(e.end)}` : ''}`}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {e.kind === 'session' ? (
+                        <Video className="w-4 h-4 text-kulkul-purple shrink-0" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                      )}
+                      <span className="card-title truncate">{e.title}</span>
+                      {e.done && <span className="text-2xs font-bold text-emerald-700 shrink-0">Submitted</span>}
+                    </div>
+                    {metaLine && (
+                      <div className="meta-text mt-0.5 truncate flex items-center gap-1.5">
+                        {multiProgram && <span className={`w-2 h-2 rounded-full shrink-0 ${programColor(e.programId)}`} />}
+                        <span className="truncate">{metaLine}</span>
+                      </div>
                     )}
-                    <span className="text-sm font-bold text-slate-900 truncate">{e.title}</span>
-                    {e.done && <span className="text-2xs font-bold text-emerald-700 shrink-0">Submitted</span>}
                   </div>
-                  <div className="text-2xs text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
-                    {multiProgram && <span className={`w-2 h-2 rounded-full shrink-0 ${programColor(e.programId)}`} />}
-                    <span className="truncate">
-                      {e.programName}
-                      {e.kind === 'assignment' ? ' · Assignment deadline' : e.subtitle ? ` · ${e.subtitle}` : ''}
-                    </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {e.kind === 'session' && e.meetingUrl && (
+                      <a href={e.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Join Call</span>
+                      </a>
+                    )}
+                    {e.href && (
+                      <Link to={e.href} className="btn btn-sm btn-primary">
+                        {e.kind === 'session' ? 'Open Workspace' : 'View Assignment'}
+                      </Link>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {e.kind === 'session' && e.meetingUrl && (
-                    <a href={e.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Join Call</span>
-                    </a>
-                  )}
-                  {e.href && (
-                    <Link to={e.href} className="btn btn-sm btn-primary">
-                      {e.kind === 'session' ? 'Open Workspace' : 'View Assignment'}
-                    </Link>
-                  )}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

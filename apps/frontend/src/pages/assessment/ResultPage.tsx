@@ -13,7 +13,6 @@ import {
   FileCheck,
   FileText,
   Sparkles,
-  Laptop,
 } from 'lucide-react';
 
 export const ResultPage: React.FC = () => {
@@ -31,7 +30,7 @@ export const ResultPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-kulkul-purple/30 border-t-kulkul-purple rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-base font-bold text-kulkul-purple">Calculating official scorecard...</p>
+          <p className="text-sm font-bold text-kulkul-purple">Calculating official scorecard...</p>
         </div>
       </div>
     );
@@ -40,9 +39,9 @@ export const ResultPage: React.FC = () => {
   if (isError || !result) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full stitch-card p-8 text-center bg-white">
+        <div className="max-w-md w-full content-card text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Scorecard Unavailable</h2>
+          <h2 className="heading-page mb-2">Scorecard Unavailable</h2>
           <p className="text-slate-600 text-sm mb-6">
             Unable to load test results for this session token.
           </p>
@@ -72,7 +71,7 @@ export const ResultPage: React.FC = () => {
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-10 sm:px-6 lg:px-8">
         {/* Result Header Card */}
-        <div className="stitch-card bg-white overflow-hidden mb-8">
+        <div className="content-card p-0 sm:p-0 overflow-hidden mb-8">
           <div
             className={`p-8 text-center border-b ${
               isPassed
@@ -88,55 +87,41 @@ export const ResultPage: React.FC = () => {
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="heading-page">
               {isPassed ? 'Benchmark Achieved!' : 'Assessment Completed'}
             </h1>
-            <p className="mt-2 text-base text-slate-600 max-w-lg mx-auto">
-              Candidate: <span className="font-bold text-kulkul-purple">{result.applicant_name}</span> &middot;{' '}
+            <p className="mt-2 text-sm text-slate-600 max-w-lg mx-auto">
               {result.program_name}
             </p>
           </div>
 
           {/* Metric Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-white">
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-white">
             <div className="p-6 text-center">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Your Score</div>
-              <div className="text-4xl font-black text-kulkul-purple">{result.total_score}%</div>
-              <div className="text-xs text-slate-400 mt-1">Logic & MCQ Grade</div>
+              <div className="stat-label mb-1">Your Score</div>
+              <div className="text-4xl font-extrabold text-kulkul-purple">{result.total_score}%</div>
+              <div className="meta-text mt-1">Logic & MCQ Grade</div>
             </div>
 
             <div className="p-6 text-center">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Pass Benchmark</div>
-              <div className="text-4xl font-black text-slate-700">{result.passing_score}%</div>
-              <div className="text-xs text-slate-400 mt-1">Required threshold</div>
-            </div>
-
-            <div className="p-6 text-center">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Result Status</div>
-              <div className="text-sm font-black mt-2 uppercase tracking-wider text-emerald-700">
-                {isPassed ? 'Qualified' : 'Evaluated'}
-              </div>
+              <div className="stat-label mb-1">Pass Benchmark</div>
+              <div className="text-4xl font-extrabold text-slate-700">{result.passing_score}%</div>
+              <div className="meta-text mt-1">Required threshold</div>
             </div>
           </div>
         </div>
 
         {/* Next Stage Action Card */}
         {isPassed && result.next_step === 'fill_form' ? (
-          <div className="stitch-card bg-white p-6 sm:p-8 border-2 border-emerald-500 shadow-sm">
+          <div className="content-card border-2 border-emerald-500">
             <div className="flex items-start gap-4">
               <div className="p-3.5 bg-emerald-600 text-white rounded-2xl shrink-0 shadow-md">
                 <FileText className="w-7 h-7 text-white" />
               </div>
               <div className="flex-1">
-                <div className="text-2xs font-bold text-emerald-700 uppercase tracking-wider mb-2">
-                  Qualifying Stage Cleared &middot; Next: Candidate Profile
-                </div>
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="section-title">
                   Proceed to Candidate Application Profile Form
                 </h2>
-                <p className="text-slate-600 text-sm sm:text-base mt-2 leading-relaxed">
-                  Congratulations on clearing the logic benchmark! To complete your fellowship admission, please fill out your candidate profile, education details, and portfolio.
-                </p>
 
                 <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
                   <button
@@ -160,14 +145,14 @@ export const ResultPage: React.FC = () => {
                         navigate(`/programs/${result.org_slug || ''}/${result.program_slug || ''}/apply${previewQuery}`);
                       }
                     }}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-white bg-kulkul-purple hover:bg-kulkul-purple-hover shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+                    className="w-full sm:w-auto sm:order-last btn btn-md btn-primary"
                   >
                     <span>Proceed to Application Profile Form</span>
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => navigate('/candidate/dashboard')}
-                    className="w-full sm:w-auto px-6 py-3.5 rounded-full font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition text-xs"
+                    className="w-full sm:w-auto btn btn-md btn-outline"
                   >
                     Candidate Dashboard
                   </button>
@@ -176,24 +161,18 @@ export const ResultPage: React.FC = () => {
             </div>
           </div>
         ) : isPassed && result.ai_interview_invite_token ? (
-          <div className="stitch-card bg-white p-6 sm:p-8 border-2 border-kulkul-purple">
+          <div className="content-card border-2 border-kulkul-purple">
             <div className="flex items-start gap-4">
               <div className="p-3.5 bg-kulkul-purple text-white rounded-2xl shrink-0 shadow-md">
                 <Sparkles className="w-7 h-7 text-kulkul-orange" />
               </div>
               <div className="flex-1">
-                <div className="text-2xs font-bold text-kulkul-purple uppercase tracking-wider mb-2">
-                  Stage 2: Technical Screening
-                </div>
-                <h2 className="text-xl font-bold text-kulkul-purple">
+                <h2 className="section-title text-kulkul-purple">
                   Enter Interactive AI Technical Screening
                 </h2>
-                <p className="text-slate-600 text-sm sm:text-base mt-2 leading-relaxed">
-                  Congratulations on clearing the logic benchmark! You are now eligible to complete the conversational technical screening.
-                </p>
 
                 {result.ai_interview_expires_at && (
-                  <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-600">
+                  <div className="mt-4 panel-muted text-xs sm:text-sm text-slate-600">
                     <span className="font-bold text-slate-800">Invitation Window:</span> Valid until{' '}
                     <span className="font-bold text-kulkul-purple">
                       {new Date(result.ai_interview_expires_at).toLocaleString()}
@@ -201,65 +180,23 @@ export const ResultPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Minimum Device Requirements Checklist Box */}
-                <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 text-left space-y-2.5">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                      <Laptop className="w-4 h-4 text-kulkul-purple" />
-                      <span>Minimum Device Requirements</span>
-                    </div>
-                    <span className="text-3xs font-bold text-purple-700">
-                      Pre-Flight Checklist
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-2xs text-slate-600">
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Device:</strong> Laptop/Desktop (PC/Mac)</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Browser:</strong> Chrome or Edge (v90+)</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Camera:</strong> 720p HD Webcam &amp; clear light</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Audio:</strong> Mic &amp; Headphones (prevents echo)</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Network:</strong> Stable 5+ Mbps Wi-Fi/Broadband</span>
-                    </div>
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>Apps:</strong> Close heavy background tabs</span>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="mt-6">
                   <button
                     onClick={() => navigate(`/interview/${result.ai_interview_invite_token}`)}
-                    className="w-full sm:w-auto btn btn-lg btn-secondary"
+                    className="w-full sm:w-auto btn btn-md btn-primary"
                   >
                     <span>Enter Technical Screen Room</span>
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="stitch-card bg-white p-6 sm:p-8 text-center space-y-3 border border-slate-100 shadow-sm">
+          <div className="content-card text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
               <FileCheck className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-extrabold text-slate-900">
-              {isPassed ? 'Assessment Benchmark Achieved!' : 'Assessment Completed & Recorded'}
-            </h2>
             <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed">
               {isPassed
                 ? 'Congratulations! Your assessment responses have been officially submitted to the admissions committee for review.'

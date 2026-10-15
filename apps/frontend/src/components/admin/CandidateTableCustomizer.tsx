@@ -336,28 +336,28 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
     switch (category) {
       case 'form_custom':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+          <span className="inline-flex items-center gap-1 text-2xs font-bold text-purple-700">
             <Sparkles className="w-2.5 h-2.5" />
             Custom Form Question
           </span>
         );
       case 'form_standard':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="inline-flex items-center gap-1 text-2xs font-bold text-blue-700">
             <GraduationCap className="w-2.5 h-2.5" />
             Form Intake Field
           </span>
         );
       case 'assessment':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+          <span className="inline-flex items-center gap-1 text-2xs font-bold text-amber-700">
             <Award className="w-2.5 h-2.5" />
             Assessment
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <span className="inline-flex items-center gap-1 text-2xs font-bold text-slate-600">
             <User className="w-2.5 h-2.5" />
             Core Info
           </span>
@@ -366,45 +366,43 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+    <div className="modal-backdrop animate-in fade-in duration-150">
+      <div className="modal-panel max-w-4xl animate-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="section-header">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-kulkul-purple shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-kulkul-purple shrink-0">
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900">Customize Candidate Table Columns</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Add standard intake answers, custom form questions, or evaluation scores to your candidate table.
-              </p>
+              <h2 className="section-title">Customize Candidate Table Columns</h2>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            className="btn btn-icon-sm btn-ghost self-start sm:self-center shrink-0"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Quick Toolbar */}
-        <div className="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="table-toolbar">
+          <div className="search-field sm:flex-1 sm:w-auto">
+            <Search />
             <input
               type="text"
               placeholder="Search available columns or form fields..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-kulkul-purple font-medium"
+              className="search-input"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="section-actions">
             <button
               onClick={handleResetToDefault}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition"
+              className="btn btn-sm btn-outline"
               title="Restore standard default table columns"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -412,7 +410,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
             </button>
             <button
               onClick={handleAddAllFormFields}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 text-kulkul-purple hover:bg-purple-100 border border-purple-200 transition"
+              className="btn btn-sm btn-primary"
               title="Add all available form fields and custom questions to the table"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -422,14 +420,13 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
         </div>
 
         {/* Body Split */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50/30">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Active Columns List (Left/Top) */}
           <div className="md:col-span-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                Visible Columns ({activeColumns.length})
+              <span className="subsection-title">
+                Visible Columns
               </span>
-              <span className="text-2xs text-slate-400 font-medium">Reorder or remove</span>
             </div>
 
             <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
@@ -455,7 +452,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <span className="text-2xs font-black text-slate-400 w-4 text-center">
+                      <span className="text-2xs font-extrabold text-slate-400 w-4 text-center">
                         {index + 1}
                       </span>
                       <div className="min-w-0">
@@ -473,7 +470,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             type="button"
                             disabled={!canMoveUp}
                             onClick={() => handleMoveUp(index)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition"
+                            className="btn btn-icon-sm btn-ghost"
                             title="Move column left/up"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
@@ -482,7 +479,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             type="button"
                             disabled={!canMoveDown}
                             onClick={() => handleMoveDown(index)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition"
+                            className="btn btn-icon-sm btn-ghost"
                             title="Move column right/down"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
@@ -490,7 +487,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                           <button
                             type="button"
                             onClick={() => handleRemove(colId)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition ml-0.5"
+                            className="btn btn-icon-sm btn-ghost"
                             title="Remove this column"
                           >
                             <X className="w-4 h-4" />
@@ -498,7 +495,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                         </>
                       )}
                       {(isCandidate || isActions) && (
-                        <span className="text-2xs text-slate-400 font-bold whitespace-nowrap">
+                        <span className="meta-text font-bold whitespace-nowrap">
                           (Fixed)
                         </span>
                       )}
@@ -512,11 +509,8 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
           {/* Available Columns to Add (Right/Bottom) */}
           <div className="md:col-span-7 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
+              <span className="subsection-title">
                 Available Fields & Questions
-              </span>
-              <span className="text-2xs text-slate-400 font-medium">
-                Click + Add to include in table
               </span>
             </div>
 
@@ -524,7 +518,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
               {/* Custom Form Questions (Highlighted for the user's explicit request) */}
               {customFormFields.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-purple-900">
+                  <div className="card-title flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-kulkul-purple" />
                     <span>Custom Form Questions ({customFormFields.length})</span>
                   </div>
@@ -537,10 +531,10 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                           className="flex items-center justify-between p-3 rounded-2xl bg-white border border-purple-100 hover:border-purple-300 transition"
                         >
                           <div className="min-w-0 pr-3">
-                            <div className="text-xs font-black text-slate-900 truncate">
+                            <div className="text-xs font-extrabold text-slate-900 truncate">
                               {col.label}
                             </div>
-                            <div className="text-2xs text-slate-500 truncate">
+                            <div className="meta-text truncate">
                               {col.description || 'Custom answer from form'}
                             </div>
                           </div>
@@ -553,9 +547,9 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             <button
                               type="button"
                               onClick={() => handleAdd(col.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 transition shadow-xs shrink-0"
+                              className="btn btn-sm btn-outline shrink-0"
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="w-3.5 h-3.5" />
                               Add
                             </button>
                           )}
@@ -569,7 +563,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
               {/* Standard Application Form Fields */}
               {standardFormFields.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
+                  <div className="card-title flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-blue-600" />
                     <span>Standard Application Form Fields ({standardFormFields.length})</span>
                   </div>
@@ -585,7 +579,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             <div className="text-xs font-extrabold text-slate-900 truncate">
                               {col.label}
                             </div>
-                            <div className="text-2xs text-slate-500 truncate">
+                            <div className="meta-text truncate">
                               {col.description}
                             </div>
                           </div>
@@ -598,9 +592,9 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             <button
                               type="button"
                               onClick={() => handleAdd(col.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition shadow-xs shrink-0"
+                              className="btn btn-sm btn-outline shrink-0"
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="w-3.5 h-3.5" />
                               Add
                             </button>
                           )}
@@ -614,7 +608,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
               {/* Assessment & Pipeline Columns */}
               {assessmentFields.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
+                  <div className="card-title flex items-center gap-1.5">
                     <Award className="w-3.5 h-3.5 text-amber-600" />
                     <span>Evaluation & Pipeline Fields</span>
                   </div>
@@ -630,7 +624,7 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             <div className="text-xs font-extrabold text-slate-900 truncate">
                               {col.label}
                             </div>
-                            <div className="text-2xs text-slate-500 truncate">
+                            <div className="meta-text truncate">
                               {col.description}
                             </div>
                           </div>
@@ -643,9 +637,9 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
                             <button
                               type="button"
                               onClick={() => handleAdd(col.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition shadow-xs shrink-0"
+                              className="btn btn-sm btn-outline shrink-0"
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="w-3.5 h-3.5" />
                               Add
                             </button>
                           )}
@@ -666,13 +660,10 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 bg-white flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            <span className="font-bold text-slate-800">{activeColumns.length}</span> columns will be displayed in the candidate table. Changes save automatically.
-          </div>
+        <div className="modal-footer">
           <button
             onClick={onClose}
-            className="px-6 py-2.5 rounded-2xl bg-kulkul-purple text-white font-extrabold text-xs shadow-md hover:bg-kulkul-purple-hover transition"
+            className="btn btn-sm btn-primary shrink-0"
           >
             Done
           </button>

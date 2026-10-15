@@ -104,13 +104,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       <div
         className={`inline-flex items-center gap-1.5 font-mono text-xs px-3 py-1 rounded-full bg-white/95 border border-purple-200/90 text-slate-800 shadow-2xs select-none ${className}`}
       >
-        <span className="text-slate-900 font-black tabular-nums">{pad(timeLeft.days)}d</span>
+        <span className="text-slate-900 font-extrabold tabular-nums">{pad(timeLeft.days)}d</span>
         <span className="text-slate-300 font-bold">•</span>
-        <span className="text-slate-900 font-black tabular-nums">{pad(timeLeft.hours)}h</span>
+        <span className="text-slate-900 font-extrabold tabular-nums">{pad(timeLeft.hours)}h</span>
         <span className="text-slate-300 font-bold">•</span>
-        <span className="text-slate-900 font-black tabular-nums">{pad(timeLeft.minutes)}m</span>
+        <span className="text-slate-900 font-extrabold tabular-nums">{pad(timeLeft.minutes)}m</span>
         <span className="text-slate-300 font-bold">•</span>
-        <span className="text-kulkul-purple font-black tabular-nums">{pad(timeLeft.seconds)}s</span>
+        <span className="text-kulkul-purple font-extrabold tabular-nums">{pad(timeLeft.seconds)}s</span>
       </div>
     );
   }
@@ -127,15 +127,15 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
           }`}
         >
           <span
-            className={`font-mono font-black text-slate-900 tracking-tight tabular-nums leading-none ${
+            className={`font-mono font-extrabold text-slate-900 tracking-tight tabular-nums leading-none ${
               isSm ? 'text-base' : 'text-xl sm:text-2xl'
             }`}
           >
             {pad(timeLeft.days)}
           </span>
           <span
-            className={`font-black uppercase tracking-widest text-slate-400 mt-1.5 leading-none ${
-              isSm ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'
+            className={`font-extrabold uppercase tracking-widest text-slate-400 mt-1.5 leading-none ${
+              isSm ? 'text-3xs' : 'text-3xs sm:text-3xs'
             }`}
           >
             Days
@@ -149,15 +149,15 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
           }`}
         >
           <span
-            className={`font-mono font-black text-slate-900 tracking-tight tabular-nums leading-none ${
+            className={`font-mono font-extrabold text-slate-900 tracking-tight tabular-nums leading-none ${
               isSm ? 'text-base' : 'text-xl sm:text-2xl'
             }`}
           >
             {pad(timeLeft.hours)}
           </span>
           <span
-            className={`font-black uppercase tracking-widest text-slate-400 mt-1.5 leading-none ${
-              isSm ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'
+            className={`font-extrabold uppercase tracking-widest text-slate-400 mt-1.5 leading-none ${
+              isSm ? 'text-3xs' : 'text-3xs sm:text-3xs'
             }`}
           >
             Hours
@@ -171,15 +171,15 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
           }`}
         >
           <span
-            className={`font-mono font-black text-slate-900 tracking-tight tabular-nums leading-none ${
+            className={`font-mono font-extrabold text-slate-900 tracking-tight tabular-nums leading-none ${
               isSm ? 'text-base' : 'text-xl sm:text-2xl'
             }`}
           >
             {pad(timeLeft.minutes)}
           </span>
           <span
-            className={`font-black uppercase tracking-widest text-slate-400 mt-1.5 leading-none ${
-              isSm ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'
+            className={`font-extrabold uppercase tracking-widest text-slate-400 mt-1.5 leading-none ${
+              isSm ? 'text-3xs' : 'text-3xs sm:text-3xs'
             }`}
           >
             Mins
@@ -193,15 +193,15 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
           }`}
         >
           <span
-            className={`font-mono font-black text-kulkul-purple tracking-tight tabular-nums leading-none ${
+            className={`font-mono font-extrabold text-kulkul-purple tracking-tight tabular-nums leading-none ${
               isSm ? 'text-base' : 'text-xl sm:text-2xl'
             }`}
           >
             {pad(timeLeft.seconds)}
           </span>
           <span
-            className={`font-black uppercase tracking-widest text-kulkul-purple/90 mt-1.5 leading-none ${
-              isSm ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'
+            className={`font-extrabold uppercase tracking-widest text-kulkul-purple/90 mt-1.5 leading-none ${
+              isSm ? 'text-3xs' : 'text-3xs sm:text-3xs'
             }`}
           >
             Secs
@@ -219,13 +219,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       <div className="flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 shadow-sm relative overflow-hidden transition-all duration-200 hover:shadow-md hover:border-purple-300">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
         <span
-          className={`font-black font-mono tracking-tight text-slate-900 tabular-nums leading-none ${
+          className={`font-extrabold font-mono tracking-tight text-slate-900 tabular-nums leading-none ${
             isLg ? 'text-3xl sm:text-5xl' : 'text-2xl sm:text-4xl'
           }`}
         >
           {pad(timeLeft.days)}
         </span>
-        <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400 mt-2 sm:mt-2.5">
+        <span className="text-3xs sm:text-xs font-extrabold uppercase tracking-widest text-slate-400 mt-2 sm:mt-2.5">
           Days
         </span>
       </div>
@@ -234,13 +234,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       <div className="flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 shadow-sm relative overflow-hidden transition-all duration-200 hover:shadow-md hover:border-purple-300">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
         <span
-          className={`font-black font-mono tracking-tight text-slate-900 tabular-nums leading-none ${
+          className={`font-extrabold font-mono tracking-tight text-slate-900 tabular-nums leading-none ${
             isLg ? 'text-3xl sm:text-5xl' : 'text-2xl sm:text-4xl'
           }`}
         >
           {pad(timeLeft.hours)}
         </span>
-        <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400 mt-2 sm:mt-2.5">
+        <span className="text-3xs sm:text-xs font-extrabold uppercase tracking-widest text-slate-400 mt-2 sm:mt-2.5">
           Hours
         </span>
       </div>
@@ -249,13 +249,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       <div className="flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 shadow-sm relative overflow-hidden transition-all duration-200 hover:shadow-md hover:border-purple-300">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
         <span
-          className={`font-black font-mono tracking-tight text-slate-900 tabular-nums leading-none ${
+          className={`font-extrabold font-mono tracking-tight text-slate-900 tabular-nums leading-none ${
             isLg ? 'text-3xl sm:text-5xl' : 'text-2xl sm:text-4xl'
           }`}
         >
           {pad(timeLeft.minutes)}
         </span>
-        <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400 mt-2 sm:mt-2.5">
+        <span className="text-3xs sm:text-xs font-extrabold uppercase tracking-widest text-slate-400 mt-2 sm:mt-2.5">
           Mins
         </span>
       </div>
@@ -264,13 +264,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       <div className="flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-purple-50/90 via-white to-white border border-purple-300 shadow-sm relative overflow-hidden ring-2 ring-purple-400/20 transition-all duration-200 hover:shadow-md">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-kulkul-purple via-pink-500 to-kulkul-orange" />
         <span
-          className={`font-black font-mono tracking-tight text-kulkul-purple tabular-nums leading-none ${
+          className={`font-extrabold font-mono tracking-tight text-kulkul-purple tabular-nums leading-none ${
             isLg ? 'text-3xl sm:text-5xl' : 'text-2xl sm:text-4xl'
           }`}
         >
           {pad(timeLeft.seconds)}
         </span>
-        <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-kulkul-purple/90 mt-2 sm:mt-2.5 flex items-center gap-1">
+        <span className="text-3xs sm:text-xs font-extrabold uppercase tracking-widest text-kulkul-purple/90 mt-2 sm:mt-2.5 flex items-center gap-1">
           <span>Secs</span>
           <span className="w-1.5 h-1.5 rounded-full bg-kulkul-purple animate-ping" />
         </span>

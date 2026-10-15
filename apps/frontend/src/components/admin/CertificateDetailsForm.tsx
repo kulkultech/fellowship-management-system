@@ -56,13 +56,11 @@ interface CertificateDetailsFormProps {
 }
 
 // Typography mirrors the candidate drawer's Profile and Reviewer Evaluation tabs
-const sectionHeadingClass = 'block text-2xs font-extrabold uppercase text-slate-500 tracking-wider';
+const sectionHeadingClass = 'subsection-title block';
 const fieldLabelClass = 'text-slate-400 block font-medium';
-const formLabelClass = 'block text-xs font-bold text-slate-700 mb-1.5';
-const inputClass =
-  'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 bg-white disabled:opacity-60';
-const textareaClass =
-  'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-kulkul-purple/20 focus:border-kulkul-purple transition text-slate-900 resize-none leading-relaxed bg-white disabled:opacity-60';
+const formLabelClass = 'field-label';
+const inputClass = 'form-input disabled:opacity-60';
+const textareaClass = 'form-textarea resize-none leading-relaxed disabled:opacity-60';
 
 export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
   certificate,
@@ -131,7 +129,7 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
     const current = getCertificateSignatories(certificate);
     const text = getCertificateText(certificate);
     return (
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-4 text-xs">
+      <div className="panel space-y-4 text-xs">
         <div className="flex items-center justify-between gap-3">
           <span className={sectionHeadingClass}>Certificate Details</span>
           <button
@@ -140,7 +138,7 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
               setForm(buildInitial());
               setExpanded(true);
             }}
-            className="btn btn-sm btn-outline inline-flex items-center gap-1.5 shrink-0"
+            className="btn btn-sm btn-outline shrink-0"
           >
             <PenLine className="w-3.5 h-3.5" />
             <span>Edit Certificate Details</span>
@@ -208,7 +206,7 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
         e.preventDefault();
         submit(!isEdit);
       }}
-      className="space-y-5 p-4 rounded-2xl bg-white border border-slate-200"
+      className="panel space-y-5"
     >
       <div className="space-y-4">
         <span className={sectionHeadingClass}>Certificate Text</span>
@@ -224,7 +222,7 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
             disabled={isPending}
             className={inputClass}
           />
-          <p className="text-3xs text-slate-400 mt-1">
+          <p className="meta-text mt-1">
             Printed as the recipient. Leave as is to use the candidate's registered name.
           </p>
         </div>
@@ -253,7 +251,7 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
             disabled={isPending}
             className={textareaClass}
           />
-          <p className="text-3xs text-slate-400 mt-1">
+          <p className="meta-text mt-1">
             Shown before the program name. Leave empty to use the default wording.
           </p>
         </div>
@@ -268,7 +266,7 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
             type="button"
             onClick={addSignatory}
             disabled={isPending || form.signatories.length >= MAX_SIGNATORIES}
-            className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+            className="btn btn-sm btn-outline"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Signatory</span>
@@ -282,19 +280,19 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
         )}
 
         {form.signatories.map((s, i) => (
-          <div key={s.key} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+          <div key={s.key} className="panel-muted space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-500">
+              <span className="subsection-title">
                 Signatory {i + 1}
               </span>
               <button
                 type="button"
                 onClick={() => removeSignatory(s.key)}
                 disabled={isPending}
-                className="inline-flex items-center gap-1 text-2xs font-bold text-rose-600 hover:text-rose-700 disabled:opacity-60"
+                className="btn btn-sm btn-danger-ghost"
                 aria-label={`Remove signatory ${i + 1}`}
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-3.5 h-3.5" />
                 <span>Remove</span>
               </button>
             </div>
@@ -336,44 +334,44 @@ export const CertificateDetailsForm: React.FC<CertificateDetailsFormProps> = ({
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-1">
+      <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
         {isEdit ? (
           <>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{isPending ? 'Saving...' : 'Save Certificate Details'}</span>
-            </button>
             <button
               type="button"
               onClick={() => setExpanded(false)}
               disabled={isPending}
-              className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+              className="btn btn-sm btn-outline"
             >
               <X className="w-3.5 h-3.5" />
               <span>Cancel</span>
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="btn btn-sm btn-primary"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isPending ? 'Saving...' : 'Save Certificate Details'}</span>
             </button>
           </>
         ) : (
           <>
             <button
-              type="submit"
-              disabled={isPending}
-              className="btn btn-sm btn-primary inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
-              <span>{isPending ? 'Generating...' : 'Generate & Email Certificate'}</span>
-            </button>
-            <button
               type="button"
               onClick={() => submit(false)}
               disabled={isPending}
-              className="btn btn-sm btn-outline inline-flex items-center gap-1.5 disabled:opacity-60"
+              className="btn btn-sm btn-outline"
             >
               <span>Generate Only (No Email)</span>
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="btn btn-sm btn-primary"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-kulkul-orange" />
+              <span>{isPending ? 'Generating...' : 'Generate & Email Certificate'}</span>
             </button>
           </>
         )}

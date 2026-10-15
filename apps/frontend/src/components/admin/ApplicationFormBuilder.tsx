@@ -322,7 +322,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
               <CheckCircle className="w-4 h-4 text-kulkul-purple shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold">Core Credentials (Fixed at top)</span>
-                <p className="text-3xs text-purple-800 mt-0.5 leading-relaxed">
+                <p className="text-2xs text-purple-800 mt-0.5 leading-relaxed">
                   <strong>First Name</strong>, <strong>Last Name</strong>, and <strong>Email Address</strong> are always enabled and required as core applicant identity.
                 </p>
               </div>
@@ -333,7 +333,6 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
               {STANDARD_FIELD_KEYS.map((key) => {
                 const meta = STANDARD_FIELD_METADATA[key];
                 const cfg = schema.fields?.[key] || { enabled: false, required: false };
-                const orderIndex = activeOrder.indexOf(key);
                 const isEnabled = Boolean(cfg.enabled);
 
                 return (
@@ -365,21 +364,17 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                             <span className="text-rose-500 font-bold text-xs" title="Required">*</span>
                           )}
                         </div>
-                        <p className="text-3xs text-slate-400 mt-0.5 line-clamp-1">{meta.description}</p>
+                        <p className="meta-text mt-0.5 line-clamp-1">{meta.description}</p>
                       </div>
                     </div>
 
-                    <div className="shrink-0 text-right">
-                      {isEnabled ? (
-                        <span className="text-3xs font-extrabold text-kulkul-purple whitespace-nowrap">
-                          Position #{orderIndex + 1}
-                        </span>
-                      ) : (
+                    {!isEnabled && (
+                      <div className="shrink-0 text-right">
                         <span className="text-3xs font-semibold text-slate-400 whitespace-nowrap">
                           Disabled
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -412,8 +407,8 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
             {activeOrder.length === 0 ? (
               <div className="text-center py-10 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
                 <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">No active fields or questions</p>
-                <p className="text-3xs text-slate-400 mt-0.5 max-w-sm mx-auto">
+                <p className="card-title">No active fields or questions</p>
+                <p className="meta-text mt-0.5 max-w-sm mx-auto">
                   Check any standard intake field above to enable it into this form flow, or click the button below to add custom role-specific questions.
                 </p>
                 <button
@@ -464,13 +459,9 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
 
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                                <span className="text-2xs font-semibold text-slate-400">Standard field</span>
-                                {cfg.required && (
-                                  <span className="text-2xs font-bold text-rose-600">Required</span>
-                                )}
+                                <span className="card-title">{meta.label}</span>
                               </div>
-                              <p className="text-3xs text-slate-400 mt-0.5">{meta.description}</p>
+                              <p className="meta-text mt-0.5">{meta.description}</p>
                             </div>
                           </div>
 
@@ -479,7 +470,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                               <button
                                 type="button"
                                 onClick={() => setExpandedOptionField(isExpanded ? null : stdKey)}
-                                className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-3xs font-bold text-kulkul-purple hover:bg-purple-50"
+                                className="btn btn-sm btn-outline"
                               >
                                 {isExpanded ? 'Hide Choices' : `Edit Choices (${cfg.options?.length || 0})`}
                               </button>
@@ -496,12 +487,12 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                             </label>
 
                             {/* Move Up / Down Buttons */}
-                            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                            <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 disabled={index === 0}
                                 onClick={() => handleMoveField(index, 'up')}
-                                className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-white transition"
+                                className="btn btn-icon-sm btn-ghost"
                                 title="Move up"
                               >
                                 <ArrowUp className="w-3.5 h-3.5" />
@@ -510,7 +501,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                 type="button"
                                 disabled={index === activeOrder.length - 1}
                                 onClick={() => handleMoveField(index, 'down')}
-                                className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-white transition"
+                                className="btn btn-icon-sm btn-ghost"
                                 title="Move down"
                               >
                                 <ArrowDown className="w-3.5 h-3.5" />
@@ -520,7 +511,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                             <button
                               type="button"
                               onClick={() => handleToggleStandardField(stdKey, false)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                              className="btn btn-icon-sm btn-ghost"
                               title="Disable standard field"
                             >
                               <EyeOff className="w-3.5 h-3.5" />
@@ -530,8 +521,8 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
 
                         {/* Collapsible Options Editor for Select Dropdowns */}
                         {meta.hasOptions && isExpanded && (
-                          <div className="mt-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
-                            <span className="text-2xs font-extrabold uppercase text-slate-500 block">
+                          <div className="mt-3 panel-muted text-xs space-y-2">
+                            <span className="subsection-title block">
                               Dropdown Choices for {meta.label}
                             </span>
                             <div className="space-y-1.5">
@@ -551,7 +542,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                         },
                                       }));
                                     }}
-                                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-800"
+                                    className="form-input flex-1 text-xs"
                                   />
                                   <button
                                     type="button"
@@ -565,7 +556,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                         },
                                       }));
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                                    className="btn btn-icon-sm btn-ghost-danger"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -583,9 +574,9 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                     },
                                   }));
                                 }}
-                                className="mt-1 px-3 py-1 rounded-lg bg-white border border-slate-200 text-3xs font-bold text-kulkul-purple hover:bg-purple-50 transition flex items-center gap-1"
+                                className="btn btn-sm btn-ghost mt-1"
                               >
-                                <Plus className="w-3 h-3" />
+                                <Plus className="w-3.5 h-3.5" />
                                 <span>Add Choice</span>
                               </button>
                             </div>
@@ -625,9 +616,9 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                             #{index + 1}
                           </span>
 
-                          <span className="text-xs font-bold text-slate-900">
+                          <span className="card-title">
                             Custom question{' '}
-                            <span className="text-2xs font-semibold text-slate-400">· {customField.type}</span>
+                            <span className="meta-text font-semibold">· {customField.type}</span>
                           </span>
                         </div>
 
@@ -643,12 +634,12 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                           </label>
 
                           {/* Move Up / Down Buttons */}
-                          <div className="flex items-center bg-white rounded-lg p-0.5 border border-slate-200 shadow-2xs">
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               disabled={index === 0}
                               onClick={() => handleMoveField(index, 'up')}
-                              className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-slate-100 transition"
+                              className="btn btn-icon-sm btn-ghost"
                               title="Move up"
                             >
                               <ArrowUp className="w-3.5 h-3.5" />
@@ -657,7 +648,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                               type="button"
                               disabled={index === activeOrder.length - 1}
                               onClick={() => handleMoveField(index, 'down')}
-                              className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-slate-100 transition"
+                              className="btn btn-icon-sm btn-ghost"
                               title="Move down"
                             >
                               <ArrowDown className="w-3.5 h-3.5" />
@@ -667,7 +658,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                           <button
                             type="button"
                             onClick={() => handleDeleteCustomField(customField.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                            className="btn btn-icon-sm btn-ghost-danger"
                             title="Delete custom question"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -727,7 +718,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                             value={customField.placeholder || ''}
                             onChange={(e) => handleUpdateCustomField(customField.id, { placeholder: e.target.value })}
                             placeholder="e.g. https://github.com/..."
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-800"
+                            className="form-input text-xs"
                           />
                         </div>
 
@@ -743,15 +734,15 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                 id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
                               })
                             }
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-600"
+                            className="form-input text-xs font-mono text-slate-600"
                           />
                         </div>
                       </div>
 
                       {/* Choices Editor for select / radio */}
                       {(customField.type === 'select' || customField.type === 'radio') && (
-                        <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
-                          <span className="text-2xs font-extrabold uppercase text-slate-500 block">
+                        <div className="panel space-y-2">
+                          <span className="subsection-title block">
                             Choice Options
                           </span>
                           <div className="space-y-1.5">
@@ -765,7 +756,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                     nextOpts[optIdx] = e.target.value;
                                     handleUpdateCustomField(customField.id, { options: nextOpts });
                                   }}
-                                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800"
+                                  className="form-input flex-1 text-xs"
                                 />
                                 <button
                                   type="button"
@@ -773,7 +764,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                     const nextOpts = (customField.options || []).filter((_, i) => i !== optIdx);
                                     handleUpdateCustomField(customField.id, { options: nextOpts });
                                   }}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
+                                  className="btn btn-icon-sm btn-ghost-danger"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -788,9 +779,9 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
                                 ];
                                 handleUpdateCustomField(customField.id, { options: nextOpts });
                               }}
-                              className="mt-1 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-3xs font-bold text-kulkul-purple hover:bg-purple-50 transition flex items-center gap-1"
+                              className="btn btn-sm btn-ghost mt-1"
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="w-3.5 h-3.5" />
                               <span>Add Choice</span>
                             </button>
                           </div>
@@ -808,8 +799,7 @@ export const ApplicationFormBuilder: React.FC<Props> = ({ program, onSaved }) =>
         <div className="bg-slate-50 p-6 md:p-10 rounded-2xl border border-slate-200">
           <div className="max-w-2xl mx-auto bg-white rounded-3xl p-8 shadow-sm border border-slate-200/70 space-y-6">
             <div className="border-b border-slate-100 pb-5">
-              <span className="subsection-title">Candidate View Preview</span>
-              <h2 className="text-xl font-extrabold text-slate-900 mt-2">{schema.title || 'Candidate Application'}</h2>
+              <h2 className="text-xl font-extrabold text-slate-900">{schema.title || 'Candidate Application'}</h2>
               <p className="text-xs text-slate-500 mt-1">{schema.description}</p>
             </div>
 

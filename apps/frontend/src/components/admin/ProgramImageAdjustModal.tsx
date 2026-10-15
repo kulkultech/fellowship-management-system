@@ -324,23 +324,20 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="modal-backdrop animate-in fade-in duration-200">
+      <div className="modal-panel max-w-3xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="section-header">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center shrink-0">
               <Sliders className="w-4 h-4 text-kulkul-orange" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Adjust Program Banner &amp; Ratio</h3>
-              <p className="text-2xs text-slate-500">
-                Choose an aspect ratio, pan, reposition, and zoom to ensure key details display cleanly.
-              </p>
+              <h3 className="section-title">Adjust Program Banner &amp; Ratio</h3>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="cursor-pointer px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition shadow-xs">
+          <div className="section-actions">
+            <label className="btn btn-sm btn-outline cursor-pointer">
               <Upload className="w-3.5 h-3.5 text-kulkul-purple" />
               <span>Change Image</span>
               <input
@@ -354,7 +351,8 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
               type="button"
               onClick={onClose}
               disabled={isProcessing}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              className="btn btn-icon-sm btn-ghost"
+              aria-label="Close"
             >
               <X className="w-4 h-4" />
             </button>
@@ -362,7 +360,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-5 overflow-y-auto">
+        <div className="space-y-5">
           {loadError && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
               {loadError}
@@ -370,13 +368,13 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
           )}
 
           {/* 1. Aspect Ratio Selector Controls */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="panel-muted space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-extrabold uppercase tracking-wider text-slate-700 text-2xs flex items-center gap-1.5">
+              <span className="subsection-title flex items-center gap-1.5">
                 <Crop className="w-3.5 h-3.5 text-kulkul-purple" />
                 Banner Aspect Ratio
               </span>
-              <span className="text-2xs font-mono font-bold text-kulkul-purple bg-purple-100/80 px-2.5 py-0.5 rounded-lg border border-purple-200/60">
+              <span className="text-2xs font-mono font-bold text-kulkul-purple">
                 {isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId} ({targetW} × {targetH}px)
               </span>
             </div>
@@ -398,7 +396,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                         : 'bg-white text-slate-700 border-slate-200 hover:border-kulkul-purple/40 hover:bg-purple-50/20'
                     }`}
                   >
-                    <span className="text-xs font-black leading-tight">{opt.label}</span>
+                    <span className="text-xs font-extrabold leading-tight">{opt.label}</span>
                     <span className={`text-3xs mt-0.5 ${isSelected ? 'text-purple-200' : 'text-slate-400'}`}>
                       {opt.description.split(' ')[0]}
                     </span>
@@ -416,7 +414,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                     : 'bg-white text-slate-700 border-slate-200 hover:border-kulkul-purple/40 hover:bg-purple-50/20'
                 }`}
               >
-                <span className="text-xs font-black leading-tight flex items-center gap-1">
+                <span className="text-xs font-extrabold leading-tight flex items-center gap-1">
                   <Maximize2 className="w-3 h-3" />
                   <span>Custom</span>
                 </span>
@@ -453,11 +451,11 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
           {/* 2. Interactive Preview Viewport */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-extrabold uppercase tracking-wider text-slate-500 text-2xs flex items-center gap-1.5">
+              <span className="subsection-title flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5 text-kulkul-purple" />
                 Live Frame Preview ({isCustom ? `${customRatio.toFixed(2)}:1` : selectedRatioId})
               </span>
-              <span className="text-2xs text-slate-400 flex items-center gap-1">
+              <span className="meta-text flex items-center gap-1">
                 <Move className="w-3 h-3 text-kulkul-orange" />
                 Click &amp; drag inside frame to pan
               </span>
@@ -555,7 +553,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
           </div>
 
           {/* 3. Positioning & Zoom Controls Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+          <div className="panel-muted grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             {/* Zoom Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between font-bold text-slate-700">
@@ -569,7 +567,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => setZoom((z) => Math.max(1, Number((z - 0.1).toFixed(2))))}
-                  className="btn-icon-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-outline"
                   title="Zoom Out"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
@@ -586,7 +584,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => setZoom((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
-                  className="btn-icon-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-outline"
                   title="Zoom In"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
@@ -607,7 +605,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => setPosY((y) => Math.max(0, y - 10))}
-                  className="btn-icon-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-outline"
                   title="Shift Up"
                 >
                   <ArrowUp className="w-3.5 h-3.5" />
@@ -624,7 +622,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => setPosY((y) => Math.min(100, y + 10))}
-                  className="btn-icon-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-outline"
                   title="Shift Down"
                 >
                   <ArrowDown className="w-3.5 h-3.5" />
@@ -645,7 +643,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => setPosX((x) => Math.max(0, x - 10))}
-                  className="btn-icon-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-outline"
                   title="Shift Left"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
@@ -662,7 +660,7 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => setPosX((x) => Math.min(100, x + 10))}
-                  className="btn-icon-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="btn btn-icon-sm btn-outline"
                   title="Shift Right"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -677,8 +675,8 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => handleSetPreset('top')}
-                  className={`btn btn-xs ${
-                    posY === 0 ? 'btn-primary' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  className={`btn btn-sm ${
+                    posY === 0 ? 'btn-primary' : 'btn-outline'
                   }`}
                 >
                   Top
@@ -686,10 +684,10 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => handleSetPreset('center')}
-                  className={`btn btn-xs ${
+                  className={`btn btn-sm ${
                     posX === 50 && posY === 50
                       ? 'btn-primary'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      : 'btn-outline'
                   }`}
                 >
                   Center
@@ -697,10 +695,10 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={() => handleSetPreset('bottom')}
-                  className={`btn btn-xs ${
+                  className={`btn btn-sm ${
                     posY === 100
                       ? 'btn-primary'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      : 'btn-outline'
                   }`}
                 >
                   Bottom
@@ -708,10 +706,10 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="btn btn-xs bg-slate-100 text-slate-600 hover:bg-slate-200 ml-auto flex items-center gap-1"
+                  className="btn btn-sm btn-ghost ml-auto"
                   title="Reset Zoom, Position & Ratio"
                 >
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                   <span>Reset All</span>
                 </button>
               </div>
@@ -720,12 +718,12 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+        <div className="modal-footer">
           <button
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="btn btn-sm btn-ghost"
+            className="btn btn-sm btn-outline"
           >
             Cancel
           </button>
@@ -734,12 +732,12 @@ export const ProgramImageAdjustModal: React.FC<ProgramImageAdjustModalProps> = (
             type="button"
             onClick={handleApplyFraming}
             disabled={isProcessing || !imageLoaded}
-            className="btn btn-sm btn-primary flex items-center gap-1.5 disabled:opacity-50"
+            className="btn btn-sm btn-primary"
           >
             {isProcessing ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Check className="w-4 h-4 text-kulkul-orange" />
+              <Check className="w-3.5 h-3.5 text-kulkul-orange" />
             )}
             <span>{isProcessing ? 'Processing Banner...' : 'Apply Framing & Ratio'}</span>
           </button>

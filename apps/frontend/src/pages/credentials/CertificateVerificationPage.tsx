@@ -81,15 +81,15 @@ export const CertificateVerificationPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-4">
-          <div className="max-w-md w-full stitch-card bg-white p-8 text-center border border-slate-200 shadow-sm rounded-3xl">
+          <div className="max-w-md w-full content-card text-center">
             <div className="w-14 h-14 mx-auto bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl flex items-center justify-center mb-4">
               <AlertCircle className="w-7 h-7" />
             </div>
-            <h1 className="heading-section text-slate-900 mb-2">Unverified Credential</h1>
-            <p className="text-body text-slate-600 text-sm mb-6 leading-relaxed">
+            <h1 className="heading-page mb-2">Unverified Credential</h1>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
               {error || 'The certificate identifier provided does not match any official FellowHire issuance.'}
             </p>
-            <Link to="/" className="btn btn-md btn-primary w-full gap-2">
+            <Link to="/" className="btn btn-md btn-primary w-full">
               <ArrowLeft className="w-4 h-4" /> Return to Homepage
             </Link>
           </div>
@@ -162,7 +162,7 @@ export const CertificateVerificationPage: React.FC = () => {
                 href={data.linked_in_url}
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-md bg-[#0a66c2] hover:bg-[#084e96] text-white shadow-sm"
+                className="btn btn-md btn-outline"
               >
                 <Share2 className="w-4 h-4" />
                 <span>Add to LinkedIn</span>
@@ -186,7 +186,7 @@ export const CertificateVerificationPage: React.FC = () => {
             />
             <div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h2 className="text-base font-extrabold text-slate-900">Official Verified Certificate</h2>
+                <h2 className="section-title">Official Verified Certificate</h2>
                 {data.valid ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
                     <Check className="w-3.5 h-3.5" />
@@ -311,11 +311,11 @@ export const CertificateVerificationPage: React.FC = () => {
           <div className="mt-12 print:hidden">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="heading-section text-slate-900 flex items-center gap-2">
+                <h3 className="section-title flex items-center gap-2">
                   <Award className="w-5 h-5 text-kulkul-purple" />
                   <span>Associated Open Badges (v2.0)</span>
                 </h3>
-                <p className="text-body-sm text-slate-500 mt-0.5">
+                <p className="section-subtitle">
                   Verified digital credentials complying with IMS Global / 1EdTech Open Badges specifications.
                 </p>
               </div>
@@ -325,27 +325,27 @@ export const CertificateVerificationPage: React.FC = () => {
               {data.badges.map((b) => (
                 <div
                   key={b.id}
-                  className="stitch-card bg-white border border-slate-200/90 rounded-3xl p-5 flex items-center gap-4 shadow-2xs hover:shadow-sm transition"
+                  className="panel flex items-center gap-4"
                 >
                   <div className="w-16 h-16 shrink-0 bg-purple-50/70 border border-purple-100 rounded-2xl p-2 flex items-center justify-center shadow-2xs">
                     <img src={b.image_url} alt={b.name} className="w-full h-full object-contain filter drop-shadow-sm" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-caption">
+                    <div className="meta-text">
                       <span className="font-bold text-kulkul-purple">
                         {b.badge_type === 'member' ? 'Cohort Member' : 'Program Graduate'}
                       </span>
                       <span> &middot; {new Date(b.issued_at).toLocaleDateString()}</span>
                     </div>
-                    <h4 className="heading-card text-sm text-slate-900 truncate mt-1">{b.name}</h4>
-                    <p className="text-body-sm text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{b.description}</p>
+                    <h4 className="card-title truncate mt-1">{b.name}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{b.description}</p>
                     <div className="mt-2.5">
                       <Link
                         to={`/verify/badge/${b.id}`}
-                        className="btn btn-xs btn-outline"
+                        className="btn btn-sm btn-outline"
                       >
                         <span>View Badge Assertion</span>
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </Link>
                     </div>
                   </div>
