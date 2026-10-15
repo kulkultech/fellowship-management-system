@@ -96,6 +96,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc, wsHub)
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo)
 	fellowGroupHandler := handler.NewFellowGroupHandler(repository.NewFellowGroupRepository(pool), programRepo, applicantRepo, mentorRepo)
 	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))
 	if pool != nil {
@@ -333,6 +334,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 				a.Post("/{assignmentId}/submit", assignmentHandler.SubmitAssignment)
 				a.Post("/{assignmentId}/submissions/{submissionId}/grade", assignmentHandler.GradeSubmission)
 			})
+
+			// Program room curriculum & resources (read: program fellows and staff; edit: admins and mentors)
+			protected.Get("/programs/{programId}/room-content", roomContentHandler.GetContent)
+			protected.Put("/programs/{programId}/room-content/curriculum", roomContentHandler.SaveCurriculum)
+			protected.Put("/programs/{programId}/room-content/resources", roomContentHandler.SaveResources)
 
 			// Fellow Groups: named sets of fellows for targeting sessions and assignments
 			protected.Route("/programs/{programId}/fellow-groups", func(fg chi.Router) {

@@ -495,6 +495,14 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		archived_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
 	CREATE INDEX IF NOT EXISTS idx_ai_interview_attempts_applicant ON ai_interview_attempts(applicant_id, archived_at DESC);
+
+	CREATE TABLE IF NOT EXISTS program_room_content (
+		program_id UUID PRIMARY KEY REFERENCES programs(id) ON DELETE CASCADE,
+		curriculum JSONB NOT NULL DEFAULT '[]'::jsonb,
+		resources JSONB NOT NULL DEFAULT '[]'::jsonb,
+		updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	);
 	`
 
 	if _, err := pool.Exec(ctx, schema); err != nil {

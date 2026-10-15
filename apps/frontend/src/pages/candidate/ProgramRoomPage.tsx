@@ -12,13 +12,10 @@ import {
   Clock,
   Video,
   Users,
-  BookOpen,
   ArrowLeft,
   CheckCircle2,
   ExternalLink,
-  Laptop,
   GraduationCap,
-  MessageSquare,
   AlertCircle,
   Loader2,
   Award,
@@ -33,22 +30,15 @@ import {
   Code2,
   Home,
   CalendarDays,
+  BookOpen,
+  Link2,
 } from 'lucide-react';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
+import { RoomContentView, roomContentQueryKey } from '@/components/room/RoomContentView';
+import { roomContentService } from '@/services/roomContentService';
 import { uploadService } from '@/services/uploadService';
-import type { SessionType, ProgramSession, SessionAttendance } from '@/services/types';
+import type { ProgramSession, SessionAttendance } from '@/services/types';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
-
-interface FellowSession {
-  id: string;
-  title: string;
-  type: SessionType;
-  date: string;
-  time: string;
-  status: 'upcoming' | 'check_in_available' | 'completed';
-  attended?: boolean;
-  meeting_url?: string;
-}
 
 export const ProgramRoomPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
@@ -136,8 +126,7 @@ export const ProgramRoomPage: React.FC = () => {
       }
     });
     const rate = Math.round((attended / total) * 100);
-    const status = rate >= 80 ? 'Good' : rate >= 65 ? 'Warning' : 'At Risk';
-    return { total, attended, pending, rate, status };
+    return { total, attended, pending, rate };
   }, [realSessions]);
 
   const handleProofFileSelect = (file: File) => {
@@ -196,49 +185,20 @@ export const ProgramRoomPage: React.FC = () => {
 
   const isLoading = isLoadingProg || isLoadingCand;
 
-  // Sample structured fellowship sessions
-  const sampleSessions: FellowSession[] = [
-    {
-      id: 'sess-1',
-      title: 'Cohort Kickoff & Orientation',
-      type: 'live_lecture',
-      date: 'Week 1 &bull; Day 1',
-      time: '19:00 - 20:30 WIB',
-      status: 'check_in_available',
-      meeting_url: 'https://meet.google.com/kulkul-fellowship-live',
-    },
-    {
-      id: 'sess-2',
-      title: 'Production Engineering Standards & Architecture',
-      type: 'workshop',
-      date: 'Week 1 &bull; Day 3',
-      time: '19:00 - 21:00 WIB',
-      status: 'upcoming',
-      meeting_url: 'https://meet.google.com/kulkul-fellowship-live',
-    },
-    {
-      id: 'sess-3',
-      title: 'Weekly Mentor Sync & Code Review Session',
-      type: 'mentorship_sync',
-      date: 'Week 2 &bull; Day 2',
-      time: '19:30 - 20:30 WIB',
-      status: 'upcoming',
-    },
-    {
-      id: 'sess-4',
-      title: 'Mid-Cohort Capstone Milestone Demo',
-      type: 'demo_day',
-      date: 'Week 4 &bull; Day 5',
-      time: '18:00 - 21:00 WIB',
-      status: 'upcoming',
-    },
-  ];
+  // Curriculum & resources: staff always see them (to add content); fellows once something is there
+  const { data: roomContent } = useQuery({
+    queryKey: roomContentQueryKey(program?.id || ''),
+    queryFn: () => roomContentService.getContent(program!.id),
+    enabled: Boolean(program?.id && (isInvited || isMentorOrAdmin)),
+  });
+  const showCurriculum = Boolean(roomContent?.can_edit || (roomContent?.content.curriculum.length ?? 0) > 0);
+  const showResources = Boolean(roomContent?.can_edit || (roomContent?.content.resources.length ?? 0) > 0);
 
   const roomSections = [
     { id: 'assignments' as const, label: 'Assignments & Projects', icon: FileText },
     { id: 'sessions' as const, label: 'Sessions & Attendance', icon: Calendar },
-    { id: 'curriculum' as const, label: 'Curriculum & Milestones', icon: BookOpen },
-    { id: 'resources' as const, label: 'Channels & Resources', icon: Laptop },
+    ...(showCurriculum ? [{ id: 'curriculum' as const, label: 'Curriculum & Milestones', icon: BookOpen }] : []),
+    ...(showResources ? [{ id: 'resources' as const, label: 'Channels & Resources', icon: Link2 }] : []),
   ];
   const roomChildren = roomSections.map((section) => ({
     id: section.id,
@@ -278,7 +238,7 @@ export const ProgramRoomPage: React.FC = () => {
   const navItems: NavItem[] = isMentorOrAdmin
     ? [
         { id: 'dashboard', label: 'Back to Dashboard', icon: ArrowLeft, onClick: () => navigate(staffDashboardUrl) },
-        { id: 'program_room', label: 'Program Room', icon: GraduationCap, children: roomChildren },
+        { id: 'program_room', label: 'Program Room', icon: GraduationCap, onClick: () => setActiveTab('assignments'), children: roomChildren },
       ]
     : [
         { id: 'home', label: 'Home', icon: Home, onClick: () => navigate('/candidate/dashboard') },
@@ -293,7 +253,7 @@ export const ProgramRoomPage: React.FC = () => {
             { id: 'ai_interview', label: 'AI Technical Screen', icon: Code2, onClick: () => navigate('/candidate/dashboard?tab=ai_interview') },
           ],
         },
-        { id: 'program_room', label: 'Program Room', icon: GraduationCap, children: candidateRoomChildren },
+        { id: 'program_room', label: 'Program Room', icon: GraduationCap, onClick: () => setActiveTab('assignments'), children: candidateRoomChildren },
         { id: 'calendar', label: 'Calendar', icon: CalendarDays, onClick: () => navigate('/candidate/dashboard?tab=calendar') },
         { id: 'credentials', label: 'Badges & Certificates', icon: Award, onClick: () => navigate('/candidate/dashboard?tab=credentials') },
       ];
@@ -364,77 +324,50 @@ export const ProgramRoomPage: React.FC = () => {
           />
         )}
 
+        {activeTab === 'curriculum' && program?.id && <RoomContentView programId={program.id} section="curriculum" />}
+        {activeTab === 'resources' && program?.id && <RoomContentView programId={program.id} section="resources" />}
+
         {/* Tab Content: Sessions & Attendance */}
         {activeTab === 'sessions' && (
           <div className="space-y-6">
-            {/* Fellow Attendance Health & Progress Card */}
+            {/* Fellow attendance: one line + progress bar (colour shows the status) */}
             {fellowStats && !isMentorOrAdmin && (
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">
-                      Your Attendance Record
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
-                        fellowStats.status === 'Good'
-                          ? 'text-emerald-700'
-                          : fellowStats.status === 'Warning'
-                          ? 'text-amber-700'
-                          : 'text-rose-700'
-                      }`}
-                    >
-                      <Award className="w-3 h-3" />
-                      <span>{fellowStats.status} Status</span>
-                    </span>
-                  </div>
-                  <h4 className="text-xl font-black text-slate-900">
-                    {fellowStats.rate}% Attendance Rate
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Attended <strong>{fellowStats.attended}</strong> of <strong>{fellowStats.total}</strong> cohort sessions
-                    {fellowStats.pending > 0 && (
-                      <span className="text-amber-700 font-bold"> ({fellowStats.pending} awaiting mentor validation)</span>
-                    )}
-                    . Maintaining &ge;80% attendance is required for graduation.
-                  </p>
-                </div>
+              <div className="content-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <p className="text-xs text-slate-500">
+                  <strong
+                    className={`text-sm font-extrabold ${
+                      fellowStats.rate >= 80
+                        ? 'text-emerald-700'
+                        : fellowStats.rate >= 65
+                        ? 'text-amber-700'
+                        : 'text-rose-700'
+                    }`}
+                  >
+                    {fellowStats.rate}% attendance
+                  </strong>
+                  {' · '}
+                  {fellowStats.attended}/{fellowStats.total} sessions · 80% needed to graduate
+                  {fellowStats.pending > 0 && (
+                    <span className="text-amber-700 font-bold"> · {fellowStats.pending} awaiting mentor validation</span>
+                  )}
+                </p>
 
-                <div className="sm:w-56 space-y-2">
-                  <div className="flex items-center justify-between text-2xs font-bold text-slate-600">
-                    <span>Graduation Threshold</span>
-                    <span>{fellowStats.rate}% / 80%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        fellowStats.rate >= 80
-                          ? 'bg-emerald-500'
-                          : fellowStats.rate >= 65
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500'
-                      }`}
-                      style={{ width: `${Math.min(100, Math.max(0, fellowStats.rate))}%` }}
-                    />
-                  </div>
+                <div className="sm:w-56 w-full bg-slate-100 rounded-full h-2 overflow-hidden shrink-0">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      fellowStats.rate >= 80
+                        ? 'bg-emerald-500'
+                        : fellowStats.rate >= 65
+                        ? 'bg-amber-500'
+                        : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(0, fellowStats.rate))}%` }}
+                  />
                 </div>
               </div>
             )}
 
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                <div>
-                  <h3 className="text-lg font-extrabold text-slate-900">Fellowship Live Sessions</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Attend scheduled cohort workshops, technical syncs, and orientation sessions.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Real-Time Check-In Active</span>
-                </div>
-              </div>
-
+            <div className="content-card space-y-6">
               {isLoadingSessions ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
@@ -469,7 +402,7 @@ export const ProgramRoomPage: React.FC = () => {
                       return (
                         <div
                           key={sess.id}
-                          className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
+                          className="panel-muted hover:border-slate-300 transition flex flex-col md:flex-row md:items-center justify-between gap-4"
                         >
                           <div className="flex items-start gap-3.5">
                             <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
@@ -477,7 +410,7 @@ export const ProgramRoomPage: React.FC = () => {
                             </div>
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
+                                <h4 className="card-title">{sess.title}</h4>
                                 <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
                                   {sess.session_type.replace('_', ' ')}
                                 </span>
@@ -486,7 +419,7 @@ export const ProgramRoomPage: React.FC = () => {
                                     <UserCheck className="w-3 h-3" />
                                     1-on-1 Session
                                   </span>
-                                ) : sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
+                                ) : isMentorOrAdmin && sess.target_applicant_ids && sess.target_applicant_ids.length > 1 ? (
                                   <span className="text-2xs font-bold text-indigo-700 flex items-center gap-1">
                                     <Users className="w-3 h-3" />
                                     Group Session
@@ -529,7 +462,7 @@ export const ProgramRoomPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => setViewProofAttendance(sess.fellow_attendance!)}
-                                    className="btn btn-sm btn-outline text-slate-700 hover:bg-slate-100 font-bold flex items-center gap-1.5"
+                                    className="btn btn-sm btn-outline"
                                   >
                                     <Eye className="w-3.5 h-3.5 text-slate-500" />
                                     <span>View Proof</span>
@@ -548,7 +481,7 @@ export const ProgramRoomPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => setViewProofAttendance(sess.fellow_attendance!)}
-                                    className="btn btn-sm btn-outline text-slate-700 hover:bg-slate-100 font-bold flex items-center gap-1.5"
+                                    className="btn btn-sm btn-outline"
                                   >
                                     <Eye className="w-3.5 h-3.5 text-slate-500" />
                                     <span>View Proof</span>
@@ -569,7 +502,7 @@ export const ProgramRoomPage: React.FC = () => {
                                     setProofPreviewUrl('');
                                     setCheckInNotes('');
                                   }}
-                                  className="btn btn-sm btn-outline text-rose-700 border-rose-300 hover:bg-rose-50 font-bold flex items-center gap-1"
+                                  className="btn btn-sm btn-danger-ghost"
                                 >
                                   <Camera className="w-3.5 h-3.5" />
                                   <span>Re-submit Proof</span>
@@ -588,16 +521,16 @@ export const ProgramRoomPage: React.FC = () => {
                                   setProofPreviewUrl('');
                                   setCheckInNotes('');
                                 }}
-                                className="btn btn-sm btn-outline text-emerald-800 border-emerald-400 hover:bg-emerald-50 font-bold flex items-center gap-1.5"
+                                className="btn btn-sm btn-success"
                               >
-                                <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                                <Camera className="w-3.5 h-3.5" />
                                 <span>Check-in Attendance</span>
                               </button>
                             )}
 
                             <Link
                               to={`/programs/${orgSlug}/${programSlug}/sessions/${sess.id}/room`}
-                              className="btn btn-sm btn-outline text-kulkul-purple border-purple-200 hover:bg-purple-50 font-bold flex items-center gap-1.5"
+                              className="btn btn-sm btn-outline"
                               title="Open Live Code Workspace"
                             >
                               <Code2 className="w-3.5 h-3.5" />
@@ -609,7 +542,7 @@ export const ProgramRoomPage: React.FC = () => {
                                 href={sess.meeting_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="btn btn-sm btn-outline text-blue-700 border-blue-200 hover:bg-blue-50 font-bold flex items-center gap-1.5"
+                                className="btn btn-sm btn-outline"
                                 title="Join Google Meet"
                               >
                                 <Video className="w-3.5 h-3.5 text-blue-600" />
@@ -621,7 +554,7 @@ export const ProgramRoomPage: React.FC = () => {
                               href={getGoogleCalendarUrl(sess)}
                               target="_blank"
                               rel="noreferrer"
-                              className="btn btn-sm btn-outline text-slate-700 hover:text-kulkul-purple hover:border-purple-200 font-bold flex items-center gap-1.5"
+                              className="btn btn-sm btn-outline"
                               title="Add to Google Calendar"
                             >
                               <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
@@ -632,64 +565,7 @@ export const ProgramRoomPage: React.FC = () => {
                       );
                     })
                   ) : (
-                    // Sample roadmap fallback if no live sessions scheduled yet
-                    sampleSessions.map((sess) => (
-                      <div
-                        key={sess.id}
-                        className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
-                      >
-                        <div className="flex items-start gap-3.5">
-                          <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
-                            <Video className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-sm font-extrabold text-slate-900">{sess.title}</h4>
-                              <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
-                                {sess.type.replace('_', ' ')}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                              <span dangerouslySetInnerHTML={{ __html: sess.date }} />
-                              <span>&bull;</span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {sess.time}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
-                          {sess.status === 'check_in_available' ? (
-                            <>
-                              <a
-                                href={sess.meeting_url || '#'}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
-                              >
-                                <Video className="w-3.5 h-3.5" />
-                                <span>Join Live Session</span>
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => toast.success('Attendance recorded for orientation session!')}
-                                className="btn btn-sm btn-outline text-emerald-800 border-emerald-300 font-bold"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Check-in Attendance</span>
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-xs font-semibold text-slate-500">
-                              Upcoming Session
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                    <p className="py-10 text-center text-xs text-slate-500">No sessions scheduled yet.</p>
                   )}
                 </div>
               )}
@@ -697,83 +573,21 @@ export const ProgramRoomPage: React.FC = () => {
           </div>
         )}
 
-        {/* Tab Content: Curriculum */}
-        {activeTab === 'curriculum' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-            <h3 className="text-lg font-extrabold text-slate-900">Program Curriculum &amp; Milestones</h3>
-            <p className="text-xs text-slate-500">
-              Structured modules designed for industry-level engineering proficiency.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <span className="text-2xs font-extrabold uppercase text-kulkul-purple">Sprint 1</span>
-                <h4 className="text-sm font-extrabold text-slate-900">Foundations &amp; System Architecture</h4>
-                <p className="text-xs text-slate-600">
-                  Deep-dive into concurrent systems, API design, database schemas, and clean hexagonal architecture.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <span className="text-2xs font-extrabold uppercase text-kulkul-purple">Sprint 2</span>
-                <h4 className="text-sm font-extrabold text-slate-900">Production Reliability &amp; Cloud Infra</h4>
-                <p className="text-xs text-slate-600">
-                  Deploying resilient microservices, CI/CD pipelines, automated testing harnesses, and monitoring.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Content: Resources */}
-        {activeTab === 'resources' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-            <h3 className="text-lg font-extrabold text-slate-900">Cohort Channels &amp; Links</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 text-kulkul-purple flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Cohort Discord / Slack</h4>
-                    <p className="text-2xs text-slate-500">Daily discussions &amp; peer troubleshooting</p>
-                  </div>
-                </div>
-                <button className="btn btn-sm btn-outline text-slate-700 font-bold">Join Channel</button>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                    <Laptop className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">GitHub Organization</h4>
-                    <p className="text-2xs text-slate-500">Starter repositories &amp; code assignments</p>
-                  </div>
-                </div>
-                <button className="btn btn-sm btn-outline text-slate-700 font-bold">Open GitHub</button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Check-In with Proof Screenshot Modal */}
         {checkInSession && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
+            className="modal-backdrop animate-in fade-in"
             onPaste={handlePasteProof}
           >
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
-              <div className="flex items-start justify-between gap-3">
+            <div className="modal-panel max-w-lg animate-in zoom-in-95">
+              <div className="section-header">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 shrink-0">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-extrabold text-slate-900">Attendance Validation</h3>
-                    <p className="text-xs text-slate-500 line-clamp-1">{checkInSession.title}</p>
+                    <h3 className="section-title">Attendance Validation</h3>
+                    <p className="section-subtitle line-clamp-1">{checkInSession.title}</p>
                   </div>
                 </div>
                 <button
@@ -784,9 +598,10 @@ export const ProgramRoomPage: React.FC = () => {
                     setProofPreviewUrl('');
                     setCheckInNotes('');
                   }}
-                  className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -801,9 +616,9 @@ export const ProgramRoomPage: React.FC = () => {
 
               {/* Screenshot Upload / Drop / Paste Area */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <label className="field-label flex items-center justify-between">
                   <span>Meeting Screenshot</span>
-                  <span className="text-3xs font-semibold text-slate-400">PNG, JPG, or WEBP (Max 10MB)</span>
+                  <span className="meta-text font-semibold">PNG, JPG, or WEBP (Max 10MB)</span>
                 </label>
 
                 {proofPreviewUrl ? (
@@ -833,7 +648,7 @@ export const ProgramRoomPage: React.FC = () => {
                           setProofFile(null);
                           setProofPreviewUrl('');
                         }}
-                        className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline"
+                        className="btn btn-sm btn-danger-ghost"
                       >
                         Remove
                       </button>
@@ -873,7 +688,7 @@ export const ProgramRoomPage: React.FC = () => {
 
               {/* Optional Notes */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">
+                <label className="field-label">
                   Notes / Remarks <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <textarea
@@ -881,12 +696,12 @@ export const ProgramRoomPage: React.FC = () => {
                   onChange={(e) => setCheckInNotes(e.target.value)}
                   placeholder="e.g. Joined from secondary device, mic muted due to noise..."
                   rows={2}
-                  className="textarea textarea-bordered w-full rounded-2xl text-xs resize-none"
+                  className="form-textarea resize-none"
                 />
               </div>
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <div className="modal-footer">
                 <button
                   type="button"
                   disabled={isUploadingProof || checkInMutation.isPending}
@@ -896,7 +711,7 @@ export const ProgramRoomPage: React.FC = () => {
                     setProofPreviewUrl('');
                     setCheckInNotes('');
                   }}
-                  className="btn btn-sm btn-ghost text-slate-600"
+                  className="btn btn-sm btn-outline"
                 >
                   Cancel
                 </button>
@@ -904,7 +719,7 @@ export const ProgramRoomPage: React.FC = () => {
                   type="button"
                   disabled={!proofFile || isUploadingProof || checkInMutation.isPending}
                   onClick={handlePerformCheckIn}
-                  className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                  className="btn btn-sm btn-success"
                 >
                   {isUploadingProof || checkInMutation.isPending ? (
                     <>
@@ -925,16 +740,16 @@ export const ProgramRoomPage: React.FC = () => {
 
         {/* View Submitted Proof Modal */}
         {viewProofAttendance && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-            <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
-              <div className="flex items-center justify-between">
+          <div className="modal-backdrop animate-in fade-in">
+            <div className="modal-panel max-w-xl animate-in zoom-in-95">
+              <div className="section-header">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-extrabold text-slate-900">Attendance Validation Proof</h3>
-                    <p className="text-2xs text-slate-500">
+                    <h3 className="section-title">Attendance Validation Proof</h3>
+                    <p className="section-subtitle">
                       Status: <span className="font-bold text-emerald-700 uppercase">{viewProofAttendance.status}</span>
                       {viewProofAttendance.checked_in_at && ` • ${new Date(viewProofAttendance.checked_in_at).toLocaleString()}`}
                     </p>
@@ -943,9 +758,10 @@ export const ProgramRoomPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setViewProofAttendance(null)}
-                  className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                  className="btn btn-icon-sm btn-ghost"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -971,7 +787,7 @@ export const ProgramRoomPage: React.FC = () => {
                       href={viewProofAttendance.proof_image_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-sm btn-outline font-bold flex items-center gap-1 shrink-0 ml-3"
+                      className="btn btn-sm btn-outline shrink-0 ml-3"
                     >
                       <span>Full Resolution</span>
                       <ExternalLink className="w-3.5 h-3.5" />
