@@ -66,6 +66,8 @@ export const ProgramJobPostPage: React.FC = () => {
   }, [openDate, isPreviewMode]);
 
   const isBeforeOpen = isOpeningSoon && !isPreviewMode;
+  const endDate = program?.end_date ? new Date(program.end_date) : null;
+  const isClosed = !isPreviewMode && !!endDate && Date.now() > endDate.getTime();
 
   const handleApplyTrack = (trackSlug: string) => {
     const previewQuery = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
@@ -155,6 +157,11 @@ export const ProgramJobPostPage: React.FC = () => {
                   <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
                   <span>Opening Soon</span>
                 </div>
+              ) : isClosed ? (
+                <div className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-bold whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span>Applications Closed</span>
+                </div>
               ) : (
                 <div className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-bold whitespace-nowrap">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
@@ -233,6 +240,14 @@ export const ProgramJobPostPage: React.FC = () => {
                     />
                   )}
                 </div>
+              ) : isClosed ? (
+                <p className="text-sm text-slate-600 sm:text-right">
+                  Applications closed on{' '}
+                  <span className="font-bold text-slate-900">
+                    {endDate!.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                  .
+                </p>
               ) : (
                 <div className="flex items-center justify-end">
                   <button
@@ -316,8 +331,8 @@ export const ProgramJobPostPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Action Button (hidden before opening; the header shows the countdown) */}
-                  {!isBeforeOpen && (
+                  {/* Action Button (hidden before opening and after closing; the header shows why) */}
+                  {!isBeforeOpen && !isClosed && (
                     <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-end gap-4">
                       <button
                         onClick={() => handleApplyTrack(track.slug)}

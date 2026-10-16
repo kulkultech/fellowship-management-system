@@ -30,6 +30,7 @@ import {
   Globe,
   Clock,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CountdownTimer } from '@/components/CountdownTimer';
@@ -314,6 +315,8 @@ export const ApplyPage: React.FC = () => {
   }, [openDate]);
 
   const isBeforeOpen = isOpeningSoon;
+  const endDate = program?.end_date ? new Date(program.end_date) : null;
+  const isClosed = !!endDate && Date.now() > endDate.getTime();
 
   const isCandidateInEvaluation = !!(
     candidateStatusData?.authenticated && (
@@ -606,6 +609,42 @@ export const ApplyPage: React.FC = () => {
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(`/programs/${orgSlug}/${programSlug}`)}
+                className="w-full sm:w-auto btn btn-md btn-primary"
+              >
+                <span>Back to Program Overview</span>
+              </button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Program has closed: only admins, preview links and candidates already in the process may continue
+  if (isClosed && !isPreviewMode && !(user?.email && isCandidateStatusLoading)) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <Navbar hideAdminButton={true} />
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="max-w-lg w-full content-card text-center space-y-6">
+            <div className="w-16 h-16 rounded-3xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+              <Lock className="w-8 h-8" />
+            </div>
+            <div className="space-y-2.5">
+              <h1 className="heading-page">Applications Closed</h1>
+              <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                Applications for <span className="font-bold text-slate-900">{program?.name || 'this program'}</span> closed on{' '}
+                <span className="font-bold text-slate-900">
+                  {endDate!.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+                .
+              </p>
+            </div>
+            <div className="pt-2 flex justify-center">
               <button
                 type="button"
                 onClick={() => navigate(`/programs/${orgSlug}/${programSlug}`)}
