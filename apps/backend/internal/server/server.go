@@ -307,6 +307,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Route("/programs/{programId}/sessions", func(s chi.Router) {
 				s.Get("/", sessionHandler.ListSessions)
 				s.Post("/", sessionHandler.CreateSession)
+				s.Post("/recurrence-preview", sessionHandler.PreviewRecurrence)
 				s.Get("/attendance-summary", sessionHandler.GetAttendanceSummary)
 				s.Get("/mentor-attendance-summary", sessionHandler.GetMentorAttendanceSummary)
 				s.Get("/{sessionId}", sessionHandler.GetSession)

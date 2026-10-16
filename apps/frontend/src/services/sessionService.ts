@@ -10,6 +10,9 @@ import type {
   BatchAttendanceUpdatePayload,
   SessionFeedback,
   SessionFeedbackItem,
+  RecurrenceScope,
+  RecurrencePreview,
+  SavedSession,
 } from './types';
 
 export const sessionService = {
@@ -30,22 +33,35 @@ export const sessionService = {
     return res.data;
   },
 
-  createSession: async (programId: string, payload: CreateSessionPayload): Promise<ProgramSession> => {
+  createSession: async (programId: string, payload: CreateSessionPayload): Promise<SavedSession> => {
     const res = await apiClient.post(`/programs/${programId}/sessions`, payload);
     return res.data;
   },
 
+  // scope applies to repeating sessions: this one, this and following, or all
   updateSession: async (
     programId: string,
     sessionId: string,
-    payload: Partial<CreateSessionPayload>
-  ): Promise<ProgramSession> => {
-    const res = await apiClient.put(`/programs/${programId}/sessions/${sessionId}`, payload);
+    payload: Partial<CreateSessionPayload>,
+    scope?: RecurrenceScope
+  ): Promise<SavedSession> => {
+    const res = await apiClient.put(`/programs/${programId}/sessions/${sessionId}`, payload, {
+      params: scope ? { scope } : undefined,
+    });
     return res.data;
   },
 
-  deleteSession: async (programId: string, sessionId: string): Promise<void> => {
-    await apiClient.delete(`/programs/${programId}/sessions/${sessionId}`);
+  deleteSession: async (programId: string, sessionId: string, scope?: RecurrenceScope): Promise<void> => {
+    await apiClient.delete(`/programs/${programId}/sessions/${sessionId}`, { params: scope ? { scope } : undefined });
+  },
+
+  // How many sessions a repeat rule will create, before saving
+  previewRecurrence: async (
+    programId: string,
+    payload: { start_time: string; recurrence_rule: string; time_zone?: string; sync_indonesian_calendar?: boolean }
+  ): Promise<RecurrencePreview> => {
+    const res = await apiClient.post(`/programs/${programId}/sessions/recurrence-preview`, payload);
+    return res.data;
   },
 
   getSessionAttendance: async (programId: string, sessionId: string): Promise<SessionAttendance[]> => {

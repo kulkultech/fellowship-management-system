@@ -739,6 +739,11 @@ export interface SessionAttendance {
 export interface ProgramSession {
   id: string;
   program_id: string;
+  // Recurring sessions: every date is its own session, linked by series_id
+  series_id?: string;
+  recurrence_rule?: string; // RRULE value, e.g. FREQ=WEEKLY;BYDAY=MO
+  recurrence_timezone?: string;
+  recurrence_description?: string; // e.g. "Weekly on Monday, 10 times"
   track_id?: string;
   track_name?: string;
   title: string;
@@ -823,7 +828,25 @@ export interface CreateSessionPayload {
   sync_indonesian_calendar?: boolean;
   auto_generate_meeting?: boolean;
   send_calendar_invites?: boolean;
+  recurrence_rule?: string; // empty: does not repeat
+  time_zone?: string;
 }
+
+/** Which sessions of a repeating series an edit or delete applies to (as in Google Calendar). */
+export type RecurrenceScope = 'this' | 'following' | 'all';
+
+export interface RecurrencePreview {
+  recurrence_rule: string;
+  description: string;
+  count: number;
+  first_start: string;
+  last_start: string;
+  skipped_holidays?: string[];
+  open_ended: boolean;
+  max_occurrences: number;
+}
+
+export type SavedSession = ProgramSession & { occurrences_created?: number; skipped_holidays?: string[] };
 
 export interface BatchAttendanceUpdatePayload {
   attendances: Array<{

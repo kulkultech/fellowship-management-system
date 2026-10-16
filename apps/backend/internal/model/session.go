@@ -47,6 +47,12 @@ type ProgramSession struct {
 	GoogleCalendarEventID  string          `json:"google_calendar_event_id,omitempty"`
 	GoogleCalendarHTMLLink string          `json:"google_calendar_html_link,omitempty"`
 	WorkspaceState         json.RawMessage `json:"workspace_state,omitempty"`
+
+	// Recurring sessions: the series this occurrence belongs to and its repeat rule
+	SeriesID              *uuid.UUID `json:"series_id,omitempty"`
+	RecurrenceRule        string     `json:"recurrence_rule,omitempty"`        // RRULE value, e.g. FREQ=WEEKLY;BYDAY=MO
+	RecurrenceTimezone    string     `json:"recurrence_timezone,omitempty"`    // IANA zone the rule repeats in
+	RecurrenceDescription string     `json:"recurrence_description,omitempty"` // e.g. "Weekly on Monday, 10 times"
 	CreatedAt              time.Time       `json:"created_at"`
 	UpdatedAt              time.Time       `json:"updated_at"`
 
@@ -61,6 +67,18 @@ type ProgramSession struct {
 
 	// Current fellow status (when queried in fellow/candidate context)
 	FellowAttendance *SessionAttendance `json:"fellow_attendance,omitempty"`
+}
+
+// SessionSeries is a repeat rule shared by the occurrences of a recurring session.
+type SessionSeries struct {
+	ID                    uuid.UUID  `json:"id"`
+	ProgramID             uuid.UUID  `json:"program_id"`
+	RRule                 string     `json:"rrule"`
+	Timezone              string     `json:"timezone"`
+	GoogleCalendarEventID string     `json:"google_calendar_event_id,omitempty"`
+	CreatedBy             *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
 }
 
 type SessionAttendance struct {

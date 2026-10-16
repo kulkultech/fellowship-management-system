@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sessionService } from '@/services/sessionService';
@@ -10,6 +10,7 @@ import type {
   Track,
   ProgramMentor,
   MentorAttendance,
+  RecurrenceScope,
 } from '@/services/types';
 import {
   Calendar,
@@ -35,12 +36,26 @@ import {
   Camera,
   Code2,
   CalendarDays,
+  Repeat,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
 import { getGoogleCalendarUrl, generateClientGoogleMeetLink } from '@/utils/googleCalendar';
+import { CustomRecurrenceDialog, RecurrenceScopeDialog } from './RecurrenceDialogs';
+import {
+  PRESETS,
+  RepeatPreset,
+  browserTimeZone,
+  describeRule,
+  normalizeRule,
+  parseLocalDate,
+  presetLabel,
+  presetRule,
+  ruleToPreset,
+  toLocalDateValue,
+} from './recurrence';
 
 interface ProgramSessionsViewProps {
   programId: string;
@@ -222,6 +237,46 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const endHolidayInfo = useMemo(() => getIndonesianHoliday(formEndDate), [formEndDate]);
   const isHolidaySelected = syncIndonesianCalendar && (startHolidayInfo.isHoliday || endHolidayInfo.isHoliday);
 
+  // Repeat (Google Calendar style). A preset follows the start date, e.g. "Weekly on <its weekday>".
+  const [formRepeatPreset, setFormRepeatPreset] = useState<RepeatPreset>('none');
+  const [formRepeatRule, setFormRepeatRule] = useState('');
+  const [isCustomRepeatOpen, setIsCustomRepeatOpen] = useState(false);
+  const [scopeDialog, setScopeDialog] = useState<
+    { mode: 'edit'; allowThis: boolean } | { mode: 'delete'; session: ProgramSession } | null
+  >(null);
+  const repeatDate = useMemo(() => (formStartDate ? parseLocalDate(formStartDate) : new Date()), [formStartDate]);
+  useEffect(() => {
+    if (formRepeatPreset !== 'custom' && formRepeatPreset !== 'none') {
+      setFormRepeatRule(presetRule(formRepeatPreset, repeatDate));
+    }
+  }, [formRepeatPreset, repeatDate]);
+  const handleRepeatSelect = (value: string) => {
+    if (value === 'custom-edit') {
+      setIsCustomRepeatOpen(true);
+      return;
+    }
+    const preset = value as RepeatPreset;
+    setFormRepeatPreset(preset);
+    if (preset === 'none') setFormRepeatRule('');
+  };
+  const originalRepeatRule = normalizeRule(editingSession?.recurrence_rule || '');
+  const repeatChanged = normalizeRule(formRepeatRule) !== originalRepeatRule;
+  // A repeating session skips holidays itself, so only a single session is blocked on one
+  const blockHoliday = isHolidaySelected && !formRepeatRule;
+
+  const { data: repeatPreview, error: repeatPreviewError } = useQuery({
+    queryKey: ['recurrence-preview', programId, formStartDate, formStartTime, formRepeatRule, syncIndonesianCalendar],
+    queryFn: () =>
+      sessionService.previewRecurrence(programId, {
+        start_time: new Date(`${formStartDate}T${formStartTime}:00`).toISOString(),
+        recurrence_rule: formRepeatRule,
+        time_zone: browserTimeZone(),
+        sync_indonesian_calendar: syncIndonesianCalendar,
+      }),
+    enabled: isCreateModalOpen && !!formRepeatRule && !!formStartDate && !!formStartTime && repeatChanged,
+    retry: false,
+  });
+
   // Student targeting for sessions
   const { data: fellowsData } = useQuery({
     queryKey: ['program-fellows-for-sessions', programId],
@@ -251,6 +306,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormRecordingUrl('');
     setFormTrackId('');
     setFormMentorId('');
+    setFormRepeatPreset('none');
+    setFormRepeatRule('');
     setIsCreateModalOpen(true);
   };
 
@@ -271,10 +328,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     const s = new Date(sess.start_time);
     const e = new Date(sess.end_time);
 
-    setFormStartDate(s.toISOString().split('T')[0]);
+    setFormStartDate(toLocalDateValue(s));
     setFormStartTime(s.toTimeString().slice(0, 5));
-    setFormEndDate(e.toISOString().split('T')[0]);
+    setFormEndDate(toLocalDateValue(e));
     setFormEndTime(e.toTimeString().slice(0, 5));
+    setFormRepeatRule(sess.recurrence_rule || '');
+    setFormRepeatPreset(ruleToPreset(sess.recurrence_rule || '', s));
 
     setFormAutoGenerateMeet(false);
     setFormSendCalendarInvites(true);
@@ -287,12 +346,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
   // Create / Update Mutation
   const saveSessionMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (scope?: RecurrenceScope) => {
       if (formAudience === 'group' && selectedFellowIds.length === 0) {
         throw new Error('Please select at least 1 fellow for a group session');
       }
 
-      if (syncIndonesianCalendar && isHolidaySelected) {
+      if (blockHoliday) {
         const holidayName = startHolidayInfo.name || endHolidayInfo.name || 'Public Holiday';
         throw new Error(`Cannot schedule session on Indonesian national holiday: ${holidayName}`);
       }
@@ -314,15 +373,25 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         sync_indonesian_calendar: syncIndonesianCalendar,
         auto_generate_meeting: formAutoGenerateMeet,
         send_calendar_invites: formSendCalendarInvites,
+        recurrence_rule: formRepeatRule,
+        time_zone: browserTimeZone(),
       };
 
       if (editingSession) {
-        return sessionService.updateSession(programId, editingSession.id, payload);
+        return sessionService.updateSession(programId, editingSession.id, payload, scope);
       }
       return sessionService.createSession(programId, payload);
     },
-    onSuccess: () => {
-      toast.success(editingSession ? 'Session updated successfully' : 'Session scheduled successfully');
+    onSuccess: (saved) => {
+      const count = saved?.occurrences_created || 0;
+      const skipped = saved?.skipped_holidays?.length || 0;
+      const skippedNote = skipped ? ` (skipped ${skipped} ${skipped === 1 ? 'holiday' : 'holidays'})` : '';
+      if (!editingSession) {
+        toast.success(count > 1 ? `Scheduled ${count} sessions${skippedNote}` : 'Session scheduled successfully');
+      } else {
+        toast.success(count > 1 ? `Sessions updated${skippedNote}` : 'Session updated successfully');
+      }
+      setScopeDialog(null);
       queryClient.invalidateQueries({ queryKey: ['program-sessions', programId] });
       queryClient.invalidateQueries({ queryKey: ['program-attendance-summary', programId] });
       setIsCreateModalOpen(false);
@@ -334,11 +403,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
   // Delete Mutation
   const deleteSessionMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
-      await sessionService.deleteSession(programId, sessionId);
+    mutationFn: async ({ sessionId, scope }: { sessionId: string; scope?: RecurrenceScope }) => {
+      await sessionService.deleteSession(programId, sessionId, scope);
     },
-    onSuccess: () => {
-      toast.success('Session deleted successfully');
+    onSuccess: (_data, vars) => {
+      toast.success(vars.scope && vars.scope !== 'this' ? 'Sessions deleted' : 'Session deleted successfully');
+      setScopeDialog(null);
       queryClient.invalidateQueries({ queryKey: ['program-sessions', programId] });
       queryClient.invalidateQueries({ queryKey: ['program-attendance-summary', programId] });
     },
@@ -668,6 +738,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                             {sess.session_type.replace('_', ' ')}
                           </span>
+                          {sess.recurrence_description && (
+                            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                              <Repeat className="w-3.5 h-3.5" />
+                              {sess.recurrence_description}
+                            </span>
+                          )}
                           {sess.target_applicant_ids && sess.target_applicant_ids.length > 0 ? (
                             <span className="text-xs font-bold text-indigo-700 flex items-center gap-1">
                               <Users className="w-3.5 h-3.5" />
@@ -790,8 +866,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
                         <button
                           onClick={() => {
-                            if (window.confirm(`Are you sure you want to delete session "${sess.title}"?`)) {
-                              deleteSessionMutation.mutate(sess.id);
+                            if (sess.series_id) {
+                              setScopeDialog({ mode: 'delete', session: sess });
+                            } else if (window.confirm(`Are you sure you want to delete session "${sess.title}"?`)) {
+                              deleteSessionMutation.mutate({ sessionId: sess.id });
                             }
                           }}
                           className="btn btn-icon-sm btn-ghost-danger"
@@ -1029,6 +1107,35 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
         )}
       </div>
 
+      {isCustomRepeatOpen && (
+        <CustomRecurrenceDialog
+          date={repeatDate}
+          initialRule={formRepeatRule}
+          onCancel={() => setIsCustomRepeatOpen(false)}
+          onDone={(rule) => {
+            setFormRepeatRule(rule);
+            setFormRepeatPreset(ruleToPreset(rule, repeatDate));
+            setIsCustomRepeatOpen(false);
+          }}
+        />
+      )}
+
+      {scopeDialog?.mode === 'edit' && (
+        <RecurrenceScopeDialog
+          mode="edit"
+          allowThis={scopeDialog.allowThis}
+          onCancel={() => setScopeDialog(null)}
+          onConfirm={(scope) => saveSessionMutation.mutate(scope)}
+        />
+      )}
+      {scopeDialog?.mode === 'delete' && (
+        <RecurrenceScopeDialog
+          mode="delete"
+          onCancel={() => setScopeDialog(null)}
+          onConfirm={(scope) => deleteSessionMutation.mutate({ sessionId: scopeDialog.session.id, scope })}
+        />
+      )}
+
       {/* MODAL 1: Schedule / Edit Session */}
       {isCreateModalOpen && (
         <div className="modal-backdrop animate-in fade-in duration-200">
@@ -1057,7 +1164,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                saveSessionMutation.mutate();
+                if (editingSession?.series_id) {
+                  setScopeDialog({ mode: 'edit', allowThis: !repeatChanged });
+                } else {
+                  saveSessionMutation.mutate(undefined);
+                }
               }}
               className="space-y-4"
             >
@@ -1267,8 +1378,51 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="field-label" htmlFor="session-repeat">
+                  Repeat
+                </label>
+                <select
+                  id="session-repeat"
+                  value={formRepeatPreset}
+                  onChange={(e) => handleRepeatSelect(e.target.value)}
+                  className="form-input"
+                >
+                  {PRESETS.filter((p) => p !== 'custom').map((p) => (
+                    <option key={p} value={p}>
+                      {presetLabel(p, repeatDate)}
+                    </option>
+                  ))}
+                  {formRepeatPreset === 'custom' && formRepeatRule && (
+                    <option value="custom">{describeRule(formRepeatRule, repeatDate)}</option>
+                  )}
+                  <option value="custom-edit">Custom…</option>
+                </select>
+                {formRepeatRule && repeatChanged && repeatPreview && (
+                  <p className="meta-text mt-1">
+                    Creates {repeatPreview.count} {repeatPreview.count === 1 ? 'session' : 'sessions'},{' '}
+                    {new Date(repeatPreview.first_start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                    {' – '}
+                    {new Date(repeatPreview.last_start).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {repeatPreview.open_ended ? ' (the next 12 months)' : ''}
+                    {repeatPreview.skipped_holidays && repeatPreview.skipped_holidays.length > 0
+                      ? `. Skips ${repeatPreview.skipped_holidays.length === 1 ? 'a holiday' : `${repeatPreview.skipped_holidays.length} holidays`}: ${repeatPreview.skipped_holidays.join(', ')}`
+                      : ''}
+                    .
+                  </p>
+                )}
+                {formRepeatRule && repeatChanged && repeatPreviewError && (
+                  <p className="text-xs font-semibold text-rose-600 mt-1">
+                    {(repeatPreviewError as any)?.response?.data?.error || 'This repeat cannot be used'}
+                  </p>
+                )}
+                {editingSession?.series_id && repeatChanged && (
+                  <p className="meta-text mt-1">Changing the repeat recreates the upcoming sessions in the range you choose.</p>
+                )}
+              </div>
+
               {/* Public Holiday Warning Alert */}
-              {syncIndonesianCalendar && isHolidaySelected && (
+              {blockHoliday && (
                 <div className="p-3.5 rounded-2xl border border-rose-300 bg-rose-50 text-rose-800 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
@@ -1446,8 +1600,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={saveSessionMutation.isPending || (syncIndonesianCalendar && isHolidaySelected)}
-                  title={syncIndonesianCalendar && isHolidaySelected ? 'Cannot schedule on an Indonesian national holiday' : undefined}
+                  disabled={saveSessionMutation.isPending || blockHoliday || (!!formRepeatRule && repeatChanged && !!repeatPreviewError)}
+                  title={blockHoliday ? 'Cannot schedule on an Indonesian national holiday' : undefined}
                   className="btn btn-sm btn-primary"
                 >
                   {saveSessionMutation.isPending ? (

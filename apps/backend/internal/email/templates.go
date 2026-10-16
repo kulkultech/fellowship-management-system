@@ -1149,6 +1149,9 @@ func buildSessionInvitationEmail(
 	frontendURL, supportEmail string,
 ) (subject string, html string, text string) {
 	subject = fmt.Sprintf("Calendar Invitation: %s - %s", session.Title, programName)
+	if session.RecurrenceDescription != "" {
+		subject = fmt.Sprintf("Calendar Invitation (repeating): %s - %s", session.Title, programName)
+	}
 
 	trackBadge := ""
 	if trackName != "" {
@@ -1185,8 +1188,15 @@ func buildSessionInvitationEmail(
 	}
 
 	mentorRow := ""
+	if session.RecurrenceDescription != "" {
+		mentorRow += fmt.Sprintf(`
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Repeats</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>
+        </tr>`, template.HTMLEscapeString(session.RecurrenceDescription))
+	}
 	if session.MentorName != "" {
-		mentorRow = fmt.Sprintf(`
+		mentorRow += fmt.Sprintf(`
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7;">Session Host</td>
           <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; border-bottom: 1px solid #edf2f7;">%s</td>

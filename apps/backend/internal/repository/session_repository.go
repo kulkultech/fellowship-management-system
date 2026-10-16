@@ -27,6 +27,7 @@ type SessionRepository struct {
 	memSessions    map[uuid.UUID]*model.ProgramSession
 	memAttendances map[string]*model.SessionAttendance // key: session_id + ":" + applicant_id
 	memMentorAtt   map[string]*model.MentorAttendance  // key: session_id + ":" + user_id
+	memSeries      map[uuid.UUID]*model.SessionSeries
 	appRepo        *ApplicantRepository                // for memory fallback joins
 }
 
@@ -36,6 +37,7 @@ func NewSessionRepository(pool *pgxpool.Pool, appRepo *ApplicantRepository) *Ses
 		memSessions:    make(map[uuid.UUID]*model.ProgramSession),
 		memAttendances: make(map[string]*model.SessionAttendance),
 		memMentorAtt:   make(map[string]*model.MentorAttendance),
+		memSeries:      make(map[uuid.UUID]*model.SessionSeries),
 		appRepo:        appRepo,
 	}
 }
@@ -69,12 +71,12 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 			id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
 			target_applicant_ids, google_calendar_event_id, google_calendar_html_link,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+			created_at, updated_at, series_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
 			target_applicant_ids, COALESCE(google_calendar_event_id, ''), COALESCE(google_calendar_html_link, ''),
-			created_at, updated_at
+			created_at, updated_at, series_id
 	`
 	var res model.ProgramSession
 	var resRawTargets []byte
@@ -82,12 +84,12 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 		s.ID, s.ProgramID, s.TrackID, s.Title, s.Description, string(s.SessionType),
 		s.StartTime, s.EndTime, s.MeetingURL, s.RecordingURL, s.MentorID,
 		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink,
-		s.CreatedAt, s.UpdatedAt,
+		s.CreatedAt, s.UpdatedAt, s.SeriesID,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
 		&resRawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
-		&res.CreatedAt, &res.UpdatedAt,
+		&res.CreatedAt, &res.UpdatedAt, &res.SeriesID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: create: %w", err)
@@ -113,6 +115,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 		if cp.TargetApplicantIDs == nil {
 			cp.TargetApplicantIDs = []uuid.UUID{}
 		}
+		r.fillMemSeries(&cp)
 		return &cp, nil
 	}
 
@@ -122,10 +125,12 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 			COALESCE(s.target_applicant_ids, '[]'::jsonb),
 			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''),
 			COALESCE(s.workspace_state, '{}'::jsonb),
-			s.created_at, s.updated_at
+			s.created_at, s.updated_at,
+			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, '')
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
 		LEFT JOIN users u ON s.mentor_id = u.id
+		LEFT JOIN session_series ss ON ss.id = s.series_id
 		WHERE s.id = $1
 	`
 	var res model.ProgramSession
@@ -137,6 +142,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 		&rawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
 		&rawWorkspace,
 		&res.CreatedAt, &res.UpdatedAt,
+		&res.SeriesID, &res.RecurrenceRule, &res.RecurrenceTimezone,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound
@@ -155,6 +161,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	} else {
 		res.WorkspaceState = json.RawMessage("{}")
 	}
+	describeRecurrence(&res)
 	return &res, nil
 }
 
@@ -185,6 +192,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 				if cp.TargetApplicantIDs == nil {
 					cp.TargetApplicantIDs = []uuid.UUID{}
 				}
+				r.fillMemSeries(&cp)
 
 				// Calculate memory attendances
 				total := 0
@@ -242,10 +250,12 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			COALESCE(att_stats.absent_count, 0),
 			COALESCE(att_stats.excused_count, 0),
 			COALESCE(att_stats.pending_count, 0),
-			fa.id, fa.status, fa.checked_in_at, fa.marked_by, COALESCE(fa.notes, ''), COALESCE(fa.proof_image_url, '')
+			fa.id, fa.status, fa.checked_in_at, fa.marked_by, COALESCE(fa.notes, ''), COALESCE(fa.proof_image_url, ''),
+			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, '')
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
 		LEFT JOIN users u ON s.mentor_id = u.id
+		LEFT JOIN session_series ss ON ss.id = s.series_id
 		LEFT JOIN (
 			SELECT session_id,
 				COUNT(*) as total_fellows,
@@ -294,6 +304,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			&s.CreatedAt, &s.UpdatedAt,
 			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount, &s.PendingCount,
 			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes, &faProofImageURL,
+			&s.SeriesID, &s.RecurrenceRule, &s.RecurrenceTimezone,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan list by program: %w", err)
 		}
@@ -308,6 +319,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 		if s.TotalFellows > 0 {
 			s.AttendanceRate = int(math.Round(float64(s.PresentCount+s.LateCount) / float64(s.TotalFellows) * 100))
 		}
+		describeRecurrence(&s)
 
 		if faID != nil && faStatus != nil && fellowApplicantID != nil {
 			s.FellowAttendance = &model.SessionAttendance{
@@ -350,8 +362,11 @@ func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramS
 		existing.MentorID = s.MentorID
 		existing.TrackID = s.TrackID
 		existing.TargetApplicantIDs = s.TargetApplicantIDs
+		existing.SeriesID = s.SeriesID
+		existing.GoogleCalendarHTMLLink = s.GoogleCalendarHTMLLink
 		existing.UpdatedAt = s.UpdatedAt
 		cp := *existing
+		r.fillMemSeries(&cp)
 		return &cp, nil
 	}
 
@@ -365,24 +380,24 @@ func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramS
 		SET title = $2, description = $3, session_type = $4, start_time = $5, end_time = $6,
 			meeting_url = $7, recording_url = $8, mentor_id = $9, track_id = $10,
 			target_applicant_ids = $11, google_calendar_event_id = $12, google_calendar_html_link = $13,
-			updated_at = now()
+			series_id = $14, updated_at = now()
 		WHERE id = $1
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
 			target_applicant_ids, COALESCE(google_calendar_event_id, ''), COALESCE(google_calendar_html_link, ''),
-			created_at, updated_at
+			created_at, updated_at, series_id
 	`
 	var res model.ProgramSession
 	var resRawTargets []byte
 	err := r.pool.QueryRow(ctx, query,
 		s.ID, s.Title, s.Description, string(s.SessionType), s.StartTime, s.EndTime,
 		s.MeetingURL, s.RecordingURL, s.MentorID, s.TrackID,
-		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink,
+		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink, s.SeriesID,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
 		&resRawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
-		&res.CreatedAt, &res.UpdatedAt,
+		&res.CreatedAt, &res.UpdatedAt, &res.SeriesID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound

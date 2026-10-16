@@ -46,6 +46,10 @@ type CreateEventRequest struct {
 	OrganizerEmail   string
 	OrganizerName    string
 	WorkspaceURL     string
+	// Recurrence is an RRULE value (e.g. FREQ=WEEKLY;BYDAY=MO) for a repeating event; TimeZone is
+	// the IANA zone it repeats in. Both are empty for a single event.
+	Recurrence string
+	TimeZone   string
 }
 
 // EventResult holds the result of a calendar event creation.
@@ -253,6 +257,9 @@ func (s *googleCalendarService) CreateEvent(ctx context.Context, req CreateEvent
 
 	// 4. Default 1-click Google Calendar Web URL & ICS
 	googleCalWebURL := s.GenerateGoogleCalendarWebURL(req.Title, description, meetURL, req.StartTime, req.EndTime, attendeeEmails)
+	if req.Recurrence != "" {
+		googleCalWebURL = recurringCalendarWebURL(req, description, meetURL, attendeeEmails)
+	}
 	icsData := s.GenerateICS(req.Title, description, meetURL, req.StartTime, req.EndTime, req.OrganizerEmail, req.OrganizerName, req.Attendees)
 
 	result := &EventResult{
@@ -373,19 +380,24 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 		}
 	}
 
+	tz := req.TimeZone
+	if tz == "" {
+		tz = "Asia/Jakarta"
+	}
 	payload := map[string]any{
 		"summary":     req.Title,
 		"description": description,
 		"location":    fallbackMeetURL,
 		"start": map[string]string{
 			"dateTime": req.StartTime.Format(time.RFC3339),
-			"timeZone": "Asia/Jakarta",
+			"timeZone": tz,
 		},
 		"end": map[string]string{
 			"dateTime": req.EndTime.Format(time.RFC3339),
-			"timeZone": "Asia/Jakarta",
+			"timeZone": tz,
 		},
 		"attendees": attendees,
+		"recurrence": recurrenceLines(req.Recurrence),
 		"conferenceData": map[string]any{
 			"createRequest": map[string]any{
 				"requestId": req.SessionID.String(),
@@ -491,4 +503,70 @@ func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, even
 	}
 	defer resp.Body.Close()
 	return nil
+}
+
+// recurrenceLines formats an RRULE for the Google Calendar API, or nil for a single event.
+func recurrenceLines(rrule string) []string {
+	if rrule == "" {
+		return nil
+	}
+	return []string{"RRULE:" + rrule}
+}
+
+// RecurringWebURL builds an "Add to Google Calendar" link for a repeating session.
+func RecurringWebURL(req CreateEventRequest) string {
+	var emails []string
+	for _, a := range req.Attendees {
+		if e := strings.TrimSpace(a.Email); e != "" {
+			emails = append(emails, e)
+		}
+	}
+	return recurringCalendarWebURL(req, req.Description, req.MeetingURL, emails)
+}
+
+// recurringCalendarWebURL builds an "Add to Google Calendar" link for a repeating event. Times are
+// given in the event's own time zone (ctz) so weekdays in the rule match the local day.
+func recurringCalendarWebURL(req CreateEventRequest, description, location string, attendeeEmails []string) string {
+	tz := req.TimeZone
+	if tz == "" {
+		tz = "Asia/Jakarta"
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
+		tz = "Asia/Jakarta"
+	}
+	q := url.Values{}
+	q.Set("action", "TEMPLATE")
+	q.Set("text", req.Title)
+	q.Set("dates", req.StartTime.In(loc).Format("20060102T150405")+"/"+req.EndTime.In(loc).Format("20060102T150405"))
+	q.Set("ctz", tz)
+	q.Set("recur", "RRULE:"+untilAsUTC(req.Recurrence, loc))
+	if description != "" {
+		q.Set("details", description)
+	}
+	if location != "" {
+		q.Set("location", location)
+	}
+	if len(attendeeEmails) > 0 {
+		q.Set("add", strings.Join(attendeeEmails, ","))
+	}
+	return "https://calendar.google.com/calendar/render?" + q.Encode()
+}
+
+// untilAsUTC rewrites a date-only UNTIL (YYYYMMDD) as the end of that local day in UTC, as RFC 5545
+// requires for events with a time zone.
+func untilAsUTC(rrule string, loc *time.Location) string {
+	parts := strings.Split(rrule, ";")
+	for i, p := range parts {
+		if !strings.HasPrefix(p, "UNTIL=") || len(p) != len("UNTIL=20060102") {
+			continue
+		}
+		d, err := time.ParseInLocation("20060102", strings.TrimPrefix(p, "UNTIL="), loc)
+		if err != nil {
+			continue
+		}
+		parts[i] = "UNTIL=" + d.Add(24*time.Hour-time.Second).UTC().Format("20060102T150405Z")
+	}
+	return strings.Join(parts, ";")
 }

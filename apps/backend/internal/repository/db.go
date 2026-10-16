@@ -516,6 +516,20 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	);
 	CREATE INDEX IF NOT EXISTS idx_session_feedback_applicant ON session_feedback(applicant_id);
 
+	-- Recurring sessions: each occurrence is its own program_sessions row linked to a series
+	CREATE TABLE IF NOT EXISTS session_series (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+		rrule TEXT NOT NULL,
+		timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+		google_calendar_event_id TEXT NOT NULL DEFAULT '',
+		created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	);
+	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS series_id UUID REFERENCES session_series(id) ON DELETE SET NULL;
+	CREATE INDEX IF NOT EXISTS idx_program_sessions_series ON program_sessions(series_id, start_time);
+
 	CREATE TABLE IF NOT EXISTS program_room_content (
 		program_id UUID PRIMARY KEY REFERENCES programs(id) ON DELETE CASCADE,
 		curriculum JSONB NOT NULL DEFAULT '[]'::jsonb,

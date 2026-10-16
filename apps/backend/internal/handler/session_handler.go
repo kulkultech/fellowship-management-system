@@ -172,6 +172,10 @@ type CreateSessionRequest struct {
 	SyncIndonesianCalendar *bool             `json:"sync_indonesian_calendar,omitempty"`
 	AutoGenerateMeeting    *bool             `json:"auto_generate_meeting,omitempty"`
 	SendCalendarInvites    *bool             `json:"send_calendar_invites,omitempty"`
+	// Repeat rule (RRULE value, e.g. FREQ=WEEKLY;BYDAY=MO), empty for "Does not repeat",
+	// and the IANA time zone it repeats in (defaults to Asia/Jakarta).
+	RecurrenceRule string `json:"recurrence_rule,omitempty"`
+	TimeZone       string `json:"time_zone,omitempty"`
 }
 
 // CreateSession handles POST /api/v1/programs/{programId}/sessions
@@ -221,7 +225,8 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		syncIndonesian = *req.SyncIndonesianCalendar
 	}
 
-	if syncIndonesian {
+	isRecurring := strings.TrimSpace(req.RecurrenceRule) != ""
+	if syncIndonesian && !isRecurring {
 		if isHoliday, holidayName := holiday.IsIndonesianHoliday(startTime); isHoliday {
 			httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("cannot schedule session on Indonesian national holiday: %s", holidayName))
 			return
@@ -294,6 +299,19 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	organizerName := ""
 	if claims != nil {
 		organizerEmail = claims.Email
+	}
+
+	if isRecurring {
+		h.createRecurringSessions(w, r, sess, req, recurringCreateContext{
+			syncIndonesian: syncIndonesian,
+			sendInvites:    sendInvites,
+			autoGenMeeting: autoGenMeeting,
+			attendees:      invitedAttendees,
+			programName:    programName,
+			trackName:      trackName,
+			organizerEmail: organizerEmail,
+		})
+		return
 	}
 
 	var calWebURL string
@@ -405,6 +423,15 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Recurring edits ("This and following events", "All events") and turning a single session
+	// into a repeating one are handled separately; "This event" falls through to a normal update.
+	scope := r.URL.Query().Get("scope")
+	if (existing.SeriesID != nil && (scope == "following" || scope == "all")) ||
+		(existing.SeriesID == nil && strings.TrimSpace(req.RecurrenceRule) != "") {
+		h.updateRecurringSessions(w, r, existing, req, scope)
+		return
+	}
+
 	if req.Title != "" {
 		existing.Title = req.Title
 	}
@@ -503,7 +530,12 @@ func (h *SessionHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existing, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID); err == nil && existing != nil {
+	existing, getErr := h.sessionRepo.GetSessionByID(r.Context(), sessionID)
+	if getErr == nil && existing != nil {
+		if existing.SeriesID != nil {
+			h.deleteRecurringSessions(w, r, existing, r.URL.Query().Get("scope"))
+			return
+		}
 		if h.calendarService != nil && existing.GoogleCalendarEventID != "" {
 			_ = h.calendarService.DeleteEvent(r.Context(), existing.GoogleCalendarEventID)
 		}
