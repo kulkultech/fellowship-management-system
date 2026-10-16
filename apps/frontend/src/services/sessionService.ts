@@ -8,6 +8,8 @@ import type {
   MentorAttendanceSummary,
   CreateSessionPayload,
   BatchAttendanceUpdatePayload,
+  SessionFeedback,
+  SessionFeedbackItem,
 } from './types';
 
 export const sessionService = {
@@ -117,6 +119,27 @@ export const sessionService = {
 
   updateWorkspaceState: async (sessionId: string, workspaceState: any): Promise<any> => {
     const res = await apiClient.put(`/sessions/${sessionId}/workspace`, { workspace_state: workspaceState });
+    return res.data;
+  },
+
+  getFeedback: async (sessionId: string): Promise<SessionFeedback> => {
+    const res = await apiClient.get(`/sessions/${sessionId}/feedback`);
+    return res.data;
+  },
+
+  // A fellow's feedback to the session's mentor (rating required)
+  saveFeedbackToMentor: async (sessionId: string, payload: { rating: number; comment: string }): Promise<SessionFeedbackItem> => {
+    const res = await apiClient.put(`/sessions/${sessionId}/feedback/mentor`, payload);
+    return res.data;
+  },
+
+  // A mentor's or admin's feedback to one fellow (comment required, rating optional)
+  saveFeedbackToFellow: async (
+    sessionId: string,
+    applicantId: string,
+    payload: { rating?: number; comment: string }
+  ): Promise<SessionFeedbackItem> => {
+    const res = await apiClient.put(`/sessions/${sessionId}/feedback/fellows/${applicantId}`, payload);
     return res.data;
   },
 };

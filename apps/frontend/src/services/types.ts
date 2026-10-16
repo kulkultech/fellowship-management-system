@@ -1090,3 +1090,36 @@ export interface ProgramGitHubActivity {
   fellows: GitHubFellowActivity[];
   github_token_configured: boolean;
 }
+
+// Two-way session feedback: fellows to the mentor, mentors to each fellow
+export interface SessionFeedbackItem {
+  applicant_id?: string;
+  fellow_name?: string; // left out for mentors: fellows' feedback is anonymous to them
+  author_name?: string;
+  rating?: number; // 1-5
+  comment: string;
+  updated_at: string;
+}
+
+export interface SessionFeedbackFellowRow {
+  applicant_id: string;
+  fellow_name: string;
+  fellow_email: string;
+  feedback?: SessionFeedbackItem;
+}
+
+export interface SessionFeedback {
+  viewer: 'staff' | 'fellow';
+  mentor_name?: string;
+  feedback_open: boolean;
+  my_feedback?: SessionFeedbackItem;
+  mentor_feedback?: SessionFeedbackItem;
+  to_mentor?: {
+    average: number;
+    count: number;
+    fellow_count: number;
+    anonymous: boolean;
+    items: SessionFeedbackItem[];
+  };
+  fellows?: SessionFeedbackFellowRow[];
+}

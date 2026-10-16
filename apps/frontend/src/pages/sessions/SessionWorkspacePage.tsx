@@ -16,6 +16,7 @@ import {
   PenTool,
   Eye,
   Copy,
+  MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '@/components/DashboardLayout';
@@ -39,6 +40,7 @@ import {
   mapPositionThroughDelta,
 } from '@/components/sessions/collab';
 import { LiveWhiteboard } from '@/components/sessions/LiveWhiteboard';
+import { SessionFeedbackPanel } from '@/components/sessions/SessionFeedbackPanel';
 import { useSessionWorkspaceSocket, WorkspaceInitState, YjsTag } from '@/hooks/useSessionWorkspaceSocket';
 import type { LogItem } from '@/components/sessions/codeRunners';
 import type { AttendanceStatus } from '@/services/types';
@@ -79,7 +81,7 @@ export const SessionWorkspacePage: React.FC = () => {
     user?.role === 'mentor' || user?.role === 'org_admin' || user?.role === 'superadmin';
 
   // Active top navigation tab
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'editor' | 'whiteboard' | 'scratchpad'>('whiteboard');
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'editor' | 'whiteboard' | 'scratchpad' | 'feedback'>('whiteboard');
   // Live attendance drawer (for mentors)
   const [isAttendanceDrawerOpen, setIsAttendanceDrawerOpen] = useState<boolean>(false);
   // Shared document (Yjs) for the code editor and notes: concurrent edits merge instead of overwriting
@@ -231,7 +233,8 @@ export const SessionWorkspacePage: React.FC = () => {
   const handleRemoteTabChange = useCallback(
     (payload: { tab: 'editor' | 'whiteboard' | 'scratchpad' }, sender: { id: string; name: string; role: string }) => {
       if (followMentor && (sender.role === 'mentor' || sender.role === 'org_admin' || sender.role === 'superadmin')) {
-        setActiveWorkspaceTab(payload.tab);
+        // Don't pull a fellow away while they are writing feedback
+        setActiveWorkspaceTab((current) => (current === 'feedback' ? current : payload.tab));
       }
     },
     [followMentor]
@@ -341,9 +344,10 @@ export const SessionWorkspacePage: React.FC = () => {
   }, [activeWorkspaceTab]);
 
   // Tab switch handler
-  const handleSelectTab = (tab: 'editor' | 'whiteboard' | 'scratchpad') => {
+  const handleSelectTab = (tab: 'editor' | 'whiteboard' | 'scratchpad' | 'feedback') => {
     setActiveWorkspaceTab(tab);
-    if (isMentorOrAdmin) {
+    // Feedback is personal, so it is never shared with followers
+    if (isMentorOrAdmin && tab !== 'feedback') {
       sendTabChange(tab);
     }
   };
@@ -537,6 +541,7 @@ export const SessionWorkspacePage: React.FC = () => {
     { key: 'whiteboard' as const, label: 'Whiteboard', icon: PenTool },
     { key: 'editor' as const, label: 'Code Studio', icon: FileCode },
     { key: 'scratchpad' as const, label: 'Scratchpad & Notes', icon: FileText },
+    { key: 'feedback' as const, label: 'Feedback', icon: MessageSquare },
   ];
 
   return renderLayout(
@@ -586,6 +591,8 @@ export const SessionWorkspacePage: React.FC = () => {
               remoteWhiteboardUpdate={remoteWhiteboard}
             />
           )}
+
+          {activeWorkspaceTab === 'feedback' && <SessionFeedbackPanel sessionId={session.id} />}
 
           {activeWorkspaceTab === 'scratchpad' && (
             <div className="content-card space-y-4">

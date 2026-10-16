@@ -36,6 +36,7 @@ type SessionHandler struct {
 	authService     *auth.Service
 	frontendURL     string
 	wsHub           *sessionws.Hub
+	feedbackRepo    *repository.SessionFeedbackRepository
 }
 
 func NewSessionHandler(
@@ -65,6 +66,8 @@ func NewSessionHandler(
 			h.authService = v
 		case *sessionws.Hub:
 			h.wsHub = v
+		case *repository.SessionFeedbackRepository:
+			h.feedbackRepo = v
 		case string:
 			if strings.HasPrefix(v, "http") {
 				h.frontendURL = strings.TrimRight(v, "/")
@@ -74,6 +77,9 @@ func NewSessionHandler(
 
 	if h.wsHub == nil {
 		h.wsHub = sessionws.NewHub(sessionRepo, slog.Default())
+	}
+	if h.feedbackRepo == nil {
+		h.feedbackRepo = repository.NewSessionFeedbackRepository(nil)
 	}
 
 	return h

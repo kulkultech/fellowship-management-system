@@ -93,7 +93,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		}
 	}
 	wsHub := sessionws.NewHub(sessionRepo, logger, wsOpts)
-	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc, wsHub)
+	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc, wsHub, repository.NewSessionFeedbackRepository(pool))
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo)
@@ -321,6 +321,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			})
 			protected.Get("/programs/{programId}/attendance-summary", sessionHandler.GetAttendanceSummary)
 			protected.Get("/sessions/{sessionId}", sessionHandler.GetSession)
+			protected.Get("/sessions/{sessionId}/feedback", sessionHandler.GetSessionFeedback)
+			protected.Put("/sessions/{sessionId}/feedback/mentor", sessionHandler.SaveFeedbackToMentor)
+			protected.Put("/sessions/{sessionId}/feedback/fellows/{applicantId}", sessionHandler.SaveFeedbackToFellow)
 			protected.Get("/holidays", sessionHandler.GetHolidays)
 
 			// Fellowship Cohort Assignments & Submissions
