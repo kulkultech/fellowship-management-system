@@ -808,3 +808,12 @@ func (c *Client) writePump() {
 		}
 	}
 }
+
+// Announce sends a server event (such as "session_status") to everyone in a session's workspace,
+// on this instance and, through the broker, on the others.
+func (h *Hub) Announce(sessionID uuid.UUID, msg Message) {
+	if room := h.existingRoom(sessionID); room != nil {
+		room.broadcastExcept("", msg)
+	}
+	h.publish(envelope{Kind: envMessage, Session: sessionID, Message: &msg})
+}

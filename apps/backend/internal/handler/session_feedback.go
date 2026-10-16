@@ -43,7 +43,7 @@ type feedbackToMentorSummary struct {
 type sessionFeedbackResponse struct {
 	Viewer       string `json:"viewer"` // "staff" or "fellow"
 	MentorName   string `json:"mentor_name,omitempty"`
-	FeedbackOpen bool   `json:"feedback_open"` // feedback opens when the session starts
+	FeedbackOpen bool   `json:"feedback_open"` // feedback opens when a mentor ends the session
 
 	// Fellow view
 	MyFeedback     *feedbackItem `json:"my_feedback,omitempty"`
@@ -126,7 +126,7 @@ func (h *SessionHandler) GetSessionFeedback(w http.ResponseWriter, r *http.Reque
 
 	resp := sessionFeedbackResponse{
 		MentorName:   session.MentorName,
-		FeedbackOpen: !time.Now().Before(session.StartTime),
+		FeedbackOpen: session.EndedAt != nil,
 	}
 
 	if !isStaff {
@@ -229,8 +229,8 @@ func (h *SessionHandler) SaveFeedbackToMentor(w http.ResponseWriter, r *http.Req
 		httpx.Error(w, http.StatusForbidden, "only fellows of this session can give feedback to the mentor")
 		return
 	}
-	if time.Now().Before(session.StartTime) {
-		httpx.Error(w, http.StatusBadRequest, "feedback opens when the session starts")
+	if session.EndedAt == nil {
+		httpx.Error(w, http.StatusBadRequest, "feedback opens when the mentor ends the session")
 		return
 	}
 	var req saveFeedbackRequest
@@ -282,8 +282,8 @@ func (h *SessionHandler) SaveFeedbackToFellow(w http.ResponseWriter, r *http.Req
 		httpx.Error(w, http.StatusBadRequest, "this fellow is not part of the session")
 		return
 	}
-	if time.Now().Before(session.StartTime) {
-		httpx.Error(w, http.StatusBadRequest, "feedback opens when the session starts")
+	if session.EndedAt == nil {
+		httpx.Error(w, http.StatusBadRequest, "feedback opens when the mentor ends the session")
 		return
 	}
 	var req saveFeedbackRequest

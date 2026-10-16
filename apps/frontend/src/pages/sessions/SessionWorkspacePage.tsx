@@ -17,6 +17,8 @@ import {
   Eye,
   Copy,
   MessageSquare,
+  Flag,
+  RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '@/components/DashboardLayout';
@@ -240,6 +242,19 @@ export const SessionWorkspacePage: React.FC = () => {
     [followMentor]
   );
 
+  // A mentor ended or reopened the session: refresh it, and send fellows to the feedback tab
+  const handleSessionStatus = useCallback(
+    (payload: { ended_at?: string | null; ended_by_name?: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['session-detail', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['session-feedback', sessionId] });
+      if (payload.ended_at && !isMentorOrAdmin) {
+        setActiveWorkspaceTab('feedback');
+        toast.success(`${payload.ended_by_name || 'Your mentor'} ended the session. Please share your feedback.`);
+      }
+    },
+    [queryClient, sessionId, isMentorOrAdmin]
+  );
+
   // Hook for WebSocket real-time collaboration
   const {
     isConnected,
@@ -260,6 +275,7 @@ export const SessionWorkspacePage: React.FC = () => {
     onYjsUpdate: handleYjsUpdate,
     onYjsAck: handleYjsAck,
     onStateSync: handleStateSync,
+    onSessionStatus: handleSessionStatus,
   });
   sendYjsUpdateRef.current = sendYjsUpdate;
 
@@ -324,6 +340,29 @@ export const SessionWorkspacePage: React.FC = () => {
     queryKey: ['session-detail', sessionId],
     queryFn: () => sessionService.getSessionDirect(sessionId!),
     enabled: Boolean(sessionId),
+  });
+
+  // Feedback opens only after a mentor ends the session
+  const isSessionEnded = Boolean(session?.ended_at);
+  useEffect(() => {
+    if (session && !session.ended_at && activeWorkspaceTab === 'feedback') {
+      setActiveWorkspaceTab('whiteboard');
+    }
+  }, [session, activeWorkspaceTab]);
+
+  const endSessionMutation = useMutation({
+    mutationFn: (end: boolean) => (end ? sessionService.endSession(sessionId!) : sessionService.reopenSession(sessionId!)),
+    onSuccess: (updated, end) => {
+      queryClient.setQueryData(['session-detail', sessionId], (old: any) => (old ? { ...old, ...updated } : updated));
+      queryClient.invalidateQueries({ queryKey: ['session-feedback', sessionId] });
+      if (end) {
+        setActiveWorkspaceTab('feedback');
+        toast.success('Session ended. Feedback is now open for fellows.');
+      } else {
+        toast.success('Session reopened');
+      }
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error || 'Failed to update the session'),
   });
 
   // Whiteboard snapshot from the session record, merged with anything already received live
@@ -541,7 +580,7 @@ export const SessionWorkspacePage: React.FC = () => {
     { key: 'whiteboard' as const, label: 'Whiteboard', icon: PenTool },
     { key: 'editor' as const, label: 'Code Studio', icon: FileCode },
     { key: 'scratchpad' as const, label: 'Scratchpad & Notes', icon: FileText },
-    { key: 'feedback' as const, label: 'Feedback', icon: MessageSquare },
+    ...(isSessionEnded ? [{ key: 'feedback' as const, label: 'Feedback', icon: MessageSquare }] : []),
   ];
 
   return renderLayout(
@@ -654,6 +693,15 @@ export const SessionWorkspacePage: React.FC = () => {
                   <dd className="text-xs font-bold text-slate-900">{session.mentor_name}</dd>
                 </div>
               )}
+              {session.ended_at && (
+                <div>
+                  <dt className="meta-text font-medium">Ended</dt>
+                  <dd className="text-xs font-bold text-slate-900">
+                    {formatDateTime(session.ended_at)}
+                    {session.ended_by_name ? ` by ${session.ended_by_name}` : ''}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
 
@@ -682,6 +730,34 @@ export const SessionWorkspacePage: React.FC = () => {
                 <span>Attendance</span>
               </button>
             )}
+
+            {isMentorOrAdmin &&
+              (isSessionEnded ? (
+                <button
+                  type="button"
+                  disabled={endSessionMutation.isPending}
+                  onClick={() => endSessionMutation.mutate(false)}
+                  className="btn btn-sm btn-ghost w-full"
+                  title="Undo ending the session; feedback closes until it is ended again"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reopen Session</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={endSessionMutation.isPending}
+                  onClick={() => {
+                    if (window.confirm('End this session? Fellows will be asked to give feedback.')) {
+                      endSessionMutation.mutate(true);
+                    }
+                  }}
+                  className="btn btn-sm btn-success w-full"
+                >
+                  {endSessionMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
+                  <span>End Session</span>
+                </button>
+              ))}
 
             <Link to={backUrl} className="btn btn-sm btn-outline w-full">
               <ArrowLeft className="w-3.5 h-3.5" />

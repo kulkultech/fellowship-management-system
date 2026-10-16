@@ -138,6 +138,17 @@ export const sessionService = {
     return res.data;
   },
 
+  // A mentor or admin marks the session as ended (opens feedback), or reopens it
+  endSession: async (sessionId: string): Promise<ProgramSession> => {
+    const res = await apiClient.post(`/sessions/${sessionId}/end`);
+    return res.data;
+  },
+
+  reopenSession: async (sessionId: string): Promise<ProgramSession> => {
+    const res = await apiClient.delete(`/sessions/${sessionId}/end`);
+    return res.data;
+  },
+
   getFeedback: async (sessionId: string): Promise<SessionFeedback> => {
     const res = await apiClient.get(`/sessions/${sessionId}/feedback`);
     return res.data;

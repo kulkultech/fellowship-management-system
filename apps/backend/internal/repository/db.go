@@ -530,6 +530,10 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS series_id UUID REFERENCES session_series(id) ON DELETE SET NULL;
 	CREATE INDEX IF NOT EXISTS idx_program_sessions_series ON program_sessions(series_id, start_time);
 
+	-- When a mentor marks a session as ended in the workspace (opens session feedback)
+	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS ended_by UUID REFERENCES users(id) ON DELETE SET NULL;
+
 	CREATE TABLE IF NOT EXISTS program_room_content (
 		program_id UUID PRIMARY KEY REFERENCES programs(id) ON DELETE CASCADE,
 		curriculum JSONB NOT NULL DEFAULT '[]'::jsonb,

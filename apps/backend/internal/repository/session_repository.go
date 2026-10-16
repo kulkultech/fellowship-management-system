@@ -126,11 +126,13 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''),
 			COALESCE(s.workspace_state, '{}'::jsonb),
 			s.created_at, s.updated_at,
-			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, '')
+			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, ''),
+			s.ended_at, COALESCE(eu.name, '')
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
 		LEFT JOIN users u ON s.mentor_id = u.id
 		LEFT JOIN session_series ss ON ss.id = s.series_id
+		LEFT JOIN users eu ON eu.id = s.ended_by
 		WHERE s.id = $1
 	`
 	var res model.ProgramSession
@@ -143,6 +145,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 		&rawWorkspace,
 		&res.CreatedAt, &res.UpdatedAt,
 		&res.SeriesID, &res.RecurrenceRule, &res.RecurrenceTimezone,
+		&res.EndedAt, &res.EndedByName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound
@@ -251,11 +254,13 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			COALESCE(att_stats.excused_count, 0),
 			COALESCE(att_stats.pending_count, 0),
 			fa.id, fa.status, fa.checked_in_at, fa.marked_by, COALESCE(fa.notes, ''), COALESCE(fa.proof_image_url, ''),
-			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, '')
+			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, ''),
+			s.ended_at, COALESCE(eu.name, '')
 		FROM program_sessions s
 		LEFT JOIN program_tracks t ON s.track_id = t.id
 		LEFT JOIN users u ON s.mentor_id = u.id
 		LEFT JOIN session_series ss ON ss.id = s.series_id
+		LEFT JOIN users eu ON eu.id = s.ended_by
 		LEFT JOIN (
 			SELECT session_id,
 				COUNT(*) as total_fellows,
@@ -305,6 +310,7 @@ func (r *SessionRepository) ListSessionsByProgram(ctx context.Context, programID
 			&s.TotalFellows, &s.PresentCount, &s.LateCount, &s.AbsentCount, &s.ExcusedCount, &s.PendingCount,
 			&faID, &faStatus, &faCheckedInAt, &faMarkedBy, &faNotes, &faProofImageURL,
 			&s.SeriesID, &s.RecurrenceRule, &s.RecurrenceTimezone,
+			&s.EndedAt, &s.EndedByName,
 		); err != nil {
 			return nil, fmt.Errorf("session_repo: scan list by program: %w", err)
 		}
@@ -1073,6 +1079,35 @@ func (r *SessionRepository) BatchUpdateMentorAttendance(ctx context.Context, ses
 		if _, err := r.pool.Exec(ctx, query, sessionID, a.UserID, string(a.Status), a.Notes, markedBy); err != nil {
 			return fmt.Errorf("session_repo: batch update mentor attendance: %w", err)
 		}
+	}
+	return nil
+}
+
+// SetSessionEnded marks a session as ended (endedAt set) or open again (endedAt nil).
+func (r *SessionRepository) SetSessionEnded(ctx context.Context, id uuid.UUID, endedAt *time.Time, by *uuid.UUID, byName string) error {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		s, ok := r.memSessions[id]
+		if !ok {
+			return ErrSessionNotFound
+		}
+		s.EndedAt = endedAt
+		s.EndedByName = ""
+		if endedAt != nil {
+			s.EndedByName = byName
+		}
+		return nil
+	}
+	if endedAt == nil {
+		by = nil
+	}
+	tag, err := r.pool.Exec(ctx, `UPDATE program_sessions SET ended_at = $2, ended_by = $3, updated_at = now() WHERE id = $1`, id, endedAt, by)
+	if err != nil {
+		return fmt.Errorf("session_repo: set ended: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrSessionNotFound
 	}
 	return nil
 }

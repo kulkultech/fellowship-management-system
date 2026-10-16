@@ -91,7 +91,7 @@ const FellowFeedbackView: React.FC<{ sessionId: string; data: SessionFeedback }>
         </div>
 
         {!data.feedback_open ? (
-          <p className="meta-text">Feedback opens when the session starts.</p>
+          <p className="meta-text">Feedback opens when your mentor ends the session.</p>
         ) : (
           <>
             <div>
@@ -296,7 +296,7 @@ const StaffFeedbackView: React.FC<{ sessionId: string; data: SessionFeedback }> 
           </>
         ) : (
           <p className="meta-text">
-            {data.feedback_open ? 'No feedback from fellows yet.' : 'Fellows can give feedback once the session starts.'}
+            {data.feedback_open ? 'No feedback from fellows yet.' : 'Fellows can give feedback once you end the session.'}
           </p>
         )}
       </div>
@@ -312,7 +312,7 @@ const StaffFeedbackView: React.FC<{ sessionId: string; data: SessionFeedback }> 
             </p>
           </div>
         </div>
-        {!data.feedback_open && <p className="meta-text">You can write feedback once the session starts.</p>}
+        {!data.feedback_open && <p className="meta-text">You can write feedback once the session is ended.</p>}
         {fellows.length === 0 ? (
           <p className="meta-text">No fellows in this session.</p>
         ) : (

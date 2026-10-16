@@ -57,6 +57,8 @@ func TestSessionFeedback(t *testing.T) {
 	r.Get("/sessions/{sessionId}/feedback", h.GetSessionFeedback)
 	r.Put("/sessions/{sessionId}/feedback/mentor", h.SaveFeedbackToMentor)
 	r.Put("/sessions/{sessionId}/feedback/fellows/{applicantId}", h.SaveFeedbackToFellow)
+	r.Post("/sessions/{sessionId}/end", h.EndSession)
+	r.Delete("/sessions/{sessionId}/end", h.ReopenSession)
 
 	claimsFor := func(u *model.User) *auth.Claims {
 		return &auth.Claims{UserID: u.ID, Email: u.Email, Role: u.Role, OrganizationID: u.OrganizationID}
@@ -79,6 +81,20 @@ func TestSessionFeedback(t *testing.T) {
 		t.Fatalf("expected 403 for outsider, got %d", w.Code)
 	}
 
+	// Feedback stays closed until a mentor ends the session, and only staff can end it
+	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 4}); w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 before the session is ended, got %d", w.Code)
+	}
+	if w := do(fellowUser, http.MethodPost, "/sessions/"+past.ID.String()+"/end", nil); w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 when a fellow ends the session, got %d", w.Code)
+	}
+	if w := do(mentor, http.MethodPost, "/sessions/"+past.ID.String()+"/end", nil); w.Code != http.StatusOK {
+		t.Fatalf("expected 200 when the mentor ends the session, got %d: %s", w.Code, w.Body.String())
+	}
+	if ended, _ := sessionRepo.GetSessionByID(ctx, past.ID); ended.EndedAt == nil || ended.EndedByName != "Maya Mentor" {
+		t.Fatalf("expected the session to be ended by Maya Mentor, got %+v", ended)
+	}
+
 	// Fellow rates the mentor; a rating is required
 	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"comment": "Great"}); w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 without rating, got %d", w.Code)
@@ -91,7 +107,7 @@ func TestSessionFeedback(t *testing.T) {
 		t.Fatalf("expected 403 for fellow writing to fellow, got %d", w.Code)
 	}
 	if w := do(fellowUser, http.MethodPut, "/sessions/"+future.ID.String()+"/feedback/mentor", map[string]any{"rating": 5}); w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 before the session starts, got %d", w.Code)
+		t.Fatalf("expected 400 for a session that was not ended, got %d", w.Code)
 	}
 
 	// Mentor gives feedback to the fellow; a comment is required
@@ -162,5 +178,16 @@ func TestSessionFeedback(t *testing.T) {
 	_ = do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 2, "comment": "Too fast"})
 	if av := get(admin); av.ToMentor.Count != 1 || av.ToMentor.Average != 2 {
 		t.Fatalf("expected one updated rating, got %+v", av.ToMentor)
+	}
+
+	// Reopening closes feedback again (what was given is kept)
+	if w := do(admin, http.MethodDelete, "/sessions/"+past.ID.String()+"/end", nil); w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on reopen, got %d", w.Code)
+	}
+	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 5}); w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 after reopening, got %d", w.Code)
+	}
+	if av := get(admin); av.ToMentor.Count != 1 {
+		t.Fatalf("expected the earlier feedback to be kept, got %+v", av.ToMentor)
 	}
 }

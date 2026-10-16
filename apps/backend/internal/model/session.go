@@ -53,6 +53,10 @@ type ProgramSession struct {
 	RecurrenceRule        string     `json:"recurrence_rule,omitempty"`        // RRULE value, e.g. FREQ=WEEKLY;BYDAY=MO
 	RecurrenceTimezone    string     `json:"recurrence_timezone,omitempty"`    // IANA zone the rule repeats in
 	RecurrenceDescription string     `json:"recurrence_description,omitempty"` // e.g. "Weekly on Monday, 10 times"
+
+	// Set when a mentor marks the session as ended in the workspace; feedback opens then
+	EndedAt     *time.Time `json:"ended_at,omitempty"`
+	EndedByName string     `json:"ended_by_name,omitempty"`
 	CreatedAt              time.Time       `json:"created_at"`
 	UpdatedAt              time.Time       `json:"updated_at"`
 

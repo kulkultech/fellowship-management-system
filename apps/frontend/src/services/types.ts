@@ -744,6 +744,9 @@ export interface ProgramSession {
   recurrence_rule?: string; // RRULE value, e.g. FREQ=WEEKLY;BYDAY=MO
   recurrence_timezone?: string;
   recurrence_description?: string; // e.g. "Weekly on Monday, 10 times"
+  // Set when a mentor marks the session as ended in the workspace; feedback opens then
+  ended_at?: string;
+  ended_by_name?: string;
   track_id?: string;
   track_name?: string;
   title: string;

@@ -78,6 +78,11 @@ export interface UseSessionWorkspaceSocketProps {
   onYjsAck?: (payload: { tag: YjsTag }) => void;
   /** Newer state merged from another backend instance */
   onStateSync?: (payload: { state: WorkspaceInitState['state'] }) => void;
+  /** A mentor ended (ended_at set) or reopened (ended_at null) the session */
+  onSessionStatus?: (
+    payload: { ended_at?: string | null; ended_by_name?: string },
+    sender: { id: string; name: string; role: string }
+  ) => void;
 }
 
 export function useSessionWorkspaceSocket({
@@ -92,6 +97,7 @@ export function useSessionWorkspaceSocket({
   onYjsUpdate,
   onYjsAck,
   onStateSync,
+  onSessionStatus,
 }: UseSessionWorkspaceSocketProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [myClientId, setMyClientId] = useState<string | null>(null);
@@ -116,6 +122,7 @@ export function useSessionWorkspaceSocket({
     onYjsUpdate,
     onYjsAck,
     onStateSync,
+    onSessionStatus,
   });
 
   useEffect(() => {
@@ -130,6 +137,7 @@ export function useSessionWorkspaceSocket({
       onYjsUpdate,
       onYjsAck,
       onStateSync,
+      onSessionStatus,
     };
   });
 
@@ -206,6 +214,9 @@ export function useSessionWorkspaceSocket({
         break;
       case 'state_sync':
         callbacksRef.current.onStateSync?.(msg.payload);
+        break;
+      case 'session_status':
+        callbacksRef.current.onSessionStatus?.(msg.payload || {}, sender);
         break;
     }
   }, []);

@@ -457,6 +457,7 @@ func (h *SessionHandler) updateRecurringSessions(w http.ResponseWriter, r *http.
 			occ.ID = uuid.New()
 			occ.StartTime, occ.EndTime = st, st.Add(duration)
 			occ.RecordingURL = ""
+			occ.EndedAt, occ.EndedByName = nil, ""
 			occ.GoogleCalendarEventID = ""
 			occ.WorkspaceState = nil
 			if _, err := h.sessionRepo.CreateSession(ctx, &occ); err != nil {
