@@ -1149,3 +1149,17 @@ export interface SessionFeedback {
   };
   fellows?: SessionFeedbackFellowRow[];
 }
+
+/** A mentor's own check-in for a session (from the workspace) */
+export interface MentorCheckInState {
+  eligible: boolean; // the user is a mentor of this session
+  recorded: boolean; // attendance exists (self check-in or set by an admin)
+  status?: AttendanceStatus;
+  recorded_at?: string;
+  by_admin?: boolean;
+  opens_at: string;
+  closes_at: string;
+  late_after: string;
+  window_open: boolean;
+  message?: string;
+}

@@ -350,6 +350,24 @@ export const SessionWorkspacePage: React.FC = () => {
     }
   }, [session, activeWorkspaceTab]);
 
+  // Mentor self check-in (attendance) for this session
+  const { data: mentorCheckIn } = useQuery({
+    queryKey: ['mentor-check-in', sessionId],
+    queryFn: () => sessionService.getMentorCheckIn(sessionId!),
+    enabled: Boolean(sessionId) && isMentorOrAdmin,
+    // Re-check every minute until recorded so the button opens on time
+    refetchInterval: (query) => (query.state.data?.recorded ? false : 60_000),
+  });
+  const mentorCheckInMutation = useMutation({
+    mutationFn: () => sessionService.mentorCheckIn(sessionId!),
+    onSuccess: (state) => {
+      queryClient.setQueryData(['mentor-check-in', sessionId], state);
+      toast.success(state.status === 'late' ? 'Checked in (late)' : 'Checked in');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error || 'Failed to check in'),
+  });
+  const formatClock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   const endSessionMutation = useMutation({
     mutationFn: (end: boolean) => (end ? sessionService.endSession(sessionId!) : sessionService.reopenSession(sessionId!)),
     onSuccess: (updated, end) => {
@@ -720,6 +738,50 @@ export const SessionWorkspacePage: React.FC = () => {
               </a>
             )}
 
+            {mentorCheckIn?.eligible &&
+              (mentorCheckIn.recorded ? (
+                <div
+                  className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold ${
+                    mentorCheckIn.status === 'present'
+                      ? 'text-emerald-700'
+                      : mentorCheckIn.status === 'late'
+                      ? 'text-amber-700'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>
+                    {mentorCheckIn.by_admin
+                      ? `Attendance: ${(mentorCheckIn.status || '').charAt(0).toUpperCase()}${(mentorCheckIn.status || '').slice(1)} (set by an admin)`
+                      : `Checked in${mentorCheckIn.status === 'late' ? ' late' : ''}${
+                          mentorCheckIn.recorded_at ? ` at ${formatClock(mentorCheckIn.recorded_at)}` : ''
+                        }`}
+                  </span>
+                </div>
+              ) : mentorCheckIn.window_open ? (
+                <button
+                  type="button"
+                  disabled={mentorCheckInMutation.isPending}
+                  onClick={() => mentorCheckInMutation.mutate()}
+                  className="btn btn-sm btn-success w-full"
+                  title={`Present until ${formatClock(mentorCheckIn.late_after)}, late after that`}
+                >
+                  {mentorCheckInMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>Check In</span>
+                </button>
+              ) : new Date(mentorCheckIn.opens_at).getTime() > Date.now() ? (
+                <button type="button" disabled className="btn btn-sm btn-outline w-full">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Check-in opens at {formatClock(mentorCheckIn.opens_at)}</span>
+                </button>
+              ) : (
+                <p className="meta-text text-center py-1">Check-in closed. Ask an admin to record your attendance.</p>
+              ))}
+
             {isMentorOrAdmin && (
               <button
                 type="button"
@@ -752,7 +814,7 @@ export const SessionWorkspacePage: React.FC = () => {
                       endSessionMutation.mutate(true);
                     }
                   }}
-                  className="btn btn-sm btn-success w-full"
+                  className="btn btn-sm btn-outline w-full"
                 >
                   {endSessionMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
                   <span>End Session</span>

@@ -322,6 +322,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			})
 			protected.Get("/programs/{programId}/attendance-summary", sessionHandler.GetAttendanceSummary)
 			protected.Get("/sessions/{sessionId}", sessionHandler.GetSession)
+			protected.Get("/sessions/{sessionId}/mentor-check-in", sessionHandler.GetMentorCheckIn)
+			protected.Post("/sessions/{sessionId}/mentor-check-in", sessionHandler.MentorCheckIn)
 			protected.Post("/sessions/{sessionId}/end", sessionHandler.EndSession)
 			protected.Delete("/sessions/{sessionId}/end", sessionHandler.ReopenSession)
 			protected.Get("/sessions/{sessionId}/feedback", sessionHandler.GetSessionFeedback)

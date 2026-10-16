@@ -13,6 +13,7 @@ import type {
   RecurrenceScope,
   RecurrencePreview,
   SavedSession,
+  MentorCheckInState,
 } from './types';
 
 export const sessionService = {
@@ -135,6 +136,17 @@ export const sessionService = {
 
   updateWorkspaceState: async (sessionId: string, workspaceState: any): Promise<any> => {
     const res = await apiClient.put(`/sessions/${sessionId}/workspace`, { workspace_state: workspaceState });
+    return res.data;
+  },
+
+  // A mentor checks themself in from the workspace (present, or late after 10 minutes)
+  getMentorCheckIn: async (sessionId: string): Promise<MentorCheckInState> => {
+    const res = await apiClient.get(`/sessions/${sessionId}/mentor-check-in`);
+    return res.data;
+  },
+
+  mentorCheckIn: async (sessionId: string): Promise<MentorCheckInState> => {
+    const res = await apiClient.post(`/sessions/${sessionId}/mentor-check-in`);
     return res.data;
   },
 
