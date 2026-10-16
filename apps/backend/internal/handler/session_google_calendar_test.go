@@ -41,6 +41,9 @@ func (m *mockSessionCalendarEmailService) SendLogicTestResultEmail(recipientEmai
 func (m *mockSessionCalendarEmailService) SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error {
 	return nil
 }
+func (m *mockSessionCalendarEmailService) SendAIInterviewReinvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL, notes string, deadline time.Time) error {
+	return nil
+}
 func (m *mockSessionCalendarEmailService) SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error {
 	return nil
 }

@@ -386,6 +386,8 @@ export interface AIInterviewSession {
   track_name?: string;
   status: 'invited' | 'in_progress' | 'completed' | 'expired';
   invitation_expires_at: string;
+  retake_deadline?: string; // set when re-invited; the retake must start before it
+  deadline_passed?: boolean;
   transcript: ChatMessage[];
   summary_evaluation?: EvaluationSummary;
   scorecard_score: number;

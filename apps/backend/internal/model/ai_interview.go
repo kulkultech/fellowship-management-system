@@ -87,6 +87,7 @@ type AIInterview struct {
 	TrackID             *uuid.UUID         `json:"track_id,omitempty"`
 	InvitationToken     string             `json:"invitation_token"`
 	InvitationExpiresAt time.Time          `json:"invitation_expires_at"`
+	RetakeDeadline      *time.Time         `json:"retake_deadline,omitempty"` // set when re-invited; the take must start before it
 	StartedAt           *time.Time         `json:"started_at,omitempty"`
 	CompletedAt         *time.Time         `json:"completed_at,omitempty"`
 	Transcript          []ChatMessage      `json:"transcript"`
@@ -97,6 +98,12 @@ type AIInterview struct {
 	Status              AIInterviewStatus  `json:"status"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
+}
+
+// RetakeClosed reports whether a re-invited take can no longer be started.
+// A take that has already started may still be finished after the deadline.
+func (ai *AIInterview) RetakeClosed(now time.Time) bool {
+	return ai.RetakeDeadline != nil && ai.Status == AIInterviewInvited && now.After(*ai.RetakeDeadline)
 }
 
 // AIInterviewAttempt is a previous take of an AI interview, archived when an admin re-invites the candidate.

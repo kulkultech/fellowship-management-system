@@ -79,7 +79,7 @@ func (r *AIInterviewRepository) CreateInvitationWithTrack(
 			updated_at = now()
 		RETURNING id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), COALESCE(invitation_expires_at, expires_at, now()),
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
-			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at, retake_deadline
 	`
 	var ai model.AIInterview
 	var rawTranscript []byte
@@ -87,7 +87,7 @@ func (r *AIInterviewRepository) CreateInvitationWithTrack(
 	err := r.pool.QueryRow(ctx, query, applicantID, programID, trackID, invitationToken, expiresAt).Scan(
 		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID, &ai.InvitationToken, &ai.InvitationExpiresAt,
 		&ai.StartedAt, &ai.CompletedAt, &rawTranscript, &rawSummary, &ai.ScorecardScore,
-		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt,
+		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt, &ai.RetakeDeadline,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("ai_interview_repo: create: %w", err)
@@ -110,7 +110,7 @@ func (r *AIInterviewRepository) GetByToken(ctx context.Context, token string) (*
 	query := `
 		SELECT id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), COALESCE(invitation_expires_at, expires_at, now()),
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
-			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at, retake_deadline
 		FROM ai_interviews
 		WHERE invitation_token = $1 OR invite_token = $1
 		ORDER BY created_at DESC
@@ -122,7 +122,7 @@ func (r *AIInterviewRepository) GetByToken(ctx context.Context, token string) (*
 	err := r.pool.QueryRow(ctx, query, token).Scan(
 		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID, &ai.InvitationToken, &ai.InvitationExpiresAt,
 		&ai.StartedAt, &ai.CompletedAt, &rawTranscript, &rawSummary, &ai.ScorecardScore,
-		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt,
+		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt, &ai.RetakeDeadline,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAIInterviewNotFound
@@ -157,7 +157,7 @@ func (r *AIInterviewRepository) GetByApplicantID(ctx context.Context, applicantI
 	query := `
 		SELECT id, applicant_id, program_id, track_id, COALESCE(invitation_token, invite_token, ''), COALESCE(invitation_expires_at, expires_at, now()),
 			started_at, completed_at, transcript, summary_evaluation, scorecard_score,
-			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at, retake_deadline
 		FROM ai_interviews
 		WHERE applicant_id = $1
 		ORDER BY (CASE WHEN recording_url IS NOT NULL AND recording_url != '' THEN 1 WHEN status = 'completed' THEN 2 ELSE 3 END), created_at DESC
@@ -169,7 +169,7 @@ func (r *AIInterviewRepository) GetByApplicantID(ctx context.Context, applicantI
 	err := r.pool.QueryRow(ctx, query, applicantID).Scan(
 		&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID, &ai.InvitationToken, &ai.InvitationExpiresAt,
 		&ai.StartedAt, &ai.CompletedAt, &rawTranscript, &rawSummary, &ai.ScorecardScore,
-		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt,
+		&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt, &ai.RetakeDeadline,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAIInterviewNotFound
@@ -398,6 +398,7 @@ func (r *AIInterviewRepository) ArchiveAndReset(ctx context.Context, id, archive
 			ai.RecordingStatus = "pending"
 			ai.Status = model.AIInterviewInvited
 			ai.InvitationExpiresAt = newExpiry
+			ai.RetakeDeadline = &newExpiry
 			ai.UpdatedAt = time.Now()
 			return nil
 		}
@@ -438,6 +439,7 @@ func (r *AIInterviewRepository) ArchiveAndReset(ctx context.Context, id, archive
 			status = 'invited',
 			invitation_expires_at = $2,
 			expires_at = $2,
+			retake_deadline = $2,
 			updated_at = now()
 		WHERE id = $1
 	`, id, newExpiry); err != nil {
@@ -454,6 +456,7 @@ func (r *AIInterviewRepository) ExtendInvitation(ctx context.Context, id uuid.UU
 		for _, ai := range r.memInterviews {
 			if ai.ID == id {
 				ai.InvitationExpiresAt = newExpiry
+				ai.RetakeDeadline = &newExpiry
 				ai.UpdatedAt = time.Now()
 				return nil
 			}
@@ -461,7 +464,7 @@ func (r *AIInterviewRepository) ExtendInvitation(ctx context.Context, id uuid.UU
 		return ErrAIInterviewNotFound
 	}
 	_, err := r.pool.Exec(ctx,
-		`UPDATE ai_interviews SET invitation_expires_at = $2, expires_at = $2, updated_at = now() WHERE id = $1`,
+		`UPDATE ai_interviews SET invitation_expires_at = $2, expires_at = $2, retake_deadline = $2, updated_at = now() WHERE id = $1`,
 		id, newExpiry)
 	if err != nil {
 		return fmt.Errorf("ai_interview_repo: extend invitation: %w", err)

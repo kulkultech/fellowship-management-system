@@ -1773,8 +1773,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const [isReinviteAIOpen, setIsReinviteAIOpen] = useState(false);
   const [reinviteAIReason, setReinviteAIReason] = useState('');
+  // datetime-local value (the admin's local time); defaults to 7 days from now at 23:59
+  const toLocalInputValue = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const defaultRetakeDeadline = () => {
+    const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    d.setHours(23, 59, 0, 0);
+    return toLocalInputValue(d);
+  };
+  const [reinviteAIDeadline, setReinviteAIDeadline] = useState(defaultRetakeDeadline);
   const reinviteAIMutation = useMutation({
-    mutationFn: (applicantId: string) => adminService.reinviteAIInterview(applicantId, reinviteAIReason.trim() || undefined),
+    mutationFn: (applicantId: string) =>
+      adminService.reinviteAIInterview(
+        applicantId,
+        reinviteAIReason.trim() || undefined,
+        reinviteAIDeadline ? new Date(reinviteAIDeadline).toISOString() : undefined
+      ),
     onSuccess: (data) => {
       toast.success(data?.message || 'Candidate re-invited to the AI interview');
       setIsReinviteAIOpen(false);
@@ -5151,14 +5167,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                 <div className="card-title">Re-invite to AI Interview</div>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                   {applicantDetail.ai_screen.status === 'invited'
-                                    ? 'Resend the interview link and give them 7 more days.'
-                                    : 'Let them take the interview again, for example if the video is missing. This attempt is kept in their history and the same link works again for 7 days.'}
+                                    ? 'Resend the interview link with a new deadline.'
+                                    : 'Let them take the interview again, for example if the video is missing. This attempt is kept in their history and the same link works again until the deadline you set.'}
                                 </p>
+                                {applicantDetail.ai_screen.retake_deadline && applicantDetail.ai_screen.status === 'invited' && (
+                                  <p className={`text-xs font-semibold mt-1 ${new Date(applicantDetail.ai_screen.retake_deadline).getTime() < Date.now() ? 'text-rose-600' : 'text-slate-700'}`}>
+                                    {new Date(applicantDetail.ai_screen.retake_deadline).getTime() < Date.now() ? 'Retake deadline passed: ' : 'Retake deadline: '}
+                                    {new Date(applicantDetail.ai_screen.retake_deadline).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                )}
                               </div>
                               {!isReinviteAIOpen && (
                                 <button
                                   type="button"
-                                  onClick={() => setIsReinviteAIOpen(true)}
+                                  onClick={() => {
+                                    setReinviteAIDeadline(defaultRetakeDeadline());
+                                    setIsReinviteAIOpen(true);
+                                  }}
                                   className="btn btn-sm btn-outline shrink-0"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
@@ -5170,15 +5195,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             {isReinviteAIOpen && (
                               <div className="space-y-3 pt-3 border-t border-slate-100">
                                 <div>
+                                  <label className="field-label" htmlFor="reinvite-ai-deadline">
+                                    Deadline to start the retake
+                                  </label>
+                                  <input
+                                    id="reinvite-ai-deadline"
+                                    type="datetime-local"
+                                    value={reinviteAIDeadline}
+                                    min={toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000))}
+                                    max={toLocalInputValue(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))}
+                                    onChange={(e) => setReinviteAIDeadline(e.target.value)}
+                                    className="form-input"
+                                  />
+                                  <p className="meta-text mt-1">In your local time. After this the link can no longer be started.</p>
+                                </div>
+                                <div>
                                   <label className="field-label" htmlFor="reinvite-ai-reason">
-                                    Reason (optional, for your team)
+                                    Note to the candidate (optional, shown in the email)
                                   </label>
                                   <textarea
                                     id="reinvite-ai-reason"
-                                    rows={2}
+                                    rows={3}
+                                    maxLength={500}
                                     value={reinviteAIReason}
                                     onChange={(e) => setReinviteAIReason(e.target.value)}
-                                    placeholder="e.g. Video recording did not upload"
+                                    placeholder="e.g. Your video did not upload last time, so please take the interview again on a stable connection."
                                     className="form-textarea"
                                   />
                                 </div>
@@ -5200,7 +5241,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                                   </button>
                                   <button
                                     type="button"
-                                    disabled={reinviteAIMutation.isPending}
+                                    disabled={reinviteAIMutation.isPending || !reinviteAIDeadline}
                                     onClick={() => reinviteAIMutation.mutate(applicantDetail.applicant.id)}
                                     className="btn btn-sm btn-primary"
                                   >

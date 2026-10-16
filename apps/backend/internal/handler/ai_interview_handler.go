@@ -62,6 +62,8 @@ type AIInterviewSessionResponse struct {
 	TrackName           string                   `json:"track_name,omitempty"`
 	Status              model.AIInterviewStatus  `json:"status"`
 	InvitationExpiresAt time.Time                `json:"invitation_expires_at"`
+	RetakeDeadline      *time.Time               `json:"retake_deadline,omitempty"`
+	DeadlinePassed      bool                     `json:"deadline_passed,omitempty"`
 	Transcript          []model.ChatMessage      `json:"transcript"`
 	SummaryEvaluation   *model.EvaluationSummary `json:"summary_evaluation,omitempty"`
 	ScorecardScore      int                      `json:"scorecard_score"`
@@ -223,8 +225,11 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		rubric = model.DefaultAIInterviewRubric()
 	}
 
+	// A re-invited take that was not started before its deadline stays closed
+	deadlinePassed := aiSession.RetakeClosed(time.Now())
+
 	// If transcript is empty, seed with first question from rubric or legacy question pool
-	if len(aiSession.Transcript) == 0 {
+	if len(aiSession.Transcript) == 0 && !deadlinePassed {
 		firstQ := "Please introduce yourself briefly. What sparked your interest in joining this program, and what do you hope to achieve during the fellowship?"
 		if rubric != nil && len(rubric.Questions) > 0 {
 			firstQ = rubric.Questions[0].Question
@@ -254,6 +259,8 @@ func (h *AIInterviewHandler) GetSession(w http.ResponseWriter, r *http.Request) 
 		TrackName:           trackName,
 		Status:              aiSession.Status,
 		InvitationExpiresAt: aiSession.InvitationExpiresAt,
+		RetakeDeadline:      aiSession.RetakeDeadline,
+		DeadlinePassed:      deadlinePassed,
 		Transcript:          aiSession.Transcript,
 		SummaryEvaluation:   aiSession.SummaryEvaluation,
 		ScorecardScore:      aiSession.ScorecardScore,
@@ -293,6 +300,11 @@ func (h *AIInterviewHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 			httpx.Error(w, http.StatusNotFound, "interview not found")
 			return
 		}
+	}
+
+	if aiSession.RetakeClosed(time.Now()) {
+		httpx.Error(w, http.StatusGone, "the deadline to retake this interview has passed")
+		return
 	}
 
 	program, _ := h.programRepo.GetByID(r.Context(), aiSession.ProgramID)

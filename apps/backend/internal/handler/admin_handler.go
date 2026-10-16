@@ -908,8 +908,11 @@ func (h *AdminHandler) InviteApplicantToProgramRoom(w http.ResponseWriter, r *ht
 
 // ReinviteAIInterviewRequest lets an admin give a candidate a fresh AI interview take.
 type ReinviteAIInterviewRequest struct {
-	Reason string `json:"reason,omitempty"`
+	Reason   string `json:"reason,omitempty"`   // shown to the candidate in the email
+	Deadline string `json:"deadline,omitempty"` // RFC 3339; the retake must start before it (default 7 days)
 }
+
+const maxRetakeDeadline = 90 * 24 * time.Hour
 
 // ReinviteAIInterview handles POST /admin/applicants/{id}/reinvite-ai-interview.
 // The previous take (transcript, score, video link) is archived, the same interview link is
@@ -938,6 +941,23 @@ func (h *AdminHandler) ReinviteAIInterview(w http.ResponseWriter, r *http.Reques
 		httpx.Error(w, http.StatusBadRequest, "reason is too long")
 		return
 	}
+	newExpiry := time.Now().Add(7 * 24 * time.Hour)
+	if d := strings.TrimSpace(req.Deadline); d != "" {
+		parsed, err := time.Parse(time.RFC3339, d)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid deadline")
+			return
+		}
+		if !parsed.After(time.Now().Add(time.Hour)) {
+			httpx.Error(w, http.StatusBadRequest, "the deadline must be at least one hour from now")
+			return
+		}
+		if parsed.After(time.Now().Add(maxRetakeDeadline)) {
+			httpx.Error(w, http.StatusBadRequest, "the deadline can be at most 90 days from now")
+			return
+		}
+		newExpiry = parsed
+	}
 
 	applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
 	if err != nil || applicant == nil {
@@ -961,7 +981,6 @@ func (h *AdminHandler) ReinviteAIInterview(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	newExpiry := time.Now().Add(7 * 24 * time.Hour)
 	notStarted := interview.Status == model.AIInterviewInvited && interview.StartedAt == nil && len(interview.Transcript) == 0
 	if notStarted {
 		// Nothing to archive: just give them more time and resend the link
@@ -984,12 +1003,8 @@ func (h *AdminHandler) ReinviteAIInterview(w http.ResponseWriter, r *http.Reques
 	emailSent := false
 	if h.emailSvc != nil && applicant.Email != "" {
 		progName := "KulKul Fellowship"
-		var customTmpl *model.EmailTemplateConfig
 		if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
 			progName = prog.Name
-			if prog.EmailTemplates != nil {
-				customTmpl = prog.EmailTemplates.AIInterviewInvitation
-			}
 		}
 		trackName := ""
 		if applicant.TrackID != nil {
@@ -998,8 +1013,8 @@ func (h *AdminHandler) ReinviteAIInterview(w http.ResponseWriter, r *http.Reques
 			}
 		}
 		interviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, interview.InvitationToken)
-		emailSent = h.emailSvc.SendCustomAIInterviewInvitationEmail(
-			applicant.Email, applicant.FullName, progName, trackName, interviewURL, newExpiry, customTmpl,
+		emailSent = h.emailSvc.SendAIInterviewReinvitationEmail(
+			applicant.Email, applicant.FullName, progName, trackName, interviewURL, reason, newExpiry,
 		) == nil
 	}
 

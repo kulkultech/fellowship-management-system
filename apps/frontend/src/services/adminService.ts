@@ -310,9 +310,10 @@ export const adminService = {
   // Gives a candidate a fresh AI interview take; the previous one is kept in their history
   reinviteAIInterview: async (
     applicantId: string,
-    reason?: string
+    reason?: string,
+    deadline?: string
   ): Promise<{ message: string; email_sent: boolean; expires_at: string }> => {
-    const { data } = await apiClient.post(`/admin/applicants/${applicantId}/reinvite-ai-interview`, { reason });
+    const { data } = await apiClient.post(`/admin/applicants/${applicantId}/reinvite-ai-interview`, { reason, deadline });
     return data;
   },
 

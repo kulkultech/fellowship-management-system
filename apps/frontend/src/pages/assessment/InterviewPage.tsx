@@ -32,6 +32,7 @@ import {
   Globe,
   ChevronLeft,
   Check,
+  Clock,
 } from 'lucide-react';
 import type { EvaluationSummary } from '@/services/types';
 import toast from 'react-hot-toast';
@@ -2549,6 +2550,30 @@ export const InterviewPage: React.FC = () => {
       </div>
     );
   }
+  if (session.deadline_passed) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="content-card max-w-md w-full text-center">
+          <Clock className="w-14 h-14 text-slate-400 mx-auto mb-4" />
+          <h2 className="heading-page mb-2">Retake Deadline Passed</h2>
+          <p className="text-slate-600 text-sm mb-6">
+            This AI interview retake had to be started before{' '}
+            <span className="font-bold text-slate-900">
+              {session.retake_deadline ? new Date(session.retake_deadline).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'the deadline'}
+            </span>
+            . Please contact the admissions team if you need more time.
+          </p>
+          <button
+            onClick={() => navigate('/candidate/dashboard')}
+            className="w-full btn btn-md btn-primary"
+          >
+            Return to Candidate Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AssessmentAccessGuard
       requiredEmail={isDemo ? undefined : session.applicant_email}
@@ -2571,6 +2596,11 @@ export const InterviewPage: React.FC = () => {
             <p className="text-sm text-slate-600 mt-2">
               Welcome, <span className="text-kulkul-purple font-bold">{session.applicant_name}</span>. Complete the steps below to verify your device, review the rules, and test your camera &amp; microphone.
             </p>
+            {session.retake_deadline && session.status === 'invited' && (
+              <p className="meta-text mt-2">
+                Start this retake before <span className="font-bold text-slate-700">{new Date(session.retake_deadline).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>.
+              </p>
+            )}
           </div>
 
           {/* Demo Mode Notice */}

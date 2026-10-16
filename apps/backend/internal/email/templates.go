@@ -631,6 +631,67 @@ func buildAIInterviewInvitationEmail(candidateName, programName, trackName, inte
 }
 
 // 6. Result of AI Interview / Approved for Final Interview Email Template
+// formatWIB formats a time in Jakarta time, e.g. "Monday, 2 November 2026 at 23:59 WIB".
+func formatWIB(t time.Time) string {
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+	return t.In(loc).Format("Monday, 2 January 2006 at 15:04") + " WIB"
+}
+
+func buildAIInterviewReinvitationEmail(candidateName, programName, trackName, interviewURL, notes string, deadline time.Time, frontendURL, supportEmail string) (subject string, html string, text string) {
+	subject = fmt.Sprintf("Retake Invitation: AI Technical Screening - %s", programName)
+
+	trackDisplay := trackName
+	if trackDisplay == "" {
+		trackDisplay = "Fellowship Track"
+	}
+	deadlineStr := formatWIB(deadline)
+
+	notesBlock := ""
+	notesText := ""
+	if strings.TrimSpace(notes) != "" {
+		escaped := strings.ReplaceAll(template.HTMLEscapeString(strings.TrimSpace(notes)), "\n", "<br>")
+		notesBlock = fmt.Sprintf(`
+    <div class="guidelines">
+      <strong>Note from the Admissions Team:</strong>
+      <p style="margin: 6px 0 0 0;">%s</p>
+    </div>
+    `, escaped)
+		notesText = fmt.Sprintf("Note from the Admissions Team:\n%s\n\n", strings.TrimSpace(notes))
+	}
+
+	body := fmt.Sprintf(`
+    <h2>You're Invited to Retake the AI Interview</h2>
+    <p>Dear <strong>%s</strong>,</p>
+    <p>You can take the <strong>AI Technical Video Screening</strong> for <strong>%s</strong> (%s) again. Your previous attempt has been set aside, and this new take will be the one reviewed.</p>
+    %s
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>
+        <tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; width: 45%%;">Start Before</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">%s</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-size: 13px; color: #475569;">Please use a laptop or desktop with Chrome or Edge, a working webcam and microphone, and a stable connection. After the deadline the link can no longer be started.</p>
+
+    <div class="btn-container">
+      <a href="%s" class="btn">Enter AI Video Interview Room</a>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b; text-align: center;">Direct link: <a href="%s" style="color: #33125d; word-break: break-all;">%s</a></p>
+  `, template.HTMLEscapeString(candidateName), template.HTMLEscapeString(programName), template.HTMLEscapeString(trackDisplay),
+		notesBlock, deadlineStr, interviewURL, interviewURL, interviewURL)
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Dear %s,\n\nYou can take the AI Technical Video Screening for %s (%s) again. Your previous attempt has been set aside, and this new take will be the one reviewed.\n\n%sStart before: %s\n\nYour interview room:\n%s\n\nPlease use a laptop or desktop with Chrome or Edge, a working webcam and microphone, and a stable connection. After the deadline the link can no longer be started.\n\nGood luck!\nFellowHire Admissions Team",
+		candidateName, programName, trackDisplay, notesText, deadlineStr, interviewURL)
+	return
+}
+
 func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, dashboardURL, notes, frontendURL, supportEmail string) (subject string, html string, text string) {
 	subject = fmt.Sprintf("Congratulations! Next Stage Invitation - %s", programName)
 

@@ -496,6 +496,9 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	);
 	CREATE INDEX IF NOT EXISTS idx_ai_interview_attempts_applicant ON ai_interview_attempts(applicant_id, archived_at DESC);
 
+	-- Deadline for a re-invited take; NULL for first invitations (not enforced)
+	ALTER TABLE ai_interviews ADD COLUMN IF NOT EXISTS retake_deadline TIMESTAMPTZ;
+
 	CREATE TABLE IF NOT EXISTS program_room_content (
 		program_id UUID PRIMARY KEY REFERENCES programs(id) ON DELETE CASCADE,
 		curriculum JSONB NOT NULL DEFAULT '[]'::jsonb,

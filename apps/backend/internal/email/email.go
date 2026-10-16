@@ -25,6 +25,7 @@ type Service interface {
 	SendLogicTestSubmittedEmail(recipientEmail, candidateName, programName, trackName, resultURL string) error
 	SendLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string) error
 	SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error
+	SendAIInterviewReinvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL, notes string, deadline time.Time) error
 	SendFinalInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, dashboardURL, notes string) error
 	SendAccountActivationEmail(recipientEmail, userName, activationURL string) error
 	SendPasswordResetEmail(recipientEmail, userName, resetURL string) error
@@ -295,6 +296,13 @@ func (s *SESService) SendLogicTestResultEmail(recipientEmail, candidateName, pro
 // 5. SendAIInterviewInvitationEmail
 func (s *SESService) SendAIInterviewInvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL string, expiresAt time.Time) error {
 	subject, html, text := buildAIInterviewInvitationEmail(candidateName, programName, trackName, interviewURL, s.frontendURL, s.supportEmail, expiresAt)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// SendAIInterviewReinvitationEmail invites a candidate to retake the AI interview, with the admin's note and deadline.
+func (s *SESService) SendAIInterviewReinvitationEmail(recipientEmail, candidateName, programName, trackName, interviewURL, notes string, deadline time.Time) error {
+	subject, html, text := buildAIInterviewReinvitationEmail(candidateName, programName, trackName, interviewURL, notes, deadline, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

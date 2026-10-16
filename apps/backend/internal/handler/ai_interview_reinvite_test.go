@@ -125,6 +125,45 @@ func TestReinviteAIInterview(t *testing.T) {
 		t.Fatalf("expected still 1 archived attempt, got %d", len(attempts))
 	}
 
+	// Admins can set their own deadline; it must be in the future and within 90 days
+	custom := time.Now().Add(3 * 24 * time.Hour).Truncate(time.Second)
+	if w := reinvite(adminClaims, cand.ID, map[string]string{"deadline": custom.Format(time.RFC3339)}); w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if reset, _ := aiRepo.GetByToken(ctx, "reinvite-token"); reset.RetakeDeadline == nil || !reset.RetakeDeadline.Equal(custom) {
+		t.Fatalf("expected the custom deadline %v, got %v", custom, reset.RetakeDeadline)
+	}
+	for _, bad := range []string{"tomorrow", time.Now().Add(-time.Hour).Format(time.RFC3339), time.Now().Add(100 * 24 * time.Hour).Format(time.RFC3339)} {
+		if w := reinvite(adminClaims, cand.ID, map[string]string{"deadline": bad}); w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for deadline %q, got %d", bad, w.Code)
+		}
+	}
+
+	// After the deadline the retake can no longer be started
+	interviewHandler := handler.NewAIInterviewHandler(aiRepo, appRepo, progRepo, trackRepo, nil, nil)
+	expired, _ := aiRepo.GetByToken(ctx, "reinvite-token")
+	past := time.Now().Add(-time.Minute)
+	expired.RetakeDeadline = &past
+	ir := chi.NewRouter()
+	ir.Get("/interview/{inviteToken}", interviewHandler.GetSession)
+	ir.Post("/interview/{inviteToken}/message", interviewHandler.SendMessage)
+	w := httptest.NewRecorder()
+	ir.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/interview/reinvite-token", nil))
+	var sess struct {
+		DeadlinePassed bool              `json:"deadline_passed"`
+		Status         string            `json:"status"`
+		Transcript     []json.RawMessage `json:"transcript"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &sess)
+	if w.Code != http.StatusOK || !sess.DeadlinePassed || sess.Status != string(model.AIInterviewInvited) || len(sess.Transcript) != 0 {
+		t.Fatalf("expected a closed, unstarted session, got %d %s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	ir.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/interview/reinvite-token/message", bytes.NewBufferString(`{"message":"hi"}`)))
+	if w.Code != http.StatusGone {
+		t.Fatalf("expected 410 after the deadline, got %d", w.Code)
+	}
+
 	// Accepted fellows and candidates without an interview are refused
 	accepted := newApplicant("accepted@reinvite.test", model.StageApprovedForLive)
 	_, _ = aiRepo.CreateInvitationWithTrack(ctx, accepted.ID, prog.ID, nil, "accepted-token", time.Now().Add(time.Hour))
