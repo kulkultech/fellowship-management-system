@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
+  Download,
   CheckCircle2,
   Copy,
   ExternalLink,
@@ -64,6 +65,12 @@ export const BadgeVerificationPage: React.FC = () => {
         .then((json) => setAssertionJson(JSON.stringify(json, null, 2)))
         .catch(() => setAssertionError(true));
     }
+  };
+
+  const handleCopyCredentialURL = () => {
+    if (!data?.credential_url) return;
+    navigator.clipboard.writeText(data.credential_url);
+    toast.success('Open Badges 3.0 credential URL copied!');
   };
 
   const handleCopyAssertionURL = () => {
@@ -234,6 +241,44 @@ export const BadgeVerificationPage: React.FC = () => {
                   <span>Download SVG</span>
                 </a>
               </div>
+
+              {/* Add to a badge wallet (Accredible, Credly, digital credential wallets) */}
+              {data.valid && data.credential_url && (
+                <div className="panel-muted space-y-3">
+                  <div>
+                    <div className="card-title">Add to a badge wallet</div>
+                    <p className="meta-text mt-0.5">
+                      Import into Accredible, Credly or any Open Badges wallet by uploading the file or pasting the URL.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900">Open Badges 3.0</div>
+                      <div className="meta-text">Signed Verifiable Credential (recommended)</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a href={`${data.credential_url}?download=1`} download className="btn btn-sm btn-primary">
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download .json</span>
+                      </a>
+                      <button type="button" onClick={handleCopyCredentialURL} className="btn btn-sm btn-outline">
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy URL</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-slate-200">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900">Open Badges 2.0</div>
+                      <div className="meta-text">For wallets that don't support 3.0 yet</div>
+                    </div>
+                    <button type="button" onClick={handleCopyAssertionURL} className="btn btn-sm btn-outline shrink-0">
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy URL</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

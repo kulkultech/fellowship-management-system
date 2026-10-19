@@ -172,6 +172,7 @@ type PublicBadgeVerification struct {
 	IssuedAt       time.Time `json:"issued_at"`
 	AssertionURL   string    `json:"assertion_url"`
 	BadgeClassURL  string    `json:"badge_class_url"`
+	CredentialURL  string    `json:"credential_url,omitempty"` // Open Badges 3.0 signed credential
 	IssuerURL      string    `json:"issuer_url"`
 	Badge          *Badge    `json:"badge,omitempty"`
 }

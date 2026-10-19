@@ -25,6 +25,7 @@ import (
 	"github.com/kulkul/backend/internal/handler"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
+	"github.com/kulkul/backend/internal/openbadges"
 	"github.com/kulkul/backend/internal/repository"
 	"github.com/kulkul/backend/internal/sessionws"
 	"github.com/kulkul/backend/pkg/storage"
@@ -103,6 +104,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		githubHandler.StartAutoSync(context.Background())
 	}
 	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
+	credentialHandler.SetBadgeSigner(openbadges.NewSigner(cfg.JWTSecret))
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -268,6 +270,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			b.Get("/classes/{programId}/{type}", credentialHandler.GetProgramBadgeClassJSON)
 			b.Get("/issuer.json", credentialHandler.GetBadgeIssuerJSON)
 			b.Get("/issuers/{orgId}", credentialHandler.GetOrgIssuerJSON)
+			// Open Badges 3.0 (W3C Verifiable Credentials): signed credentials and issuer did:web documents
+			b.Get("/credentials/{id}", credentialHandler.GetOpenBadgeCredential)
+			b.Get("/issuers/{orgId}/did.json", credentialHandler.GetIssuerDIDDocument)
 			b.Get("/images/{type}", credentialHandler.GetBadgeImageSVG)
 			b.Get("/verify/{id}", credentialHandler.VerifyBadgePublic)
 		})

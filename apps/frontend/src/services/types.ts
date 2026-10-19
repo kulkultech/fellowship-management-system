@@ -1009,6 +1009,8 @@ export interface PublicBadgeVerification {
   badge?: Badge;
   assertion_url: string;
   badge_class_url: string;
+  /** Open Badges 3.0 signed credential (W3C Verifiable Credential) */
+  credential_url?: string;
   issuer_url: string;
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
+	"github.com/kulkul/backend/internal/openbadges"
 	"github.com/kulkul/backend/internal/repository"
 )
 
@@ -30,6 +31,7 @@ type CredentialHandler struct {
 	userRepo       *repository.UserRepository
 	emailSvc       email.Service
 	frontendURL    string
+	badgeSigner    *openbadges.Signer // signs Open Badges 3.0 credentials
 }
 
 func NewCredentialHandler(
@@ -102,6 +104,11 @@ func hashedEmailRecipient(email, salt string) model.OpenBadgeRecipient {
 		Identity: "sha256$" + hex.EncodeToString(sum[:]),
 		Salt:     salt,
 	}
+}
+
+func writeJSONBody(w http.ResponseWriter, v any) {
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writeJSONLD(w http.ResponseWriter, status int, v any) {
@@ -177,17 +184,25 @@ func (h *CredentialHandler) GetProgramBadgeClassJSON(w http.ResponseWriter, r *h
 		return
 	}
 
-	program, err := h.programRepo.GetByID(r.Context(), programID)
-	if err != nil || program == nil {
+	class, err := h.programBadgeClass(r.Context(), apiBaseURL(r), programID, badgeType)
+	if err != nil {
 		httpx.Error(w, http.StatusNotFound, "badge class not found")
 		return
 	}
+	writeJSONLD(w, http.StatusOK, class)
+}
+
+// programBadgeClass describes a program's member or graduate badge (shared by Open Badges 2.0 and 3.0).
+func (h *CredentialHandler) programBadgeClass(ctx context.Context, baseURL string, programID uuid.UUID, badgeType model.BadgeType) (model.OpenBadgeClass, error) {
+	program, err := h.programRepo.GetByID(ctx, programID)
+	if err != nil || program == nil {
+		return model.OpenBadgeClass{}, errors.New("program not found")
+	}
 	orgName := "the fellowship organization"
-	if org, err := h.orgRepo.GetByID(r.Context(), program.OrganizationID); err == nil && org != nil {
+	if org, err := h.orgRepo.GetByID(ctx, program.OrganizationID); err == nil && org != nil {
 		orgName = org.Name
 	}
 
-	baseURL := apiBaseURL(r)
 	class := model.OpenBadgeClass{
 		Context: "https://w3id.org/openbadges/v2",
 		ID:      programBadgeClassURL(baseURL, program.ID, badgeType),
@@ -211,7 +226,7 @@ func (h *CredentialHandler) GetProgramBadgeClassJSON(w http.ResponseWriter, r *h
 		}
 		class.Tags = []string{"fellowship", "member", "cohort"}
 	}
-	writeJSONLD(w, http.StatusOK, class)
+	return class, nil
 }
 
 // GetOrgIssuerJSON handles GET /api/v1/badges/issuers/{orgId}.json
@@ -522,6 +537,7 @@ func (h *CredentialHandler) VerifyBadgePublic(w http.ResponseWriter, r *http.Req
 		IssuedAt:         badge.IssuedAt,
 		AssertionURL:     badge.AssertionURL,
 		BadgeClassURL:    programBadgeClassURL(baseURL, badge.ProgramID, badge.BadgeType),
+		CredentialURL:    credentialURL(baseURL, badge.ID),
 		IssuerURL:        orgIssuerURL(baseURL, badge.OrganizationID),
 		Badge:            badge,
 	})
