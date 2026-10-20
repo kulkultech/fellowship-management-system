@@ -1121,14 +1121,35 @@ export interface ProgramGitHubActivity {
   github_token_configured: boolean;
 }
 
-// Two-way session feedback: fellows to the mentor, mentors to each fellow
+// Session feedback: fellows rate the mentor and the organizers, mentors rate each fellow and the organizers
+export type FeedbackDirection = 'to_mentor' | 'to_fellow' | 'fellow_to_organizer' | 'mentor_to_organizer';
+
+export interface FeedbackQuestion {
+  key: string;
+  label: string; // short metric name, e.g. "Activeness"
+  question: string;
+}
+
+export interface FeedbackForm {
+  direction: FeedbackDirection;
+  title: string;
+  questions: FeedbackQuestion[];
+  comment_label: string;
+}
+
 export interface SessionFeedbackItem {
   applicant_id?: string;
-  fellow_name?: string; // left out for mentors: fellows' feedback is anonymous to them
   author_name?: string;
-  rating?: number; // 1-5
-  comment: string;
+  author_role?: 'fellow' | 'mentor' | '';
+  scores: Record<string, number>; // question key -> 1..5
+  comment?: string;
   updated_at: string;
+}
+
+export interface FeedbackSummary {
+  averages: Record<string, number>;
+  count: number;
+  items: SessionFeedbackItem[];
 }
 
 export interface SessionFeedbackFellowRow {
@@ -1139,19 +1160,18 @@ export interface SessionFeedbackFellowRow {
 }
 
 export interface SessionFeedback {
-  viewer: 'staff' | 'fellow';
+  viewer: 'fellow' | 'mentor' | 'admin';
   mentor_name?: string;
   feedback_open: boolean;
-  my_feedback?: SessionFeedbackItem;
-  mentor_feedback?: SessionFeedbackItem;
-  to_mentor?: {
-    average: number;
-    count: number;
-    fellow_count: number;
-    anonymous: boolean;
-    items: SessionFeedbackItem[];
-  };
+  fellow_count: number;
+  forms: Record<FeedbackDirection, FeedbackForm>;
+  mine: Partial<Record<FeedbackDirection, SessionFeedbackItem>>;
+  /** Fellow: only the scores their mentor gave them */
+  my_results?: SessionFeedbackItem;
+  about_mentor?: FeedbackSummary;
   fellows?: SessionFeedbackFellowRow[];
+  to_organizers_from_fellows?: FeedbackSummary;
+  to_organizers_from_mentors?: FeedbackSummary;
 }
 
 /** A mentor's own check-in for a session (from the workspace) */

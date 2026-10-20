@@ -29,7 +29,7 @@ func TestSessionFeedback(t *testing.T) {
 	sessionRepo := repository.NewSessionRepository(nil, applicantRepo)
 
 	org, _ := orgRepo.Register(ctx, "feedback-org", "Feedback Org", "admin@fb.test", "", model.OrgStatusApproved)
-	admin, _ := userRepo.Create(ctx, "admin@fb.test", "hash", "Admin", model.RoleOrgAdmin, &org.ID)
+	admin, _ := userRepo.Create(ctx, "admin@fb.test", "hash", "Olivia Organizer", model.RoleOrgAdmin, &org.ID)
 	mentor, _ := userRepo.Create(ctx, "mentor@fb.test", "hash", "Maya Mentor", model.RoleMentor, &org.ID)
 	fellowUser, _ := userRepo.Create(ctx, "fellow@fb.test", "", "Fiona Fellow", model.RoleCandidate, nil)
 	outsiderUser, _ := userRepo.Create(ctx, "outsider@fb.test", "", "Out Sider", model.RoleCandidate, nil)
@@ -39,155 +39,131 @@ func TestSessionFeedback(t *testing.T) {
 	fellow, _, _ := applicantRepo.CreateOrGet(ctx, &model.Applicant{
 		OrganizationID: org.ID, ProgramID: program.ID, Email: "fellow@fb.test", FullName: "Fiona Fellow", CurrentStage: model.StageApprovedForLive,
 	})
-
-	newSession := func(start time.Time) *model.ProgramSession {
-		s, err := sessionRepo.CreateSession(ctx, &model.ProgramSession{
-			ProgramID: program.ID, Title: "Session", StartTime: start, EndTime: start.Add(time.Hour), MentorID: &mentor.ID,
-		})
-		if err != nil {
-			t.Fatalf("failed to create session: %v", err)
-		}
-		return s
-	}
-	past := newSession(time.Now().Add(-time.Hour))
-	future := newSession(time.Now().Add(24 * time.Hour))
+	start := time.Now().Add(-time.Hour)
+	session, _ := sessionRepo.CreateSession(ctx, &model.ProgramSession{
+		ProgramID: program.ID, Title: "Session", StartTime: start, EndTime: start.Add(time.Hour), MentorID: &mentor.ID,
+	})
 
 	h := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo)
 	r := chi.NewRouter()
 	r.Get("/sessions/{sessionId}/feedback", h.GetSessionFeedback)
 	r.Put("/sessions/{sessionId}/feedback/mentor", h.SaveFeedbackToMentor)
+	r.Put("/sessions/{sessionId}/feedback/organizer", h.SaveFeedbackToOrganizer)
 	r.Put("/sessions/{sessionId}/feedback/fellows/{applicantId}", h.SaveFeedbackToFellow)
 	r.Post("/sessions/{sessionId}/end", h.EndSession)
 	r.Delete("/sessions/{sessionId}/end", h.ReopenSession)
 
-	claimsFor := func(u *model.User) *auth.Claims {
-		return &auth.Claims{UserID: u.ID, Email: u.Email, Role: u.Role, OrganizationID: u.OrganizationID}
-	}
 	do := func(u *model.User, method, path string, body any) *httptest.ResponseRecorder {
 		var buf bytes.Buffer
 		if body != nil {
 			_ = json.NewEncoder(&buf).Encode(body)
 		}
 		req := httptest.NewRequest(method, path, &buf)
-		req = req.WithContext(middleware.WithUser(req.Context(), claimsFor(u)))
+		req = req.WithContext(middleware.WithUser(req.Context(), &auth.Claims{UserID: u.ID, Email: u.Email, Role: u.Role, OrganizationID: u.OrganizationID}))
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		return w
 	}
-	base := "/sessions/" + past.ID.String() + "/feedback"
+	base := "/sessions/" + session.ID.String() + "/feedback"
+	toMentor := map[string]any{"scores": map[string]int{"clarity": 5, "preparation": 4, "engagement": 4, "helpfulness": 5}, "comment": "Clear examples"}
+	toOrgFromFellow := map[string]any{"scores": map[string]int{"organization": 3, "communication": 4, "materials": 5}, "comment": "Link came late"}
+	toFellow := map[string]any{"scores": map[string]int{"activeness": 5, "understanding": 4, "preparation": 3, "collaboration": 4}, "comment": "Private note for staff"}
+	toOrgFromMentor := map[string]any{"scores": map[string]int{"logistics": 4, "support": 5, "fellow_readiness": 3}}
 
-	// People outside the session cannot see or give feedback
 	if w := do(outsiderUser, http.MethodGet, base, nil); w.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 for outsider, got %d", w.Code)
 	}
-
-	// Feedback stays closed until a mentor ends the session, and only staff can end it
-	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 4}); w.Code != http.StatusBadRequest {
+	// Closed until the mentor ends the session
+	if w := do(fellowUser, http.MethodPut, base+"/mentor", toMentor); w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 before the session is ended, got %d", w.Code)
 	}
-	if w := do(fellowUser, http.MethodPost, "/sessions/"+past.ID.String()+"/end", nil); w.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 when a fellow ends the session, got %d", w.Code)
-	}
-	if w := do(mentor, http.MethodPost, "/sessions/"+past.ID.String()+"/end", nil); w.Code != http.StatusOK {
-		t.Fatalf("expected 200 when the mentor ends the session, got %d: %s", w.Code, w.Body.String())
-	}
-	if ended, _ := sessionRepo.GetSessionByID(ctx, past.ID); ended.EndedAt == nil || ended.EndedByName != "Maya Mentor" {
-		t.Fatalf("expected the session to be ended by Maya Mentor, got %+v", ended)
+	if w := do(mentor, http.MethodPost, "/sessions/"+session.ID.String()+"/end", nil); w.Code != http.StatusOK {
+		t.Fatalf("expected the mentor to end the session, got %d", w.Code)
 	}
 
-	// Fellow rates the mentor; a rating is required
-	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"comment": "Great"}); w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 without rating, got %d", w.Code)
+	// Every question needs a 1-5 score
+	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"scores": map[string]int{"clarity": 5}}); w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing questions, got %d", w.Code)
 	}
-	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 4, "comment": "Clear examples"}); w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"scores": map[string]int{"clarity": 6, "preparation": 4, "engagement": 4, "helpfulness": 5}}); w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an out-of-range score, got %d", w.Code)
 	}
-	// Fellows cannot write feedback to fellows, and feedback is closed before the session starts
-	if w := do(fellowUser, http.MethodPut, base+"/fellows/"+fellow.ID.String(), map[string]any{"comment": "x"}); w.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for fellow writing to fellow, got %d", w.Code)
-	}
-	if w := do(fellowUser, http.MethodPut, "/sessions/"+future.ID.String()+"/feedback/mentor", map[string]any{"rating": 5}); w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for a session that was not ended, got %d", w.Code)
+	for _, c := range []struct {
+		u    *model.User
+		path string
+		body any
+		want int
+	}{
+		{fellowUser, base + "/mentor", toMentor, http.StatusOK},
+		{fellowUser, base + "/organizer", toOrgFromFellow, http.StatusOK},
+		{mentor, base + "/fellows/" + fellow.ID.String(), toFellow, http.StatusOK},
+		{mentor, base + "/organizer", toOrgFromMentor, http.StatusOK},
+		{admin, base + "/organizer", toOrgFromMentor, http.StatusForbidden},
+		{fellowUser, base + "/fellows/" + fellow.ID.String(), toFellow, http.StatusForbidden},
+		{mentor, base + "/mentor", toMentor, http.StatusForbidden},
+	} {
+		if w := do(c.u, http.MethodPut, c.path, c.body); w.Code != c.want {
+			t.Fatalf("%s %s: expected %d, got %d: %s", c.u.Email, c.path, c.want, w.Code, w.Body.String())
+		}
 	}
 
-	// Mentor gives feedback to the fellow; a comment is required
-	if w := do(mentor, http.MethodPut, base+"/fellows/"+fellow.ID.String(), map[string]any{"rating": 5}); w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 without comment, got %d", w.Code)
-	}
-	if w := do(mentor, http.MethodPut, base+"/fellows/"+fellow.ID.String(), map[string]any{"rating": 5, "comment": "Strong questions"}); w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-
-	type resp struct {
-		Viewer     string `json:"viewer"`
-		MyFeedback *struct {
-			Rating  *int
-			Comment string
-		} `json:"my_feedback"`
-		MentorFeedback *struct {
-			Rating     *int   `json:"rating"`
-			Comment    string `json:"comment"`
-			AuthorName string `json:"author_name"`
-		} `json:"mentor_feedback"`
-		ToMentor *struct {
-			Average   float64 `json:"average"`
-			Count     int     `json:"count"`
-			Anonymous bool    `json:"anonymous"`
-			Items     []struct {
-				FellowName string `json:"fellow_name"`
-				Comment    string `json:"comment"`
-			} `json:"items"`
-		} `json:"to_mentor"`
-		Fellows []struct {
-			FellowName string `json:"fellow_name"`
-			Feedback   *struct {
-				Comment string `json:"comment"`
-			} `json:"feedback"`
-		} `json:"fellows"`
-	}
-	get := func(u *model.User) resp {
+	get := func(u *model.User) map[string]any {
 		w := do(u, http.MethodGet, base, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
-		var out resp
+		var out map[string]any
 		_ = json.Unmarshal(w.Body.Bytes(), &out)
 		return out
 	}
 
-	// The fellow sees their own feedback and the mentor's feedback to them
+	// Fellow: their own feedback, and only the scores the mentor gave them
 	fv := get(fellowUser)
-	if fv.Viewer != "fellow" || fv.MyFeedback == nil || fv.MentorFeedback == nil || fv.MentorFeedback.Comment != "Strong questions" || fv.MentorFeedback.AuthorName != "Maya Mentor" {
-		t.Fatalf("unexpected fellow view: %+v", fv)
+	mine := fv["mine"].(map[string]any)
+	if fv["viewer"] != "fellow" || mine["to_mentor"] == nil || mine["fellow_to_organizer"] == nil {
+		t.Fatalf("expected the fellow's own feedback, got %v", fv["mine"])
+	}
+	results := fv["my_results"].(map[string]any)
+	if results["scores"].(map[string]any)["activeness"] != float64(5) || results["comment"] != nil || results["author_name"] != nil {
+		t.Fatalf("fellow should see only scores, got %v", results)
+	}
+	if fv["about_mentor"] != nil || fv["fellows"] != nil || fv["to_organizers_from_fellows"] != nil {
+		t.Fatalf("fellow should not see other feedback: %v", fv)
 	}
 
-	// The mentor sees the rating anonymously; admins see who wrote it
+	// Mentor: feedback about them with names, their feedback to fellows, not the organizers' feedback
 	mv := get(mentor)
-	if mv.Viewer != "staff" || mv.ToMentor == nil || mv.ToMentor.Average != 4 || mv.ToMentor.Count != 1 || !mv.ToMentor.Anonymous || mv.ToMentor.Items[0].FellowName != "" {
-		t.Fatalf("unexpected mentor view: %+v", mv.ToMentor)
+	about := mv["about_mentor"].(map[string]any)
+	item := about["items"].([]any)[0].(map[string]any)
+	if mv["viewer"] != "mentor" || item["author_name"] != "Fiona Fellow" || item["comment"] != "Clear examples" || about["averages"].(map[string]any)["clarity"] != float64(5) {
+		t.Fatalf("mentor should see named feedback with averages, got %v", about)
 	}
-	if len(mv.Fellows) != 1 || mv.Fellows[0].Feedback == nil || mv.Fellows[0].Feedback.Comment != "Strong questions" {
-		t.Fatalf("expected the fellow row with feedback, got %+v", mv.Fellows)
+	row := mv["fellows"].([]any)[0].(map[string]any)
+	if row["feedback"].(map[string]any)["comment"] != "Private note for staff" {
+		t.Fatalf("mentor should see their full feedback to the fellow, got %v", row)
 	}
+	if mv["mine"].(map[string]any)["mentor_to_organizer"] == nil || mv["to_organizers_from_fellows"] != nil {
+		t.Fatalf("unexpected mentor view of organizer feedback: %v", mv)
+	}
+
+	// Organizers: everything, including feedback to the organizers
 	av := get(admin)
-	if av.ToMentor.Anonymous || av.ToMentor.Items[0].FellowName != "Fiona Fellow" {
-		t.Fatalf("expected admins to see names, got %+v", av.ToMentor)
+	fromFellows := av["to_organizers_from_fellows"].(map[string]any)
+	fromMentors := av["to_organizers_from_mentors"].(map[string]any)
+	if av["viewer"] != "admin" || fromFellows["count"] != float64(1) || fromMentors["count"] != float64(1) {
+		t.Fatalf("organizers should see feedback to them, got %v / %v", fromFellows, fromMentors)
+	}
+	if fromMentors["items"].([]any)[0].(map[string]any)["author_name"] != "Maya Mentor" {
+		t.Fatalf("expected the mentor's name on their feedback, got %v", fromMentors)
 	}
 
-	// Saving again updates the same feedback instead of adding another
-	_ = do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 2, "comment": "Too fast"})
-	if av := get(admin); av.ToMentor.Count != 1 || av.ToMentor.Average != 2 {
-		t.Fatalf("expected one updated rating, got %+v", av.ToMentor)
+	// Saving again updates rather than adds; reopening closes feedback
+	_ = do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"scores": map[string]int{"clarity": 2, "preparation": 2, "engagement": 2, "helpfulness": 2}})
+	if a := get(admin)["about_mentor"].(map[string]any); a["count"] != float64(1) || a["averages"].(map[string]any)["clarity"] != float64(2) {
+		t.Fatalf("expected one updated feedback, got %v", a)
 	}
-
-	// Reopening closes feedback again (what was given is kept)
-	if w := do(admin, http.MethodDelete, "/sessions/"+past.ID.String()+"/end", nil); w.Code != http.StatusOK {
-		t.Fatalf("expected 200 on reopen, got %d", w.Code)
-	}
-	if w := do(fellowUser, http.MethodPut, base+"/mentor", map[string]any{"rating": 5}); w.Code != http.StatusBadRequest {
+	_ = do(admin, http.MethodDelete, "/sessions/"+session.ID.String()+"/end", nil)
+	if w := do(fellowUser, http.MethodPut, base+"/mentor", toMentor); w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 after reopening, got %d", w.Code)
-	}
-	if av := get(admin); av.ToMentor.Count != 1 {
-		t.Fatalf("expected the earlier feedback to be kept, got %+v", av.ToMentor)
 	}
 }

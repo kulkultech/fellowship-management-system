@@ -337,6 +337,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Delete("/sessions/{sessionId}/end", sessionHandler.ReopenSession)
 			protected.Get("/sessions/{sessionId}/feedback", sessionHandler.GetSessionFeedback)
 			protected.Put("/sessions/{sessionId}/feedback/mentor", sessionHandler.SaveFeedbackToMentor)
+			protected.Put("/sessions/{sessionId}/feedback/organizer", sessionHandler.SaveFeedbackToOrganizer)
 			protected.Put("/sessions/{sessionId}/feedback/fellows/{applicantId}", sessionHandler.SaveFeedbackToFellow)
 			protected.Get("/holidays", sessionHandler.GetHolidays)
 

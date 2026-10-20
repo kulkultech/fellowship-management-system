@@ -16,6 +16,8 @@ import type {
   MentorCheckInState,
 } from './types';
 
+export type FeedbackAnswers = { scores: Record<string, number>; comment: string };
+
 export const sessionService = {
   listSessions: async (programId: string, trackId?: string): Promise<ProgramSession[]> => {
     const params = new URLSearchParams();
@@ -166,18 +168,19 @@ export const sessionService = {
     return res.data;
   },
 
-  // A fellow's feedback to the session's mentor (rating required)
-  saveFeedbackToMentor: async (sessionId: string, payload: { rating: number; comment: string }): Promise<SessionFeedbackItem> => {
+  // Feedback answers: a 1-5 score for every question of the form, plus an optional comment
+  saveFeedbackToMentor: async (sessionId: string, payload: FeedbackAnswers): Promise<SessionFeedbackItem> => {
     const res = await apiClient.put(`/sessions/${sessionId}/feedback/mentor`, payload);
     return res.data;
   },
 
-  // A mentor's or admin's feedback to one fellow (comment required, rating optional)
-  saveFeedbackToFellow: async (
-    sessionId: string,
-    applicantId: string,
-    payload: { rating?: number; comment: string }
-  ): Promise<SessionFeedbackItem> => {
+  // From a fellow or a mentor to the program's organizers
+  saveFeedbackToOrganizer: async (sessionId: string, payload: FeedbackAnswers): Promise<SessionFeedbackItem> => {
+    const res = await apiClient.put(`/sessions/${sessionId}/feedback/organizer`, payload);
+    return res.data;
+  },
+
+  saveFeedbackToFellow: async (sessionId: string, applicantId: string, payload: FeedbackAnswers): Promise<SessionFeedbackItem> => {
     const res = await apiClient.put(`/sessions/${sessionId}/feedback/fellows/${applicantId}`, payload);
     return res.data;
   },

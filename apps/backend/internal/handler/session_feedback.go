@@ -16,105 +16,140 @@ import (
 
 const maxFeedbackComment = 2000
 
-type feedbackItem struct {
-	ApplicantID string    `json:"applicant_id,omitempty"`
-	FellowName  string    `json:"fellow_name,omitempty"` // left out for mentors: fellows' feedback is anonymous to them
-	AuthorName  string    `json:"author_name,omitempty"`
-	Rating      *int      `json:"rating,omitempty"`
-	Comment     string    `json:"comment"`
-	UpdatedAt   time.Time `json:"updated_at"`
+// Who is looking at a session's feedback
+const (
+	feedbackViewerFellow = "fellow"
+	feedbackViewerMentor = "mentor"
+	feedbackViewerAdmin  = "admin" // the program's organizers
+)
+
+type feedbackEntry struct {
+	ApplicantID string         `json:"applicant_id,omitempty"`
+	AuthorName  string         `json:"author_name,omitempty"`
+	AuthorRole  string         `json:"author_role,omitempty"` // "fellow" or "mentor"
+	Scores      map[string]int `json:"scores"`
+	Comment     string         `json:"comment,omitempty"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
+type feedbackSummary struct {
+	Averages map[string]float64 `json:"averages"` // question key -> average score
+	Count    int                `json:"count"`
+	Items    []feedbackEntry    `json:"items"`
 }
 
 type feedbackFellowRow struct {
-	ApplicantID string        `json:"applicant_id"`
-	FellowName  string        `json:"fellow_name"`
-	FellowEmail string        `json:"fellow_email"`
-	Feedback    *feedbackItem `json:"feedback,omitempty"`
-}
-
-type feedbackToMentorSummary struct {
-	Average     float64        `json:"average"`
-	Count       int            `json:"count"`
-	FellowCount int            `json:"fellow_count"`
-	Anonymous   bool           `json:"anonymous"`
-	Items       []feedbackItem `json:"items"`
+	ApplicantID string         `json:"applicant_id"`
+	FellowName  string         `json:"fellow_name"`
+	FellowEmail string         `json:"fellow_email"`
+	Feedback    *feedbackEntry `json:"feedback,omitempty"`
 }
 
 type sessionFeedbackResponse struct {
-	Viewer       string `json:"viewer"` // "staff" or "fellow"
-	MentorName   string `json:"mentor_name,omitempty"`
-	FeedbackOpen bool   `json:"feedback_open"` // feedback opens when a mentor ends the session
+	Viewer       string                                                `json:"viewer"` // fellow, mentor or admin
+	MentorName   string                                                `json:"mentor_name,omitempty"`
+	FeedbackOpen bool                                                  `json:"feedback_open"` // opens when a mentor ends the session
+	FellowCount  int                                                   `json:"fellow_count"`
+	Forms        map[model.SessionFeedbackDirection]model.FeedbackForm `json:"forms"`
+	// The viewer's own feedback, by direction
+	Mine map[model.SessionFeedbackDirection]*feedbackEntry `json:"mine"`
 
-	// Fellow view
-	MyFeedback     *feedbackItem `json:"my_feedback,omitempty"`
-	MentorFeedback *feedbackItem `json:"mentor_feedback,omitempty"`
+	// Fellow: only the scores the mentor gave them
+	MyResults *feedbackEntry `json:"my_results,omitempty"`
 
-	// Staff view
-	ToMentor *feedbackToMentorSummary `json:"to_mentor,omitempty"`
-	Fellows  []feedbackFellowRow      `json:"fellows,omitempty"`
+	// Mentor and organizers: what fellows said about the mentor, with names
+	AboutMentor *feedbackSummary `json:"about_mentor,omitempty"`
+	// Mentor and organizers: feedback to each fellow
+	Fellows []feedbackFellowRow `json:"fellows,omitempty"`
+	// Organizers: feedback to the organizers from fellows and from mentors
+	ToOrganizersFromFellows *feedbackSummary `json:"to_organizers_from_fellows,omitempty"`
+	ToOrganizersFromMentors *feedbackSummary `json:"to_organizers_from_mentors,omitempty"`
 }
 
 type saveFeedbackRequest struct {
-	Rating  *int   `json:"rating,omitempty"`
-	Comment string `json:"comment"`
+	Scores  map[string]int `json:"scores"`
+	Comment string         `json:"comment"`
 }
 
-// feedbackContext loads the session and works out whether the caller is staff of its program
-// or one of its fellows (returning that fellow's attendance row).
-func (h *SessionHandler) feedbackContext(w http.ResponseWriter, r *http.Request) (*model.ProgramSession, *auth.Claims, bool, []model.SessionAttendance, *model.SessionAttendance, bool) {
+// feedbackContext loads the session and works out whether the caller is a fellow of it, one of
+// its program's mentors, or an organizer.
+func (h *SessionHandler) feedbackContext(w http.ResponseWriter, r *http.Request) (*model.ProgramSession, *auth.Claims, string, []model.SessionAttendance, *model.SessionAttendance, bool) {
 	sessionID, err := uuid.Parse(chi.URLParam(r, "sessionId"))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid session id")
-		return nil, nil, false, nil, nil, false
+		return nil, nil, "", nil, nil, false
 	}
 	claims := h.resolveClaims(r)
 	if claims == nil {
 		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
-		return nil, nil, false, nil, nil, false
+		return nil, nil, "", nil, nil, false
 	}
 	session, err := h.sessionRepo.GetSessionByID(r.Context(), sessionID)
 	if err != nil || session == nil {
 		httpx.Error(w, http.StatusNotFound, "session not found")
-		return nil, nil, false, nil, nil, false
+		return nil, nil, "", nil, nil, false
 	}
 	roster, err := h.sessionRepo.GetSessionAttendanceList(r.Context(), sessionID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load session fellows")
-		return nil, nil, false, nil, nil, false
+		return nil, nil, "", nil, nil, false
 	}
 
 	if h.canEditWorkspaceDirectly(r.Context(), claims, session.ProgramID) {
-		return session, claims, true, roster, nil, true
+		viewer := feedbackViewerAdmin
+		if claims.Role == model.RoleMentor {
+			viewer = feedbackViewerMentor
+		}
+		return session, claims, viewer, roster, nil, true
 	}
 	if claims.Email != "" {
 		for i := range roster {
 			if strings.EqualFold(roster[i].FellowEmail, claims.Email) {
-				return session, claims, false, roster, &roster[i], true
+				return session, claims, feedbackViewerFellow, roster, &roster[i], true
 			}
 		}
 	}
 	httpx.Error(w, http.StatusForbidden, "you are not part of this session")
-	return nil, nil, false, nil, nil, false
+	return nil, nil, "", nil, nil, false
 }
 
-func toFeedbackItem(fb *model.SessionFeedback) *feedbackItem {
+func entryOf(fb *model.SessionFeedback, role string) *feedbackEntry {
 	if fb == nil {
 		return nil
 	}
-	return &feedbackItem{
-		ApplicantID: fb.ApplicantID.String(),
-		AuthorName:  fb.AuthorName,
-		Rating:      fb.Rating,
-		Comment:     fb.Comment,
-		UpdatedAt:   fb.UpdatedAt,
+	e := &feedbackEntry{AuthorName: fb.AuthorName, AuthorRole: role, Scores: fb.Scores, Comment: fb.Comment, UpdatedAt: fb.UpdatedAt}
+	if fb.ApplicantID != uuid.Nil {
+		e.ApplicantID = fb.ApplicantID.String()
 	}
+	if e.Scores == nil {
+		e.Scores = map[string]int{}
+	}
+	return e
+}
+
+func summarize(items []*model.SessionFeedback, role string) *feedbackSummary {
+	sum := &feedbackSummary{Averages: map[string]float64{}, Items: []feedbackEntry{}}
+	totals, counts := map[string]int{}, map[string]int{}
+	for _, fb := range items {
+		sum.Items = append(sum.Items, *entryOf(fb, role))
+		for k, v := range fb.Scores {
+			totals[k] += v
+			counts[k]++
+		}
+	}
+	for k, t := range totals {
+		sum.Averages[k] = math.Round(float64(t)/float64(counts[k])*10) / 10
+	}
+	sum.Count = len(items)
+	return sum
 }
 
 // GetSessionFeedback handles GET /api/v1/sessions/{sessionId}/feedback.
-// Fellows see their own feedback to the mentor and the mentor's feedback to them.
-// Staff see every fellow's feedback to the mentor (anonymous for mentors) and their feedback to each fellow.
+//   - Fellows see their own feedback and only the scores their mentor gave them.
+//   - Mentors see what fellows said about the mentor (with names) and their feedback to each fellow.
+//   - Organizers see everything, including the feedback to the organizers.
 func (h *SessionHandler) GetSessionFeedback(w http.ResponseWriter, r *http.Request) {
-	session, claims, isStaff, roster, me, ok := h.feedbackContext(w, r)
+	session, claims, viewer, roster, me, ok := h.feedbackContext(w, r)
 	if !ok {
 		return
 	}
@@ -125,110 +160,100 @@ func (h *SessionHandler) GetSessionFeedback(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp := sessionFeedbackResponse{
+		Viewer:       viewer,
 		MentorName:   session.MentorName,
 		FeedbackOpen: session.EndedAt != nil,
+		FellowCount:  len(roster),
+		Forms:        model.FeedbackForms,
+		Mine:         map[model.SessionFeedbackDirection]*feedbackEntry{},
 	}
 
-	if !isStaff {
-		resp.Viewer = "fellow"
-		for i := range all {
-			if all[i].ApplicantID != me.ApplicantID {
-				continue
+	byDirection := map[model.SessionFeedbackDirection][]*model.SessionFeedback{}
+	for i := range all {
+		byDirection[all[i].Direction] = append(byDirection[all[i].Direction], &all[i])
+	}
+
+	if viewer == feedbackViewerFellow {
+		for _, d := range []model.SessionFeedbackDirection{model.FeedbackToMentor, model.FeedbackFellowToOrganizer} {
+			for _, fb := range byDirection[d] {
+				if fb.ApplicantID == me.ApplicantID {
+					resp.Mine[d] = entryOf(fb, feedbackViewerFellow)
+				}
 			}
-			switch all[i].Direction {
-			case model.FeedbackToMentor:
-				resp.MyFeedback = toFeedbackItem(&all[i])
-				resp.MyFeedback.AuthorName = ""
-			case model.FeedbackToFellow:
-				resp.MentorFeedback = toFeedbackItem(&all[i])
+		}
+		for _, fb := range byDirection[model.FeedbackToFellow] {
+			if fb.ApplicantID == me.ApplicantID {
+				// Only the scores: not the mentor's notes, and not who wrote them
+				resp.MyResults = &feedbackEntry{Scores: fb.Scores, UpdatedAt: fb.UpdatedAt}
 			}
 		}
 		httpx.JSON(w, http.StatusOK, resp)
 		return
 	}
 
-	resp.Viewer = "staff"
-	anonymous := claims.Role == model.RoleMentor
-	names := make(map[uuid.UUID]string, len(roster))
-	for _, f := range roster {
-		names[f.ApplicantID] = f.FellowName
-	}
+	// Mentors and organizers
+	resp.AboutMentor = summarize(byDirection[model.FeedbackToMentor], feedbackViewerFellow)
 	toFellow := map[uuid.UUID]*model.SessionFeedback{}
-	summary := &feedbackToMentorSummary{FellowCount: len(roster), Anonymous: anonymous, Items: []feedbackItem{}}
-	ratingSum := 0
-	for i := range all {
-		fb := &all[i]
-		if fb.Direction == model.FeedbackToFellow {
-			toFellow[fb.ApplicantID] = fb
-			continue
-		}
-		item := toFeedbackItem(fb)
-		item.AuthorName = ""
-		if anonymous {
-			item.ApplicantID = ""
-		} else {
-			item.FellowName = names[fb.ApplicantID]
-			if item.FellowName == "" {
-				item.FellowName = fb.AuthorName
-			}
-		}
-		summary.Items = append(summary.Items, *item)
-		if fb.Rating != nil {
-			summary.Count++
-			ratingSum += *fb.Rating
-		}
+	for _, fb := range byDirection[model.FeedbackToFellow] {
+		toFellow[fb.ApplicantID] = fb
 	}
-	if summary.Count > 0 {
-		summary.Average = math.Round(float64(ratingSum)/float64(summary.Count)*10) / 10
-	}
-	resp.ToMentor = summary
-
 	resp.Fellows = make([]feedbackFellowRow, 0, len(roster))
 	for _, f := range roster {
 		resp.Fellows = append(resp.Fellows, feedbackFellowRow{
 			ApplicantID: f.ApplicantID.String(),
 			FellowName:  f.FellowName,
 			FellowEmail: f.FellowEmail,
-			Feedback:    toFeedbackItem(toFellow[f.ApplicantID]),
+			Feedback:    entryOf(toFellow[f.ApplicantID], feedbackViewerMentor),
 		})
+	}
+
+	if viewer == feedbackViewerMentor {
+		for _, fb := range byDirection[model.FeedbackMentorToOrganizer] {
+			if fb.AuthorUserID != nil && *fb.AuthorUserID == claims.UserID {
+				resp.Mine[model.FeedbackMentorToOrganizer] = entryOf(fb, feedbackViewerMentor)
+			}
+		}
+	} else {
+		resp.ToOrganizersFromFellows = summarize(byDirection[model.FeedbackFellowToOrganizer], feedbackViewerFellow)
+		resp.ToOrganizersFromMentors = summarize(byDirection[model.FeedbackMentorToOrganizer], feedbackViewerMentor)
 	}
 	httpx.JSON(w, http.StatusOK, resp)
 }
 
-func validateFeedback(w http.ResponseWriter, req *saveFeedbackRequest, ratingRequired, commentRequired bool) bool {
+// validateFeedback checks that every question of the form has a 1-5 score.
+func validateFeedback(w http.ResponseWriter, req *saveFeedbackRequest, direction model.SessionFeedbackDirection) (*int, bool) {
+	form := model.FeedbackForms[direction]
 	req.Comment = strings.TrimSpace(req.Comment)
-	if req.Rating != nil && *req.Rating == 0 {
-		req.Rating = nil
+	scores := map[string]int{}
+	total := 0
+	for _, q := range form.Questions {
+		v, ok := req.Scores[q.Key]
+		if !ok || v < 1 || v > 5 {
+			httpx.Error(w, http.StatusBadRequest, "please rate every question from 1 to 5 ("+q.Label+" is missing)")
+			return nil, false
+		}
+		scores[q.Key] = v
+		total += v
 	}
-	if req.Rating == nil && ratingRequired {
-		httpx.Error(w, http.StatusBadRequest, "please choose a rating from 1 to 5")
-		return false
-	}
-	if req.Rating != nil && (*req.Rating < 1 || *req.Rating > 5) {
-		httpx.Error(w, http.StatusBadRequest, "rating must be from 1 to 5")
-		return false
-	}
-	if req.Comment == "" && commentRequired {
-		httpx.Error(w, http.StatusBadRequest, "please write your feedback")
-		return false
-	}
+	req.Scores = scores // drop anything that is not a question of this form
 	if len([]rune(req.Comment)) > maxFeedbackComment {
 		httpx.Error(w, http.StatusBadRequest, "feedback is too long (max 2000 characters)")
-		return false
+		return nil, false
 	}
-	return true
+	avg := int(math.Round(float64(total) / float64(len(form.Questions))))
+	return &avg, true
 }
 
-// SaveFeedbackToMentor handles PUT /api/v1/sessions/{sessionId}/feedback/mentor (fellows only).
-func (h *SessionHandler) SaveFeedbackToMentor(w http.ResponseWriter, r *http.Request) {
-	session, claims, isStaff, _, me, ok := h.feedbackContext(w, r)
-	if !ok {
-		return
+func (h *SessionHandler) authorName(r *http.Request, claims *auth.Claims) string {
+	if h.userRepo != nil {
+		if u, err := h.userRepo.GetByID(r.Context(), claims.UserID); err == nil && u != nil && u.Name != "" {
+			return u.Name
+		}
 	}
-	if isStaff || me == nil {
-		httpx.Error(w, http.StatusForbidden, "only fellows of this session can give feedback to the mentor")
-		return
-	}
+	return claims.Email
+}
+
+func (h *SessionHandler) saveFeedback(w http.ResponseWriter, r *http.Request, session *model.ProgramSession, fb *model.SessionFeedback) {
 	if session.EndedAt == nil {
 		httpx.Error(w, http.StatusBadRequest, "feedback opens when the mentor ends the session")
 		return
@@ -238,32 +263,65 @@ func (h *SessionHandler) SaveFeedbackToMentor(w http.ResponseWriter, r *http.Req
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !validateFeedback(w, &req, true, false) {
+	rating, ok := validateFeedback(w, &req, fb.Direction)
+	if !ok {
 		return
 	}
-	authorID := claims.UserID
-	saved, err := h.feedbackRepo.Upsert(r.Context(), &model.SessionFeedback{
-		SessionID: session.ID, ProgramID: session.ProgramID, Direction: model.FeedbackToMentor,
-		ApplicantID: me.ApplicantID, AuthorUserID: &authorID, AuthorName: me.FellowName,
-		Rating: req.Rating, Comment: req.Comment,
-	})
+	fb.SessionID, fb.ProgramID = session.ID, session.ProgramID
+	fb.Scores, fb.Rating, fb.Comment = req.Scores, rating, req.Comment
+	saved, err := h.feedbackRepo.Upsert(r.Context(), fb)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to save feedback")
 		return
 	}
-	item := toFeedbackItem(saved)
-	item.AuthorName = ""
-	httpx.JSON(w, http.StatusOK, item)
+	httpx.JSON(w, http.StatusOK, entryOf(saved, ""))
 }
 
-// SaveFeedbackToFellow handles PUT /api/v1/sessions/{sessionId}/feedback/fellows/{applicantId} (mentors and admins).
-func (h *SessionHandler) SaveFeedbackToFellow(w http.ResponseWriter, r *http.Request) {
-	session, claims, isStaff, roster, _, ok := h.feedbackContext(w, r)
+// SaveFeedbackToMentor handles PUT /api/v1/sessions/{sessionId}/feedback/mentor (fellows only).
+func (h *SessionHandler) SaveFeedbackToMentor(w http.ResponseWriter, r *http.Request) {
+	session, claims, viewer, _, me, ok := h.feedbackContext(w, r)
 	if !ok {
 		return
 	}
-	if !isStaff {
-		httpx.Error(w, http.StatusForbidden, "only mentors and admins can give feedback to fellows")
+	if viewer != feedbackViewerFellow {
+		httpx.Error(w, http.StatusForbidden, "only fellows of this session can give feedback to the mentor")
+		return
+	}
+	authorID := claims.UserID
+	h.saveFeedback(w, r, session, &model.SessionFeedback{
+		Direction: model.FeedbackToMentor, ApplicantID: me.ApplicantID, AuthorUserID: &authorID, AuthorName: me.FellowName,
+	})
+}
+
+// SaveFeedbackToOrganizer handles PUT /api/v1/sessions/{sessionId}/feedback/organizer (fellows and mentors).
+func (h *SessionHandler) SaveFeedbackToOrganizer(w http.ResponseWriter, r *http.Request) {
+	session, claims, viewer, _, me, ok := h.feedbackContext(w, r)
+	if !ok {
+		return
+	}
+	authorID := claims.UserID
+	switch viewer {
+	case feedbackViewerFellow:
+		h.saveFeedback(w, r, session, &model.SessionFeedback{
+			Direction: model.FeedbackFellowToOrganizer, ApplicantID: me.ApplicantID, AuthorUserID: &authorID, AuthorName: me.FellowName,
+		})
+	case feedbackViewerMentor:
+		h.saveFeedback(w, r, session, &model.SessionFeedback{
+			Direction: model.FeedbackMentorToOrganizer, AuthorUserID: &authorID, AuthorName: h.authorName(r, claims),
+		})
+	default:
+		httpx.Error(w, http.StatusForbidden, "organizers receive this feedback; they do not give it")
+	}
+}
+
+// SaveFeedbackToFellow handles PUT /api/v1/sessions/{sessionId}/feedback/fellows/{applicantId} (mentors and organizers).
+func (h *SessionHandler) SaveFeedbackToFellow(w http.ResponseWriter, r *http.Request) {
+	session, claims, viewer, roster, _, ok := h.feedbackContext(w, r)
+	if !ok {
+		return
+	}
+	if viewer == feedbackViewerFellow {
+		httpx.Error(w, http.StatusForbidden, "only mentors and organizers can give feedback to fellows")
 		return
 	}
 	applicantID, err := uuid.Parse(chi.URLParam(r, "applicantId"))
@@ -282,33 +340,8 @@ func (h *SessionHandler) SaveFeedbackToFellow(w http.ResponseWriter, r *http.Req
 		httpx.Error(w, http.StatusBadRequest, "this fellow is not part of the session")
 		return
 	}
-	if session.EndedAt == nil {
-		httpx.Error(w, http.StatusBadRequest, "feedback opens when the mentor ends the session")
-		return
-	}
-	var req saveFeedbackRequest
-	if err := httpx.Decode(w, r, &req); err != nil {
-		httpx.Error(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if !validateFeedback(w, &req, false, true) {
-		return
-	}
-	authorName := claims.Email
-	if h.userRepo != nil {
-		if u, err := h.userRepo.GetByID(r.Context(), claims.UserID); err == nil && u != nil && u.Name != "" {
-			authorName = u.Name
-		}
-	}
 	authorID := claims.UserID
-	saved, err := h.feedbackRepo.Upsert(r.Context(), &model.SessionFeedback{
-		SessionID: session.ID, ProgramID: session.ProgramID, Direction: model.FeedbackToFellow,
-		ApplicantID: applicantID, AuthorUserID: &authorID, AuthorName: authorName,
-		Rating: req.Rating, Comment: req.Comment,
+	h.saveFeedback(w, r, session, &model.SessionFeedback{
+		Direction: model.FeedbackToFellow, ApplicantID: applicantID, AuthorUserID: &authorID, AuthorName: h.authorName(r, claims),
 	})
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to save feedback")
-		return
-	}
-	httpx.JSON(w, http.StatusOK, toFeedbackItem(saved))
 }
