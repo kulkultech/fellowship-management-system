@@ -248,7 +248,8 @@ export const BadgeVerificationPage: React.FC = () => {
                   <div>
                     <div className="card-title">Add to a badge wallet</div>
                     <p className="meta-text mt-0.5">
-                      Import into Accredible, Credly or any Open Badges wallet by uploading the file or pasting the URL.
+                      Accredible and most wallets import the .json file. Credly imports the badge image, which has the
+                      credential built in.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -266,6 +267,16 @@ export const BadgeVerificationPage: React.FC = () => {
                         <span>Copy URL</span>
                       </button>
                     </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-slate-200">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900">Badge image with credential</div>
+                      <div className="meta-text">For Credly and wallets that import badge images</div>
+                    </div>
+                    <a href={`${data.credential_url}/badge.svg?download=1`} download className="btn btn-sm btn-outline shrink-0">
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download .svg</span>
+                    </a>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-slate-200">
                     <div className="min-w-0">

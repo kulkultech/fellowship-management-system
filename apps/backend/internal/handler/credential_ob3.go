@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -158,4 +159,82 @@ func (h *CredentialHandler) GetIssuerDIDDocument(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "application/did+json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	writeJSONBody(w, h.signer().DIDDocument(orgIssuerDID(r, orgID)))
+}
+
+// bakeSVG embeds badge data in the badge's SVG image ("baked badge"), which wallets such as Credly
+// import as a file. Open Badges 3.0 puts the signed credential in <openbadges:credential>; 2.0 points
+// to the hosted assertion with <openbadges:assertion verify="...">.
+func bakeSVG(svg, namespace, element string) string {
+	const root = `<svg xmlns="http://www.w3.org/2000/svg"`
+	i := strings.Index(svg, root)
+	if i < 0 {
+		return svg
+	}
+	svg = svg[:i] + root + ` xmlns:openbadges="` + namespace + `"` + svg[i+len(root):]
+	end := strings.Index(svg[i:], ">")
+	if end < 0 {
+		return svg
+	}
+	at := i + end + 1
+	return svg[:at] + "\n  " + element + svg[at:]
+}
+
+// GetBakedBadgeSVG handles GET /api/v1/badges/credentials/{id}/badge.svg: the badge image with the
+// credential baked in (Open Badges 3.0 by default, ?version=2 for 2.0). Add ?download=1 to save it.
+func (h *CredentialHandler) GetBakedBadgeSVG(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid credential id")
+		return
+	}
+	badge, err := h.credentialRepo.GetBadgeByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, repository.ErrBadgeNotFound) {
+			httpx.Error(w, http.StatusNotFound, "badge not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to load badge")
+		return
+	}
+	if badge.RevokedAt != nil {
+		httpx.Error(w, http.StatusGone, "this badge was revoked")
+		return
+	}
+
+	imageType := "member"
+	if badge.BadgeType == model.BadgeTypeCompletion {
+		imageType = "completion"
+	}
+	svg := badgeImageSVG(imageType)
+	if r.URL.Query().Get("version") == "2" {
+		// The full assertion goes inside as well: Credly cannot read a baked badge that only has the link
+		assertion := h.openBadgeAssertion(apiBaseURL(r), badge)
+		body, err := json.MarshalIndent(assertion, "    ", "  ")
+		if err != nil || strings.Contains(string(body), "]]>") {
+			httpx.Error(w, http.StatusInternalServerError, "failed to bake assertion")
+			return
+		}
+		svg = bakeSVG(svg, "http://openbadges.org",
+			fmt.Sprintf(`<openbadges:assertion verify="%s"><![CDATA[`, assertion.ID)+"\n    "+string(body)+"\n  ]]></openbadges:assertion>")
+	} else {
+		credential, err := h.buildOpenBadgeCredential(r, badge)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to build credential: "+err.Error())
+			return
+		}
+		body, err := json.MarshalIndent(credential, "    ", "  ")
+		if err != nil || strings.Contains(string(body), "]]>") {
+			httpx.Error(w, http.StatusInternalServerError, "failed to bake credential")
+			return
+		}
+		svg = bakeSVG(svg, "https://purl.imsglobal.org/ob/v3p0",
+			"<openbadges:credential><![CDATA[\n    "+string(body)+"\n  ]]></openbadges:credential>")
+	}
+
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	if r.URL.Query().Get("download") != "" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="badge-%s.svg"`, badge.ID))
+	}
+	_, _ = w.Write([]byte(svg))
 }

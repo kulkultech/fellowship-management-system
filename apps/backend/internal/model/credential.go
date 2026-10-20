@@ -35,6 +35,7 @@ type Badge struct {
 	ProgramName      string `json:"program_name,omitempty"`
 	OrganizationName string `json:"organization_name,omitempty"`
 	AssertionURL     string `json:"assertion_url,omitempty"`
+	CredentialURL    string `json:"credential_url,omitempty"` // Open Badges 3.0 signed credential
 	VerificationURL  string `json:"verification_url,omitempty"`
 }
 

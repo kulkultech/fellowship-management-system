@@ -960,6 +960,8 @@ export interface Badge {
   program_name?: string;
   organization_name?: string;
   assertion_url?: string;
+  /** Open Badges 3.0 signed credential */
+  credential_url?: string;
   verification_url?: string;
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"github.com/getsentry/sentry-go"
@@ -265,6 +266,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 
 		// Open Badges v2.0 Standard Specification Endpoints
 		api.Route("/badges", func(b chi.Router) {
+			// Importers (e.g. wallets fetching a credential URL) may check with HEAD before GET
+			b.Use(chimiddleware.GetHead)
 			b.Get("/assertions/{id}", credentialHandler.GetBadgeAssertionJSON)
 			b.Get("/classes/{slug}", credentialHandler.GetBadgeClassJSON)
 			b.Get("/classes/{programId}/{type}", credentialHandler.GetProgramBadgeClassJSON)
@@ -272,6 +275,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			b.Get("/issuers/{orgId}", credentialHandler.GetOrgIssuerJSON)
 			// Open Badges 3.0 (W3C Verifiable Credentials): signed credentials and issuer did:web documents
 			b.Get("/credentials/{id}", credentialHandler.GetOpenBadgeCredential)
+			b.Get("/credentials/{id}/badge.svg", credentialHandler.GetBakedBadgeSVG)
 			b.Get("/issuers/{orgId}/did.json", credentialHandler.GetIssuerDIDDocument)
 			b.Get("/images/{type}", credentialHandler.GetBadgeImageSVG)
 			b.Get("/verify/{id}", credentialHandler.VerifyBadgePublic)

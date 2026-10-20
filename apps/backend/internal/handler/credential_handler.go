@@ -152,7 +152,12 @@ func (h *CredentialHandler) GetBadgeAssertionJSON(w http.ResponseWriter, r *http
 		return
 	}
 
-	writeJSONLD(w, http.StatusOK, model.OpenBadgeAssertion{
+	writeJSONLD(w, http.StatusOK, h.openBadgeAssertion(baseURL, badge))
+}
+
+// openBadgeAssertion is the hosted Open Badges 2.0 assertion of a badge.
+func (h *CredentialHandler) openBadgeAssertion(baseURL string, badge *model.Badge) model.OpenBadgeAssertion {
+	return model.OpenBadgeAssertion{
 		Context:   "https://w3id.org/openbadges/v2",
 		ID:        assertionURL(baseURL, badge.ID),
 		Type:      "Assertion",
@@ -164,7 +169,7 @@ func (h *CredentialHandler) GetBadgeAssertionJSON(w http.ResponseWriter, r *http
 		IssuedOn:  badge.IssuedAt.UTC().Format(time.RFC3339),
 		Evidence:  fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, badge.ID.String()),
 		Narrative: badge.Description,
-	})
+	}
 }
 
 // GetProgramBadgeClassJSON handles GET /api/v1/badges/classes/{programId}/{type}.json
@@ -322,7 +327,11 @@ func (h *CredentialHandler) GetBadgeImageSVG(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	_, _ = w.Write([]byte(badgeImageSVG(badgeType)))
+}
 
+// badgeImageSVG draws the medallion for a badge type ("completion"/"graduate" or member).
+func badgeImageSVG(badgeType string) string {
 	if badgeType == "completion" || badgeType == "program-graduate" || badgeType == "graduate" {
 		// Program Graduate / Completion Medallion (Gold & Royal Purple)
 		svg := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
@@ -379,8 +388,7 @@ func (h *CredentialHandler) GetBadgeImageSVG(w http.ResponseWriter, r *http.Requ
     <text x="200" y="319" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="900" fill="#2b0d52" letter-spacing="1.5">VERIFIED CREDENTIAL</text>
   </g>
 </svg>`
-		_, _ = w.Write([]byte(svg))
-		return
+		return svg
 	}
 
 	// Cohort Member Shield Badge (Royal Purple & Emerald)
@@ -429,7 +437,7 @@ func (h *CredentialHandler) GetBadgeImageSVG(w http.ResponseWriter, r *http.Requ
   <!-- Subtitle -->
   <text x="200" y="315" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#d1fae5" letter-spacing="1.5">OFFICIAL ADMISSION</text>
 </svg>`
-	_, _ = w.Write([]byte(svg))
+	return svg
 }
 
 // ---------------------------------------------------------------------
@@ -469,6 +477,7 @@ func (h *CredentialHandler) VerifyCertificatePublic(w http.ResponseWriter, r *ht
 
 	for _, b := range badges {
 		b.AssertionURL = fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", baseURL, b.ID.String())
+		b.CredentialURL = credentialURL(baseURL, b.ID)
 		b.VerificationURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, b.ID.String())
 		// This endpoint is public: never expose the recipient's email address
 		b.RecipientEmail = ""
@@ -520,6 +529,7 @@ func (h *CredentialHandler) VerifyBadgePublic(w http.ResponseWriter, r *http.Req
 
 	baseURL := apiBaseURL(r)
 	badge.AssertionURL = assertionURL(baseURL, badge.ID)
+	badge.CredentialURL = credentialURL(baseURL, badge.ID)
 	badge.VerificationURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, badge.ID.String())
 	// This endpoint is public: never expose the recipient's email address
 	badge.RecipientEmail = ""
@@ -910,6 +920,7 @@ func (h *CredentialHandler) GetApplicantCredentials(w http.ResponseWriter, r *ht
 	badges, _ := h.credentialRepo.ListBadgesByApplicant(r.Context(), applicantID)
 	for _, b := range badges {
 		b.AssertionURL = fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", baseURL, b.ID.String())
+		b.CredentialURL = credentialURL(baseURL, b.ID)
 		b.VerificationURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, b.ID.String())
 	}
 
@@ -977,6 +988,7 @@ func (h *CredentialHandler) GetMyCredentials(w http.ResponseWriter, r *http.Requ
 		badges, _ := h.credentialRepo.ListBadgesByApplicant(r.Context(), app.ID)
 		for _, b := range badges {
 			b.AssertionURL = fmt.Sprintf("%s/api/v1/badges/assertions/%s.json", baseURL, b.ID.String())
+			b.CredentialURL = credentialURL(baseURL, b.ID)
 			b.VerificationURL = fmt.Sprintf("%s/verify/badge/%s", h.frontendURL, b.ID.String())
 			allBadges = append(allBadges, b)
 		}

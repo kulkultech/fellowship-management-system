@@ -33,6 +33,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { credentialService } from '@/services/credentialService';
+import { AddBadgeToWallet } from '@/components/credentials/AddBadgeToWallet';
 import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
 import { useCandidateSchedule } from '@/components/schedule/useCandidateSchedule';
 
@@ -1301,23 +1302,19 @@ export const CandidateDashboardPage: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                           <Link
                             to={`/verify/badge/${badge.id}`}
-                            className="btn btn-sm btn-outline"
+                            className="btn btn-sm btn-ghost"
                           >
                             <span>Verify Badge</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
-                          <a
-                            href={badge.image_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            download
-                            className="btn btn-sm btn-ghost"
-                          >
-                            Download Vector SVG
-                          </a>
+                          {badge.credential_url && !badge.revoked_at && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <AddBadgeToWallet credentialUrl={badge.credential_url} badgeName={badge.name} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
