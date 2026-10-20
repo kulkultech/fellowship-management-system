@@ -9,13 +9,9 @@ import {
   ExternalLink,
   Users,
   CheckCircle2,
-  FileText,
-  FileCode,
   Loader2,
   X,
-  PenTool,
   Eye,
-  Copy,
   MessageSquare,
   Flag,
   RotateCcw,
@@ -31,17 +27,28 @@ import {
   SUPPORTED_LANGUAGES,
 } from '@/components/sessions/LiveCodeEditor';
 import {
-  LOCAL_ORIGIN,
   REMOTE_ORIGIN,
   NOTES_TEXT_KEY,
   codeTextKey,
   uint8ToBase64,
   base64ToUint8,
   deterministicSeedUpdate,
-  applyTextDiff,
-  mapPositionThroughDelta,
 } from '@/components/sessions/collab';
-import { LiveWhiteboard } from '@/components/sessions/LiveWhiteboard';
+import { TextFileEditor } from '@/components/sessions/TextFileEditor';
+import { WhiteboardFile } from '@/components/sessions/WhiteboardFile';
+import { WorkspaceFileBar } from '@/components/sessions/WorkspaceFileBar';
+import {
+  FILES_MAP,
+  MAIN_BOARD_KEY,
+  WorkspaceFile,
+  addFile,
+  ensureDefaultFiles,
+  fileKind,
+  listFiles,
+  removeFile,
+  renameFile,
+  writeBoardElements,
+} from '@/components/sessions/workspaceFiles';
 import { SessionFeedbackPanel } from '@/components/sessions/SessionFeedbackPanel';
 import { useSessionWorkspaceSocket, WorkspaceInitState, YjsTag } from '@/hooks/useSessionWorkspaceSocket';
 import type { LogItem } from '@/components/sessions/codeRunners';
@@ -82,8 +89,8 @@ export const SessionWorkspacePage: React.FC = () => {
   const isMentorOrAdmin =
     user?.role === 'mentor' || user?.role === 'org_admin' || user?.role === 'superadmin';
 
-  // Active top navigation tab
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'editor' | 'whiteboard' | 'scratchpad' | 'feedback'>('whiteboard');
+  // The open file (its id), or 'feedback'
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<string>('');
   // Live attendance drawer (for mentors)
   const [isAttendanceDrawerOpen, setIsAttendanceDrawerOpen] = useState<boolean>(false);
   // Shared document (Yjs) for the code editor and notes: concurrent edits merge instead of overwriting
@@ -96,28 +103,16 @@ export const SessionWorkspacePage: React.FC = () => {
   const lastAckAtRef = useRef(0);
   const sendYjsUpdateRef = useRef<((update: string) => void) | null>(null);
 
-  // Scratchpad notes (mirrors the shared notes text)
-  const [scratchpadNotes, setScratchpadNotes] = useState<string>('');
-  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  // The workspace's files (notes, code, whiteboards), kept in the shared document
+  const [files, setFiles] = useState<WorkspaceFile[]>([]);
+  const filesRef = useRef<WorkspaceFile[]>([]);
+  filesRef.current = files;
+  // True once the stored workspace has been loaded, so starting files are never created too early
+  const initialSyncedRef = useRef(false);
 
-  // Whiteboard: every element seen so far, so the board can be rebuilt when its tab remounts
-  const whiteboardStoreRef = useRef<Map<string, any>>(new Map());
+  // Whiteboard drawn before files existed (saved outside the shared document); moved into whiteboard.excalidraw
+  const legacyBoardRef = useRef<Map<string, any>>(new Map());
 
-  // Whiteboard sync state
-  const [initialElements, setInitialElements] = useState<any[]>([]);
-  const [initialAppState, setInitialAppState] = useState<any>(null);
-  const [remoteWhiteboard, setRemoteWhiteboard] = useState<{
-    elements: any[];
-    appState?: any;
-    sender?: { name: string; role: string };
-  } | null>(null);
-
-  // Code editor sync state
-  const [initialLanguage, setInitialLanguage] = useState<SupportedLanguage>('java');
-  const [remoteLanguageChange, setRemoteLanguageChange] = useState<{
-    language: SupportedLanguage;
-    sender?: { name: string; role: string };
-  } | null>(null);
   const [remoteCodeRun, setRemoteCodeRun] = useState<{
     language: SupportedLanguage;
     logs: LogItem[];
@@ -135,6 +130,14 @@ export const SessionWorkspacePage: React.FC = () => {
   const docHasContent = (doc: Y.Doc) =>
     doc.getText(NOTES_TEXT_KEY).length > 0 ||
     SUPPORTED_LANGUAGES.some((l) => doc.getText(codeTextKey(l.id)).length > 0);
+
+  // Moves a whiteboard drawn before files existed into whiteboard.excalidraw (once, when that board is empty)
+  const migrateLegacyBoard = useCallback(() => {
+    const doc = ydocRef.current!;
+    if (!initialSyncedRef.current || legacyBoardRef.current.size === 0) return;
+    if (doc.getMap(MAIN_BOARD_KEY).size > 0) return;
+    writeBoardElements(doc, MAIN_BOARD_KEY, Array.from(legacyBoardRef.current.values()), 'seed');
+  }, []);
 
   // Applies stored workspace state from the server (on join, reconnect, or cross-instance sync)
   const applyServerState = useCallback(
@@ -166,15 +169,15 @@ export const SessionWorkspacePage: React.FC = () => {
 
       const elements = state.whiteboard?.elements;
       if (elements && elements.length > 0) {
-        mergeWhiteboardElements(whiteboardStoreRef.current, elements);
-        setInitialElements(Array.from(whiteboardStoreRef.current.values()));
-        setInitialAppState(state.whiteboard?.appState);
+        mergeWhiteboardElements(legacyBoardRef.current, elements);
       }
-      if (state.code?.language) {
-        setInitialLanguage(state.code.language);
+      if (isInitial) {
+        initialSyncedRef.current = true;
+        ensureDefaultFiles(doc);
       }
+      migrateLegacyBoard();
     },
-    []
+    [migrateLegacyBoard]
   );
 
   // Real-time socket callbacks
@@ -199,28 +202,6 @@ export const SessionWorkspacePage: React.FC = () => {
     lastAckAtRef.current = Date.now();
   }, []);
 
-  const handleRemoteWhiteboardUpdate = useCallback(
-    (payload: { elements: any[]; appState?: any }, sender: { id: string; name: string; role: string }) => {
-      mergeWhiteboardElements(whiteboardStoreRef.current, payload.elements || []);
-      setRemoteWhiteboard({
-        elements: payload.elements,
-        appState: payload.appState,
-        sender,
-      });
-    },
-    []
-  );
-
-  const handleRemoteLanguageChange = useCallback(
-    (payload: { language: SupportedLanguage }, sender: { id: string; name: string; role: string }) => {
-      setRemoteLanguageChange({
-        language: payload.language,
-        sender,
-      });
-    },
-    []
-  );
-
   const handleRemoteCodeRun = useCallback(
     (payload: { language: SupportedLanguage; logs: LogItem[] }, sender: { id: string; name: string; role: string }) => {
       setRemoteCodeRun({
@@ -233,7 +214,8 @@ export const SessionWorkspacePage: React.FC = () => {
   );
 
   const handleRemoteTabChange = useCallback(
-    (payload: { tab: 'editor' | 'whiteboard' | 'scratchpad' }, sender: { id: string; name: string; role: string }) => {
+    (payload: { tab: string }, sender: { id: string; name: string; role: string }) => {
+      if (!filesRef.current.some((f) => f.id === payload.tab)) return;
       if (followMentor && (sender.role === 'mentor' || sender.role === 'org_admin' || sender.role === 'superadmin')) {
         // Don't pull a fellow away while they are writing feedback
         setActiveWorkspaceTab((current) => (current === 'feedback' ? current : payload.tab));
@@ -259,8 +241,6 @@ export const SessionWorkspacePage: React.FC = () => {
   const {
     isConnected,
     participants,
-    sendWhiteboardUpdate,
-    sendLanguageChange,
     sendCodeRun,
     sendTabChange,
     sendYjsUpdate,
@@ -268,8 +248,6 @@ export const SessionWorkspacePage: React.FC = () => {
   } = useSessionWorkspaceSocket({
     sessionId,
     onInitState: handleInitState,
-    onWhiteboardUpdate: handleRemoteWhiteboardUpdate,
-    onLanguageChange: handleRemoteLanguageChange,
     onCodeRun: handleRemoteCodeRun,
     onTabChange: handleRemoteTabChange,
     onYjsUpdate: handleYjsUpdate,
@@ -297,8 +275,11 @@ export const SessionWorkspacePage: React.FC = () => {
       if (!localEditsRef.current || Date.now() - lastAckAtRef.current < SNAPSHOT_MIN_INTERVAL_MS) return;
       localEditsRef.current = false;
       lastAckAtRef.current = Date.now();
+      // Readable copies of the text files, by file name
       const files: Record<string, string> = {};
-      for (const lang of SUPPORTED_LANGUAGES) files[lang.id] = ydoc.getText(codeTextKey(lang.id)).toString();
+      for (const f of listFiles(ydoc)) {
+        if (fileKind(f.name).kind !== 'board') files[f.name] = ydoc.getText(f.key).toString();
+      }
       sendYjsSnapshot({
         update: uint8ToBase64(Y.encodeStateAsUpdate(ydoc)),
         seen: { ...seenRef.current },
@@ -309,27 +290,22 @@ export const SessionWorkspacePage: React.FC = () => {
     return () => clearInterval(timer);
   }, [isConnected, ydoc, sendYjsSnapshot]);
 
-  // Mirror the shared notes into the textarea. Remote edits are written to the textarea right away
-  // (not on the next render), so a keystroke is always diffed against what the user actually saw.
+  // Keep the file list in sync with the shared document
   useEffect(() => {
-    const notes = ydoc.getText(NOTES_TEXT_KEY);
-    const observer = (event: Y.YTextEvent, tx: Y.Transaction) => {
-      const value = notes.toString();
-      const textarea = notesTextareaRef.current;
-      if (tx.origin !== LOCAL_ORIGIN && textarea && textarea.value !== value) {
-        const focused = document.activeElement === textarea;
-        const start = mapPositionThroughDelta(event.delta, textarea.selectionStart);
-        const end = mapPositionThroughDelta(event.delta, textarea.selectionEnd);
-        textarea.value = value;
-        if (focused) textarea.setSelectionRange(start, end);
-      }
-      setScratchpadNotes(value);
-    };
-    setScratchpadNotes(notes.toString());
-    notes.observe(observer);
-    return () => notes.unobserve(observer);
+    const map = ydoc.getMap(FILES_MAP);
+    const sync = () => setFiles(listFiles(ydoc));
+    sync();
+    map.observe(sync);
+    return () => map.unobserve(sync);
   }, [ydoc]);
 
+  // Always have a file open: the first one when nothing (or a removed file) is selected
+  useEffect(() => {
+    if (activeWorkspaceTab === 'feedback') return;
+    if (files.length > 0 && !files.some((f) => f.id === activeWorkspaceTab)) {
+      setActiveWorkspaceTab(files[0].id);
+    }
+  }, [files, activeWorkspaceTab]);
 
   // 1. Fetch Session Details
   const {
@@ -346,7 +322,7 @@ export const SessionWorkspacePage: React.FC = () => {
   const isSessionEnded = Boolean(session?.ended_at);
   useEffect(() => {
     if (session && !session.ended_at && activeWorkspaceTab === 'feedback') {
-      setActiveWorkspaceTab('whiteboard');
+      setActiveWorkspaceTab(filesRef.current[0]?.id || '');
     }
   }, [session, activeWorkspaceTab]);
 
@@ -387,21 +363,13 @@ export const SessionWorkspacePage: React.FC = () => {
   useEffect(() => {
     const elements = session?.workspace_state?.whiteboard?.elements;
     if (elements && elements.length > 0) {
-      mergeWhiteboardElements(whiteboardStoreRef.current, elements);
-      setInitialElements(Array.from(whiteboardStoreRef.current.values()));
-      setInitialAppState(session?.workspace_state?.whiteboard?.appState);
+      mergeWhiteboardElements(legacyBoardRef.current, elements);
+      migrateLegacyBoard();
     }
-  }, [session]);
+  }, [session, migrateLegacyBoard]);
 
-  // Rebuild the board from everything received whenever its tab is opened
-  useEffect(() => {
-    if (activeWorkspaceTab === 'whiteboard' && whiteboardStoreRef.current.size > 0) {
-      setInitialElements(Array.from(whiteboardStoreRef.current.values()));
-    }
-  }, [activeWorkspaceTab]);
-
-  // Tab switch handler
-  const handleSelectTab = (tab: 'editor' | 'whiteboard' | 'scratchpad' | 'feedback') => {
+  // Opening a file (or Feedback). Mentors' choice is followed by fellows in "follow presenter" mode.
+  const handleSelectTab = (tab: string) => {
     setActiveWorkspaceTab(tab);
     // Feedback is personal, so it is never shared with followers
     if (isMentorOrAdmin && tab !== 'feedback') {
@@ -409,10 +377,10 @@ export const SessionWorkspacePage: React.FC = () => {
     }
   };
 
-  // Notes edits go into the shared text as minimal changes
-  const handleScratchpadChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const notes = ydoc.getText(NOTES_TEXT_KEY);
-    applyTextDiff(notes, notes.toString(), e.target.value);
+  const handleCreateFile = (name: string) => {
+    const file = addFile(ydoc, name);
+    handleSelectTab(file.id);
+    return null;
   };
 
   // 2. Fetch Attendance (for mentors/admins)
@@ -594,87 +562,88 @@ export const SessionWorkspacePage: React.FC = () => {
     );
   }
 
-  const workspaceTabs = [
-    { key: 'whiteboard' as const, label: 'Whiteboard', icon: PenTool },
-    { key: 'editor' as const, label: 'Code Studio', icon: FileCode },
-    { key: 'scratchpad' as const, label: 'Scratchpad & Notes', icon: FileText },
-    ...(isSessionEnded ? [{ key: 'feedback' as const, label: 'Feedback', icon: MessageSquare }] : []),
-  ];
+  const activeFile = files.find((f) => f.id === activeWorkspaceTab);
+  const activeKind = activeFile ? fileKind(activeFile.name) : null;
+  // For an HTML preview, the CSS and JS come from the first file of each kind (or nothing)
+  const firstKeyFor = (lang: SupportedLanguage) => {
+    const f = files.find((x) => {
+      const k = fileKind(x.name);
+      return k.kind === 'code' && k.language === lang;
+    });
+    return f ? f.key : `unused:${lang}`;
+  };
 
   return renderLayout(
     <>
       <div className="flex flex-col xl:flex-row gap-6 items-start">
-        {/* Center: whiteboard, code studio, and notes */}
-        <div className="flex-1 min-w-0 w-full space-y-4">
-          <div className="flex items-center gap-1 flex-wrap">
-            {workspaceTabs.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handleSelectTab(key)}
-                className={`tab-pill ${activeWorkspaceTab === key ? 'tab-pill-active' : ''}`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
+        {/* Center: the workspace files (notes, code, whiteboards) */}
+        <div className="flex-1 min-w-0 w-full bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          <WorkspaceFileBar
+            files={files}
+            activeId={activeWorkspaceTab}
+            canManage={isMentorOrAdmin}
+            onSelect={handleSelectTab}
+            onCreate={handleCreateFile}
+            onRename={(file, name) => renameFile(ydoc, file, name)}
+            onRemove={(file) => removeFile(ydoc, file)}
+            trailing={
+              isSessionEnded ? (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeWorkspaceTab === 'feedback'}
+                  onClick={() => handleSelectTab('feedback')}
+                  className={`relative flex items-center gap-1.5 h-10 px-3.5 text-xs font-semibold ${
+                    activeWorkspaceTab === 'feedback' ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white/70'
+                  }`}
+                >
+                  {activeWorkspaceTab === 'feedback' && <span className="absolute inset-x-0 top-0 h-0.5 bg-kulkul-purple" aria-hidden />}
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Feedback</span>
+                </button>
+              ) : undefined
+            }
+          />
 
-          {activeWorkspaceTab === 'editor' && (
+          {activeWorkspaceTab === 'feedback' && (
+            <div className="p-4 sm:p-6 bg-slate-50">
+              <SessionFeedbackPanel sessionId={session.id} />
+            </div>
+          )}
+
+          {activeFile && activeKind?.kind === 'notes' && (
+            <TextFileEditor key={activeFile.id} ydoc={ydoc} textKey={activeFile.key} fileName={activeFile.name} />
+          )}
+
+          {activeFile && activeKind?.kind === 'code' && (
             <LiveCodeEditor
-              initialLanguage={initialLanguage}
+              key={activeFile.id}
               ydoc={ydoc}
-              onLanguageChange={(lang) => {
-                sendLanguageChange(lang);
-              }}
+              lockedLanguage={activeKind.language}
+              fileName={activeFile.name}
+              textKeyFor={(lang) => (lang === activeKind.language ? activeFile.key : firstKeyFor(lang))}
+              embedded
               onCodeRun={(lang, logs) => {
                 sendCodeRun(lang, logs);
               }}
-              remoteLanguageChange={remoteLanguageChange}
               remoteCodeRun={remoteCodeRun}
             />
           )}
 
-          {activeWorkspaceTab === 'whiteboard' && (
-            <LiveWhiteboard
-              sessionId={session.id}
+          {activeFile && activeKind?.kind === 'board' && (
+            <WhiteboardFile
+              key={activeFile.id}
+              ydoc={ydoc}
+              boardKey={activeFile.key}
+              cacheKey={activeFile.key === MAIN_BOARD_KEY ? session.id : `${session.id}:${activeFile.id}`}
               isMentor={isMentorOrAdmin}
-              initialElements={initialElements}
-              initialAppState={initialAppState}
-              onElementsChange={(elements, appState) => {
-                mergeWhiteboardElements(whiteboardStoreRef.current, elements);
-                sendWhiteboardUpdate(elements, appState);
-              }}
-              remoteWhiteboardUpdate={remoteWhiteboard}
             />
           )}
 
-          {activeWorkspaceTab === 'feedback' && <SessionFeedbackPanel sessionId={session.id} />}
-
-          {activeWorkspaceTab === 'scratchpad' && (
-            <div className="content-card space-y-4">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(scratchpadNotes);
-                    toast.success('Notes copied to clipboard');
-                  }}
-                  className="btn btn-sm btn-outline"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Notes</span>
-                </button>
-              </div>
-
-              <textarea
-                ref={notesTextareaRef}
-                value={scratchpadNotes}
-                onChange={handleScratchpadChange}
-                rows={22}
-                className="form-textarea bg-slate-50 rounded-2xl p-4 font-mono resize-none"
-                placeholder="Type lecture notes, code snippets, or shared questions here..."
-              />
+          {!activeFile && activeWorkspaceTab !== 'feedback' && (
+            <div className="p-12 flex items-center justify-center gap-2 meta-text">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading workspace files…</span>
             </div>
           )}
         </div>

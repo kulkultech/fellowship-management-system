@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import type * as Y from 'yjs';
 import { bindMonacoToYText, codeTextKey } from './collab';
@@ -368,6 +368,14 @@ interface LiveCodeEditorProps {
   remoteCodeRun?: { language: SupportedLanguage; logs: LogItem[]; sender?: { name: string; role: string } } | null;
   /** Shared document for real-time co-editing; when set it is the source of truth for the code */
   ydoc?: Y.Doc | null;
+  /** Single-file mode: the file's language (no language tabs) */
+  lockedLanguage?: SupportedLanguage;
+  /** Shared text key for each language (single-file mode maps the file and, for previews, related files) */
+  textKeyFor?: (lang: SupportedLanguage) => string;
+  /** Used for downloads and the status bar in single-file mode */
+  fileName?: string;
+  /** Sits inside the workspace frame (no own border or rounded corners) */
+  embedded?: boolean;
 }
 
 export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
@@ -380,8 +388,19 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   remoteLanguageChange,
   remoteCodeRun,
   ydoc,
+  lockedLanguage,
+  textKeyFor,
+  fileName,
+  embedded = false,
 }) => {
-  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(initialLanguage);
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(lockedLanguage || initialLanguage);
+  // Shared text key per language; a string signature keeps effects stable across renders
+  const keyFor = (lang: SupportedLanguage) => (textKeyFor ? textKeyFor(lang) : codeTextKey(lang));
+  const keysSig = SUPPORTED_LANGUAGES.map((l) => keyFor(l.id)).join('|');
+  const keyByLang = useMemo(() => {
+    const keys = keysSig.split('|');
+    return Object.fromEntries(SUPPORTED_LANGUAGES.map((l, i) => [l.id, keys[i]])) as Record<SupportedLanguage, string>;
+  }, [keysSig]);
   const [codeMap, setCodeMap] = useState<Record<SupportedLanguage, string>>({
     java: initialCodeMap?.java || LANGUAGE_SNIPPET_COLLECTIONS.java[0].code,
     html: initialCodeMap?.html || LANGUAGE_SNIPPET_COLLECTIONS.html[0].code,
@@ -432,13 +451,13 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     const sync = () => {
       setCodeMap((prev) => {
         const next = { ...prev };
-        for (const lang of langs) next[lang] = ydoc.getText(codeTextKey(lang)).toString();
+        for (const lang of langs) next[lang] = ydoc.getText(keyByLang[lang]).toString();
         return next;
       });
     };
     sync();
     const unobserve = langs.map((lang) => {
-      const ytext = ydoc.getText(codeTextKey(lang));
+      const ytext = ydoc.getText(keyByLang[lang]);
       const observer = () => {
         const value = ytext.toString();
         setCodeMap((prev) => (prev[lang] === value ? prev : { ...prev, [lang]: value }));
@@ -447,13 +466,13 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       return () => ytext.unobserve(observer);
     });
     return () => unobserve.forEach((fn) => fn());
-  }, [ydoc]);
+  }, [ydoc, keyByLang]);
 
   // Shared mode: bind the editor to the current language's shared text
   useEffect(() => {
     if (!ydoc || !editorInstance) return;
-    return bindMonacoToYText(editorInstance, ydoc.getText(codeTextKey(currentLang)));
-  }, [ydoc, editorInstance, currentLang]);
+    return bindMonacoToYText(editorInstance, ydoc.getText(keyByLang[currentLang]));
+  }, [ydoc, editorInstance, currentLang, keyByLang]);
 
   // Update initial code map if received after mount
   useEffect(() => {
@@ -489,7 +508,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   useEffect(() => {
     if (!remoteLanguageChange) return;
     const { language } = remoteLanguageChange;
-    if (language && language !== currentLang) {
+    if (language && language !== currentLang && !lockedLanguage) {
       setCurrentLang(language);
     }
   }, [remoteLanguageChange, currentLang]);
@@ -668,10 +687,11 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `main${config.extension}`;
+    const name = fileName || `main${config.extension}`;
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`Downloaded main${config.extension}`);
+    toast.success(`Downloaded ${name}`);
   };
 
   const handleOpenExternalPreview = () => {
@@ -698,13 +718,19 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl transition-all ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-[750px] w-full'
-      }`}
+      className={`flex flex-col bg-slate-900 overflow-hidden transition-all ${
+        embedded ? '' : 'border border-slate-800 rounded-3xl shadow-xl'
+      } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : embedded ? 'h-[720px] w-full' : 'h-[750px] w-full'}`}
     >
       {/* 1. TOP TOOLBAR */}
       <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs select-none">
-        {/* Left: Language Tabs */}
+        {/* Left: Language Tabs (or the file name in single-file mode) */}
+        {lockedLanguage ? (
+          <div className="flex items-center gap-2 text-slate-300 font-bold">
+            <Code2 className="w-3.5 h-3.5 text-kulkul-orange" />
+            <span>{currentConfig.name}</span>
+          </div>
+        ) : (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <div className="flex items-center gap-1.5 mr-2 text-slate-400 font-extrabold uppercase text-3xs tracking-wider">
             <Code2 className="w-3.5 h-3.5 text-kulkul-orange" />
@@ -732,6 +758,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
             );
           })}
         </div>
+        )}
 
         {/* Right: Actions & Controls */}
         <div className="flex items-center gap-2">
@@ -871,7 +898,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
             <span className="text-3xs px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-sans">
               {currentConfig.tag}
             </span>
-            <span>main{currentConfig.extension}</span>
+            <span>{fileName || `main${currentConfig.extension}`}</span>
           </span>
           <span className="text-slate-600">&bull;</span>
           <span className="text-slate-500">

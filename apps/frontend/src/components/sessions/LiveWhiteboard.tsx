@@ -29,6 +29,8 @@ interface LiveWhiteboardProps {
   /** Called with only the elements that changed (including deletions) since the last call */
   onElementsChange?: (elements: any[], appState?: any) => void;
   remoteWhiteboardUpdate?: { elements: any[]; appState?: any; sender?: { name: string; role: string } } | null;
+  /** Sits inside the workspace frame (no own border or rounded corners) */
+  embedded?: boolean;
 }
 
 export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
@@ -37,6 +39,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   initialAppState,
   onElementsChange,
   remoteWhiteboardUpdate,
+  embedded = false,
 }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -426,9 +429,13 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all ${
+      className={`bg-white overflow-hidden flex flex-col transition-all ${
+        embedded ? '' : 'rounded-3xl border border-slate-200 shadow-sm'
+      } ${
         isFullscreen
           ? 'fixed inset-0 z-50 rounded-none border-none'
+          : embedded
+          ? 'h-[720px] w-full'
           : 'h-[750px] w-full'
       }`}
     >

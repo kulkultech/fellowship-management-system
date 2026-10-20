@@ -69,7 +69,7 @@ export interface UseSessionWorkspaceSocketProps {
     sender: { id: string; name: string; role: string }
   ) => void;
   onTabChange?: (
-    payload: { tab: 'editor' | 'whiteboard' | 'scratchpad' },
+    payload: { tab: string },
     sender: { id: string; name: string; role: string }
   ) => void;
   /** A shared-document update from another participant */
@@ -379,7 +379,7 @@ export function useSessionWorkspaceSocket({
   );
 
   const sendTabChange = useCallback(
-    (tab: 'editor' | 'whiteboard' | 'scratchpad') => {
+    (tab: string) => {
       sendMessage('tab_change', {
         tab,
       });
