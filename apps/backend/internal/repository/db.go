@@ -27,7 +27,8 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 }
 
 // AutoMigrateAndSeed ensures all database tables, columns, indexes, and initial seeds exist on startup.
-func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+// seedDemoAccounts creates the local demo logins (password admin123); it must be false in production.
+func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, seedDemoAccounts bool) error {
 	if pool == nil {
 		return nil
 	}
@@ -579,17 +580,19 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		_ = pool.QueryRow(ctx, "SELECT id::text FROM organizations WHERE id = '00000000-0000-0000-0000-000000000001'").Scan(&defaultOrgID)
 	}
 
-	// Seed default Admin & Superadmin
-	passHash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
-	seedUsersQuery := `
-		INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
-		VALUES 
-			($1::uuid, 'admin@acme.org', $2, 'Acme Reviewer Admin', 'org_admin', now(), now()),
-			(NULL, 'superadmin@fellowhire.com', $2, 'FellowHire SuperAdmin', 'superadmin', now(), now())
-		ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, updated_at = now()
-	`
-	if _, err := pool.Exec(ctx, seedUsersQuery, defaultOrgID, string(passHash)); err != nil {
-		logger.Warn("automigrate: seed users error", slog.Any("error", err))
+	// Seed local demo Admin & Superadmin logins (never in production: the password is public)
+	if seedDemoAccounts {
+		passHash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+		seedUsersQuery := `
+			INSERT INTO users (organization_id, email, password_hash, name, role, created_at, updated_at)
+			VALUES 
+				($1::uuid, 'admin@acme.org', $2, 'Acme Reviewer Admin', 'org_admin', now(), now()),
+				(NULL, 'superadmin@fellowhire.com', $2, 'FellowHire SuperAdmin', 'superadmin', now(), now())
+			ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, updated_at = now()
+		`
+		if _, err := pool.Exec(ctx, seedUsersQuery, defaultOrgID, string(passHash)); err != nil {
+			logger.Warn("automigrate: seed users error", slog.Any("error", err))
+		}
 	}
 
 	// Check if a secondary sample organization exists
@@ -620,7 +623,6 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		  AND (
 		    (organizations.admin_email IS NOT NULL AND organizations.admin_email <> '' AND LOWER(organizations.admin_email) = LOWER(users.email))
 		    OR (organizations.contact_email IS NOT NULL AND organizations.contact_email <> '' AND LOWER(organizations.contact_email) = LOWER(users.email))
-		    OR (organizations.contact_email IS NOT NULL AND LOWER(organizations.contact_email) LIKE '%' || LOWER(users.email) || '%')
 		  )
 		  AND (users.organization_id IS NULL OR users.role = 'candidate');
 

@@ -85,7 +85,7 @@ func run() error {
 			dbPool = pool
 			defer dbPool.Close()
 
-			if err := repository.AutoMigrateAndSeed(ctx, dbPool, logger); err != nil {
+			if err := repository.AutoMigrateAndSeed(ctx, dbPool, logger, cfg.AppEnv != "production"); err != nil {
 				logger.Error("database auto-migration failed", "error", err)
 				if cfg.SentryDSN != "" {
 					sentry.CaptureException(fmt.Errorf("database auto-migration failed: %w", err))
