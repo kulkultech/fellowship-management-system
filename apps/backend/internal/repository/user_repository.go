@@ -185,7 +185,8 @@ func isSuperadminEmail(email string) bool {
 		domain = strings.ToLower(parts[1])
 	}
 
-	if domain == "kulkul.tech" || domain == "kulkul.com" || email == "superadmin@fellowhire.com" {
+	// Only our own domain is trusted by default; add others with SUPERADMIN_EMAILS
+	if domain == "kulkul.tech" {
 		return true
 	}
 
@@ -264,7 +265,6 @@ func (r *UserRepository) SyncUserOrgStatus(ctx context.Context, u *model.User) (
 		WHERE slug <> 'acme' 
 		  AND (
 		    LOWER(contact_email) = $1 
-		    OR LOWER(contact_email) LIKE '%' || $1 || '%'
 		    OR (admin_email IS NOT NULL AND LOWER(admin_email) = $1)
 		  )
 		ORDER BY created_at DESC 
@@ -442,7 +442,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		// If user is candidate and logging into company portal with a corporate custom domain, check domain relink
 		if u.Role == "candidate" && !id.IsCandidate && !isPublicEmailDomain(domain) {
 			var relinkID uuid.UUID
-			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE slug <> 'acme' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&relinkID)
+			err := r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'acme' AND (LOWER(contact_email) LIKE $1 OR LOWER(contact_email) = $2) LIMIT 1", "%@"+domain, email).Scan(&relinkID)
 			if err == nil {
 				_, _ = r.pool.Exec(ctx, "UPDATE users SET organization_id = $2, role = 'org_admin', updated_at = now() WHERE id = $1", u.ID, relinkID)
 				u.OrganizationID = &relinkID
@@ -467,7 +467,6 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 			WHERE slug <> 'acme' 
 			  AND (
 			    LOWER(contact_email) = $1 
-			    OR LOWER(contact_email) LIKE '%' || $1 || '%'
 			    OR (admin_email IS NOT NULL AND LOWER(admin_email) = $1)
 			  )
 			ORDER BY created_at DESC 
@@ -479,7 +478,7 @@ func (r *UserRepository) FindOrCreateByOAuth(ctx context.Context, id OAuthIdenti
 		} else if !id.IsCandidate && !isPublicEmailDomain(domain) {
 			// B. Corporate custom domain matching approved organization
 			var domainOrgID uuid.UUID
-			err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'acme' AND (contact_email ILIKE $1 OR contact_email ILIKE $2) LIMIT 1", "%@"+domain, "%"+email+"%").Scan(&domainOrgID)
+			err = r.pool.QueryRow(ctx, "SELECT id FROM organizations WHERE status = 'approved' AND slug <> 'acme' AND (LOWER(contact_email) LIKE $1 OR LOWER(contact_email) = $2) LIMIT 1", "%@"+domain, email).Scan(&domainOrgID)
 			if err == nil {
 				orgID = &domainOrgID
 				role = "org_admin"

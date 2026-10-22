@@ -25,6 +25,8 @@ type OAuthHandler struct {
 	cookieDom  string
 	successURL string
 	logger     *slog.Logger
+	// devLogin allows the mock_dev_code sign-in (any email, no Google). Never true in production.
+	devLogin bool
 }
 
 func NewOAuthHandler(
@@ -37,6 +39,7 @@ func NewOAuthHandler(
 	cookieDom string,
 	successURL string,
 	logger *slog.Logger,
+	devLogin bool,
 ) *OAuthHandler {
 	return &OAuthHandler{
 		google:     google,
@@ -48,6 +51,7 @@ func NewOAuthHandler(
 		cookieDom:  cookieDom,
 		successURL: successURL,
 		logger:     logger,
+		devLogin:   devLogin,
 	}
 }
 
@@ -93,6 +97,10 @@ func (h *OAuthHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.google == nil {
+		if !h.devLogin {
+			httpx.Error(w, http.StatusServiceUnavailable, "Google sign-in is not configured")
+			return
+		}
 		// If Google OAuth credentials are not set in environment, mock direct callback for development
 		redirectURL := "/api/v1/auth/oauth/google/callback?state=" + state + "&code=mock_dev_code"
 		if returnTo != "" {
@@ -146,16 +154,9 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		returnTo = r.URL.Query().Get("return_to")
 	}
 
-	// Verify state token
-	stateValid := false
-	if queryState != "" {
-		if err == nil && stateCookie != nil {
-			stateValid = (subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(queryState)) == 1)
-		} else {
-			// If cross-site redirect cookie was dropped by browser privacy sandbox, allow if queryState is well-formed
-			stateValid = len(queryState) >= 16
-		}
-	}
+	// Verify state token: it must match the cookie set when this browser started sign-in
+	stateValid := queryState != "" && err == nil && stateCookie != nil && stateCookie.Value != "" &&
+		subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(queryState)) == 1
 
 	if !stateValid {
 		h.logger.Warn("oauth state validation failed",
@@ -183,6 +184,11 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	var profile auth.GoogleProfile
 	if code == "mock_dev_code" || h.google == nil {
+		if !h.devLogin {
+			h.logger.Warn("oauth: dev sign-in refused outside development")
+			httpx.Error(w, http.StatusBadRequest, "invalid authorization code")
+			return
+		}
 		// Mock profile for local development without active GCP OAuth Client secret
 		mockEmail := "candidate@example.com"
 		mockName := "Sample Candidate"

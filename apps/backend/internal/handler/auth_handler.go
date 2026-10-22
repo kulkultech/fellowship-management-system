@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
@@ -170,37 +171,13 @@ func (h *AuthHandler) RegisterCandidate(w http.ResponseWriter, r *http.Request) 
 
 	existingUser, err := h.userRepo.GetByEmail(r.Context(), req.Email)
 	if err == nil && existingUser != nil {
-		if existingUser.PasswordHash != "" {
-			httpx.Error(w, http.StatusConflict, "An account with this email already exists. Please sign in.")
+		// Never set a password on an existing account here: anyone could type someone else's email.
+		// Google-only accounts can add a password through "Forgot password", which proves the mailbox.
+		if existingUser.PasswordHash == "" {
+			httpx.Error(w, http.StatusConflict, "An account with this email already exists. Continue with Google, or use Forgot password to set a password.")
 			return
 		}
-		// Existing account from Google OAuth (empty password_hash)
-		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "failed to secure password")
-			return
-		}
-		_ = h.userRepo.SetPassword(r.Context(), existingUser.ID, string(hash))
-		if !existingUser.EmailVerified {
-			token, _ := generateActivationToken()
-			expiresAt := time.Now().Add(24 * time.Hour)
-			_ = h.userRepo.SetActivationToken(r.Context(), existingUser.ID, token, expiresAt)
-			activationURL := fmt.Sprintf("%s/activate?token=%s", h.frontendURL, token)
-			if h.emailSvc != nil {
-				_ = h.emailSvc.SendAccountActivationEmail(existingUser.Email, existingUser.Name, activationURL)
-			}
-			httpx.JSON(w, http.StatusOK, map[string]any{
-				"message": "Password saved! Please check your email for the activation link to complete setup.",
-				"requires_activation": true,
-				"email": existingUser.Email,
-			})
-			return
-		}
-		httpx.JSON(w, http.StatusOK, map[string]any{
-			"message": "Password set successfully! You can now sign in using your email and password.",
-			"requires_activation": false,
-			"email": existingUser.Email,
-		})
+		httpx.Error(w, http.StatusConflict, "An account with this email already exists. Please sign in.")
 		return
 	}
 
@@ -235,6 +212,16 @@ func (h *AuthHandler) RegisterCandidate(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// isSignedInAs reports whether this request carries a valid session for the given user.
+func (h *AuthHandler) isSignedInAs(r *http.Request, userID uuid.UUID) bool {
+	cookie, err := r.Cookie(auth.AuthCookieName)
+	if err != nil || cookie.Value == "" {
+		return false
+	}
+	claims, err := h.authSvc.ValidateToken(cookie.Value)
+	return err == nil && claims != nil && claims.UserID == userID
+}
+
 func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 	var req RegisterCompanyRequest
 	if err := httpx.Decode(w, r, &req); err != nil {
@@ -260,6 +247,16 @@ func (h *AuthHandler) RegisterCompany(w http.ResponseWriter, r *http.Request) {
 	if req.AdminPassword != "" && len(req.AdminPassword) < 6 {
 		httpx.Error(w, http.StatusBadRequest, "admin password must be at least 6 characters")
 		return
+	}
+
+	// An existing account can only be made this company's admin by its owner: signed in as it,
+	// or entering its current password
+	if existing, err := h.userRepo.GetByEmail(r.Context(), req.AdminEmail); err == nil && existing != nil && !h.isSignedInAs(r, existing.ID) {
+		if existing.PasswordHash == "" || req.AdminPassword == "" ||
+			bcrypt.CompareHashAndPassword([]byte(existing.PasswordHash), []byte(req.AdminPassword)) != nil {
+			httpx.Error(w, http.StatusConflict, "An account with this admin email already exists. Sign in with it first (or enter its current password), then register your company.")
+			return
+		}
 	}
 
 	// 1. Create Organization in pending_approval status so superadmin must approve before company can access workspace
@@ -952,22 +949,23 @@ func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 
 	var user *model.User
 	if existingUser != nil {
+		// Only the invited person may accept for an existing account: signed in as it, or with its
+		// current password. (Anyone holding the link must not be able to take the account over.)
+		if !h.isSignedInAs(r, existingUser.ID) {
+			if existingUser.PasswordHash == "" {
+				httpx.Error(w, http.StatusUnauthorized, "Sign in with Google as "+inv.Email+" to accept this invitation.")
+				return
+			}
+			if req.Password == "" || bcrypt.CompareHashAndPassword([]byte(existingUser.PasswordHash), []byte(req.Password)) != nil {
+				httpx.Error(w, http.StatusUnauthorized, "Incorrect password for "+inv.Email+".")
+				return
+			}
+		}
+
 		// Existing user: promote role and assign organization
 		userName := existingUser.Name
 		if req.Name != "" {
 			userName = req.Name
-		}
-		if req.Password != "" {
-			if len(req.Password) < 6 {
-				httpx.Error(w, http.StatusBadRequest, "password must be at least 6 characters")
-				return
-			}
-			hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-			if err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "failed to hash password")
-				return
-			}
-			_ = h.userRepo.SetPassword(ctx, existingUser.ID, string(hash))
 		}
 
 		if err := h.userRepo.UpdateOrgAndRole(ctx, existingUser.ID, inv.OrganizationID, inv.Role, userName); err != nil {

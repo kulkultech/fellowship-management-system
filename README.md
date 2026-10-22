@@ -129,7 +129,7 @@ make dev
 
 ## 🔑 Default Development Credentials
 
-For local testing and administration:
+For local testing and administration. These accounts are only created when `APP_ENV` is not `production`.
 
 | Role | Email | Password |
 |---|---|---|

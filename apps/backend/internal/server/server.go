@@ -125,6 +125,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		cfg.CookieDomain,
 		cfg.GoogleOAuth.FrontendSuccessURL,
 		logger,
+		// Dev sign-in only locally: never in production, and never once real Google sign-in is set up
+		cfg.AppEnv != "production" && googleOAuth == nil,
 	)
 
 	sentryHandler := sentryhttp.New(sentryhttp.Options{

@@ -31,7 +31,7 @@ func main() {
 	userRepo := repository.NewUserRepository(pool)
 
 	logger.Info("Running auto-migration...")
-	if err := repository.AutoMigrateAndSeed(ctx, pool, logger); err != nil {
+	if err := repository.AutoMigrateAndSeed(ctx, pool, logger, cfg.AppEnv != "production"); err != nil {
 		logger.Error("failed to automigrate database", "error", err)
 		os.Exit(1)
 	}
