@@ -24,6 +24,8 @@ type Config struct {
 	GoogleCalendar     GoogleCalendarConfig
 	GitHubToken        string
 	RedisURL           string
+	// CodeRunnerURL is the Piston code runner (e.g. http://piston.code-runner.svc:2000); empty disables server-side runs
+	CodeRunnerURL      string
 	Storage            StorageConfig
 	Cloudflare         CloudflareConfig
 	SES                SESConfig
@@ -145,6 +147,7 @@ func Load() (*Config, error) {
 		},
 		GitHubToken: getString("GITHUB_TOKEN", ""),
 		RedisURL:    getString("REDIS_URL", ""),
+		CodeRunnerURL: getString("CODE_RUNNER_URL", ""),
 		Storage: StorageConfig{
 			Provider:       getString("STORAGE_PROVIDER", "r2"),
 			LocalPath:      getString("LOCAL_STORAGE_PATH", "./uploads"),

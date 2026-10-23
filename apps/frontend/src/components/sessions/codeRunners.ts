@@ -1,6 +1,7 @@
 /**
  * Fellowship Live Session Code Execution Engines
- * First-class support for: Java, Python, JavaScript, TypeScript, HTML, CSS.
+ * In the browser: Python (Pyodide), JavaScript, TypeScript and HTML/CSS previews.
+ * Everything else (Java, Go, Rust, C, ...) runs on the server's code runner (runOnServer).
  */
 
 export interface LogItem {
@@ -72,222 +73,6 @@ export async function getOrLoadPyodide(): Promise<any> {
   });
 
   return pyodideLoadPromise;
-}
-
-/**
- * 1. Java Execution Engine
- * Emulates OpenJDK 21 compile + run cycle with Java standard library support.
- */
-export async function runJavaCode(code: string): Promise<ExecutionResult> {
-  const startTime = performance.now();
-  const timeStr = new Date().toLocaleTimeString();
-  const logs: LogItem[] = [];
-
-  // Check basic class structure
-  if (!code.includes('class')) {
-    return {
-      durationMs: 0,
-      success: false,
-      logs: [
-        {
-          id: String(Date.now()),
-          type: 'error',
-          content: 'javac: error: class definition not found. Ensure code contains: public class Main { ... }',
-          timestamp: timeStr,
-        },
-      ],
-    };
-  }
-
-  const hasMain = /public\s+static\s+void\s+main\s*\(\s*String\s*(\[\s*\]\s*\w+|\w+\s*\[\s*\]|\.\.\.\s*\w+)\s*\)/.test(code);
-  if (!hasMain) {
-    return {
-      durationMs: 0,
-      success: false,
-      logs: [
-        {
-          id: String(Date.now()),
-          type: 'error',
-          content: 'Error: Main method not found in class Main, please define the main method as:\n   public static void main(String[] args)',
-          timestamp: timeStr,
-        },
-      ],
-    };
-  }
-
-  logs.push({
-    id: `${Date.now()}-build`,
-    type: 'info',
-    content: '$ javac Main.java && java Main (OpenJDK 21.0.2)',
-    timestamp: timeStr,
-  });
-
-  const capturedOutput: string[] = [];
-
-  // Java Standard Emulation Classes
-  class JavaArrayList<T> {
-    items: T[] = [];
-    add(item: T) { this.items.push(item); return true; }
-    get(i: number) { return this.items[i]; }
-    set(i: number, item: T) { this.items[i] = item; }
-    size() { return this.items.length; }
-    remove(i: number) { return this.items.splice(i, 1)[0]; }
-    contains(item: T) { return this.items.includes(item); }
-    clear() { this.items = []; }
-    isEmpty() { return this.items.length === 0; }
-    toString() { return `[${this.items.join(', ')}]`; }
-    [Symbol.iterator]() { return this.items[Symbol.iterator](); }
-  }
-
-  class JavaHashMap<K, V> {
-    map = new Map<K, V>();
-    put(k: K, v: V) { this.map.set(k, v); }
-    get(k: K) { return this.map.get(k); }
-    containsKey(k: K) { return this.map.has(k); }
-    size() { return this.map.size; }
-    clear() { this.map.clear(); }
-    toString() {
-      return `{${Array.from(this.map.entries()).map(([k, v]) => `${k}=${v}`).join(', ')}}`;
-    }
-  }
-
-  const sysOutPrintln = (...args: any[]) => {
-    capturedOutput.push(args.map(formatJavaValue).join(''));
-  };
-
-  const sysOutPrint = (...args: any[]) => {
-    const text = args.map(formatJavaValue).join('');
-    if (capturedOutput.length === 0) {
-      capturedOutput.push(text);
-    } else {
-      capturedOutput[capturedOutput.length - 1] += text;
-    }
-  };
-
-  const sysOutPrintf = (formatStr: string, ...args: any[]) => {
-    let argIdx = 0;
-    const formatted = formatStr.replace(/%([sdfbxd%])/g, (match, spec) => {
-      if (spec === '%') return '%';
-      if (argIdx >= args.length) return match;
-      const val = args[argIdx++];
-      if (spec === 'd' || spec === 'x') return String(Math.floor(Number(val)));
-      if (spec === 'f') return Number(val).toFixed(2);
-      if (spec === 'b') return String(Boolean(val));
-      return String(val);
-    }).replace(/\\n/g, '\n');
-
-    // Split formatted lines
-    const lines = formatted.split('\n');
-    lines.forEach((line, idx) => {
-      if (idx === lines.length - 1 && line === '') return;
-      capturedOutput.push(line);
-    });
-  };
-
-  function formatJavaValue(v: any): string {
-    if (v === null) return 'null';
-    if (v === undefined) return 'null';
-    if (typeof v === 'object' && v.toString) return v.toString();
-    return String(v);
-  }
-
-  try {
-    // Extract main method body
-    const mainMatch = code.match(/public\s+static\s+void\s+main\s*\([^)]*\)\s*\{([\s\S]*)/);
-    if (!mainMatch) throw new Error('Main method body extraction failed');
-
-    // Match closing brace of main
-    let depth = 1;
-    let mainBody = '';
-    const remainder = mainMatch[1];
-    for (let i = 0; i < remainder.length; i++) {
-      const ch = remainder[i];
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) break;
-      }
-      mainBody += ch;
-    }
-
-    // Transpile Java statements to executable JavaScript
-    let jsCode = mainBody
-      // System.out calls
-      .replace(/System\.out\.println\s*\(/g, '__sysOutPrintln(')
-      .replace(/System\.out\.print\s*\(/g, '__sysOutPrint(')
-      .replace(/System\.out\.printf\s*\(/g, '__sysOutPrintf(')
-      // Java collections
-      .replace(/new\s+ArrayList<[^>]*>\s*\(\)/g, 'new __JavaArrayList()')
-      .replace(/new\s+HashMap<[^>]*>\s*\(\)/g, 'new __JavaHashMap()')
-      .replace(/List<[^>]+>\s+/g, 'let ')
-      .replace(/ArrayList<[^>]+>\s+/g, 'let ')
-      .replace(/Map<[^>]+>\s+/g, 'let ')
-      .replace(/HashMap<[^>]+>\s+/g, 'let ')
-      // Java primitive & object types
-      .replace(/\b(int|long|double|float|boolean|char|String|var|final)\s+/g, 'let ')
-      // For-each loop: for (Type x : iterable) -> for (const x of iterable)
-      .replace(/for\s*\(\s*(?:let|[A-Za-z0-9_<>]+)\s+([A-Za-z0-9_]+)\s*:\s*([^)]+)\)/g, 'for (const $1 of $2)')
-      // .size() for arraylist -> .size()
-      // String .length() -> .length
-      .replace(/\.length\(\)/g, '.length');
-
-    // Execute within isolated evaluation context
-    const executor = new Function(
-      '__JavaArrayList',
-      '__JavaHashMap',
-      '__sysOutPrintln',
-      '__sysOutPrint',
-      '__sysOutPrintf',
-      jsCode
-    );
-
-    executor(JavaArrayList, JavaHashMap, sysOutPrintln, sysOutPrint, sysOutPrintf);
-  } catch (err: any) {
-    // If transpilation failed or had advanced Java features, fallback to static regex line output
-    const printRegex = /System\.out\.(?:println|print|printf)\((.*?)\);/g;
-    let match;
-    while ((match = printRegex.exec(code)) !== null) {
-      const raw = match[1].replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
-      if (!capturedOutput.includes(raw)) {
-        capturedOutput.push(raw);
-      }
-    }
-
-    if (capturedOutput.length === 0) {
-      return {
-        durationMs: Math.round(performance.now() - startTime),
-        success: false,
-        logs: [
-          ...logs,
-          {
-            id: String(Date.now()),
-            type: 'error',
-            content: `Java Runtime Exception: ${err.message || String(err)}`,
-            timestamp: timeStr,
-          },
-        ],
-      };
-    }
-  }
-
-  const durationMs = Math.round(performance.now() - startTime);
-  const resultLogs: LogItem[] = [
-    ...logs,
-    ...capturedOutput.map((line, idx) => ({
-      id: `${Date.now()}-${idx}`,
-      type: 'log' as const,
-      content: line,
-      timestamp: timeStr,
-    })),
-    {
-      id: `${Date.now()}-done`,
-      type: 'success' as const,
-      content: `BUILD SUCCESSFUL in ${durationMs}ms (Process finished with exit code 0)`,
-      timestamp: timeStr,
-    },
-  ];
-
-  return { logs: resultLogs, durationMs, success: true };
 }
 
 /**
@@ -565,4 +350,69 @@ export function generateHtmlPreview(html: string, css: string, js: string): stri
   <\/script>
 </body>
 </html>`;
+}
+
+interface ServerStage {
+  stdout: string;
+  stderr: string;
+  code: number | null;
+  signal?: string;
+}
+
+/**
+ * Runs a file on the server's code runner (a sandbox with time and memory limits and no network).
+ * Used for compiled and other languages that cannot run in the browser.
+ */
+export async function runOnServer(language: string, languageName: string, fileName: string, code: string): Promise<ExecutionResult> {
+  const { apiClient } = await import('@/services/apiClient');
+  const start = performance.now();
+  const timestamp = new Date().toLocaleTimeString();
+  const logs: LogItem[] = [];
+  let n = 0;
+  const add = (type: LogItem['type'], content: string) => {
+    if (content) logs.push({ id: `${Date.now()}-${n++}`, type, content, timestamp });
+  };
+  const addOutput = (text: string, type: LogItem['type']) => {
+    const trimmed = text.replace(/\n+$/, '');
+    if (trimmed) trimmed.split('\n').forEach((line) => add(type, line));
+  };
+
+  try {
+    const { data } = await apiClient.post('/code/run', { language, file_name: fileName, code });
+    const compile: ServerStage | undefined = data.compile;
+    const run: ServerStage = data.run;
+    const version = data.version ? ` ${data.version}` : '';
+    if (compile && (compile.stdout || compile.stderr)) {
+      addOutput(compile.stdout, 'log');
+      addOutput(compile.stderr, 'error');
+    }
+    if (compile && compile.code !== 0 && compile.code !== null) {
+      add('error', `Compile failed (exit code ${compile.code}).`);
+      return { logs, durationMs: Math.round(performance.now() - start), success: false };
+    }
+    addOutput(run.stdout, 'log');
+    addOutput(run.stderr, 'error');
+    const ms = Math.round(performance.now() - start);
+    if (run.signal) {
+      add('error', `Stopped (${run.signal}): the program hit the time or memory limit.`);
+      return { logs, durationMs: ms, success: false };
+    }
+    if (run.code !== 0 && run.code !== null) {
+      add('error', `Exited with code ${run.code} (${languageName}${version}).`);
+      return { logs, durationMs: ms, success: false };
+    }
+    add('success', `Finished in ${ms}ms (${languageName}${version}).`);
+    return { logs, durationMs: ms, success: true };
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const message = err?.response?.data?.error || err?.message || 'Run failed';
+    if (status === 503) {
+      add('error', `${languageName} runs on the code runner, which isn't available yet (${message}).`);
+    } else if (status === 429) {
+      add('warn', message);
+    } else {
+      add('error', `Run failed: ${message}`);
+    }
+    return { logs, durationMs: Math.round(performance.now() - start), success: false };
+  }
 }

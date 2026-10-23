@@ -21,6 +21,20 @@ describe('workspace files', () => {
     expect(fileKind('App.TS')).toEqual({ kind: 'code', language: 'typescript' });
     expect(fileKind('board.excalidraw')).toEqual({ kind: 'board' });
     expect(fileKind('data.csv')).toEqual({ kind: 'notes' });
+    expect(fileKind('main.go')).toEqual({ kind: 'code', language: 'go' });
+    expect(fileKind('lib.rs')).toEqual({ kind: 'code', language: 'rust' });
+    expect(fileKind('algo.cc')).toEqual({ kind: 'code', language: 'cpp' });
+    expect(fileKind('Main.java')).toEqual({ kind: 'code', language: 'java' });
+    expect(fileKind('query.sql')).toEqual({ kind: 'code', language: 'sql' });
+    expect(fileKind('deploy.sh')).toEqual({ kind: 'code', language: 'bash' });
+  });
+
+  it('starts a new code file from its starter program', () => {
+    const doc = new Y.Doc();
+    const go = addFile(doc, 'main.go');
+    expect(doc.getText(go.key).toString()).toContain('Hello from Go!');
+    const notes = addFile(doc, 'todo.txt');
+    expect(doc.getText(notes.key).toString()).toBe('');
   });
 
   it('checks file names', () => {

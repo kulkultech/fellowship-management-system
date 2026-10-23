@@ -24,7 +24,7 @@ import {
   LiveCodeEditor,
   SupportedLanguage,
   LANGUAGE_SNIPPET_COLLECTIONS,
-  SUPPORTED_LANGUAGES,
+  LEGACY_LANGUAGE_IDS,
 } from '@/components/sessions/LiveCodeEditor';
 import {
   REMOTE_ORIGIN,
@@ -129,7 +129,7 @@ export const SessionWorkspacePage: React.FC = () => {
 
   const docHasContent = (doc: Y.Doc) =>
     doc.getText(NOTES_TEXT_KEY).length > 0 ||
-    SUPPORTED_LANGUAGES.some((l) => doc.getText(codeTextKey(l.id)).length > 0);
+    LEGACY_LANGUAGE_IDS.some((id) => doc.getText(codeTextKey(id)).length > 0);
 
   // Moves a whiteboard drawn before files existed into whiteboard.excalidraw (once, when that board is empty)
   const migrateLegacyBoard = useCallback(() => {
@@ -154,9 +154,9 @@ export const SessionWorkspacePage: React.FC = () => {
       if (isInitial && entries.length === 0 && !hadContent) {
         // First use of this workspace: start from the saved plain text or the starter templates.
         // Seeds are deterministic, so browsers seeding at the same time end up with one copy.
-        for (const lang of SUPPORTED_LANGUAGES) {
-          const key = codeTextKey(lang.id);
-          const content = state.code?.files?.[lang.id] || LANGUAGE_SNIPPET_COLLECTIONS[lang.id][0].code;
+        for (const id of LEGACY_LANGUAGE_IDS) {
+          const key = codeTextKey(id);
+          const content = state.code?.files?.[id] || LANGUAGE_SNIPPET_COLLECTIONS[id][0].code;
           if (doc.getText(key).length === 0) Y.applyUpdate(doc, deterministicSeedUpdate(key, content), 'seed');
         }
         if (doc.getText(NOTES_TEXT_KEY).length === 0) {

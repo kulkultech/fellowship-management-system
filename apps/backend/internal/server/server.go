@@ -20,6 +20,7 @@ import (
 	"github.com/kulkul/backend/internal/ai"
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/calendar"
+	"github.com/kulkul/backend/internal/coderunner"
 	"github.com/kulkul/backend/internal/config"
 	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/github"
@@ -106,6 +107,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	}
 	credentialHandler := handler.NewCredentialHandler(credentialRepo, applicantRepo, programRepo, orgRepo, trackRepo, userRepo, emailSvc, cfg.SES.FrontendURL)
 	credentialHandler.SetBadgeSigner(openbadges.NewSigner(cfg.JWTSecret))
+	codeHandler := handler.NewCodeHandler(coderunner.New(cfg.CodeRunnerURL))
 
 	var googleOAuth *auth.GoogleOAuth
 	if cfg.GoogleOAuth.Enabled() {
@@ -342,6 +344,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			protected.Put("/sessions/{sessionId}/feedback/organizer", sessionHandler.SaveFeedbackToOrganizer)
 			protected.Put("/sessions/{sessionId}/feedback/fellows/{applicantId}", sessionHandler.SaveFeedbackToFellow)
 			protected.Get("/holidays", sessionHandler.GetHolidays)
+			// Running workspace code files (Piston code runner)
+			protected.Get("/code/languages", codeHandler.Languages)
+			protected.Post("/code/run", codeHandler.Run)
 
 			// Fellowship Cohort Assignments & Submissions
 			protected.Route("/programs/{programId}/assignments", func(a chi.Router) {

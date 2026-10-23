@@ -1,53 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  runJavaCode,
   runPythonCode,
   runJsOrTsCode,
   generateHtmlPreview,
 } from './codeRunners';
 
 describe('codeRunners execution suite', () => {
-  it('should execute Java code with System.out.println and ArrayList', async () => {
-    const javaCode = `
-import java.util.ArrayList;
-import java.util.List;
-
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello Fellowship!");
-        List<String> tracks = new ArrayList<>();
-        tracks.add("Go Backend");
-        tracks.add("React Frontend");
-        for (String track : tracks) {
-            System.out.println("Track: " + track);
-        }
-    }
-}
-    `;
-
-    const res = await runJavaCode(javaCode);
-    expect(res.success).toBe(true);
-    expect(res.logs.some((l) => l.content.includes('$ javac Main.java'))).toBe(true);
-    expect(res.logs.some((l) => l.content === 'Hello Fellowship!')).toBe(true);
-    expect(res.logs.some((l) => l.content === 'Track: Go Backend')).toBe(true);
-    expect(res.logs.some((l) => l.content === 'Track: React Frontend')).toBe(true);
-    expect(res.logs.some((l) => l.content.includes('BUILD SUCCESSFUL'))).toBe(true);
-  });
-
-  it('should detect missing main method in Java', async () => {
-    const javaCode = `
-public class Main {
-    public void run() {
-        System.out.println("No main");
-    }
-}
-    `;
-
-    const res = await runJavaCode(javaCode);
-    expect(res.success).toBe(false);
-    expect(res.logs[0].content).toContain('Main method not found');
-  });
-
   it('should execute JavaScript code and capture logs', async () => {
     const jsCode = `
       const numbers = [1, 2, 3, 4, 5];

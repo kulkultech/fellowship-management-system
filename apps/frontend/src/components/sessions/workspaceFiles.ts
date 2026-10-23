@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { LANGUAGE_SNIPPET_COLLECTIONS, SUPPORTED_LANGUAGES, SupportedLanguage } from './LiveCodeEditor';
+import { LANGUAGE_SNIPPET_COLLECTIONS, LEGACY_LANGUAGE_IDS, SUPPORTED_LANGUAGES, SupportedLanguage } from './LiveCodeEditor';
 import { LOCAL_ORIGIN, NOTES_TEXT_KEY, codeTextKey } from './collab';
 
 // The workspace is a set of files in the shared document. A file's extension decides how it opens:
@@ -18,14 +18,10 @@ export interface WorkspaceFile {
 
 export type FileKind = { kind: 'notes' } | { kind: 'code'; language: SupportedLanguage } | { kind: 'board' };
 
-const CODE_EXTENSIONS: Record<string, SupportedLanguage> = {
-  py: 'python',
-  js: 'javascript',
-  ts: 'typescript',
-  java: 'java',
-  html: 'html',
-  css: 'css',
-};
+// Every code language opens by its extensions (e.g. .py, .go, .rs, .cpp)
+const CODE_EXTENSIONS: Record<string, SupportedLanguage> = Object.fromEntries(
+  SUPPORTED_LANGUAGES.flatMap((l) => [l.extension, ...(l.extensions || [])].map((ext) => [ext.slice(1), l.id]))
+);
 
 export const extensionOf = (name: string) => {
   const i = name.lastIndexOf('.');
@@ -39,7 +35,8 @@ export const fileKind = (name: string): FileKind => {
   return { kind: 'notes' };
 };
 
-export const SUPPORTED_EXTENSIONS_HINT = '.txt / .md notes, .py .js .ts .java .html .css code, .excalidraw whiteboard';
+export const SUPPORTED_EXTENSIONS_HINT =
+  '.txt or .md for notes, .excalidraw for a whiteboard, or any code file (.py, .js, .java, .go, .rs, .c, .cpp, .rb, .php, .sql…)';
 
 /** Checks a file name; returns an error message or null. */
 export const validateFileName = (name: string, files: WorkspaceFile[], exceptId?: string): string | null => {
@@ -67,7 +64,15 @@ export const addFile = (doc: Y.Doc, name: string): WorkspaceFile => {
     key: fileKind(name).kind === 'board' ? `board:${id}` : `file:${id}`,
     created: Date.now(),
   };
-  doc.transact(() => doc.getMap<WorkspaceFile>(FILES_MAP).set(id, file), LOCAL_ORIGIN);
+  const kind = fileKind(name);
+  doc.transact(() => {
+    doc.getMap<WorkspaceFile>(FILES_MAP).set(id, file);
+    // A new code file starts from its language's starter program
+    if (kind.kind === 'code') {
+      const starter = LANGUAGE_SNIPPET_COLLECTIONS[kind.language]?.[0]?.code;
+      if (starter) doc.getText(file.key).insert(0, starter);
+    }
+  }, LOCAL_ORIGIN);
   return file;
 };
 
@@ -96,7 +101,7 @@ export const ensureDefaultFiles = (doc: Y.Doc) => {
   const map = doc.getMap<WorkspaceFile>(FILES_MAP);
   if (map.size > 0) return;
   const files: WorkspaceFile[] = [{ id: 'notes', name: 'notes.txt', key: NOTES_TEXT_KEY, created: 1 }];
-  SUPPORTED_LANGUAGES.forEach((lang, i) => {
+  SUPPORTED_LANGUAGES.filter((l) => LEGACY_LANGUAGE_IDS.includes(l.id)).forEach((lang, i) => {
     const text = doc.getText(codeTextKey(lang.id)).toString().trim();
     const starter = (LANGUAGE_SNIPPET_COLLECTIONS[lang.id][0]?.code || '').trim();
     if (text && text !== starter) {

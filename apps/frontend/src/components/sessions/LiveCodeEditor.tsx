@@ -23,31 +23,59 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
-  runJavaCode,
+  runOnServer,
   runPythonCode,
   runJsOrTsCode,
   generateHtmlPreview,
   LogItem,
 } from './codeRunners';
 
-export type SupportedLanguage = 'java' | 'html' | 'css' | 'javascript' | 'typescript' | 'python';
+export type SupportedLanguage =
+  | 'java' | 'html' | 'css' | 'javascript' | 'typescript' | 'python'
+  | 'go' | 'rust' | 'c' | 'cpp' | 'csharp' | 'kotlin' | 'swift' | 'ruby' | 'php' | 'bash' | 'sql'
+  | 'lua' | 'r' | 'scala' | 'dart' | 'haskell' | 'elixir' | 'perl';
 
 interface LanguageConfig {
   id: SupportedLanguage;
   name: string;
   tag: string;
   extension: string;
+  /** Other file extensions that open as this language */
+  extensions?: string[];
   monacoLang: string;
+  /** Compiled and run on the server's code runner (others run in the browser) */
+  server?: boolean;
 }
 
 export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
-  { id: 'java', name: 'Java', tag: 'JAVA', extension: '.java', monacoLang: 'java' },
-  { id: 'html', name: 'HTML', tag: 'HTML', extension: '.html', monacoLang: 'html' },
+  { id: 'java', name: 'Java', tag: 'JAVA', extension: '.java', monacoLang: 'java', server: true },
+  { id: 'html', name: 'HTML', tag: 'HTML', extension: '.html', extensions: ['.htm'], monacoLang: 'html' },
   { id: 'css', name: 'CSS', tag: 'CSS', extension: '.css', monacoLang: 'css' },
-  { id: 'javascript', name: 'JavaScript', tag: 'JS', extension: '.js', monacoLang: 'javascript' },
-  { id: 'typescript', name: 'TypeScript', tag: 'TS', extension: '.ts', monacoLang: 'typescript' },
+  { id: 'javascript', name: 'JavaScript', tag: 'JS', extension: '.js', extensions: ['.mjs', '.cjs', '.jsx'], monacoLang: 'javascript' },
+  { id: 'typescript', name: 'TypeScript', tag: 'TS', extension: '.ts', extensions: ['.tsx'], monacoLang: 'typescript' },
   { id: 'python', name: 'Python', tag: 'PY', extension: '.py', monacoLang: 'python' },
+  { id: 'go', name: 'Go', tag: 'GO', extension: '.go', monacoLang: 'go', server: true },
+  { id: 'rust', name: 'Rust', tag: 'RS', extension: '.rs', monacoLang: 'rust', server: true },
+  { id: 'c', name: 'C', tag: 'C', extension: '.c', extensions: ['.h'], monacoLang: 'c', server: true },
+  { id: 'cpp', name: 'C++', tag: 'C++', extension: '.cpp', extensions: ['.cc', '.cxx', '.hpp'], monacoLang: 'cpp', server: true },
+  { id: 'csharp', name: 'C#', tag: 'C#', extension: '.cs', monacoLang: 'csharp', server: true },
+  { id: 'kotlin', name: 'Kotlin', tag: 'KT', extension: '.kt', extensions: ['.kts'], monacoLang: 'kotlin', server: true },
+  { id: 'swift', name: 'Swift', tag: 'SWIFT', extension: '.swift', monacoLang: 'swift', server: true },
+  { id: 'ruby', name: 'Ruby', tag: 'RB', extension: '.rb', monacoLang: 'ruby', server: true },
+  { id: 'php', name: 'PHP', tag: 'PHP', extension: '.php', monacoLang: 'php', server: true },
+  { id: 'bash', name: 'Bash', tag: 'SH', extension: '.sh', extensions: ['.bash'], monacoLang: 'shell', server: true },
+  { id: 'sql', name: 'SQL (SQLite)', tag: 'SQL', extension: '.sql', monacoLang: 'sql', server: true },
+  { id: 'lua', name: 'Lua', tag: 'LUA', extension: '.lua', monacoLang: 'lua', server: true },
+  { id: 'r', name: 'R', tag: 'R', extension: '.r', monacoLang: 'r', server: true },
+  { id: 'scala', name: 'Scala', tag: 'SCALA', extension: '.scala', monacoLang: 'scala', server: true },
+  { id: 'dart', name: 'Dart', tag: 'DART', extension: '.dart', monacoLang: 'dart', server: true },
+  { id: 'haskell', name: 'Haskell', tag: 'HS', extension: '.hs', monacoLang: 'plaintext', server: true },
+  { id: 'elixir', name: 'Elixir', tag: 'EX', extension: '.ex', extensions: ['.exs'], monacoLang: 'elixir', server: true },
+  { id: 'perl', name: 'Perl', tag: 'PL', extension: '.pl', monacoLang: 'perl', server: true },
 ];
+
+/** The languages the workspace had before files (each kept its own shared text) */
+export const LEGACY_LANGUAGE_IDS: SupportedLanguage[] = ['java', 'html', 'css', 'javascript', 'typescript', 'python'];
 
 export interface SnippetOption {
   title: string;
@@ -355,6 +383,77 @@ print(f"Result: {result}")
 print(f"Sum of sequence: {sum(result)}")`,
     },
   ],
+  go: [{ title: 'Hello world', description: 'A minimal program to start from', code: `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello from Go!")
+}
+` }],
+  rust: [{ title: 'Hello world', description: 'A minimal program to start from', code: `fn main() {
+    println!("Hello from Rust!");
+}
+` }],
+  c: [{ title: 'Hello world', description: 'A minimal program to start from', code: `#include <stdio.h>
+
+int main(void) {
+    printf("Hello from C!\\n");
+    return 0;
+}
+` }],
+  cpp: [{ title: 'Hello world', description: 'A minimal program to start from', code: `#include <iostream>
+
+int main() {
+    std::cout << "Hello from C++!" << std::endl;
+    return 0;
+}
+` }],
+  csharp: [{ title: 'Hello world', description: 'A minimal program to start from', code: `using System;
+
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello from C#!");
+    }
+}
+` }],
+  kotlin: [{ title: 'Hello world', description: 'A minimal program to start from', code: `fun main() {
+    println("Hello from Kotlin!")
+}
+` }],
+  swift: [{ title: 'Hello world', description: 'A minimal program to start from', code: `print("Hello from Swift!")
+` }],
+  ruby: [{ title: 'Hello world', description: 'A minimal program to start from', code: `puts "Hello from Ruby!"
+` }],
+  php: [{ title: 'Hello world', description: 'A minimal program to start from', code: `<?php
+echo "Hello from PHP!\\n";
+` }],
+  bash: [{ title: 'Hello world', description: 'A minimal program to start from', code: `#!/bin/bash
+echo "Hello from Bash!"
+` }],
+  sql: [{ title: 'Hello world', description: 'A minimal program to start from', code: `CREATE TABLE fellows (name TEXT, track TEXT);
+INSERT INTO fellows VALUES ('Ana', 'Backend'), ('Budi', 'Frontend');
+SELECT * FROM fellows;
+` }],
+  lua: [{ title: 'Hello world', description: 'A minimal program to start from', code: `print("Hello from Lua!")
+` }],
+  r: [{ title: 'Hello world', description: 'A minimal program to start from', code: `cat("Hello from R!\\n")
+` }],
+  scala: [{ title: 'Hello world', description: 'A minimal program to start from', code: `object Main extends App {
+  println("Hello from Scala!")
+}
+` }],
+  dart: [{ title: 'Hello world', description: 'A minimal program to start from', code: `void main() {
+  print('Hello from Dart!');
+}
+` }],
+  haskell: [{ title: 'Hello world', description: 'A minimal program to start from', code: `main :: IO ()
+main = putStrLn "Hello from Haskell!"
+` }],
+  elixir: [{ title: 'Hello world', description: 'A minimal program to start from', code: `IO.puts("Hello from Elixir!")
+` }],
+  perl: [{ title: 'Hello world', description: 'A minimal program to start from', code: `print "Hello from Perl!\\n";
+` }],
 };
 
 interface LiveCodeEditorProps {
@@ -401,14 +500,12 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     const keys = keysSig.split('|');
     return Object.fromEntries(SUPPORTED_LANGUAGES.map((l, i) => [l.id, keys[i]])) as Record<SupportedLanguage, string>;
   }, [keysSig]);
-  const [codeMap, setCodeMap] = useState<Record<SupportedLanguage, string>>({
-    java: initialCodeMap?.java || LANGUAGE_SNIPPET_COLLECTIONS.java[0].code,
-    html: initialCodeMap?.html || LANGUAGE_SNIPPET_COLLECTIONS.html[0].code,
-    css: initialCodeMap?.css || LANGUAGE_SNIPPET_COLLECTIONS.css[0].code,
-    javascript: initialCodeMap?.javascript || LANGUAGE_SNIPPET_COLLECTIONS.javascript[0].code,
-    typescript: initialCodeMap?.typescript || LANGUAGE_SNIPPET_COLLECTIONS.typescript[0].code,
-    python: initialCodeMap?.python || LANGUAGE_SNIPPET_COLLECTIONS.python[0].code,
-  });
+  const [codeMap, setCodeMap] = useState<Record<SupportedLanguage, string>>(
+    () =>
+      Object.fromEntries(
+        SUPPORTED_LANGUAGES.map((l) => [l.id, initialCodeMap?.[l.id] || LANGUAGE_SNIPPET_COLLECTIONS[l.id][0].code])
+      ) as Record<SupportedLanguage, string>
+  );
 
   const [theme, setTheme] = useState<'vs-dark' | 'light'>('vs-dark');
   const [fontSize, setFontSize] = useState<number>(14);
@@ -613,9 +710,10 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
         const res = await runPythonCode(codeMap.python);
         setConsoleLogs((prev) => [...prev, ...res.logs]);
         runLogs = res.logs;
-      } else if (currentLang === 'java') {
+      } else if (currentConfig.server) {
+        // Compiled and run in the server's sandbox
         setRightPanelTab('console');
-        const res = await runJavaCode(codeMap.java);
+        const res = await runOnServer(currentLang, currentConfig.name, fileName || `main${currentConfig.extension}`, codeMap[currentLang]);
         setConsoleLogs((prev) => [...prev, ...res.logs]);
         runLogs = res.logs;
       }
