@@ -492,7 +492,9 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   fileName,
   embedded = false,
 }) => {
-  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(lockedLanguage || initialLanguage);
+  // A single-file editor opens in its file's language
+  const startLang = lockedLanguage || initialLanguage;
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(startLang);
   // Shared text key per language; a string signature keeps effects stable across renders
   const keyFor = (lang: SupportedLanguage) => (textKeyFor ? textKeyFor(lang) : codeTextKey(lang));
   const keysSig = SUPPORTED_LANGUAGES.map((l) => keyFor(l.id)).join('|');
@@ -517,7 +519,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   const [viewMode, setViewMode] = useState<'split' | 'editor-only' | 'preview-only'>('split');
   // Right panel tab: 'console' | 'web-preview'
   const [rightPanelTab, setRightPanelTab] = useState<'console' | 'web-preview'>(
-    initialLanguage === 'html' || initialLanguage === 'css' ? 'web-preview' : 'console'
+    startLang === 'html' || startLang === 'css' ? 'web-preview' : 'console'
   );
 
   // Web Preview viewport size: 'desktop' | 'tablet' | 'mobile'
@@ -528,7 +530,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     {
       id: 'init-1',
       type: 'info',
-      content: `Workspace ready. Language: ${SUPPORTED_LANGUAGES.find((l) => l.id === initialLanguage)?.name}. Press Run (Ctrl/Cmd+Enter) to execute.`,
+      content: `Workspace ready. Language: ${SUPPORTED_LANGUAGES.find((l) => l.id === startLang)?.name}. Press Run (Ctrl/Cmd+Enter) to execute.`,
       timestamp: new Date().toLocaleTimeString(),
     },
   ]);
