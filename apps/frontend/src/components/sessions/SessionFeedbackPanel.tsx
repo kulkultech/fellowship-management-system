@@ -234,44 +234,57 @@ const FellowRow: React.FC<{ sessionId: string; form: FeedbackForm; row: SessionF
   );
 };
 
+/** Section tabs; mentors and fellows get the same three, in the same order. */
+const TabBar = <K extends string>({ tabs, active, onChange }: { tabs: { key: K; label: string }[]; active: K; onChange: (k: K) => void }) => (
+  <div className="flex items-center gap-1 flex-wrap">
+    {tabs.map((t) => (
+      <button key={t.key} type="button" onClick={() => onChange(t.key)} className={`tab-pill ${active === t.key ? 'tab-pill-active' : ''}`}>
+        {t.label}
+      </button>
+    ))}
+  </div>
+);
+
 const FellowView: React.FC<{ sessionId: string; data: SessionFeedback }> = ({ sessionId, data }) => {
-  const [tab, setTab] = useState<'give' | 'results'>('give');
+  const [tab, setTab] = useState<'about' | 'mentor' | 'organizers'>('about');
   const saveMentor = useSave(sessionId, (a) => sessionService.saveFeedbackToMentor(sessionId, a));
   const saveOrganizer = useSave(sessionId, (a) => sessionService.saveFeedbackToOrganizer(sessionId, a));
+  const tabs: { key: typeof tab; label: string }[] = [
+    { key: 'about', label: 'About you' },
+    { key: 'mentor', label: 'For the mentor' },
+    { key: 'organizers', label: 'For the organizers' },
+  ];
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-1">
-        <button type="button" onClick={() => setTab('give')} className={`tab-pill ${tab === 'give' ? 'tab-pill-active' : ''}`}>
-          Give feedback
-        </button>
-        <button type="button" onClick={() => setTab('results')} className={`tab-pill ${tab === 'results' ? 'tab-pill-active' : ''}`}>
-          Your results
-        </button>
-      </div>
-      {tab === 'give' ? (
-        <>
-          <Card
-            title={`Feedback for ${data.mentor_name || 'your mentor'}`}
-            subtitle="Your mentor and the organizers see your answers and your name."
-          >
-            <QuestionForm form={data.forms.to_mentor} initial={data.mine.to_mentor} saving={saveMentor.isPending} onSave={(a) => saveMentor.mutate(a)} />
-          </Card>
-          <Card title="Feedback for the organizers" subtitle="Only the program organizers see this.">
-            <QuestionForm
-              form={data.forms.fellow_to_organizer}
-              initial={data.mine.fellow_to_organizer}
-              saving={saveOrganizer.isPending}
-              onSave={(a) => saveOrganizer.mutate(a)}
-            />
-          </Card>
-        </>
-      ) : (
-        <Card title="Your results" subtitle="How your mentor rated you in this session.">
+      <TabBar tabs={tabs} active={tab} onChange={setTab} />
+
+      {tab === 'about' && (
+        <Card title="What your mentor said about you" subtitle="How your mentor rated you in this session.">
           {data.my_results ? (
             <ScoreBars form={data.forms.to_fellow} scores={data.my_results.scores} />
           ) : (
             <p className="meta-text">Your mentor hasn't rated you for this session yet.</p>
           )}
+        </Card>
+      )}
+
+      {tab === 'mentor' && (
+        <Card
+          title={`Feedback for ${data.mentor_name || 'the mentor'}`}
+          subtitle="Your mentor and the organizers see your answers and your name."
+        >
+          <QuestionForm form={data.forms.to_mentor} initial={data.mine.to_mentor} saving={saveMentor.isPending} onSave={(a) => saveMentor.mutate(a)} />
+        </Card>
+      )}
+
+      {tab === 'organizers' && (
+        <Card title="Feedback for the organizers" subtitle="Only the program organizers see this.">
+          <QuestionForm
+            form={data.forms.fellow_to_organizer}
+            initial={data.mine.fellow_to_organizer}
+            saving={saveOrganizer.isPending}
+            onSave={(a) => saveOrganizer.mutate(a)}
+          />
         </Card>
       )}
     </div>
@@ -286,19 +299,13 @@ const StaffView: React.FC<{ sessionId: string; data: SessionFeedback }> = ({ ses
   const given = fellows.filter((f) => f.feedback).length;
   const tabs: { key: typeof tab; label: string }[] = [
     { key: 'mentor', label: isMentor ? 'About you' : 'About the mentor' },
-    { key: 'fellows', label: 'Fellows' },
+    { key: 'fellows', label: isMentor ? 'For the fellows' : 'Fellows' },
     { key: 'organizers', label: 'For the organizers' },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-1 flex-wrap">
-        {tabs.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`tab-pill ${tab === t.key ? 'tab-pill-active' : ''}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'mentor' && (
         <Card
@@ -311,7 +318,7 @@ const StaffView: React.FC<{ sessionId: string; data: SessionFeedback }> = ({ ses
 
       {tab === 'fellows' && (
         <Card
-          title="Feedback to fellows"
+          title={isMentor ? 'Feedback for the fellows' : 'Feedback to fellows'}
           subtitle={`${given} of ${fellows.length} rated. Fellows see only their scores, not your notes.`}
         >
           {fellows.length === 0 ? (
