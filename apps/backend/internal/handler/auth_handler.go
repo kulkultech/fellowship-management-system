@@ -968,9 +968,14 @@ func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 			userName = req.Name
 		}
 
-		if err := h.userRepo.UpdateOrgAndRole(ctx, existingUser.ID, inv.OrganizationID, inv.Role, userName); err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "failed to update user permissions: "+err.Error())
-			return
+		// A platform superadmin invited as a mentor stays superadmin; the program assignment
+		// below is what makes them the program's mentor.
+		keepSuperadmin := existingUser.Role == model.RoleSuperadmin && inv.Role == model.RoleMentor
+		if !keepSuperadmin {
+			if err := h.userRepo.UpdateOrgAndRole(ctx, existingUser.ID, inv.OrganizationID, inv.Role, userName); err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "failed to update user permissions: "+err.Error())
+				return
+			}
 		}
 		_ = h.userRepo.ActivateUser(ctx, existingUser.ID)
 
@@ -1031,7 +1036,9 @@ func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	redirectURL := "/admin/dashboard"
-	if user.Role == model.RoleSuperadmin {
+	if inv.Role == model.RoleMentor {
+		redirectURL = "/mentor/dashboard"
+	} else if user.Role == model.RoleSuperadmin {
 		redirectURL = "/superadmin/dashboard"
 	} else if user.Role == model.RoleMentor {
 		redirectURL = "/mentor/dashboard"

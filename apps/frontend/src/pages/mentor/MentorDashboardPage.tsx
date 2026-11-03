@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { mentorService } from '@/services/mentorService';
 import { sessionService } from '@/services/sessionService';
@@ -22,6 +22,7 @@ import {
   X,
   Building2,
   Calendar,
+  ShieldCheck,
 } from 'lucide-react';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
@@ -32,6 +33,7 @@ const cardShell = 'content-card';
 
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [activeNavId, setActiveNavId] = useState<string>('overview');
 
   // Program selection for fellow listing
@@ -195,6 +197,9 @@ export const MentorDashboardPage: React.FC = () => {
       icon: Github,
       onClick: () => setActiveNavId('github'),
     },
+    ...(user?.role === 'superadmin'
+      ? [{ id: 'superadmin', label: 'Superadmin Dashboard', icon: ShieldCheck, onClick: () => navigate('/superadmin/dashboard') }]
+      : []),
   ];
 
   return (

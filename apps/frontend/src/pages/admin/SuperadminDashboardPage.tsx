@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '@/services/adminService';
+import { mentorService } from '@/services/mentorService';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { useAuthStore } from '@/hooks/useAuthStore';
@@ -19,6 +20,7 @@ import {
   X,
   Check,
   Users,
+  GraduationCap,
 } from 'lucide-react';
 import type { Organization, Program } from '@/services/types';
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
@@ -42,6 +44,9 @@ export const SuperadminDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // 1. Load All Companies
+  // Programs this superadmin mentors, if any
+  const { data: mentorPrograms = [] } = useQuery({ queryKey: ['mentor-programs'], queryFn: mentorService.getPrograms });
+
   const { data: companiesList = [], isLoading: isCompaniesLoading } = useQuery({
     queryKey: ['superadmin-companies', companyStatusFilter],
     queryFn: () => adminService.listCompanies(companyStatusFilter),
@@ -200,6 +205,9 @@ export const SuperadminDashboardPage: React.FC = () => {
       label: 'Superadmin Team',
       icon: Users,
     },
+    ...(mentorPrograms.length > 0
+      ? [{ id: 'mentor', label: 'Mentor Dashboard', icon: GraduationCap, onClick: () => navigate('/mentor/dashboard') }]
+      : []),
   ];
 
   return (

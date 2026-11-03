@@ -97,7 +97,7 @@ func (h *SessionHandler) feedbackContext(w http.ResponseWriter, r *http.Request)
 
 	if h.canEditWorkspaceDirectly(r.Context(), claims, session.ProgramID) {
 		viewer := feedbackViewerAdmin
-		if claims.Role == model.RoleMentor {
+		if claims.Role == model.RoleMentor || (session.MentorID != nil && *session.MentorID == claims.UserID) {
 			viewer = feedbackViewerMentor
 		}
 		return session, claims, viewer, roster, nil, true
