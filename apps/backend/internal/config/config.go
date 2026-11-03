@@ -76,6 +76,7 @@ func (o OAuthConfig) Enabled() bool {
 type GoogleCalendarConfig struct {
 	CalendarID         string
 	ServiceAccountJSON string
+	Impersonate        string
 }
 
 func (g GoogleCalendarConfig) Enabled() bool {
@@ -144,6 +145,7 @@ func Load() (*Config, error) {
 		GoogleCalendar: GoogleCalendarConfig{
 			CalendarID:         getString("GOOGLE_CALENDAR_ID", "primary"),
 			ServiceAccountJSON: getString("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
+			Impersonate:        getString("GOOGLE_CALENDAR_IMPERSONATE", ""),
 		},
 		GitHubToken: getString("GITHUB_TOKEN", ""),
 		RedisURL:    getString("REDIS_URL", ""),

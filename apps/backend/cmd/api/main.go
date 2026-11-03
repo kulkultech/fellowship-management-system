@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // the runtime image has no zoneinfo; session series use IANA zones
 
 	"github.com/getsentry/sentry-go"
 	"github.com/jackc/pgx/v5/pgxpool"

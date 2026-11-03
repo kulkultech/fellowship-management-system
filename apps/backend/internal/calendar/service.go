@@ -66,6 +66,9 @@ type EventResult struct {
 type Config struct {
 	CalendarID         string
 	ServiceAccountJSON string
+	// Impersonate is the Workspace user the service account acts as (domain-wide delegation).
+	// Google only lets a service account invite attendees and add Meet links on a user's behalf.
+	Impersonate string
 }
 
 // Service defines methods for calendar & Google Meet operations.
@@ -116,8 +119,9 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 		if err != nil {
 			logger.Warn("invalid Google service account JSON; running calendar service in standalone mode", "error", err)
 		} else {
+			jwtCfg.Subject = strings.TrimSpace(cfg.Impersonate)
 			svc.jwtConfig = jwtCfg
-			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID)
+			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID, "impersonate", jwtCfg.Subject)
 		}
 	} else {
 		logger.Info("Google Calendar service account not configured; running calendar & meet service in automated link & ICS mode")
