@@ -185,11 +185,8 @@ func isSuperadminEmail(email string) bool {
 		domain = strings.ToLower(parts[1])
 	}
 
-	// Only our own domain is trusted by default; add others with SUPERADMIN_EMAILS
-	if domain == "kulkul.tech" {
-		return true
-	}
-
+	// No domain is trusted by default, so colleagues can join companies as mentors or admins.
+	// Platform superadmins are listed in SUPERADMIN_EMAILS (or whole domains in SUPERADMIN_DOMAINS).
 	superadminEmailsEnv := strings.ToLower(os.Getenv("SUPERADMIN_EMAILS"))
 	if superadminEmailsEnv != "" {
 		for _, e := range strings.Split(superadminEmailsEnv, ",") {

@@ -109,3 +109,44 @@ func TestSyncUserOrgStatus_HealsCandidateToOrgAdmin(t *testing.T) {
 	}
 }
 
+
+// Our own domain is no longer superadmin by default, so a colleague can be a company's mentor.
+func TestFindOrCreateByOAuth_KulkulMentorStaysMentor(t *testing.T) {
+	t.Setenv("SUPERADMIN_EMAILS", "")
+	t.Setenv("SUPERADMIN_DOMAINS", "")
+	repo := repository.NewUserRepository(nil)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	if _, err := repo.Create(ctx, "mentor@kulkul.tech", "", "Kulkul Mentor", "mentor", &orgID); err != nil {
+		t.Fatalf("failed to seed mentor: %v", err)
+	}
+	u, err := repo.FindOrCreateByOAuth(ctx, repository.OAuthIdentity{Provider: "google", ProviderUserID: "sub-m", Email: "mentor@kulkul.tech", Name: "Kulkul Mentor"})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+	if u.Role != "mentor" || u.OrganizationID == nil || *u.OrganizationID != orgID {
+		t.Errorf("expected mentor of %s, got role %q org %v", orgID, u.Role, u.OrganizationID)
+	}
+
+	fresh, err := repo.FindOrCreateByOAuth(ctx, repository.OAuthIdentity{Provider: "google", ProviderUserID: "sub-n", Email: "new@kulkul.tech", Name: "New"})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+	if fresh.Role == "superadmin" {
+		t.Errorf("a kulkul.tech account must not become superadmin unless listed")
+	}
+}
+
+func TestFindOrCreateByOAuth_ListedEmailIsSuperadmin(t *testing.T) {
+	t.Setenv("SUPERADMIN_EMAILS", "boss@kulkul.tech")
+	repo := repository.NewUserRepository(nil)
+
+	u, err := repo.FindOrCreateByOAuth(context.Background(), repository.OAuthIdentity{Provider: "google", ProviderUserID: "sub-b", Email: "Boss@Kulkul.tech", Name: "Boss"})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+	if u.Role != "superadmin" || u.OrganizationID != nil {
+		t.Errorf("expected superadmin without a company, got role %q org %v", u.Role, u.OrganizationID)
+	}
+}
