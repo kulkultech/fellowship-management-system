@@ -157,7 +157,8 @@ func (r *MentorRepository) ListProgramsByMentor(ctx context.Context, userID uuid
 			p.organization_id, o.slug AS org_slug, o.name AS org_name,
 			pm.role_title,
 			p.open_date, p.end_date,
-			(SELECT COUNT(*) FROM applicants a WHERE a.program_id = p.id AND a.deleted_at IS NULL) AS fellow_count,
+			(SELECT COUNT(*) FROM applicants a WHERE a.program_id = p.id AND a.deleted_at IS NULL
+				AND (a.current_stage IN ('approved_for_live', 'completed') OR a.program_room_invited_at IS NOT NULL)) AS fellow_count,
 			(SELECT COUNT(*) FROM program_tracks t WHERE t.program_id = p.id) AS track_count
 		FROM program_mentors pm
 		JOIN programs p ON p.id = pm.program_id

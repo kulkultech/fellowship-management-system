@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -158,6 +159,15 @@ func TestMentorFlow_EndToEnd(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatalf("failed to create fellow: %v", err)
+		}
+		// Applicants who were not admitted are not part of the cohort
+		for i, stage := range []model.ApplicantStage{model.StageRegistered, model.StageAIInterviewCompleted, model.StageRejected} {
+			if _, _, err := applicantRepo.CreateOrGet(ctx, &model.Applicant{
+				OrganizationID: org.ID, ProgramID: prog.ID, Email: fmt.Sprintf("applicant%d@student.edu", i),
+				FullName: "Applicant", CurrentStage: stage, FormSubmitted: true,
+			}); err != nil {
+				t.Fatalf("failed to create applicant: %v", err)
+			}
 		}
 
 		mentorClaims := &auth.Claims{

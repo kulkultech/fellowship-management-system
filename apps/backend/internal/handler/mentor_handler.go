@@ -149,10 +149,10 @@ func (h *MentorHandler) ListFellows(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Filter for fellows: candidates who submitted application and are not deleted
+	// Only applicants admitted into the cohort, not everyone who applied
 	fellows := make([]model.Applicant, 0, len(applicants))
 	for _, a := range applicants {
-		if a.DeletedAt == nil {
+		if isProgramFellow(a) {
 			fellows = append(fellows, a)
 		}
 	}
