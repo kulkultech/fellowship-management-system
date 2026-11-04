@@ -6,12 +6,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/authService';
 import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, RefreshCw, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { safeReturnTo } from '@/utils/shareLinks';
 
 export const LoginPage: React.FC = () => {
   const { user, isAuthenticated, isLoading, login, isLoggingIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const oauthError = searchParams.get('error');
+  // Signing in from a shared link: go back to it afterwards
+  const returnTo = safeReturnTo(searchParams.get('return_to'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +32,9 @@ export const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      if (user.role === 'superadmin') {
+      if (returnTo && !(user.organization?.status === 'pending_approval')) {
+        navigate(returnTo, { replace: true });
+      } else if (user.role === 'superadmin') {
         navigate('/superadmin/dashboard', { replace: true });
       } else if (user.role === 'candidate') {
         navigate('/candidate/dashboard', { replace: true });
@@ -42,11 +47,13 @@ export const LoginPage: React.FC = () => {
         navigate('/admin/dashboard', { replace: true });
       }
     }
-  }, [isLoading, isAuthenticated, user, navigate]);
+  }, [isLoading, isAuthenticated, user, navigate, returnTo]);
 
   const handleGoogleSignIn = () => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-    window.location.href = `${apiBase}/auth/oauth/google`;
+    window.location.href = returnTo
+      ? `${apiBase}/auth/oauth/google?return_to=${encodeURIComponent(returnTo)}`
+      : `${apiBase}/auth/oauth/google`;
   };
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -61,7 +68,9 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await login({ email: email.trim().toLowerCase(), password });
       toast.success('Welcome back!');
-      if (res.user?.role === 'superadmin') {
+      if (returnTo) {
+        navigate(returnTo, { replace: true });
+      } else if (res.user?.role === 'superadmin') {
         navigate('/superadmin/dashboard', { replace: true });
       } else if (res.user?.role === 'candidate') {
         navigate('/candidate/dashboard', { replace: true });

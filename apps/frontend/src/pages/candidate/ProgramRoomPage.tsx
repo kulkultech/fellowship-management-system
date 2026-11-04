@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { sessionService } from '@/services/sessionService';
@@ -39,13 +39,28 @@ import { roomContentService } from '@/services/roomContentService';
 import { uploadService } from '@/services/uploadService';
 import type { ProgramSession, SessionAttendance } from '@/services/types';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { ROOM_SECTIONS, loginPathFor, workspaceLink, type RoomSection } from '@/utils/shareLinks';
 
 export const ProgramRoomPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'assignments' | 'sessions' | 'curriculum' | 'resources'>('assignments');
+
+  // The open section (and an item in it) live in the address, so a copied link opens the same place
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section') as RoomSection | null;
+  const activeTab: RoomSection = sectionParam && ROOM_SECTIONS.includes(sectionParam) ? sectionParam : 'assignments';
+  const focusId = searchParams.get('item') || undefined;
+  const setActiveTab = (section: RoomSection) =>
+    setSearchParams(section === 'assignments' ? {} : { section }, { replace: true });
+
+  // A shared link opened while signed out: sign in, then come back here
+  useEffect(() => {
+    if (!isAuthLoading && !authUser) navigate(loginPathFor(location), { replace: true });
+  }, [isAuthLoading, authUser, navigate, location]);
   const isMentorOrAdmin = Boolean(
     authUser?.role === 'mentor' ||
     authUser?.role === 'org_admin' ||
@@ -321,11 +336,18 @@ export const ProgramRoomPage: React.FC = () => {
             tracks={program.tracks}
             candidateTrackId={currentApp?.track_id}
             userRole={authUser?.role}
+            orgSlug={orgSlug}
+            programSlug={programSlug}
+            focusId={focusId}
           />
         )}
 
-        {activeTab === 'curriculum' && program?.id && <RoomContentView programId={program.id} section="curriculum" />}
-        {activeTab === 'resources' && program?.id && <RoomContentView programId={program.id} section="resources" />}
+        {activeTab === 'curriculum' && program?.id && (
+          <RoomContentView programId={program.id} section="curriculum" orgSlug={orgSlug} programSlug={programSlug} focusId={focusId} />
+        )}
+        {activeTab === 'resources' && program?.id && (
+          <RoomContentView programId={program.id} section="resources" orgSlug={orgSlug} programSlug={programSlug} focusId={focusId} />
+        )}
 
         {/* Tab Content: Sessions & Attendance */}
         {activeTab === 'sessions' && (
@@ -536,6 +558,7 @@ export const ProgramRoomPage: React.FC = () => {
                               <Code2 className="w-3.5 h-3.5" />
                               <span>Code Workspace</span>
                             </Link>
+                            <CopyLinkButton url={workspaceLink(sess.id)} what="workspace" />
 
                             {sess.meeting_url && (
                               <a

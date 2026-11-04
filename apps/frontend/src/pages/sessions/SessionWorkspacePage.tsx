@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as Y from 'yjs';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -20,6 +20,9 @@ import toast from 'react-hot-toast';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { sessionService } from '@/services/sessionService';
 import { useAuthStore } from '@/hooks/useAuthStore';
+import { useAuth } from '@/hooks/useAuth';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { loginPathFor, workspaceLink } from '@/utils/shareLinks';
 import {
   LiveCodeEditor,
   SupportedLanguage,
@@ -83,8 +86,15 @@ export const SessionWorkspacePage: React.FC = () => {
   }>();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const { isLoading: isAuthLoading } = useAuth();
+
+  // A shared link opened while signed out: sign in, then come back here
+  useEffect(() => {
+    if (!isAuthLoading && !user) navigate(loginPathFor(location), { replace: true });
+  }, [isAuthLoading, user, navigate, location]);
 
   const isMentorOrAdmin =
     user?.role === 'mentor' || user?.role === 'org_admin' || user?.role === 'superadmin';
@@ -822,6 +832,8 @@ export const SessionWorkspacePage: React.FC = () => {
                   <span>End Session</span>
                 </button>
               ))}
+
+            {sessionId && <CopyLinkButton url={workspaceLink(sessionId)} what="workspace" withLabel fullWidth />}
 
             <Link to={backUrl} className="btn btn-sm btn-outline w-full">
               <ArrowLeft className="w-3.5 h-3.5" />

@@ -31,6 +31,9 @@ import {
   Plus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { focusItemDomId, useFocusItem } from '@/hooks/useFocusItem';
+import { roomLink } from '@/utils/shareLinks';
 
 interface ProgramAssignmentsViewProps {
   programId: string;
@@ -38,12 +41,20 @@ interface ProgramAssignmentsViewProps {
   tracks?: Array<{ id: string; name: string }>;
   candidateTrackId?: string;
   userRole?: string;
+  /** The program room's address, for "copy link" buttons on each assignment. */
+  orgSlug?: string;
+  programSlug?: string;
+  /** An assignment opened from a shared link: scrolled into view and highlighted. */
+  focusId?: string;
 }
 
 export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
   programId,
   isMentorOrAdmin,
   tracks = [],
+  orgSlug,
+  programSlug,
+  focusId,
 }) => {
   const queryClient = useQueryClient();
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('all');
@@ -71,6 +82,8 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
       ),
     enabled: Boolean(programId),
   });
+  const highlighted = useFocusItem(focusId, !isLoading);
+  const linkTo = (id: string) => (orgSlug && programSlug ? roomLink(orgSlug, programSlug, 'assignments', id) : '');
 
   // Calculate fellow personal stats
   const fellowStats = useMemo(() => {
@@ -221,7 +234,10 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
               return (
                 <div
                   key={assignment.id}
-                  className={`panel transition flex flex-col gap-4 ${
+                  id={focusItemDomId(assignment.id)}
+                  className={`panel transition flex flex-col gap-4 scroll-mt-24 ${
+                    highlighted === assignment.id ? 'ring-2 ring-kulkul-purple ring-offset-2' : ''
+                  } ${
                     isGraded
                       ? 'bg-emerald-50/20 border-emerald-200 hover:border-emerald-300'
                       : isSubmitted
@@ -325,6 +341,8 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                             <span>Submissions ({assignment.total_submissions || 0})</span>
                           </button>
 
+                          {linkTo(assignment.id) && <CopyLinkButton url={linkTo(assignment.id)} what="assignment" />}
+
                           <button
                             type="button"
                             onClick={() => {
@@ -381,6 +399,8 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                             <UploadCloud className="w-3.5 h-3.5" />
                             <span>{isSubmitted ? 'Edit / Resubmit' : 'Submit Assignment'}</span>
                           </button>
+
+                          {linkTo(assignment.id) && <CopyLinkButton url={linkTo(assignment.id)} what="assignment" />}
                         </div>
                       )}
                     </div>

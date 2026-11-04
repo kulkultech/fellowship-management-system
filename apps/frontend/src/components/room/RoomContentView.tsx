@@ -23,10 +23,18 @@ import {
   type RoomResourceCategory,
 } from '@/services/roomContentService';
 import { MarkdownContent } from '@/components/ui/MarkdownContent';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { focusItemDomId, useFocusItem } from '@/hooks/useFocusItem';
+import { roomLink } from '@/utils/shareLinks';
 
 interface RoomContentViewProps {
   programId: string;
   section: 'curriculum' | 'resources';
+  /** The room's address, for "copy link" buttons on each item. */
+  orgSlug?: string;
+  programSlug?: string;
+  /** An item opened from a shared link: scrolled into view and highlighted. */
+  focusId?: string;
 }
 
 export const roomContentQueryKey = (programId: string) => ['room-content', programId];
@@ -66,7 +74,7 @@ type Draft = { id?: string; title: string; description: string; start_date: stri
 const emptyDraft: Draft = { title: '', description: '', start_date: '', end_date: '', url: '', category: 'link' };
 
 /** Curriculum or resources of a program room. Fellows read; the program's admins and mentors can edit. */
-export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, section }) => {
+export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, section, orgSlug, programSlug, focusId }) => {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -79,6 +87,9 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
   const curriculum = data?.content.curriculum || [];
   const resources = data?.content.resources || [];
   const items: Array<CurriculumItem | RoomResource> = section === 'curriculum' ? curriculum : resources;
+  const highlighted = useFocusItem(focusId, !isLoading);
+  const linkTo = (id: string) => (orgSlug && programSlug ? roomLink(orgSlug, programSlug, section, id) : '');
+  const highlightClass = (id: string) => (highlighted === id ? 'ring-2 ring-kulkul-purple ring-offset-2' : '');
 
   const saveMutation = useMutation({
     mutationFn: (next: Array<CurriculumItem | RoomResource>) =>
@@ -183,7 +194,11 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
             const current = isCurrent(item);
             const range = dateRange(item);
             return (
-              <li key={item.id} className={`panel flex gap-4 ${current ? 'border-kulkul-purple' : ''}`}>
+              <li
+                key={item.id}
+                id={focusItemDomId(item.id)}
+                className={`panel flex gap-4 scroll-mt-24 transition ${current ? 'border-kulkul-purple' : ''} ${highlightClass(item.id)}`}
+              >
                 <span
                   className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
                     current ? 'bg-kulkul-purple text-white' : 'bg-slate-100 text-slate-600'
@@ -199,20 +214,23 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                   {range && <p className="meta-text">{range}</p>}
                   {item.description && (
                     <div className="pt-2">
-                      <ModuleContent markdown={item.description} startOpen={current} />
+                      <ModuleContent markdown={item.description} startOpen={current || item.id === focusId} />
                     </div>
                   )}
                 </div>
-                {canEdit && (
-                  <ItemControls
-                    index={index}
-                    count={curriculum.length}
-                    busy={saveMutation.isPending}
-                    onMove={move}
-                    onEdit={() => openEditor(item)}
-                    onRemove={() => remove(index)}
-                  />
-                )}
+                <div className="flex items-start gap-0.5 shrink-0">
+                  {linkTo(item.id) && <CopyLinkButton url={linkTo(item.id)} what="module" />}
+                  {canEdit && (
+                    <ItemControls
+                      index={index}
+                      count={curriculum.length}
+                      busy={saveMutation.isPending}
+                      onMove={move}
+                      onEdit={() => openEditor(item)}
+                      onRemove={() => remove(index)}
+                    />
+                  )}
+                </div>
               </li>
             );
           })}
@@ -223,7 +241,11 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
             const meta = CATEGORY_META[item.category] || CATEGORY_META.link;
             const Icon = meta.icon;
             return (
-              <div key={item.id} className="panel flex gap-3">
+              <div
+                key={item.id}
+                id={focusItemDomId(item.id)}
+                className={`panel flex gap-3 scroll-mt-24 transition ${highlightClass(item.id)}`}
+              >
                 <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                   <Icon className="w-4 h-4" />
                 </div>
@@ -233,10 +255,13 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                     {meta.label} · {hostOf(item.url)}
                   </p>
                   {item.description && <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>}
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline mt-1">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Open</span>
-                  </a>
+                  <div className="flex items-center gap-1 pt-1">
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open</span>
+                    </a>
+                    {linkTo(item.id) && <CopyLinkButton url={linkTo(item.id)} what="resource" />}
+                  </div>
                 </div>
                 {canEdit && (
                   <ItemControls

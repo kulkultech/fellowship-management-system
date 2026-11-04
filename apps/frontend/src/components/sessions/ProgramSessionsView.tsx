@@ -43,6 +43,8 @@ import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { workspaceLink } from '@/utils/shareLinks';
 import { CustomRecurrenceDialog, RecurrenceScopeDialog } from './RecurrenceDialogs';
 import {
   PRESETS,
@@ -845,6 +847,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           <Code2 className="w-3.5 h-3.5" />
                           <span>Live Workspace</span>
                         </Link>
+                        <CopyLinkButton url={workspaceLink(sess.id)} what="workspace" />
 
                         <button
                           onClick={() => {

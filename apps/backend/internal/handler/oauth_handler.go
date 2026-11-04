@@ -153,6 +153,7 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	if returnTo == "" {
 		returnTo = r.URL.Query().Get("return_to")
 	}
+	returnTo = safeReturnTo(returnTo)
 
 	// Verify state token: it must match the cookie set when this browser started sign-in
 	stateValid := queryState != "" && err == nil && stateCookie != nil && stateCookie.Value != "" &&
@@ -276,7 +277,8 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	redirectURL := h.successURL
 	if user.Role == "org_admin" || user.Role == "reviewer" {
 		// Company admins always land on the admin workspace unless explicitly in an applicant flow
-		if returnTo != "" && (strings.Contains(returnTo, "/test") || strings.Contains(returnTo, "/interview") || strings.Contains(returnTo, "/apply")) {
+		// or following a shared link to a program room or live workspace
+		if returnTo != "" && (strings.Contains(returnTo, "/test") || strings.Contains(returnTo, "/interview") || strings.Contains(returnTo, "/apply") || strings.HasSuffix(strings.SplitN(returnTo, "?", 2)[0], "/room")) {
 			redirectURL = returnTo
 		} else {
 			redirectURL = "/admin/dashboard"
@@ -303,4 +305,20 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		redirectURL = returnTo
 	}
 	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+// safeReturnTo keeps a post-sign-in destination only when it is a page on this site ("/path…").
+// Anything else (another site, "//host", "/\\host", a scheme) would turn sign-in into an open redirect.
+func safeReturnTo(raw string) string {
+	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, "/\\") {
+		return ""
+	}
+	if strings.ContainsAny(raw, "\r\n\t") {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "" || u.Host != "" {
+		return ""
+	}
+	return raw
 }

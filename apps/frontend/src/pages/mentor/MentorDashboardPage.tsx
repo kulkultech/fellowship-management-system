@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { workspaceLink } from '@/utils/shareLinks';
 import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
 
 // Every menu uses the same card shape as the shared sessions, assignments, and GitHub views
@@ -302,6 +304,7 @@ export const MentorDashboardPage: React.FC = () => {
                               <Link to={`/sessions/${item.id}/room`} className="btn btn-sm btn-primary">
                                 <span>Open Room</span>
                               </Link>
+                              <CopyLinkButton url={workspaceLink(item.id)} what="workspace" />
                             </>
                           ) : (
                             <button
@@ -762,6 +765,8 @@ export const MentorDashboardPage: React.FC = () => {
               <ProgramAssignmentsView
                 programId={activeProgramId}
                 isMentorOrAdmin={true}
+                orgSlug={programs.find((p) => p.program_id === activeProgramId)?.org_slug}
+                programSlug={programs.find((p) => p.program_id === activeProgramId)?.program_slug}
               />
             ) : (
               <div className={`${cardShell} text-center space-y-3`}>
