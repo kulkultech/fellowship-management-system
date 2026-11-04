@@ -10,25 +10,35 @@ import (
 	"github.com/kulkul/backend/internal/calendar"
 )
 
-func TestGoogleMeetLinkGeneration(t *testing.T) {
+// Without Google Calendar no Meet room exists, so the service must not hand out a made-up link.
+func TestCreateEventNeverInventsMeetLink(t *testing.T) {
 	svc := calendar.NewService(calendar.Config{}, nil)
+	start := time.Now().Add(time.Hour)
+	base := calendar.CreateEventRequest{SessionID: uuid.New(), Title: "Demo", StartTime: start, EndTime: start.Add(time.Hour), WorkspaceURL: "https://app/room"}
 
-	link1 := svc.GenerateMeetLink()
-	link2 := svc.GenerateMeetLink()
-
-	if !strings.HasPrefix(link1, "https://meet.google.com/") {
-		t.Errorf("expected link to start with https://meet.google.com/, got %s", link1)
-	}
-
-	// Verify format xxx-yyyy-zzz (total code length 3 + 1 + 4 + 1 + 3 = 12 chars)
-	code := strings.TrimPrefix(link1, "https://meet.google.com/")
-	parts := strings.Split(code, "-")
-	if len(parts) != 3 || len(parts[0]) != 3 || len(parts[1]) != 4 || len(parts[2]) != 3 {
-		t.Errorf("expected format xxx-yyyy-zzz, got code: %s", code)
-	}
-
-	if link1 == link2 {
-		t.Errorf("expected consecutive meet links to be unique, got duplicate %s", link1)
+	for _, tc := range []struct {
+		name     string
+		auto     bool
+		url      string
+		expected string
+	}{
+		{"auto, no Google", true, "", ""},
+		{"auto ignores typed link", true, "https://meet.google.com/abc-defg-hij", ""},
+		{"placeholder only", false, "https://meet.google.com/", ""},
+		{"organizer's own link", false, " https://zoom.us/j/123 ", "https://zoom.us/j/123"},
+	} {
+		req := base
+		req.AutoGenerateMeet, req.MeetingURL = tc.auto, tc.url
+		res, err := svc.CreateEvent(context.Background(), req)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if res.MeetingURL != tc.expected {
+			t.Errorf("%s: meeting url = %q, want %q", tc.name, res.MeetingURL, tc.expected)
+		}
+		if tc.expected == "" && strings.Contains(string(res.ICSData), "meet.google.com") {
+			t.Errorf("%s: invite file points at a Meet room that doesn't exist", tc.name)
+		}
 	}
 }
 
@@ -131,8 +141,8 @@ func TestCreateEventStandalone(t *testing.T) {
 		t.Fatalf("unexpected error creating event: %v", err)
 	}
 
-	if !strings.HasPrefix(res.MeetingURL, "https://meet.google.com/") {
-		t.Errorf("expected auto-generated meet URL, got %s", res.MeetingURL)
+	if res.MeetingURL != "" {
+		t.Errorf("expected no meet URL without Google Calendar, got %s", res.MeetingURL)
 	}
 	if !strings.Contains(res.GoogleCalendarWebURL, "action=TEMPLATE") {
 		t.Errorf("expected Google Calendar web URL, got %s", res.GoogleCalendarWebURL)

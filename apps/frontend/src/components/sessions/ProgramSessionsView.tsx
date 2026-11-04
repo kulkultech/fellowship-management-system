@@ -42,7 +42,7 @@ import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
-import { getGoogleCalendarUrl, generateClientGoogleMeetLink } from '@/utils/googleCalendar';
+import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
 import { CustomRecurrenceDialog, RecurrenceScopeDialog } from './RecurrenceDialogs';
 import {
   PRESETS,
@@ -302,7 +302,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setFormEndTime('20:30');
     setFormAutoGenerateMeet(true);
     setFormSendCalendarInvites(true);
-    setFormMeetingUrl(generateClientGoogleMeetLink());
+    setFormMeetingUrl('');
     setFormRecordingUrl('');
     setFormTrackId('');
     setFormMentorId('');
@@ -1451,25 +1451,21 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
-                  <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
-                    <input
-                      type="checkbox"
-                      checked={formAutoGenerateMeet}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setFormAutoGenerateMeet(checked);
-                        if (checked && (!formMeetingUrl || formMeetingUrl.includes('meet.google.com'))) {
-                          setFormMeetingUrl(generateClientGoogleMeetLink());
-                        }
-                      }}
-                      className="checkbox checkbox-sm checkbox-primary rounded"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-slate-800">Auto-Generate Meet</div>
-                      <div className="meta-text">Create unique Google Meet room</div>
-                    </div>
-                  </label>
+                <div className={`grid grid-cols-1 gap-3 pt-0.5 ${editingSession ? '' : 'sm:grid-cols-2'}`}>
+                  {!editingSession && (
+                    <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
+                      <input
+                        type="checkbox"
+                        checked={formAutoGenerateMeet}
+                        onChange={(e) => setFormAutoGenerateMeet(e.target.checked)}
+                        className="checkbox checkbox-sm checkbox-primary rounded"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Auto-Generate Meet</div>
+                        <div className="meta-text">Google Calendar creates the Meet room</div>
+                      </div>
+                    </label>
+                  )}
 
                   <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
                     <input
@@ -1504,36 +1500,34 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 )}
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="field-label mb-0">
-                    Meeting URL (Google Meet) *
+              {editingSession || !formAutoGenerateMeet ? (
+                <div>
+                  <label className="field-label">
+                    Meeting URL{editingSession ? '' : ' *'}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newLink = generateClientGoogleMeetLink();
-                      setFormMeetingUrl(newLink);
-                      toast.success('Generated new Google Meet link');
-                    }}
-                    className="btn btn-sm btn-outline"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Generate Meet Link</span>
-                  </button>
+                  <div className="relative">
+                    <Video className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="url"
+                      required={!editingSession}
+                      placeholder="Paste a Google Meet or Zoom link"
+                      value={formMeetingUrl}
+                      onChange={(e) => setFormMeetingUrl(e.target.value)}
+                      className="form-input pl-10"
+                    />
+                  </div>
+                  {editingSession && !editingSession.meeting_url && (
+                    <p className="meta-text mt-1.5">
+                      This session has no meeting link yet. Paste one so fellows can join.
+                    </p>
+                  )}
                 </div>
-                <div className="relative">
-                  <Video className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://meet.google.com/xyz-abcd-efg"
-                    value={formMeetingUrl}
-                    onChange={(e) => setFormMeetingUrl(e.target.value)}
-                    className="form-input pl-10"
-                  />
-                </div>
-              </div>
+              ) : (
+                <p className="meta-text">
+                  The Meet link appears on the session after you save. If Google Calendar can't create
+                  it, edit the session and paste a link.
+                </p>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {tracks.length > 0 && (

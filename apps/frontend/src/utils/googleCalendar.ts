@@ -41,18 +41,3 @@ export function getGoogleCalendarUrl(session: SessionCalendarData): string {
 
   return `${baseUrl}?${params.toString()}`;
 }
-
-/**
- * Generates a randomized, valid Google Meet URL structure (xxx-yyyy-zzz).
- */
-export function generateClientGoogleMeetLink(): string {
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  const randPart = (n: number) => {
-    let res = '';
-    for (let i = 0; i < n; i++) {
-      res += letters.charAt(Math.floor(Math.random() * letters.length));
-    }
-    return res;
-  };
-  return `https://meet.google.com/${randPart(3)}-${randPart(4)}-${randPart(3)}`;
-}

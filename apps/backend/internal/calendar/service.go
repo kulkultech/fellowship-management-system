@@ -3,12 +3,10 @@ package calendar
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -76,7 +74,6 @@ type Service interface {
 	CreateEvent(ctx context.Context, req CreateEventRequest) (*EventResult, error)
 	UpdateEvent(ctx context.Context, eventID string, req CreateEventRequest) (*EventResult, error)
 	DeleteEvent(ctx context.Context, eventID string) error
-	GenerateMeetLink() string
 	GenerateGoogleCalendarWebURL(title, description, location string, start, end time.Time, attendeeEmails []string) string
 	GenerateICS(title, description, location string, start, end time.Time, organizerEmail, organizerName string, attendees []Attendee) []byte
 }
@@ -128,20 +125,6 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 	}
 
 	return svc
-}
-
-// GenerateMeetLink creates a randomized, valid Google Meet URL (format: xxx-yyyy-zzz).
-func (s *googleCalendarService) GenerateMeetLink() string {
-	const letters = "abcdefghijklmnopqrstuvwxyz"
-	randPart := func(n int) string {
-		b := make([]byte, n)
-		for i := range b {
-			idx, _ := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
-			b[i] = letters[idx.Int64()]
-		}
-		return string(b)
-	}
-	return fmt.Sprintf("https://meet.google.com/%s-%s-%s", randPart(3), randPart(4), randPart(3))
 }
 
 // GenerateGoogleCalendarWebURL builds a 1-click Google Calendar web creation URL.
@@ -235,10 +218,11 @@ func (s *googleCalendarService) GenerateICS(title, description, location string,
 
 // CreateEvent creates an automated calendar event and Google Meet link.
 func (s *googleCalendarService) CreateEvent(ctx context.Context, req CreateEventRequest) (*EventResult, error) {
-	// 1. Determine Google Meet URL
-	meetURL := strings.TrimSpace(req.MeetingURL)
-	if meetURL == "" || req.AutoGenerateMeet || meetURL == "https://meet.google.com/" || meetURL == "https://meet.google.com" {
-		meetURL = s.GenerateMeetLink()
+	// 1. Meeting link: the organizer's own link, or none yet. A Meet link can only come from Google
+	// creating the event below; a made-up meet.google.com address leads to a room that doesn't exist.
+	meetURL := ""
+	if !req.AutoGenerateMeet {
+		meetURL = ManualMeetingURL(req.MeetingURL)
 	}
 
 	// 2. Collect attendee emails
@@ -251,13 +235,7 @@ func (s *googleCalendarService) CreateEvent(ctx context.Context, req CreateEvent
 	}
 
 	// 3. Build rich agenda description with workspace links
-	description := req.Description
-	if req.WorkspaceURL != "" {
-		if description != "" {
-			description += "\n\n"
-		}
-		description += fmt.Sprintf("Live Session Room: %s\nGoogle Meet: %s", req.WorkspaceURL, meetURL)
-	}
+	description := eventDescription(req.Description, req.WorkspaceURL, meetURL)
 
 	// 4. Default 1-click Google Calendar Web URL & ICS
 	googleCalWebURL := s.GenerateGoogleCalendarWebURL(req.Title, description, meetURL, req.StartTime, req.EndTime, attendeeEmails)
@@ -287,7 +265,7 @@ func (s *googleCalendarService) CreateEvent(ctx context.Context, req CreateEvent
 				result.HTMLLink = apiResult.HTMLLink
 			}
 		} else if err != nil {
-			s.logger.Warn("Google Calendar API event creation failed; using standalone link & ICS fallback", "error", err)
+			s.logger.Warn("Google Calendar API event creation failed; session has no Meet link until the organizer adds one", "error", err)
 		}
 	}
 
@@ -296,10 +274,7 @@ func (s *googleCalendarService) CreateEvent(ctx context.Context, req CreateEvent
 
 // UpdateEvent updates an existing event in Google Calendar if synced.
 func (s *googleCalendarService) UpdateEvent(ctx context.Context, eventID string, req CreateEventRequest) (*EventResult, error) {
-	meetURL := strings.TrimSpace(req.MeetingURL)
-	if meetURL == "" {
-		meetURL = s.GenerateMeetLink()
-	}
+	meetURL := ManualMeetingURL(req.MeetingURL)
 
 	var attendeeEmails []string
 	for _, a := range req.Attendees {
@@ -309,13 +284,7 @@ func (s *googleCalendarService) UpdateEvent(ctx context.Context, eventID string,
 		}
 	}
 
-	description := req.Description
-	if req.WorkspaceURL != "" {
-		if description != "" {
-			description += "\n\n"
-		}
-		description += fmt.Sprintf("Live Session Room: %s\nGoogle Meet: %s", req.WorkspaceURL, meetURL)
-	}
+	description := eventDescription(req.Description, req.WorkspaceURL, meetURL)
 
 	googleCalWebURL := s.GenerateGoogleCalendarWebURL(req.Title, description, meetURL, req.StartTime, req.EndTime, attendeeEmails)
 	icsData := s.GenerateICS(req.Title, description, meetURL, req.StartTime, req.EndTime, req.OrganizerEmail, req.OrganizerName, req.Attendees)
@@ -391,7 +360,6 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 	payload := map[string]any{
 		"summary":     req.Title,
 		"description": description,
-		"location":    fallbackMeetURL,
 		"start": map[string]string{
 			"dateTime": req.StartTime.Format(time.RFC3339),
 			"timeZone": tz,
@@ -400,16 +368,21 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 			"dateTime": req.EndTime.Format(time.RFC3339),
 			"timeZone": tz,
 		},
-		"attendees": attendees,
+		"attendees":  attendees,
 		"recurrence": recurrenceLines(req.Recurrence),
-		"conferenceData": map[string]any{
+	}
+	if fallbackMeetURL != "" {
+		payload["location"] = fallbackMeetURL
+	} else {
+		// No link of the organizer's own: ask Google to create a real Meet room for the event.
+		payload["conferenceData"] = map[string]any{
 			"createRequest": map[string]any{
 				"requestId": req.SessionID.String(),
 				"conferenceSolutionKey": map[string]string{
 					"type": "hangoutsMeet",
 				},
 			},
-		},
+		}
 	}
 
 	jsonBytes, err := json.Marshal(payload)
@@ -480,7 +453,6 @@ func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, even
 	payload := map[string]any{
 		"summary":     req.Title,
 		"description": description,
-		"location":    meetURL,
 		"start": map[string]string{
 			"dateTime": req.StartTime.Format(time.RFC3339),
 			"timeZone": "Asia/Jakarta",
@@ -489,6 +461,9 @@ func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, even
 			"dateTime": req.EndTime.Format(time.RFC3339),
 			"timeZone": "Asia/Jakarta",
 		},
+	}
+	if meetURL != "" {
+		payload["location"] = meetURL
 	}
 
 	jsonBytes, _ := json.Marshal(payload)
@@ -507,6 +482,31 @@ func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, even
 	}
 	defer resp.Body.Close()
 	return nil
+}
+
+// ManualMeetingURL returns a meeting link the organizer typed in, or "" when there is none. The bare
+// meet.google.com address is the form's placeholder, not a meeting.
+func ManualMeetingURL(raw string) string {
+	u := strings.TrimSpace(raw)
+	if strings.TrimRight(u, "/") == "https://meet.google.com" {
+		return ""
+	}
+	return u
+}
+
+// eventDescription appends the live room and, when known, the meeting link to the agenda.
+func eventDescription(agenda, workspaceURL, meetURL string) string {
+	if workspaceURL == "" {
+		return agenda
+	}
+	if agenda != "" {
+		agenda += "\n\n"
+	}
+	agenda += "Live Session Room: " + workspaceURL
+	if meetURL != "" {
+		agenda += "\nGoogle Meet: " + meetURL
+	}
+	return agenda
 }
 
 // recurrenceLines formats an RRULE for the Google Calendar API, or nil for a single event.

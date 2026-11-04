@@ -247,13 +247,11 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	if req.AutoGenerateMeeting != nil {
 		autoGenMeeting = *req.AutoGenerateMeeting
 	}
-	meetingURL := strings.TrimSpace(req.MeetingURL)
-	if meetingURL == "" || meetingURL == "https://meet.google.com/" || meetingURL == "https://meet.google.com" || autoGenMeeting {
-		if h.calendarService != nil {
-			meetingURL = h.calendarService.GenerateMeetLink()
-		} else {
-			meetingURL = "https://meet.google.com/" + uuid.NewString()[:12]
-		}
+	// A generated Meet link only exists once Google Calendar creates the event; until then the
+	// session has the organizer's own link or none.
+	meetingURL := ""
+	if !autoGenMeeting {
+		meetingURL = calendar.ManualMeetingURL(req.MeetingURL)
 	}
 
 	sess := &model.ProgramSession{
@@ -469,12 +467,8 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "end_time must be after start_time")
 		return
 	}
-	if req.MeetingURL != "" {
-		existing.MeetingURL = req.MeetingURL
-	} else if req.AutoGenerateMeeting != nil && *req.AutoGenerateMeeting && existing.MeetingURL == "" {
-		if h.calendarService != nil {
-			existing.MeetingURL = h.calendarService.GenerateMeetLink()
-		}
+	if u := calendar.ManualMeetingURL(req.MeetingURL); u != "" {
+		existing.MeetingURL = u
 	}
 	existing.RecordingURL = req.RecordingURL
 	existing.MentorID = req.MentorID

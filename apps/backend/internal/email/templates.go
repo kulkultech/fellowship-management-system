@@ -1166,9 +1166,17 @@ func buildSessionInvitationEmail(
 	endTimeWIB := session.EndTime.In(loc).Format("15:04 WIB")
 	timeStr := fmt.Sprintf("%s – %s", startTimeWIB, endTimeWIB)
 
+	// Without a meeting link the email says so instead of pointing at a room that doesn't exist.
 	meetURL := session.MeetingURL
-	if meetURL == "" {
-		meetURL = "https://meet.google.com"
+	meetCell := `<span style="color: #64748b; font-weight: 600;">Link will be shared before the session</span>`
+	meetButton := ""
+	meetText := "will be shared before the session"
+	if meetURL != "" {
+		meetCell = fmt.Sprintf(`<a href="%s" style="color: #2563eb; text-decoration: underline;">%s</a>`, template.HTMLEscapeString(meetURL), template.HTMLEscapeString(meetURL))
+		meetButton = fmt.Sprintf(`<a href="%s" style="display: inline-block; background-color: #33125d; color: #ffffff !important; padding: 14px 28px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(51, 18, 93, 0.25); margin: 0 6px 10px 6px;">
+        Join Google Meet &rarr;
+      </a>`, template.HTMLEscapeString(meetURL))
+		meetText = meetURL
 	}
 
 	workspaceURL := fmt.Sprintf("%s/sessions/%s/room", frontendURL, session.ID)
@@ -1240,7 +1248,7 @@ func buildSessionInvitationEmail(
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600;">Google Meet</td>
           <td style="padding: 12px 18px; color: #2563eb; font-size: 13px; font-weight: 700; text-align: right;">
-            <a href="%s" style="color: #2563eb; text-decoration: underline;">%s</a>
+            %s
           </td>
         </tr>
       </tbody>
@@ -1249,9 +1257,7 @@ func buildSessionInvitationEmail(
     %s
 
     <div style="text-align: center; margin: 32px 0 16px 0;">
-      <a href="%s" style="display: inline-block; background-color: #33125d; color: #ffffff !important; padding: 14px 28px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(51, 18, 93, 0.25); margin: 0 6px 10px 6px;">
-        Join Google Meet &rarr;
-      </a>
+      %s
       <a href="%s" target="_blank" style="display: inline-block; background-color: #ffffff; color: #33125d !important; border: 2px solid #33125d; padding: 12px 24px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; margin: 0 6px 10px 6px;">
         Add to Google Calendar
       </a>
@@ -1265,8 +1271,8 @@ func buildSessionInvitationEmail(
 `,
 		trackBadge, template.HTMLEscapeString(session.Title), template.HTMLEscapeString(recipientName), template.HTMLEscapeString(programName),
 		template.HTMLEscapeString(session.Title), template.HTMLEscapeString(typeLabel), timeStr, mentorRow,
-		meetURL, meetURL, agendaSection,
-		meetURL, googleCalURL, workspaceURL,
+		meetCell, agendaSection,
+		meetButton, googleCalURL, workspaceURL,
 	)
 
 	var err error
@@ -1277,7 +1283,7 @@ func buildSessionInvitationEmail(
 
 	text = fmt.Sprintf(
 		"Dear %s,\n\nYou are invited to a live cohort session for %s.\n\nSession: %s\nType: %s\nTime: %s\nGoogle Meet: %s\nAdd to Google Calendar: %s\nLive Workspace: %s\n\nSee you there!\nFellowHire Team",
-		recipientName, programName, session.Title, typeLabel, timeStr, meetURL, googleCalURL, workspaceURL,
+		recipientName, programName, session.Title, typeLabel, timeStr, meetText, googleCalURL, workspaceURL,
 	)
 	return subject, html, text
 }

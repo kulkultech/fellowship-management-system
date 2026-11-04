@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -151,8 +150,9 @@ func TestSessionGoogleCalendarAndMeetIntegration(t *testing.T) {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 
-		if !strings.HasPrefix(created.MeetingURL, "https://meet.google.com/") {
-			t.Errorf("expected meeting_url to start with https://meet.google.com/, got: %s", created.MeetingURL)
+		// No Google Calendar in this test, so no real Meet room exists and none may be invented.
+		if created.MeetingURL != "" {
+			t.Errorf("expected no meeting_url without Google Calendar, got: %s", created.MeetingURL)
 		}
 
 		if created.GoogleCalendarEventID == "" {
