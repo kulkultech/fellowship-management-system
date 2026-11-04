@@ -21,8 +21,10 @@ const (
 	maxRoomItems       = 100
 	maxRoomTitle       = 200
 	maxRoomDescription = 2000
-	maxRoomURL         = 2000
-	roomDateLayout     = "2006-01-02"
+	// A curriculum module's content is Markdown and can be a full lesson page
+	maxModuleContent = 20000
+	maxRoomURL       = 2000
+	roomDateLayout   = "2006-01-02"
 )
 
 var roomResourceCategories = map[string]bool{"channel": true, "repository": true, "document": true, "link": true}
@@ -164,14 +166,14 @@ func (h *RoomContentHandler) SaveCurriculum(w http.ResponseWriter, r *http.Reque
 	items := make([]model.CurriculumItem, 0, len(req.Items))
 	for _, it := range req.Items {
 		title, okTitle := cleanText(it.Title, maxRoomTitle)
-		desc, okDesc := cleanText(it.Description, maxRoomDescription)
+		desc, okDesc := cleanText(it.Description, maxModuleContent)
 		start, end := strings.TrimSpace(it.StartDate), strings.TrimSpace(it.EndDate)
 		switch {
 		case title == "":
 			httpx.Error(w, http.StatusBadRequest, "every curriculum item needs a title")
 			return
 		case !okTitle || !okDesc:
-			httpx.Error(w, http.StatusBadRequest, "curriculum title or description is too long")
+			httpx.Error(w, http.StatusBadRequest, "module title or content is too long (content is limited to 20,000 characters)")
 			return
 		case !validRoomDate(start) || !validRoomDate(end):
 			httpx.Error(w, http.StatusBadRequest, "curriculum dates must be YYYY-MM-DD")

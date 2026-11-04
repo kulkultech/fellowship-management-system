@@ -284,6 +284,79 @@
     @apply w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-kulkul-purple transition;
   }
 
+  /* Rendered Markdown (curriculum modules) */
+  .markdown-body {
+    @apply text-sm text-slate-600 leading-relaxed break-words;
+  }
+  .markdown-body > * + * {
+    @apply mt-3;
+  }
+  .markdown-body h1 {
+    @apply text-lg font-extrabold text-slate-900 mt-5;
+  }
+  .markdown-body h2 {
+    @apply text-base font-extrabold text-slate-900 mt-5;
+  }
+  .markdown-body h3,
+  .markdown-body h4,
+  .markdown-body h5,
+  .markdown-body h6 {
+    @apply text-sm font-extrabold text-slate-900 mt-4;
+  }
+  .markdown-body > :first-child {
+    @apply mt-0;
+  }
+  .markdown-body a {
+    @apply text-kulkul-purple font-semibold underline underline-offset-2;
+  }
+  .markdown-body strong {
+    @apply font-bold text-slate-900;
+  }
+  .markdown-body ul {
+    @apply list-disc pl-5 space-y-1;
+  }
+  .markdown-body ol {
+    @apply list-decimal pl-5 space-y-1;
+  }
+  .markdown-body li > ul,
+  .markdown-body li > ol {
+    @apply mt-1;
+  }
+  .markdown-body ul.contains-task-list {
+    @apply list-none pl-0;
+  }
+  .markdown-body input[type='checkbox'] {
+    @apply mr-1.5 align-middle;
+  }
+  .markdown-body blockquote {
+    @apply border-l-4 border-slate-200 pl-3 text-slate-500;
+  }
+  .markdown-body code {
+    @apply font-mono text-xs bg-slate-100 text-slate-800 rounded px-1 py-0.5;
+  }
+  .markdown-body pre {
+    @apply bg-slate-900 text-slate-100 rounded-xl p-3 overflow-x-auto;
+  }
+  .markdown-body pre code {
+    @apply bg-transparent text-slate-100 p-0;
+  }
+  .markdown-body hr {
+    @apply border-slate-200;
+  }
+  .markdown-body img {
+    @apply max-w-full rounded-xl;
+  }
+  .markdown-body table {
+    @apply block w-full overflow-x-auto border-collapse text-xs;
+  }
+  .markdown-body th,
+  .markdown-body td {
+    @apply border border-slate-200 px-2.5 py-1.5 text-left;
+  }
+  .markdown-body th {
+    @apply bg-slate-50 font-bold text-slate-900;
+  }
+
   .tab-pill {
     @apply inline-flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-2xl text-xs font-extrabold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100;
   }

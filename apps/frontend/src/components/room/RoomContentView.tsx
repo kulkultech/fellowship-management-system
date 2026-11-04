@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDown,
@@ -22,6 +22,7 @@ import {
   type RoomResource,
   type RoomResourceCategory,
 } from '@/services/roomContentService';
+import { MarkdownContent } from '@/components/ui/MarkdownContent';
 
 interface RoomContentViewProps {
   programId: string;
@@ -197,7 +198,9 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                   </div>
                   {range && <p className="meta-text">{range}</p>}
                   {item.description && (
-                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{item.description}</p>
+                    <div className="pt-2">
+                      <ModuleContent markdown={item.description} startOpen={current} />
+                    </div>
                   )}
                 </div>
                 {canEdit && (
@@ -253,7 +256,7 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
 
       {draft && (
         <div className="modal-backdrop" onClick={() => setDraft(null)}>
-          <form className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()} onSubmit={submitDraft}>
+          <form className={`modal-panel ${section === 'curriculum' ? 'max-w-4xl' : 'max-w-lg'}`} onClick={(e) => e.stopPropagation()} onSubmit={submitDraft}>
             <div className="section-header">
               <h2 className="section-title">{draft.id ? `Edit ${noun}` : `Add ${noun}`}</h2>
               <button type="button" onClick={() => setDraft(null)} className="btn btn-icon-sm btn-ghost" aria-label="Close">
@@ -345,19 +348,23 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                 </div>
               )}
 
-              <div>
-                <label className="field-label" htmlFor="room-item-description">
-                  Description
-                </label>
-                <textarea
-                  id="room-item-description"
-                  rows={3}
-                  maxLength={2000}
-                  value={draft.description}
-                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                  className="form-textarea"
-                />
-              </div>
+              {section === 'curriculum' ? (
+                <MarkdownField value={draft.description} onChange={(description) => setDraft({ ...draft, description })} />
+              ) : (
+                <div>
+                  <label className="field-label" htmlFor="room-item-description">
+                    Description
+                  </label>
+                  <textarea
+                    id="room-item-description"
+                    rows={3}
+                    maxLength={2000}
+                    value={draft.description}
+                    onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                    className="form-textarea"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">
@@ -399,3 +406,91 @@ const ItemControls: React.FC<{
     </button>
   </div>
 );
+
+const MODULE_CONTENT_LIMIT = 20000;
+const MODULE_PLACEHOLDER = `## What you'll learn
+- Ownership and borrowing
+- Error handling with \`Result\`
+
+## Before the session
+Read [The Rust Book, chapter 4](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html).
+
+\`\`\`rust
+fn main() {
+    println!("Hello, fellows!");
+}
+\`\`\``;
+
+/** Module content editor: Markdown on the left, what fellows will see on the right (tabs on small screens). */
+const MarkdownField: React.FC<{ value: string; onChange: (value: string) => void }> = ({ value, onChange }) => {
+  const [tab, setTab] = useState<'write' | 'preview'>('write');
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <label className="field-label mb-0" htmlFor="room-item-description">
+          Content
+        </label>
+        <div className="flex gap-1 lg:hidden">
+          <button type="button" onClick={() => setTab('write')} className={`tab-pill ${tab === 'write' ? 'tab-pill-active' : ''}`}>
+            Write
+          </button>
+          <button type="button" onClick={() => setTab('preview')} className={`tab-pill ${tab === 'preview' ? 'tab-pill-active' : ''}`}>
+            Preview
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <textarea
+          id="room-item-description"
+          maxLength={MODULE_CONTENT_LIMIT}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={MODULE_PLACEHOLDER}
+          spellCheck={false}
+          className={`form-textarea font-mono h-80 resize-y ${tab === 'preview' ? 'hidden lg:block' : ''}`}
+        />
+        <div className={`panel-muted h-80 overflow-y-auto ${tab === 'write' ? 'hidden lg:block' : ''}`}>
+          <p className="subsection-title mb-3">Preview</p>
+          {value.trim() ? (
+            <MarkdownContent>{value}</MarkdownContent>
+          ) : (
+            <p className="meta-text">What fellows see appears here as you type.</p>
+          )}
+        </div>
+      </div>
+      <p className="meta-text mt-1">
+        Markdown: # Heading, **bold**, - list, `code`, ``` code block ```, [link](https://…), tables.{' '}
+        {value.length.toLocaleString()} / {MODULE_CONTENT_LIMIT.toLocaleString()}
+      </p>
+    </div>
+  );
+};
+
+const COLLAPSED_HEIGHT_PX = 240;
+
+/** A module's lesson content. Long content is folded with "Read more", except the current module. */
+const ModuleContent: React.FC<{ markdown: string; startOpen: boolean }> = ({ markdown, startOpen }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(startOpen);
+  const [isLong, setIsLong] = useState(false);
+
+  useLayoutEffect(() => {
+    // Fold only when it saves real space, not to hide the last line or two
+    if (ref.current) setIsLong(ref.current.scrollHeight > COLLAPSED_HEIGHT_PX + 80);
+  }, [markdown]);
+
+  const folded = isLong && !open;
+  return (
+    <div>
+      <div ref={ref} className={`relative ${folded ? 'max-h-60 overflow-hidden' : ''}`}>
+        <MarkdownContent>{markdown}</MarkdownContent>
+        {folded && <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />}
+      </div>
+      {isLong && (
+        <button type="button" onClick={() => setOpen((o) => !o)} className="btn btn-sm btn-ghost mt-2 -ml-2">
+          {open ? 'Show less' : 'Read more'}
+        </button>
+      )}
+    </div>
+  );
+};
