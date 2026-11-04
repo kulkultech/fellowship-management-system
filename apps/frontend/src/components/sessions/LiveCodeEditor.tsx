@@ -77,6 +77,8 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
 /** The languages the workspace had before files (each kept its own shared text) */
 export const LEGACY_LANGUAGE_IDS: SupportedLanguage[] = ['java', 'html', 'css', 'javascript', 'typescript', 'python'];
 
+const AUTO_SCROLL_KEY = 'fellowhire.workspace.terminalAutoScroll';
+
 export interface SnippetOption {
   title: string;
   description: string;
@@ -513,6 +515,15 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   const [fontSize, setFontSize] = useState<number>(14);
   const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
   const [minimap, setMinimap] = useState<boolean>(false);
+  // Keep the terminal scrolled to the newest output. Remembered in this browser across files.
+  const [autoScroll, setAutoScroll] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(AUTO_SCROLL_KEY) !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const consoleRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // View mode: 'split' | 'editor-only' | 'preview-only'
@@ -628,6 +639,21 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     ]);
     setRightPanelTab('console');
   }, [remoteCodeRun]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTO_SCROLL_KEY, autoScroll ? 'on' : 'off');
+    } catch {
+      // Storage unavailable (private mode): the setting lasts for this page only
+    }
+  }, [autoScroll]);
+
+  // New output (or reopening the terminal) shows the latest lines
+  useEffect(() => {
+    if (!autoScroll || rightPanelTab !== 'console') return;
+    const el = consoleRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [consoleLogs, autoScroll, rightPanelTab]);
 
   // When language changes, auto-set right panel if HTML/CSS
   useEffect(() => {
@@ -1049,6 +1075,15 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
           >
             Map {minimap ? 'On' : 'Off'}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setAutoScroll((a) => !a)}
+            className={`font-semibold transition ${autoScroll ? 'text-emerald-400' : 'text-slate-500'}`}
+            title="Scroll the terminal to the newest output after running code"
+          >
+            Auto-scroll {autoScroll ? 'On' : 'Off'}
+          </button>
         </div>
       </div>
 
@@ -1187,7 +1222,10 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
 
             {/* Panel Body: Console Logs */}
             {rightPanelTab === 'console' && (
-              <div className="flex-1 p-4 font-mono text-2xs overflow-y-auto space-y-1.5 bg-slate-950 text-slate-300 select-text">
+              <div
+                ref={consoleRef}
+                className="flex-1 p-4 font-mono text-2xs overflow-y-auto space-y-1.5 bg-slate-950 text-slate-300 select-text"
+              >
                 {consoleLogs.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2">
                     <Terminal className="w-8 h-8 stroke-1 text-slate-700" />

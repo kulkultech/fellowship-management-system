@@ -202,6 +202,20 @@ export const SessionWorkspacePage: React.FC = () => {
     lastAckAtRef.current = Date.now();
   }, []);
 
+  // The file the presenter last opened. A newly created file can be announced a moment before its
+  // entry shows up in our file list, so the jump waits for it (see the file-list effect below).
+  const presenterTabRef = useRef<string>('');
+  const pendingFollowTabRef = useRef<string>('');
+  const followTab = useCallback((tab: string) => {
+    if (!listFiles(ydocRef.current!).some((f) => f.id === tab)) {
+      pendingFollowTabRef.current = tab;
+      return;
+    }
+    pendingFollowTabRef.current = '';
+    // Don't pull a fellow away while they are writing feedback
+    setActiveWorkspaceTab((current) => (current === 'feedback' ? current : tab));
+  }, []);
+
   const handleRemoteCodeRun = useCallback(
     (payload: { language: SupportedLanguage; logs: LogItem[] }, sender: { id: string; name: string; role: string }) => {
       setRemoteCodeRun({
@@ -215,13 +229,13 @@ export const SessionWorkspacePage: React.FC = () => {
 
   const handleRemoteTabChange = useCallback(
     (payload: { tab: string }, sender: { id: string; name: string; role: string }) => {
-      if (!filesRef.current.some((f) => f.id === payload.tab)) return;
-      if (followMentor && (sender.role === 'mentor' || sender.role === 'org_admin' || sender.role === 'superadmin')) {
-        // Don't pull a fellow away while they are writing feedback
-        setActiveWorkspaceTab((current) => (current === 'feedback' ? current : payload.tab));
-      }
+      if (!payload?.tab) return;
+      if (sender.role !== 'mentor' && sender.role !== 'org_admin' && sender.role !== 'superadmin') return;
+      // Remembered even when not following, so turning "follow" on jumps to the presenter's file
+      presenterTabRef.current = payload.tab;
+      if (followMentor) followTab(payload.tab);
     },
-    [followMentor]
+    [followMentor, followTab]
   );
 
   // A mentor ended or reopened the session: refresh it, and send fellows to the feedback tab
@@ -293,11 +307,22 @@ export const SessionWorkspacePage: React.FC = () => {
   // Keep the file list in sync with the shared document
   useEffect(() => {
     const map = ydoc.getMap(FILES_MAP);
-    const sync = () => setFiles(listFiles(ydoc));
+    const sync = () => {
+      const list = listFiles(ydoc);
+      setFiles(list);
+      // The presenter opened a file that had not reached us yet: open it now that it has
+      const pending = pendingFollowTabRef.current;
+      if (pending && list.some((f) => f.id === pending)) followTab(pending);
+    };
     sync();
     map.observe(sync);
     return () => map.unobserve(sync);
-  }, [ydoc]);
+  }, [ydoc, followTab]);
+
+  // Turning "follow presenter" on jumps to the file the presenter has open
+  useEffect(() => {
+    if (followMentor && presenterTabRef.current) followTab(presenterTabRef.current);
+  }, [followMentor, followTab]);
 
   // Always have a file open: the first one when nothing (or a removed file) is selected
   useEffect(() => {
@@ -367,6 +392,14 @@ export const SessionWorkspacePage: React.FC = () => {
       migrateLegacyBoard();
     }
   }, [session, migrateLegacyBoard]);
+
+  // Someone joined: tell them which file the presenter has open, so followers start in sync
+  const participantCount = participants.length;
+  useEffect(() => {
+    if (!isMentorOrAdmin || !isConnected || participantCount === 0) return;
+    if (activeWorkspaceTab && activeWorkspaceTab !== 'feedback') sendTabChange(activeWorkspaceTab);
+    // Only on joins; switching files already announces itself
+  }, [participantCount, isConnected]);
 
   // Opening a file (or Feedback). Mentors' choice is followed by fellows in "follow presenter" mode.
   const handleSelectTab = (tab: string) => {
