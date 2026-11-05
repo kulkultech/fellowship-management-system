@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -92,75 +93,132 @@ func (h *AdminHandler) SetCredentialRepo(repo *repository.CredentialRepository) 
 }
 
 type ApplicantListItem struct {
-	ID               string               `json:"id"`
-	FullName         string               `json:"full_name"`
-	FirstName        string               `json:"first_name,omitempty"`
-	LastName         string               `json:"last_name,omitempty"`
-	DateOfBirth      string               `json:"date_of_birth,omitempty"`
-	Email            string               `json:"email"`
-	Phone            string               `json:"phone"`
-	GitHubURL        string               `json:"github_url,omitempty"`
-	LinkedInURL      string               `json:"linkedin_url,omitempty"`
-	ResumeURL        string               `json:"resume_url,omitempty"`
-	University       string               `json:"university,omitempty"`
-	Major            string               `json:"major,omitempty"`
-	Semester         string               `json:"semester,omitempty"`
-	ReferralSource   string                 `json:"referral_source,omitempty"`
-	CustomResponses  map[string]interface{} `json:"custom_responses,omitempty"`
-	TrackID          string                 `json:"track_id,omitempty"`
-	TrackName        string                 `json:"track_name,omitempty"`
-	CurrentStage       model.ApplicantStage   `json:"current_stage"`
-	MCQScore           *int                   `json:"mcq_score,omitempty"`
-	MCQPassed          *bool                  `json:"mcq_passed,omitempty"`
-	TimeSpentSeconds   *int                   `json:"time_spent_seconds,omitempty"`
-	MCQStatus          *string                `json:"mcq_status,omitempty"`
-	MCQStartedAt       *string                `json:"mcq_started_at,omitempty"`
-	MCQSubmittedAt     *string                `json:"mcq_submitted_at,omitempty"`
-	AIScore            *int                   `json:"ai_score,omitempty"`
-	AIRecommendation   *string                `json:"ai_recommendation,omitempty"`
-	AIStatus           *string                `json:"ai_status,omitempty"`
-	AIRecordingURL     *string                `json:"ai_recording_url,omitempty"`
-	AICompletedAt      *string                `json:"ai_completed_at,omitempty"`
-	AITechnicalAcumen  *int                   `json:"ai_technical_acumen,omitempty"`
-	AICommunication    *int                   `json:"ai_communication,omitempty"`
-	AIProblemSolving   *int                   `json:"ai_problem_solving,omitempty"`
-	AIKeyStrengths     []string               `json:"ai_key_strengths,omitempty"`
-	AIAreasForGrowth   []string               `json:"ai_areas_for_growth,omitempty"`
-	AIExecutiveSummary *string                `json:"ai_executive_summary,omitempty"`
-	ProgramRoomInvitedAt *string              `json:"program_room_invited_at,omitempty"`
-	Notes                string               `json:"notes,omitempty"`
-	ReviewerMark         *float64             `json:"reviewer_mark,omitempty"`
-	ReviewerNotes        string               `json:"reviewer_notes,omitempty"`
-	CreatedAt            string               `json:"created_at"`
+	ID                   string                 `json:"id"`
+	FullName             string                 `json:"full_name"`
+	FirstName            string                 `json:"first_name,omitempty"`
+	LastName             string                 `json:"last_name,omitempty"`
+	DateOfBirth          string                 `json:"date_of_birth,omitempty"`
+	Email                string                 `json:"email"`
+	Phone                string                 `json:"phone"`
+	GitHubURL            string                 `json:"github_url,omitempty"`
+	LinkedInURL          string                 `json:"linkedin_url,omitempty"`
+	ResumeURL            string                 `json:"resume_url,omitempty"`
+	University           string                 `json:"university,omitempty"`
+	Major                string                 `json:"major,omitempty"`
+	Semester             string                 `json:"semester,omitempty"`
+	ReferralSource       string                 `json:"referral_source,omitempty"`
+	CustomResponses      map[string]interface{} `json:"custom_responses,omitempty"`
+	TrackID              string                 `json:"track_id,omitempty"`
+	TrackName            string                 `json:"track_name,omitempty"`
+	CurrentStage         model.ApplicantStage   `json:"current_stage"`
+	MCQScore             *int                   `json:"mcq_score,omitempty"`
+	MCQPassed            *bool                  `json:"mcq_passed,omitempty"`
+	TimeSpentSeconds     *int                   `json:"time_spent_seconds,omitempty"`
+	MCQStatus            *string                `json:"mcq_status,omitempty"`
+	MCQStartedAt         *string                `json:"mcq_started_at,omitempty"`
+	MCQSubmittedAt       *string                `json:"mcq_submitted_at,omitempty"`
+	AIScore              *int                   `json:"ai_score,omitempty"`
+	AIRecommendation     *string                `json:"ai_recommendation,omitempty"`
+	AIStatus             *string                `json:"ai_status,omitempty"`
+	AIRecordingURL       *string                `json:"ai_recording_url,omitempty"`
+	AICompletedAt        *string                `json:"ai_completed_at,omitempty"`
+	AITechnicalAcumen    *int                   `json:"ai_technical_acumen,omitempty"`
+	AICommunication      *int                   `json:"ai_communication,omitempty"`
+	AIProblemSolving     *int                   `json:"ai_problem_solving,omitempty"`
+	AIKeyStrengths       []string               `json:"ai_key_strengths,omitempty"`
+	AIAreasForGrowth     []string               `json:"ai_areas_for_growth,omitempty"`
+	AIExecutiveSummary   *string                `json:"ai_executive_summary,omitempty"`
+	ProgramRoomInvitedAt *string                `json:"program_room_invited_at,omitempty"`
+	Notes                string                 `json:"notes,omitempty"`
+	ReviewerMark         *float64               `json:"reviewer_mark,omitempty"`
+	ReviewerNotes        string                 `json:"reviewer_notes,omitempty"`
+	CreatedAt            string                 `json:"created_at"`
 }
 
+// ListApplicants handles GET /admin/applicants. With ?page / ?page_size it returns one page of the
+// candidates matching ?q, ?stage_group, ?track_id, sorted by ?sort ("column:asc,column:desc"),
+// together with the filtered total and per-stage counts. Without them it returns the whole list.
 func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
-	programIDStr := r.URL.Query().Get("program_id")
-	stageFilter := r.URL.Query().Get("stage")
-
+	q := r.URL.Query()
+	programIDStr := q.Get("program_id")
 	if programIDStr == "" {
 		programIDStr = "00000000-0000-0000-0000-000000000003"
 	}
-
 	programID, err := uuid.Parse(programIDStr)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid program_id")
 		return
 	}
 
-	applicants, err := h.applicantRepo.ListByProgram(r.Context(), programID, stageFilter)
+	rows, err := h.loadApplicantRows(r.Context(), programID, q.Get("stage"))
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load applicants")
 		return
 	}
+	counts := applicantStageCounts(rows)
+	customKeys := applicantCustomKeys(rows)
 
-	tracks, _ := h.trackRepo.ListByProgram(r.Context(), programID)
+	filters := applicantFilters{
+		query:      strings.ToLower(strings.TrimSpace(q.Get("q"))),
+		stageGroup: strings.TrimSpace(q.Get("stage_group")),
+		trackID:    strings.TrimSpace(q.Get("track_id")),
+	}
+	matched := make([]applicantRow, 0, len(rows))
+	for _, row := range rows {
+		if filters.match(row) {
+			matched = append(matched, row)
+		}
+	}
+	sortApplicantRows(matched, parseSortRules(q.Get("sort")))
+
+	list := make([]ApplicantListItem, len(matched))
+	for i, row := range matched {
+		list[i] = row.item
+	}
+
+	resp := map[string]any{
+		"applicants":   list,
+		"total":        len(list),
+		"stage_counts": counts,
+		"custom_keys":  customKeys,
+	}
+	if page, ok := httpx.ParsePage(r); ok {
+		for k, v := range httpx.PageMeta(page, len(list)) {
+			resp[k] = v
+		}
+		resp["applicants"] = httpx.Slice(list, page)
+	}
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
+// loadApplicantRows loads a program's applicants with their latest test and AI interview results,
+// in three queries however many applicants there are.
+func (h *AdminHandler) loadApplicantRows(ctx context.Context, programID uuid.UUID, stage string) ([]applicantRow, error) {
+	applicants, err := h.applicantRepo.ListByProgram(ctx, programID, stage)
+	if err != nil {
+		return nil, err
+	}
+
+	tracks, _ := h.trackRepo.ListByProgram(ctx, programID)
 	trackMap := make(map[string]string)
 	for _, t := range tracks {
 		trackMap[t.ID.String()] = t.Name
 	}
 
-	list := make([]ApplicantListItem, 0, len(applicants))
+	ids := make([]uuid.UUID, len(applicants))
+	for i, a := range applicants {
+		ids[i] = a.ID
+	}
+	subs, err := h.submissionRepo.LatestByApplicants(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	interviews, err := h.aiInterviewRepo.BestByApplicants(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := make([]applicantRow, 0, len(applicants))
 	for _, a := range applicants {
 		trackName := ""
 		trackID := ""
@@ -201,7 +259,7 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:            a.CreatedAt.Format("2006-01-02 15:04"),
 		}
 
-		if sub, err := h.submissionRepo.GetByApplicantID(r.Context(), a.ID); err == nil && sub != nil {
+		if sub := subs[a.ID]; sub != nil {
 			score := sub.TotalScore
 			passed := sub.Passed
 			spent := sub.TimeSpentSeconds
@@ -220,7 +278,7 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if ai, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), a.ID); err == nil && ai != nil {
+		if ai := interviews[a.ID]; ai != nil {
 			score := ai.ScorecardScore
 			item.AIScore = &score
 			aiStatusStr := string(ai.Status)
@@ -251,13 +309,9 @@ func (h *AdminHandler) ListApplicants(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		list = append(list, item)
+		rows = append(rows, applicantRow{item: item, createdAt: a.CreatedAt})
 	}
-
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"applicants": list,
-		"total":      len(list),
-	})
+	return rows, nil
 }
 
 func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request) {
@@ -373,34 +427,34 @@ func (h *AdminHandler) GetApplicantDetail(w http.ResponseWriter, r *http.Request
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"applicant": map[string]any{
-			"id":                  applicant.ID.String(),
-			"organization_id":     applicant.OrganizationID.String(),
-			"program_id":          applicant.ProgramID.String(),
-			"full_name":           applicant.FullName,
-			"first_name":          applicant.FirstName,
-			"last_name":           applicant.LastName,
-			"date_of_birth":       applicant.DateOfBirth,
-			"email":               applicant.Email,
-			"phone":               applicant.Phone,
-			"github_url":          applicant.GitHubURL,
-			"linkedin_url":        applicant.LinkedInURL,
-			"resume_url":          applicant.ResumeURL,
-			"university":          applicant.University,
-			"major":               applicant.Major,
-			"semester":            applicant.Semester,
-			"referral_source":     applicant.ReferralSource,
-			"current_stage":       applicant.CurrentStage,
-			"notes":               applicant.Notes,
-			"reviewer_mark":       applicant.ReviewerMark,
-			"reviewer_notes":      applicant.ReviewerNotes,
-			"custom_responses":    applicant.CustomResponses,
-			"custom_field_labels": customFieldLabels,
+			"id":                      applicant.ID.String(),
+			"organization_id":         applicant.OrganizationID.String(),
+			"program_id":              applicant.ProgramID.String(),
+			"full_name":               applicant.FullName,
+			"first_name":              applicant.FirstName,
+			"last_name":               applicant.LastName,
+			"date_of_birth":           applicant.DateOfBirth,
+			"email":                   applicant.Email,
+			"phone":                   applicant.Phone,
+			"github_url":              applicant.GitHubURL,
+			"linkedin_url":            applicant.LinkedInURL,
+			"resume_url":              applicant.ResumeURL,
+			"university":              applicant.University,
+			"major":                   applicant.Major,
+			"semester":                applicant.Semester,
+			"referral_source":         applicant.ReferralSource,
+			"current_stage":           applicant.CurrentStage,
+			"notes":                   applicant.Notes,
+			"reviewer_mark":           applicant.ReviewerMark,
+			"reviewer_notes":          applicant.ReviewerNotes,
+			"custom_responses":        applicant.CustomResponses,
+			"custom_field_labels":     customFieldLabels,
 			"program_room_invited_at": applicant.ProgramRoomInvitedAt,
-			"created_at":          applicant.CreatedAt.Format("2006-01-02 15:04:05"),
+			"created_at":              applicant.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
-		"track":      trackDetail,
-		"submission": submissionDetail,
-		"ai_screen":  aiDetail,
+		"track":                trackDetail,
+		"submission":           submissionDetail,
+		"ai_screen":            aiDetail,
 		"ai_previous_attempts": aiAttempts,
 	})
 }
@@ -581,80 +635,80 @@ func (h *AdminHandler) UpdateApplicantStage(w http.ResponseWriter, r *http.Reque
 			}
 		}
 	} else if req.Stage == model.StageAIInterviewInvited {
-			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
-			if err == nil && applicant != nil && applicant.Email != "" {
-				progName := "KulKul Fellowship"
-				var customTmpl *model.EmailTemplateConfig
-				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
-					progName = prog.Name
-					if prog.EmailTemplates != nil {
-						customTmpl = prog.EmailTemplates.AIInterviewInvitation
-					}
+		applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+		if err == nil && applicant != nil && applicant.Email != "" {
+			progName := "KulKul Fellowship"
+			var customTmpl *model.EmailTemplateConfig
+			if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+				progName = prog.Name
+				if prog.EmailTemplates != nil {
+					customTmpl = prog.EmailTemplates.AIInterviewInvitation
 				}
-				trackName := ""
-				if applicant.TrackID != nil {
-					if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
-						trackName = tr.Name
-					}
+			}
+			trackName := ""
+			if applicant.TrackID != nil {
+				if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+					trackName = tr.Name
 				}
-				interview, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), applicantID)
-				var inviteToken string
-				var expiresAt time.Time
-				if err == nil && interview != nil && interview.InvitationToken != "" {
-					inviteToken = interview.InvitationToken
-					expiresAt = interview.InvitationExpiresAt
-				} else {
-					tokenBytes := make([]byte, 16)
-					_, _ = rand.Read(tokenBytes)
-					inviteToken = hex.EncodeToString(tokenBytes)
-					expiresAt = time.Now().Add(7 * 24 * time.Hour)
-					_, _ = h.aiInterviewRepo.CreateInvitationWithTrack(
-						r.Context(),
-						applicant.ID,
-						applicant.ProgramID,
-						applicant.TrackID,
-						inviteToken,
-						expiresAt,
-					)
-				}
-				interviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, inviteToken)
-				_ = h.emailSvc.SendCustomAIInterviewInvitationEmail(
-					applicant.Email,
-					applicant.FullName,
-					progName,
-					trackName,
-					interviewURL,
+			}
+			interview, err := h.aiInterviewRepo.GetByApplicantID(r.Context(), applicantID)
+			var inviteToken string
+			var expiresAt time.Time
+			if err == nil && interview != nil && interview.InvitationToken != "" {
+				inviteToken = interview.InvitationToken
+				expiresAt = interview.InvitationExpiresAt
+			} else {
+				tokenBytes := make([]byte, 16)
+				_, _ = rand.Read(tokenBytes)
+				inviteToken = hex.EncodeToString(tokenBytes)
+				expiresAt = time.Now().Add(7 * 24 * time.Hour)
+				_, _ = h.aiInterviewRepo.CreateInvitationWithTrack(
+					r.Context(),
+					applicant.ID,
+					applicant.ProgramID,
+					applicant.TrackID,
+					inviteToken,
 					expiresAt,
-					customTmpl,
 				)
 			}
-		} else if req.Stage == model.StageRejected {
-			applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
-			if err == nil && applicant != nil && applicant.Email != "" {
-				progName := "KulKul Fellowship"
-				var customTmpl *model.EmailTemplateConfig
-				if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
-					progName = prog.Name
-					if prog.EmailTemplates != nil {
-						customTmpl = prog.EmailTemplates.Rejection
-					}
-				}
-				trackName := ""
-				if applicant.TrackID != nil {
-					if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
-						trackName = tr.Name
-					}
-				}
-				_ = h.emailSvc.SendRejectionEmail(
-					applicant.Email,
-					applicant.FullName,
-					progName,
-					trackName,
-					applicant.Notes,
-					customTmpl,
-				)
-			}
+			interviewURL := fmt.Sprintf("%s/interview/%s", h.frontendURL, inviteToken)
+			_ = h.emailSvc.SendCustomAIInterviewInvitationEmail(
+				applicant.Email,
+				applicant.FullName,
+				progName,
+				trackName,
+				interviewURL,
+				expiresAt,
+				customTmpl,
+			)
 		}
+	} else if req.Stage == model.StageRejected {
+		applicant, err := h.applicantRepo.GetByID(r.Context(), applicantID)
+		if err == nil && applicant != nil && applicant.Email != "" {
+			progName := "KulKul Fellowship"
+			var customTmpl *model.EmailTemplateConfig
+			if prog, err := h.programRepo.GetByID(r.Context(), applicant.ProgramID); err == nil && prog != nil {
+				progName = prog.Name
+				if prog.EmailTemplates != nil {
+					customTmpl = prog.EmailTemplates.Rejection
+				}
+			}
+			trackName := ""
+			if applicant.TrackID != nil {
+				if tr, err := h.trackRepo.GetByID(r.Context(), *applicant.TrackID); err == nil && tr != nil {
+					trackName = tr.Name
+				}
+			}
+			_ = h.emailSvc.SendRejectionEmail(
+				applicant.Email,
+				applicant.FullName,
+				progName,
+				trackName,
+				applicant.Notes,
+				customTmpl,
+			)
+		}
+	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message": "Applicant stage updated successfully",
@@ -3442,6 +3496,3 @@ func (h *AdminHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		"id":      targetUserID.String(),
 	})
 }
-
-
-

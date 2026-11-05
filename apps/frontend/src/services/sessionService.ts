@@ -26,6 +26,30 @@ export const sessionService = {
     return res.data.sessions || [];
   },
 
+  /** One page of a program's sessions (oldest first), optionally searched and filtered by track. */
+  listSessionsPage: async (
+    programId: string,
+    page: number,
+    pageSize: number,
+    filters: { q?: string; trackId?: string } = {}
+  ): Promise<{
+    sessions: ProgramSession[];
+    total: number;
+    page: number;
+    page_size: number;
+    fellow_stats?: { total: number; attended: number; pending: number };
+  }> => {
+    const res = await apiClient.get(`/programs/${programId}/sessions`, {
+      params: {
+        page,
+        page_size: pageSize,
+        ...(filters.q ? { q: filters.q } : {}),
+        ...(filters.trackId ? { track_id: filters.trackId } : {}),
+      },
+    });
+    return { ...res.data, sessions: res.data.sessions || [] };
+  },
+
   getSession: async (programId: string, sessionId: string): Promise<ProgramSession> => {
     const res = await apiClient.get(`/programs/${programId}/sessions/${sessionId}`);
     return res.data;

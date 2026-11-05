@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { programService } from '@/services/programService';
 import { sessionService } from '@/services/sessionService';
 import { apiClient } from '@/services/apiClient';
@@ -40,6 +40,7 @@ import { uploadService } from '@/services/uploadService';
 import type { ProgramSession, SessionAttendance } from '@/services/types';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { Pagination } from '@/components/ui/Pagination';
 import { ROOM_SECTIONS, loginPathFor, workspaceLink, type RoomSection } from '@/utils/shareLinks';
 
 export const ProgramRoomPage: React.FC = () => {
@@ -102,12 +103,20 @@ export const ProgramRoomPage: React.FC = () => {
 
   const isInvited = Boolean(currentApp?.program_room_invited_at || authUser?.role === 'superadmin' || authUser?.role === 'org_admin' || authUser?.role === 'mentor');
 
-  // 3. Fetch Live Program Sessions
-  const { data: realSessions = [], isLoading: isLoadingSessions } = useQuery({
-    queryKey: ['candidate-program-sessions', program?.id],
-    queryFn: () => (program?.id ? sessionService.listSessions(program.id) : Promise.resolve([])),
+  // 3. Live program sessions, one page at a time from the server
+  const [sessionPage, setSessionPage] = useState(1);
+  const [sessionPageSize, setSessionPageSize] = useState(10);
+  const {
+    data: sessionPageData,
+    isLoading: isLoadingSessions,
+    isFetching: isFetchingSessions,
+  } = useQuery({
+    queryKey: ['candidate-program-sessions', program?.id, sessionPage, sessionPageSize],
+    queryFn: () => sessionService.listSessionsPage(program!.id, sessionPage, sessionPageSize),
     enabled: Boolean(program?.id),
+    placeholderData: keepPreviousData,
   });
+  const realSessions = sessionPageData?.sessions ?? [];
 
   // Check-In Mutation
   const checkInMutation = useMutation({
@@ -127,22 +136,12 @@ export const ProgramRoomPage: React.FC = () => {
     },
   });
 
-  // Fellow Personal Attendance Stats
+  // Fellow's own attendance across every session (counted by the server, not just this page)
   const fellowStats = React.useMemo(() => {
-    if (realSessions.length === 0) return null;
-    const total = realSessions.length;
-    let attended = 0;
-    let pending = 0;
-    realSessions.forEach((s) => {
-      if (s.fellow_attendance?.status === 'present' || s.fellow_attendance?.status === 'late') {
-        attended++;
-      } else if (s.fellow_attendance?.status === 'pending_validation') {
-        pending++;
-      }
-    });
-    const rate = Math.round((attended / total) * 100);
-    return { total, attended, pending, rate };
-  }, [realSessions]);
+    const stats = sessionPageData?.fellow_stats;
+    if (!stats || stats.total === 0) return null;
+    return { ...stats, rate: Math.round((stats.attended / stats.total) * 100) };
+  }, [sessionPageData]);
 
   const handleProofFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -590,6 +589,18 @@ export const ProgramRoomPage: React.FC = () => {
                   ) : (
                     <p className="py-10 text-center text-xs text-slate-500">No sessions scheduled yet.</p>
                   )}
+                  <Pagination
+                    page={sessionPage}
+                    pageSize={sessionPageSize}
+                    total={sessionPageData?.total ?? 0}
+                    onPageChange={setSessionPage}
+                    onPageSizeChange={(size) => {
+                      setSessionPageSize(size);
+                      setSessionPage(1);
+                    }}
+                    noun="sessions"
+                    isFetching={isFetchingSessions && !isLoadingSessions}
+                  />
                 </div>
               )}
             </div>

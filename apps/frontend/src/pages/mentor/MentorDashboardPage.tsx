@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { mentorService } from '@/services/mentorService';
 import { sessionService } from '@/services/sessionService';
 import { assignmentService } from '@/services/assignmentService';
@@ -27,6 +27,8 @@ import {
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { Pagination } from '@/components/ui/Pagination';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { workspaceLink } from '@/utils/shareLinks';
 import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
 
@@ -62,31 +64,26 @@ export const MentorDashboardPage: React.FC = () => {
     return '';
   }, [selectedProgramId, programs]);
 
+  // Cohort fellows: one page at a time, searched by the server
+  const [fellowPage, setFellowPage] = useState(1);
+  const [fellowPageSize, setFellowPageSize] = useState(25);
+  const debouncedFellowSearch = useDebouncedValue(searchFellowQuery.trim(), 300);
+  useEffect(() => {
+    setFellowPage(1);
+  }, [activeProgramId, debouncedFellowSearch, fellowPageSize]);
   const {
     data: fellowsData,
     isLoading: isLoadingFellows,
+    isFetching: isFetchingFellows,
   } = useQuery({
-    queryKey: ['mentor-fellows', activeProgramId],
-    queryFn: () => mentorService.getProgramFellows(activeProgramId),
+    queryKey: ['mentor-fellows', activeProgramId, 'page', fellowPage, fellowPageSize, debouncedFellowSearch],
+    queryFn: () => mentorService.getProgramFellowsPage(activeProgramId, fellowPage, fellowPageSize, debouncedFellowSearch),
     enabled: Boolean(activeProgramId),
+    placeholderData: keepPreviousData,
   });
 
   const fellowsList: ApplicantListItem[] = fellowsData?.fellows || [];
-
-  // Filtered fellows
-  const filteredFellows = useMemo(() => {
-    return fellowsList.filter((f) => {
-      const q = searchFellowQuery.toLowerCase().trim();
-      if (!q) return true;
-      return (
-        f.full_name?.toLowerCase().includes(q) ||
-        f.email?.toLowerCase().includes(q) ||
-        f.university?.toLowerCase().includes(q) ||
-        f.major?.toLowerCase().includes(q) ||
-        f.track_name?.toLowerCase().includes(q)
-      );
-    });
-  }, [fellowsList, searchFellowQuery]);
+  const filteredFellows = fellowsList;
 
   // Check if any fellow in this program has a track assigned
   const hasTracks = useMemo(() => {
@@ -584,6 +581,15 @@ export const MentorDashboardPage: React.FC = () => {
                 </table>
               )}
             </div>
+            <Pagination
+              page={fellowPage}
+              pageSize={fellowPageSize}
+              total={fellowsData?.total ?? 0}
+              onPageChange={setFellowPage}
+              onPageSizeChange={setFellowPageSize}
+              noun="fellows"
+              isFetching={isFetchingFellows && !isLoadingFellows}
+            />
           </div>
         )}
 

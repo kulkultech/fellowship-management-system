@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { sessionService } from '@/services/sessionService';
 import { mentorService } from '@/services/mentorService';
 import type {
@@ -40,6 +40,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
+import { Pagination } from '@/components/ui/Pagination';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
@@ -88,14 +90,44 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // 1. Fetch Sessions
+  // 1. Sessions list: one page at a time, searched and filtered by the server
+  const [sessionPage, setSessionPage] = useState(1);
+  const [sessionPageSize, setSessionPageSize] = useState(10);
+  const debouncedSessionSearch = useDebouncedValue(searchQuery.trim(), 300);
+  const sessionTrackId = selectedTrackFilter !== 'all' ? selectedTrackFilter : '';
+  useEffect(() => {
+    setSessionPage(1);
+  }, [programId, debouncedSessionSearch, sessionTrackId, sessionPageSize]);
   const {
-    data: sessions = [],
+    data: sessionPageData,
     isLoading: isLoadingSessions,
+    isFetching: isFetchingSessions,
   } = useQuery({
+    queryKey: ['program-sessions', programId, 'page', sessionPage, sessionPageSize, debouncedSessionSearch, sessionTrackId],
+    queryFn: () =>
+      sessionService.listSessionsPage(programId, sessionPage, sessionPageSize, {
+        q: debouncedSessionSearch,
+        trackId: sessionTrackId,
+      }),
+    enabled: Boolean(programId),
+    placeholderData: keepPreviousData,
+  });
+  const filteredSessions = sessionPageData?.sessions ?? [];
+  const filteredSessionsTotal = sessionPageData?.total ?? 0;
+
+  // How many sessions the program has in all (a one-row page: only the total is used)
+  const { data: sessionCount } = useQuery({
+    queryKey: ['program-sessions', programId, 'count'],
+    queryFn: () => sessionService.listSessionsPage(programId, 1, 1),
+    enabled: Boolean(programId),
+  });
+  const totalProgramSessions = sessionCount?.total ?? 0;
+
+  // The calendar draws every session, so it loads the full list, only when it is opened
+  const { data: sessions = [] } = useQuery({
     queryKey: ['program-sessions', programId],
     queryFn: () => sessionService.listSessions(programId),
-    enabled: Boolean(programId),
+    enabled: Boolean(programId) && activeTab === 'calendar',
   });
 
   // 2. Fetch Attendance Summary
@@ -513,30 +545,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     );
   };
 
-  // Filtered Sessions
-  const filteredSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      if (selectedTrackFilter !== 'all' && s.track_id !== selectedTrackFilter) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        return (
-          s.title.toLowerCase().includes(q) ||
-          s.description?.toLowerCase().includes(q) ||
-          s.session_type.toLowerCase().includes(q) ||
-          s.mentor_name?.toLowerCase().includes(q) ||
-          s.track_name?.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [sessions, selectedTrackFilter, searchQuery]);
-
   // Overall Cohort Metrics
   const cohortMetrics = useMemo(() => {
     const totalFellows = summaries.length;
-    const totalSessions = sessions.length;
+    const totalSessions = totalProgramSessions;
 
     let totalAttendanceRateSum = 0;
     let goodCount = 0;
@@ -561,7 +573,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
       warningCount,
       atRiskCount,
     };
-  }, [summaries, sessions]);
+  }, [summaries, totalProgramSessions]);
 
   const formatDateTime = (dateStr: string) => {
     try {
@@ -643,7 +655,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               className={`tab-pill shrink-0 ${activeTab === 'sessions' ? 'tab-pill-active' : ''}`}
             >
               <Calendar className="w-4 h-4" />
-              <span>Cohort Sessions ({sessions.length})</span>
+              <span>Cohort Sessions ({totalProgramSessions})</span>
             </button>
 
             <button
@@ -884,6 +896,15 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     </div>
                   </div>
                 ))}
+                <Pagination
+                  page={sessionPage}
+                  pageSize={sessionPageSize}
+                  total={filteredSessionsTotal}
+                  onPageChange={setSessionPage}
+                  onPageSizeChange={setSessionPageSize}
+                  noun="sessions"
+                  isFetching={isFetchingSessions && !isLoadingSessions}
+                />
               </div>
             )}
           </div>

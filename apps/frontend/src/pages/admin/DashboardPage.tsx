@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminService, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { adminService, type ApplicantListFilters, type CreateProgramPayload, type CreateTrackPayload } from '@/services/adminService';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { Pagination } from '@/components/ui/Pagination';
 import { resolveMediaUrl } from '@/services/apiClient';
 import { programService } from '@/services/programService';
 import { uploadService } from '@/services/uploadService';
@@ -308,15 +310,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     searchQuery.trim() || selectedTrackFilter || selectedStage || sortRules.length > 0
   );
 
-  const handleExportCandidates = async (targetApplicants: ApplicantListItem[], scope: string) => {
-    if (targetApplicants.length === 0) {
-      toast.error('No candidates available to export.');
-      return;
-    }
+  // Export every matching candidate (or the whole program), not just the page on screen
+  const handleExportCandidates = async (which: 'filtered' | 'all') => {
+    if (!programId) return;
     setIsExportingCandidates(true);
     setShowCandidateExportMenu(false);
     try {
       toast.loading('Generating candidate Excel spreadsheet...', { id: 'export-candidates-excel' });
+      const targetApplicants = await adminService.listApplicants(
+        programId,
+        undefined,
+        which === 'filtered' ? candidateFilters : undefined
+      );
+      if (targetApplicants.length === 0) {
+        toast.error('No candidates available to export.', { id: 'export-candidates-excel' });
+        return;
+      }
+      const scope =
+        which === 'filtered' && hasActiveCandidateFilters
+          ? `Filtered View (${targetApplicants.length} Candidates)`
+          : `All Candidates (${targetApplicants.length} Total)`;
       await exportCandidatesToExcel({
         program,
         applicants: targetApplicants,
@@ -656,12 +669,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
 
   const activeFilteredTrack = programTracks.find((t) => t.id === selectedTrackFilter);
 
-  // Load Applicants list (complete program pool cached in memory)
-  const { data: applicants = [], isLoading: isListLoading } = useQuery({
-    queryKey: ['admin-applicants', programId],
-    queryFn: () => adminService.listApplicants(programId!),
+  // Candidates: one page at a time, searched, filtered and sorted by the server
+  const [candidatePage, setCandidatePage] = useState(1);
+  const [candidatePageSize, setCandidatePageSize] = useState(25);
+  const debouncedCandidateSearch = useDebouncedValue(searchQuery.trim(), 300);
+  const candidateFilters = useMemo<ApplicantListFilters>(
+    () => ({ q: debouncedCandidateSearch, stageGroup: selectedStage, trackId: selectedTrackFilter, sort: sortRules }),
+    [debouncedCandidateSearch, selectedStage, selectedTrackFilter, sortRules]
+  );
+  // A new search, filter or sort starts again from the first page
+  useEffect(() => {
+    setCandidatePage(1);
+  }, [programId, candidateFilters, candidatePageSize]);
+  const {
+    data: applicantPage,
+    isLoading: isListLoading,
+    isFetching: isListFetching,
+  } = useQuery({
+    queryKey: ['admin-applicants', programId, 'page', candidatePage, candidatePageSize, candidateFilters],
+    queryFn: () => adminService.listApplicantsPage(programId!, candidatePage, candidatePageSize, candidateFilters),
     enabled: !!programId,
+    placeholderData: keepPreviousData,
   });
+  // The rows on screen (this page); totals come from the server
+  const applicants = applicantPage?.applicants ?? [];
+  const filteredApplicants = applicants;
+  const filteredCandidateTotal = applicantPage?.total ?? 0;
+  const stageCounts = applicantPage?.stage_counts ?? { all: 0, test_completed: 0, ai_interview_completed: 0, approved_for_live: 0 };
+  const totalCandidates = stageCounts.all;
+  const candidateCustomKeys = applicantPage?.custom_keys ?? [];
 
   // Load Single Applicant Details
   const { data: applicantDetail, isLoading: isDetailLoading } = useQuery({
@@ -733,8 +769,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   };
 
   const allAvailableColumns = React.useMemo(
-    () => getAllAvailableColumns(program, applicants),
-    [program, applicants]
+    () => getAllAvailableColumns(program, applicants, candidateCustomKeys),
+    [program, applicants, candidateCustomKeys]
   );
 
   const allAvailableColumnsMap = React.useMemo(() => {
@@ -1931,201 +1967,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   });
 
   // Helper to extract comparable values for candidate table column sorting
-  const getApplicantSortValue = (app: ApplicantListItem, colId: string): string | number | null => {
-    switch (colId) {
-      case 'candidate': {
-        const name = (app.full_name || app.email || '').trim();
-        return name.length > 0 ? name.toLowerCase() : null;
-      }
-      case 'track': {
-        const track = (app.track_name || 'General').trim();
-        return track.length > 0 ? track.toLowerCase() : null;
-      }
-      case 'stage': {
-        const stage = (app.current_stage || '').trim();
-        return stage.length > 0 ? stage.toLowerCase() : null;
-      }
-      case 'mcq_score':
-        return app.mcq_score !== undefined && app.mcq_score !== null ? Number(app.mcq_score) : null;
-      case 'ai_score':
-        return app.ai_score !== undefined && app.ai_score !== null && app.ai_score > 0 ? Number(app.ai_score) : null;
-      case 'ai_recommendation': {
-        const rec = (app.ai_recommendation || '').trim();
-        return rec.length > 0 ? rec.toLowerCase() : null;
-      }
-      case 'applied_date': {
-        if (!app.created_at) return null;
-        const t = new Date(app.created_at).getTime();
-        return isNaN(t) ? null : t;
-      }
-      case 'phone': {
-        const phone = (app.phone || '').trim();
-        return phone.length > 0 ? phone.toLowerCase() : null;
-      }
-      case 'university': {
-        const univ = (app.university || '').trim();
-        return univ.length > 0 ? univ.toLowerCase() : null;
-      }
-      case 'major': {
-        const major = (app.major || '').trim();
-        return major.length > 0 ? major.toLowerCase() : null;
-      }
-      case 'semester': {
-        const sem = (app.semester || '').trim();
-        return sem.length > 0 ? sem.toLowerCase() : null;
-      }
-      case 'referral_source': {
-        const ref = (app.referral_source || '').trim();
-        return ref.length > 0 ? ref.toLowerCase() : null;
-      }
-      case 'date_of_birth': {
-        if (!app.date_of_birth) return null;
-        const t = new Date(app.date_of_birth).getTime();
-        return isNaN(t) ? null : t;
-      }
-      case 'linkedin_url': {
-        const url = (app.linkedin_url || '').trim();
-        return url.length > 0 ? url.toLowerCase() : null;
-      }
-      case 'github_url': {
-        const url = (app.github_url || '').trim();
-        return url.length > 0 ? url.toLowerCase() : null;
-      }
-      case 'resume_url': {
-        const url = (app.resume_url || '').trim();
-        return url.length > 0 ? url.toLowerCase() : null;
-      }
-      case 'reviewer_mark':
-        return app.reviewer_mark !== undefined && app.reviewer_mark !== null ? Number(app.reviewer_mark) : null;
-      case 'reviewer_notes': {
-        const notes = (app.reviewer_notes || app.notes || '').trim();
-        return notes.length > 0 ? notes.toLowerCase() : null;
-      }
-      default: {
-        if (colId.startsWith('custom_')) {
-          const customKey = colId.replace(/^custom_/, '');
-          const val = app.custom_responses?.[customKey];
-          if (val === undefined || val === null || val === '') return null;
-          if (typeof val === 'number') return val;
-          if (typeof val === 'boolean') return val ? 1 : 0;
-          const num = Number(val);
-          if (!isNaN(num) && typeof val === 'string' && val.trim() !== '') return num;
-          const str = String(val).trim();
-          return str.length > 0 ? str.toLowerCase() : null;
-        }
-        return null;
-      }
-    }
-  };
-
-  // Pre-calculated stage counts for tabs & metrics
-  const stageCounts = useMemo(() => {
-    return {
-      all: applicants.length,
-      test_completed: applicants.filter(
-        (a) =>
-          a.current_stage === 'test_completed' ||
-          a.current_stage === 'logic_test_passed' ||
-          Boolean(a.mcq_passed)
-      ).length,
-      ai_interview_completed: applicants.filter(
-        (a) =>
-          a.current_stage === 'ai_interview_completed' ||
-          Boolean(a.ai_score && a.ai_score > 0)
-      ).length,
-      approved_for_live: applicants.filter(
-        (a) => a.current_stage === 'approved_for_live'
-      ).length,
-    };
-  }, [applicants]);
-
-  // Filtered & Sorted applicants matching current UI filters
-  const filteredApplicants = useMemo(() => {
-    const list = applicants.filter((a) => {
-      // 1. Stage filter
-      if (selectedStage) {
-        if (selectedStage === 'test_completed') {
-          const isMcqPassed =
-            a.current_stage === 'test_completed' ||
-            a.current_stage === 'logic_test_passed' ||
-            Boolean(a.mcq_passed);
-          if (!isMcqPassed) return false;
-        } else if (selectedStage === 'ai_interview_completed') {
-          const isAiEvaluated =
-            a.current_stage === 'ai_interview_completed' ||
-            Boolean(a.ai_score && a.ai_score > 0);
-          if (!isAiEvaluated) return false;
-        } else if (selectedStage === 'approved_for_live') {
-          if (a.current_stage !== 'approved_for_live') return false;
-        } else {
-          if (a.current_stage !== selectedStage) return false;
-        }
-      }
-
-      // 2. Track filter
-      if (selectedTrackFilter && a.track_id !== selectedTrackFilter) {
-        return false;
-      }
-
-      // 3. Search filter
-      const query = searchQuery.trim().toLowerCase();
-      if (query) {
-        const matchesSearch = Boolean(
-          a.full_name?.toLowerCase().includes(query) ||
-          a.first_name?.toLowerCase().includes(query) ||
-          a.last_name?.toLowerCase().includes(query) ||
-          a.email?.toLowerCase().includes(query) ||
-          a.phone?.toLowerCase().includes(query) ||
-          a.university?.toLowerCase().includes(query) ||
-          a.major?.toLowerCase().includes(query) ||
-          a.track_name?.toLowerCase().includes(query) ||
-          a.current_stage?.toLowerCase().includes(query) ||
-          a.ai_recommendation?.toLowerCase().includes(query) ||
-          (a.custom_responses &&
-            typeof a.custom_responses === 'object' &&
-            Object.values(a.custom_responses).some(
-              (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(query)
-            ))
-        );
-        if (!matchesSearch) return false;
-      }
-
-      return true;
-    });
-
-    if (sortRules.length === 0) {
-      return list;
-    }
-
-    return [...list].sort((a, b) => {
-      // Compare by each sort level in priority order until one differs
-      for (const rule of sortRules) {
-        const valA = getApplicantSortValue(a, rule.column);
-        const valB = getApplicantSortValue(b, rule.column);
-
-        // Missing / empty values always stay at the end in both asc and desc
-        if (valA === null && valB === null) continue;
-        if (valA === null) return 1;
-        if (valB === null) return -1;
-
-        let comparison = 0;
-        if (typeof valA === 'number' && typeof valB === 'number') {
-          comparison = valA - valB;
-        } else {
-          comparison = String(valA).localeCompare(String(valB), undefined, {
-            numeric: true,
-            sensitivity: 'base',
-          });
-        }
-
-        if (comparison !== 0) {
-          return rule.direction === 'desc' ? -comparison : comparison;
-        }
-      }
-      return 0;
-    });
-  }, [applicants, searchQuery, selectedTrackFilter, selectedStage, sortRules]);
-
   const questionsEndRef = useRef<HTMLDivElement | null>(null);
 
   // Question manipulation in Google Form builder
@@ -2271,7 +2112,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
             id: `program-${p.slug}`,
             label: p.name,
             icon: Layers,
-            badge: isCurrentActiveProg ? applicants.length : undefined,
+            badge: isCurrentActiveProg ? totalCandidates : undefined,
             isExpanded: isCurrentActiveProg,
             onClick: () => {
               setActiveProgramSlug(p.slug);
@@ -2283,7 +2124,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 id: `all-candidates-${p.slug}`,
                 label: 'All Candidates',
                 icon: Users,
-                badge: isCurrentActiveProg ? applicants.length : undefined,
+                badge: isCurrentActiveProg ? totalCandidates : undefined,
                 onClick: () => {
                   setActiveProgramSlug(p.slug);
                   setSelectedTrackFilter('');
@@ -2977,19 +2818,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   <div className="inline-flex items-stretch h-8 rounded-full shadow-2xs border border-slate-200 bg-white hover:bg-slate-50 transition overflow-hidden">
                     <button
                       type="button"
-                      disabled={isExportingCandidates || filteredApplicants.length === 0}
-                      onClick={() => {
-                        handleExportCandidates(
-                          filteredApplicants,
-                          hasActiveCandidateFilters
-                            ? `Filtered View (${filteredApplicants.length} Candidates)`
-                            : 'All Candidates'
-                        );
-                      }}
+                      disabled={isExportingCandidates || filteredCandidateTotal === 0}
+                      onClick={() => handleExportCandidates('filtered')}
                       className="inline-flex items-center gap-1.5 pl-3.5 pr-2.5 text-xs font-bold text-slate-700 disabled:opacity-50 transition whitespace-nowrap"
                       title={
                         hasActiveCandidateFilters
-                          ? `Export ${filteredApplicants.length} filtered candidate(s) to Excel (.xlsx)`
+                          ? `Export ${filteredCandidateTotal} filtered candidate(s) to Excel (.xlsx)`
                           : 'Export all candidates to Excel (.xlsx)'
                       }
                     >
@@ -3003,7 +2837,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                     {hasActiveCandidateFilters && (
                       <button
                         type="button"
-                        disabled={isExportingCandidates || applicants.length === 0}
+                        disabled={isExportingCandidates || totalCandidates === 0}
                         onClick={() => setShowCandidateExportMenu((prev) => !prev)}
                         className="px-2 text-slate-500 hover:text-slate-900 border-l border-slate-200 hover:bg-slate-100 transition flex items-center justify-center disabled:opacity-50"
                         title="Choose export scope (Filtered vs All Candidates)"
@@ -3033,10 +2867,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                           type="button"
                           onClick={() => {
                             setShowCandidateExportMenu(false);
-                            handleExportCandidates(
-                              filteredApplicants,
-                              `Filtered View (${filteredApplicants.length} Candidates)`
-                            );
+                            handleExportCandidates('filtered');
                           }}
                           className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 transition flex items-center justify-between group"
                         >
@@ -3049,17 +2880,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             </div>
                           </div>
                           <span className="text-xs font-extrabold text-emerald-700">
-                            {filteredApplicants.length}
+                            {filteredCandidateTotal}
                           </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => {
                             setShowCandidateExportMenu(false);
-                            handleExportCandidates(
-                              applicants,
-                              `All Candidates (${applicants.length} Total)`
-                            );
+                            handleExportCandidates('all');
                           }}
                           className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-slate-50 text-slate-700 transition flex items-center justify-between group"
                         >
@@ -3072,7 +2900,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                             </div>
                           </div>
                           <span className="text-xs font-extrabold text-slate-600">
-                            {applicants.length}
+                            {totalCandidates}
                           </span>
                         </button>
                       </div>
@@ -3260,6 +3088,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                page={candidatePage}
+                pageSize={candidatePageSize}
+                total={filteredCandidateTotal}
+                onPageChange={setCandidatePage}
+                onPageSizeChange={setCandidatePageSize}
+                noun="candidates"
+                isFetching={isListFetching && !isListLoading}
+              />
             </div>
           </div>
         )}
@@ -6798,6 +6635,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
           onClose={() => setIsColumnCustomizerOpen(false)}
           program={program}
           applicants={applicants}
+          customKeys={candidateCustomKeys}
           activeColumns={activeColumns}
           onChangeColumns={handleUpdateActiveColumns}
         />

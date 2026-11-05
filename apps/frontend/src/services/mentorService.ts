@@ -18,4 +18,17 @@ export const mentorService = {
     const res = await apiClient.get(`/mentor/programs/${programId}/fellows`);
     return res.data;
   },
+
+  /** One page of a cohort's fellows, optionally searched by name, email, university or major. */
+  getProgramFellowsPage: async (
+    programId: string,
+    page: number,
+    pageSize: number,
+    q = ''
+  ): Promise<{ fellows: ApplicantListItem[]; count: number; total: number; page: number; page_size: number }> => {
+    const res = await apiClient.get(`/mentor/programs/${programId}/fellows`, {
+      params: { page, page_size: pageSize, ...(q ? { q } : {}) },
+    });
+    return { ...res.data, fellows: res.data.fellows || [] };
+  },
 };

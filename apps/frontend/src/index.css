@@ -405,6 +405,23 @@
     @apply flex items-center justify-end gap-2 pt-4 border-t border-slate-100;
   }
 
+  /* A long dialog scrolls its body only: the title bar and the action buttons stay in view.
+     They pin to the panel's outer edge (negative offset = the panel's padding) so content
+     scrolling underneath never shows above the title or below the buttons. */
+  .modal-panel > .section-header:first-child {
+    @apply sticky z-20 bg-white -top-6 sm:-top-8 -mt-6 sm:-mt-8 pt-6 sm:pt-8 pb-4 border-b border-slate-100;
+  }
+
+  /* The footer carries the panel's bottom padding itself, so it sits flush at the bottom both
+     while pinned and at the end of the scroll. */
+  .modal-panel:has(.modal-footer) {
+    @apply pb-0 sm:pb-0;
+  }
+
+  .modal-panel .modal-footer {
+    @apply sticky z-20 bg-white bottom-0 pb-6 sm:pb-8;
+  }
+
   /* ========================================================================= */
   /* ========================================================================= */
   /* INPUTS & FORM CONTROLS */

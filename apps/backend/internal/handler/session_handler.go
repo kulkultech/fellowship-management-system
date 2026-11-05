@@ -152,9 +152,58 @@ func (h *SessionHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		sessions = []model.ProgramSession{}
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"sessions": sessions,
-	})
+	page, paged := httpx.ParsePage(r)
+	if !paged {
+		httpx.JSON(w, http.StatusOK, map[string]any{"sessions": sessions})
+		return
+	}
+
+	// One page of the list, optionally searched (?q). A fellow's attendance numbers still count
+	// every session, not just this page.
+	resp := map[string]any{}
+	if fellowApplicantID != nil {
+		resp["fellow_stats"] = fellowAttendanceStats(sessions)
+	}
+	if q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q"))); q != "" {
+		matched := make([]model.ProgramSession, 0, len(sessions))
+		for _, s := range sessions {
+			if sessionMatches(s, q) {
+				matched = append(matched, s)
+			}
+		}
+		sessions = matched
+	}
+	resp["sessions"] = httpx.Slice(sessions, page)
+	for k, v := range httpx.PageMeta(page, len(sessions)) {
+		resp[k] = v
+	}
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
+func sessionMatches(s model.ProgramSession, q string) bool {
+	for _, field := range []string{s.Title, s.Description, string(s.SessionType), s.MentorName, s.TrackName} {
+		if strings.Contains(strings.ToLower(field), q) {
+			return true
+		}
+	}
+	return false
+}
+
+// fellowAttendanceStats counts a fellow's attended (present or late) and awaiting-review sessions.
+func fellowAttendanceStats(sessions []model.ProgramSession) map[string]int {
+	stats := map[string]int{"total": len(sessions), "attended": 0, "pending": 0}
+	for _, s := range sessions {
+		if s.FellowAttendance == nil {
+			continue
+		}
+		switch s.FellowAttendance.Status {
+		case "present", "late":
+			stats["attended"]++
+		case "pending_validation":
+			stats["pending"]++
+		}
+	}
+	return stats
 }
 
 // CreateSessionRequest payload

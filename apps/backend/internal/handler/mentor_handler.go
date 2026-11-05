@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -157,7 +158,7 @@ func (h *MentorHandler) ListFellows(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"program": map[string]any{
 			"id":   program.ID,
 			"slug": program.Slug,
@@ -165,5 +166,26 @@ func (h *MentorHandler) ListFellows(w http.ResponseWriter, r *http.Request) {
 		},
 		"fellows": fellows,
 		"count":   len(fellows),
-	})
+	}
+	// With ?page / ?page_size: one page of fellows, optionally searched (?q)
+	if page, ok := httpx.ParsePage(r); ok {
+		if q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q"))); q != "" {
+			matched := make([]model.Applicant, 0, len(fellows))
+			for _, f := range fellows {
+				for _, field := range []string{f.FullName, f.Email, f.University, f.Major} {
+					if strings.Contains(strings.ToLower(field), q) {
+						matched = append(matched, f)
+						break
+					}
+				}
+			}
+			fellows = matched
+		}
+		resp["fellows"] = httpx.Slice(fellows, page)
+		resp["count"] = len(fellows)
+		for k, v := range httpx.PageMeta(page, len(fellows)) {
+			resp[k] = v
+		}
+	}
+	httpx.JSON(w, http.StatusOK, resp)
 }

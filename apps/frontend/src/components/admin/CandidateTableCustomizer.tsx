@@ -38,7 +38,9 @@ export const DEFAULT_VISIBLE_COLUMNS: string[] = [
 
 export function getAllAvailableColumns(
   program?: Program,
-  applicants: ApplicantListItem[] = []
+  applicants: ApplicantListItem[] = [],
+  /** Answer keys used by any candidate (from the server), beyond those on the rows loaded. */
+  extraCustomKeys: string[] = []
 ): CandidateTableColumnDef[] {
   const cols: CandidateTableColumnDef[] = [
     {
@@ -182,7 +184,9 @@ export function getAllAvailableColumns(
   }
 
   // Also discover any extra keys from candidate submissions (custom_responses)
-  for (const app of applicants) {
+  const answerKeys = applicants.map((app) => app.custom_responses);
+  answerKeys.push(Object.fromEntries(extraCustomKeys.map((k) => [k, ''])));
+  for (const app of answerKeys.map((custom_responses) => ({ custom_responses }))) {
     if (app.custom_responses && typeof app.custom_responses === 'object') {
       for (const k of Object.keys(app.custom_responses)) {
         if (!customFieldMap.has(k)) {
@@ -225,6 +229,7 @@ interface CandidateTableCustomizerProps {
   onClose: () => void;
   program?: Program;
   applicants?: ApplicantListItem[];
+  customKeys?: string[];
   activeColumns: string[];
   onChangeColumns: (newColumns: string[]) => void;
 }
@@ -234,14 +239,15 @@ export const CandidateTableCustomizer: React.FC<CandidateTableCustomizerProps> =
   onClose,
   program,
   applicants = [],
+  customKeys = [],
   activeColumns,
   onChangeColumns,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const allColumns = useMemo(
-    () => getAllAvailableColumns(program, applicants),
-    [program, applicants]
+    () => getAllAvailableColumns(program, applicants, customKeys),
+    [program, applicants, customKeys]
   );
 
   const allColumnsMap = useMemo(() => {

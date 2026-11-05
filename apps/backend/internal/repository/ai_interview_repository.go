@@ -517,3 +517,74 @@ func (r *AIInterviewRepository) ListAttempts(ctx context.Context, applicantID uu
 	}
 	return list, rows.Err()
 }
+
+// BestByApplicants returns, per applicant, the same interview GetByApplicantID would pick (one with
+// a recording first, then a completed one, then the newest), without transcripts, in one query.
+func (r *AIInterviewRepository) BestByApplicants(ctx context.Context, applicantIDs []uuid.UUID) (map[uuid.UUID]*model.AIInterview, error) {
+	out := make(map[uuid.UUID]*model.AIInterview, len(applicantIDs))
+	if len(applicantIDs) == 0 {
+		return out, nil
+	}
+	if r.pool == nil {
+		want := make(map[uuid.UUID]bool, len(applicantIDs))
+		for _, id := range applicantIDs {
+			want[id] = true
+		}
+		rank := func(ai *model.AIInterview) int {
+			switch {
+			case ai.RecordingURL != "":
+				return 1
+			case ai.Status == "completed":
+				return 2
+			default:
+				return 3
+			}
+		}
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, ai := range r.memInterviews {
+			if !want[ai.ApplicantID] {
+				continue
+			}
+			cur, ok := out[ai.ApplicantID]
+			if !ok || rank(ai) < rank(cur) || (rank(ai) == rank(cur) && ai.CreatedAt.After(cur.CreatedAt)) {
+				out[ai.ApplicantID] = ai
+			}
+		}
+		return out, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT ON (applicant_id) id, applicant_id, program_id, track_id,
+			started_at, completed_at, summary_evaluation, scorecard_score,
+			COALESCE(recording_status, 'pending'), COALESCE(recording_url, ''), status, created_at, updated_at, retake_deadline
+		FROM ai_interviews
+		WHERE applicant_id = ANY($1)
+		ORDER BY applicant_id,
+			(CASE WHEN recording_url IS NOT NULL AND recording_url != '' THEN 1 WHEN status = 'completed' THEN 2 ELSE 3 END),
+			created_at DESC
+	`, applicantIDs)
+	if err != nil {
+		return nil, fmt.Errorf("ai_interview_repo: best by applicants: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ai model.AIInterview
+		var rawSummary []byte
+		if err := rows.Scan(
+			&ai.ID, &ai.ApplicantID, &ai.ProgramID, &ai.TrackID,
+			&ai.StartedAt, &ai.CompletedAt, &rawSummary, &ai.ScorecardScore,
+			&ai.RecordingStatus, &ai.RecordingURL, &ai.Status, &ai.CreatedAt, &ai.UpdatedAt, &ai.RetakeDeadline,
+		); err != nil {
+			return nil, fmt.Errorf("ai_interview_repo: scan best: %w", err)
+		}
+		if len(rawSummary) > 0 {
+			var summary model.EvaluationSummary
+			if err := json.Unmarshal(rawSummary, &summary); err == nil {
+				ai.SummaryEvaluation = &summary
+			}
+		}
+		out[ai.ApplicantID] = &ai
+	}
+	return out, rows.Err()
+}

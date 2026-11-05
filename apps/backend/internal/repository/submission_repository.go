@@ -257,3 +257,51 @@ func (r *SubmissionRepository) DeleteByApplicantID(ctx context.Context, applican
 	}
 	return nil
 }
+
+// LatestByApplicants returns each applicant's most recent logic-test submission (answers not
+// loaded), in one query, for listing many applicants at once.
+func (r *SubmissionRepository) LatestByApplicants(ctx context.Context, applicantIDs []uuid.UUID) (map[uuid.UUID]*model.TestSubmission, error) {
+	out := make(map[uuid.UUID]*model.TestSubmission, len(applicantIDs))
+	if len(applicantIDs) == 0 {
+		return out, nil
+	}
+	if r.pool == nil {
+		want := make(map[uuid.UUID]bool, len(applicantIDs))
+		for _, id := range applicantIDs {
+			want[id] = true
+		}
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, s := range r.memSubmissions {
+			if want[s.ApplicantID] {
+				if cur, ok := out[s.ApplicantID]; !ok || s.CreatedAt.After(cur.CreatedAt) {
+					out[s.ApplicantID] = s
+				}
+			}
+		}
+		return out, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT ON (applicant_id) id, applicant_id, program_id, track_id, test_token, started_at, submitted_at,
+			time_spent_seconds, total_score, passed, status, created_at, updated_at
+		FROM test_submissions
+		WHERE applicant_id = ANY($1)
+		ORDER BY applicant_id, created_at DESC
+	`, applicantIDs)
+	if err != nil {
+		return nil, fmt.Errorf("submission_repo: latest by applicants: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s model.TestSubmission
+		if err := rows.Scan(
+			&s.ID, &s.ApplicantID, &s.ProgramID, &s.TrackID, &s.TestToken, &s.StartedAt, &s.SubmittedAt,
+			&s.TimeSpentSeconds, &s.TotalScore, &s.Passed, &s.Status, &s.CreatedAt, &s.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("submission_repo: scan latest: %w", err)
+		}
+		out[s.ApplicantID] = &s
+	}
+	return out, rows.Err()
+}

@@ -53,6 +53,30 @@ export interface CreateTrackPayload {
   ai_interview_rubric?: AIInterviewRubric;
 }
 
+export interface ApplicantListFilters {
+  q?: string;
+  /** Stage tab: test_completed, ai_interview_completed, approved_for_live, or an exact stage. */
+  stageGroup?: string;
+  trackId?: string;
+  sort?: Array<{ column: string; direction: 'asc' | 'desc' }>;
+}
+
+export interface ApplicantPage {
+  applicants: ApplicantListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  stage_counts: { all: number; test_completed: number; ai_interview_completed: number; approved_for_live: number };
+  custom_keys: string[];
+}
+
+const applicantFilterParams = (f?: ApplicantListFilters) => ({
+  ...(f?.q ? { q: f.q } : {}),
+  ...(f?.stageGroup ? { stage_group: f.stageGroup } : {}),
+  ...(f?.trackId ? { track_id: f.trackId } : {}),
+  ...(f?.sort && f.sort.length > 0 ? { sort: f.sort.map((r) => `${r.column}:${r.direction}`).join(',') } : {}),
+});
+
 export const adminService = {
   listPrograms: async (orgId?: string): Promise<Program[]> => {
     const { data } = await apiClient.get<{ programs: Program[] }>('/admin/programs', {
@@ -267,14 +291,28 @@ export const adminService = {
     return data;
   },
 
-  listApplicants: async (programId: string, stageFilter?: string): Promise<ApplicantListItem[]> => {
+  listApplicants: async (programId: string, stageFilter?: string, filters?: ApplicantListFilters): Promise<ApplicantListItem[]> => {
     const { data } = await apiClient.get<{ applicants: ApplicantListItem[] }>('/admin/applicants', {
       params: {
         program_id: programId,
         stage: stageFilter || '',
+        ...applicantFilterParams(filters),
       },
     });
     return data.applicants || [];
+  },
+
+  /** One page of a program's candidates, filtered and sorted by the server. */
+  listApplicantsPage: async (
+    programId: string,
+    page: number,
+    pageSize: number,
+    filters: ApplicantListFilters
+  ): Promise<ApplicantPage> => {
+    const { data } = await apiClient.get<ApplicantPage>('/admin/applicants', {
+      params: { program_id: programId, page, page_size: pageSize, ...applicantFilterParams(filters) },
+    });
+    return { ...data, applicants: data.applicants || [], custom_keys: data.custom_keys || [] };
   },
 
   getApplicantDetails: async (applicantId: string): Promise<ApplicantDetailResponse> => {
