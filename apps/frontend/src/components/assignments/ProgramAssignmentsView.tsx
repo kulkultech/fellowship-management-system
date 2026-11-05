@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { assignmentService } from '@/services/assignmentService';
 import { uploadService } from '@/services/uploadService';
 import { mentorService } from '@/services/mentorService';
@@ -29,11 +29,15 @@ import {
   Check,
   X,
   Plus,
+  Search,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { focusItemDomId, useFocusItem } from '@/hooks/useFocusItem';
 import { roomLink } from '@/utils/shareLinks';
+import { Pagination } from '@/components/ui/Pagination';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { usePaging } from '@/hooks/usePaging';
 
 interface ProgramAssignmentsViewProps {
   programId: string;
@@ -69,46 +73,50 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
   // Candidate Submission Modal
   const [submitModalAssignment, setSubmitModalAssignment] = useState<ProgramAssignment | null>(null);
 
-  // 1. Fetch Assignments
+  // 1. Assignments: one page at a time, searched by the server
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery.trim(), 300);
+  const trackId = selectedTrackFilter !== 'all' ? selectedTrackFilter : '';
+  const { page, setPage, pageSize, setPageSize } = usePaging([programId, debouncedSearch, trackId], 10);
+  // A shared link asks the server for the page holding that assignment, once
+  const [pendingFocus, setPendingFocus] = useState(focusId);
   const {
-    data: assignments = [],
+    data: assignmentPage,
     isLoading,
+    isFetching,
   } = useQuery({
-    queryKey: ['program-assignments', programId, selectedTrackFilter],
+    queryKey: ['program-assignments', programId, 'page', page, pageSize, debouncedSearch, trackId, pendingFocus ?? ''],
     queryFn: () =>
-      assignmentService.listAssignments(
-        programId,
-        selectedTrackFilter !== 'all' ? selectedTrackFilter : undefined
-      ),
+      assignmentService.listAssignmentsPage(programId, page, pageSize, {
+        trackId,
+        q: debouncedSearch,
+        ...(pendingFocus ? { focus: pendingFocus } : {}),
+      }),
     enabled: Boolean(programId),
+    placeholderData: keepPreviousData,
   });
+  const assignments = assignmentPage?.assignments ?? [];
+  const totalAssignments = assignmentPage?.total ?? 0;
+  useEffect(() => {
+    if (!pendingFocus || !assignmentPage) return;
+    if (assignmentPage.page !== page) setPage(assignmentPage.page);
+    setPendingFocus(undefined);
+  }, [assignmentPage, pendingFocus, page, setPage]);
   const highlighted = useFocusItem(focusId, !isLoading);
   const linkTo = (id: string) => (orgSlug && programSlug ? roomLink(orgSlug, programSlug, 'assignments', id) : '');
 
-  // Calculate fellow personal stats
+  // A fellow's progress, counted by the server over all their assignments
   const fellowStats = useMemo(() => {
-    if (isMentorOrAdmin || assignments.length === 0) return null;
-    const total = assignments.length;
-    let submitted = 0;
-    let graded = 0;
-    let totalScore = 0;
-    let maxPossible = 0;
-
-    assignments.forEach((a) => {
-      if (a.my_submission) {
-        submitted++;
-        if (a.my_submission.score != null) {
-          graded++;
-          totalScore += a.my_submission.score;
-          maxPossible += a.max_score || 100;
-        }
-      }
-    });
-
-    const completionRate = Math.round((submitted / total) * 100);
-    const avgScore = graded > 0 && maxPossible > 0 ? Math.round((totalScore / maxPossible) * 100) : null;
-    return { total, submitted, graded, completionRate, avgScore };
-  }, [assignments, isMentorOrAdmin]);
+    const st = assignmentPage?.fellow_stats;
+    if (isMentorOrAdmin || !st || st.total === 0) return null;
+    return {
+      total: st.total,
+      submitted: st.submitted,
+      graded: st.graded,
+      completionRate: st.completion_rate,
+      avgScore: st.avg_score,
+    };
+  }, [assignmentPage, isMentorOrAdmin]);
 
   // Delete Mutation
   const deleteMutation = useMutation({
@@ -154,38 +162,52 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
 
       {/* Action Bar & Controls */}
       <div className="content-card space-y-6">
-        {/* Staff toolbar: track filter + create (the sidebar already names this section) */}
-        {isMentorOrAdmin && (
-          <div className="section-actions justify-end">
-            {/* Track Filter if tracks exist */}
-            {tracks.length > 0 && (
-              <select
-                aria-label="Filter assignments by track"
-                value={selectedTrackFilter}
-                onChange={(e) => setSelectedTrackFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Tracks</option>
-                {tracks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            )}
+        {/* Toolbar: search on the left; staff get the track filter and create button */}
+        {(isMentorOrAdmin || totalAssignments > 0 || debouncedSearch) && (
+          <div className="table-toolbar">
+            <div className="search-field">
+              <Search />
+              <input
+                type="text"
+                aria-label="Search assignments"
+                placeholder="Search assignments..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
 
-            {/* Mentor Create Assignment Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setEditingAssignment(null);
-                setIsCreateModalOpen(true);
-              }}
-              className="btn btn-sm btn-primary"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create Assignment</span>
-            </button>
+            {isMentorOrAdmin && (
+              <div className="section-actions justify-end">
+                {tracks.length > 0 && (
+                  <select
+                    aria-label="Filter assignments by track"
+                    value={selectedTrackFilter}
+                    onChange={(e) => setSelectedTrackFilter(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Tracks</option>
+                    {tracks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAssignment(null);
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="btn btn-sm btn-primary"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Assignment</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -194,6 +216,10 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
           <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
             <span className="text-xs font-bold">Loading cohort assignments...</span>
+          </div>
+        ) : assignments.length === 0 && debouncedSearch ? (
+          <div className="py-12 text-center text-slate-500 text-xs font-semibold">
+            No assignments match &ldquo;{debouncedSearch}&rdquo;.
           </div>
         ) : assignments.length === 0 ? (
           <div className="py-12 text-center space-y-4">
@@ -459,6 +485,16 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
             })}
           </div>
         )}
+
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={totalAssignments}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          noun="assignments"
+          isFetching={isFetching && !isLoading}
+        />
       </div>
 
       {/* ========================================================================= */}
@@ -1119,14 +1155,27 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
   const [scoreInput, setScoreInput] = useState<string>('');
   const [feedbackInput, setFeedbackInput] = useState<string>('');
 
+  // Submissions: one page at a time, searched and filtered by the server
+  const [subSearch, setSubSearch] = useState('');
+  const [subStatus, setSubStatus] = useState<'' | 'pending' | 'graded'>('');
+  const debouncedSubSearch = useDebouncedValue(subSearch.trim(), 300);
+  const { page, setPage, pageSize } = usePaging([assignment.id, debouncedSubSearch, subStatus], 10);
   const {
-    data: submissions = [],
+    data: subPage,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['assignment-submissions', programId, assignment.id],
-    queryFn: () => assignmentService.listSubmissions(programId, assignment.id),
+    queryKey: ['assignment-submissions', programId, assignment.id, page, pageSize, debouncedSubSearch, subStatus],
+    queryFn: () =>
+      assignmentService.listSubmissionsPage(programId, assignment.id, page, pageSize, {
+        q: debouncedSubSearch,
+        status: subStatus,
+      }),
+    placeholderData: keepPreviousData,
   });
+  const submissions = subPage?.submissions ?? [];
+  const subCounts = subPage?.status_counts ?? { all: 0, graded: 0, pending: 0 };
 
   const gradeMutation = useMutation({
     mutationFn: (payload: { score: number; feedback: string }) => {
@@ -1196,8 +1245,40 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
           {/* Left Column: Submissions List */}
           <div className="md:col-span-5 border-r border-slate-100 pr-0 md:pr-4 space-y-3">
             <div className="flex items-center justify-between text-xs font-bold text-slate-500 pb-1">
-              <span>Submitted Fellows ({submissions.length})</span>
+              <span>Submitted Fellows ({subCounts.all})</span>
             </div>
+
+            {subCounts.all > 0 && (
+              <div className="space-y-2">
+                <div className="search-field">
+                  <Search />
+                  <input
+                    type="text"
+                    aria-label="Search submissions"
+                    placeholder="Search fellows..."
+                    value={subSearch}
+                    onChange={(e) => setSubSearch(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {([
+                    { value: '', label: `All (${subCounts.all})` },
+                    { value: 'pending', label: `Pending (${subCounts.pending})` },
+                    { value: 'graded', label: `Graded (${subCounts.graded})` },
+                  ] as const).map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setSubStatus(tab.value)}
+                      className={`tab-pill ${subStatus === tab.value ? 'tab-pill-active' : ''}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {isLoading ? (
               <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
@@ -1207,7 +1288,9 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
             ) : submissions.length === 0 ? (
               <div className="py-12 text-center text-slate-400 space-y-2">
                 <Users className="w-8 h-8 mx-auto text-slate-300" />
-                <p className="text-xs font-semibold">No fellow has submitted yet.</p>
+                <p className="text-xs font-semibold">
+                  {subCounts.all === 0 ? 'No fellow has submitted yet.' : 'No submissions match.'}
+                </p>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -1250,6 +1333,15 @@ const ReviewSubmissionsModal: React.FC<ReviewSubmissionsModalProps> = ({
                 })}
               </div>
             )}
+
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={subPage?.total ?? 0}
+              onPageChange={setPage}
+              noun="submissions"
+              isFetching={isFetching && !isLoading}
+            />
           </div>
 
           {/* Right Column: Submission Details & Grading Form */}

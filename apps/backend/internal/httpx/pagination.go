@@ -3,6 +3,7 @@ package httpx
 import (
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -56,4 +57,30 @@ func Slice[T any](items []T, p Page) []T {
 // PageMeta is added to a paged response so the client can draw page controls.
 func PageMeta(p Page, total int) map[string]any {
 	return map[string]any{"total": total, "page": p.Number, "page_size": p.Size}
+}
+
+// AddPageMeta writes the page info into a response map.
+func AddPageMeta(resp map[string]any, p Page, total int) {
+	for k, v := range PageMeta(p, total) {
+		resp[k] = v
+	}
+}
+
+// SearchQuery is the request's ?q, trimmed and lower-cased ("" when not searching).
+func SearchQuery(r *http.Request) string {
+	return strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+}
+
+// Matches reports whether any field contains q (already lower-cased), ignoring case.
+// An empty q matches everything.
+func Matches(q string, fields ...string) bool {
+	if q == "" {
+		return true
+	}
+	for _, f := range fields {
+		if strings.Contains(strings.ToLower(f), q) {
+			return true
+		}
+	}
+	return false
 }

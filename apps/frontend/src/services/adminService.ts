@@ -372,6 +372,27 @@ export const adminService = {
     return data.companies || [];
   },
 
+  /** One page of companies, searched on the server, with counts per status. */
+  listCompaniesPage: async (
+    page: number,
+    pageSize: number,
+    filters: { status?: string; q?: string } = {}
+  ): Promise<{
+    companies: Organization[];
+    total: number;
+    status_counts: Record<string, number>;
+  }> => {
+    const { data } = await apiClient.get('/admin/companies', {
+      params: {
+        page,
+        page_size: pageSize,
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.q ? { q: filters.q } : {}),
+      },
+    });
+    return { ...data, companies: data.companies || [], status_counts: data.status_counts || {} };
+  },
+
   approveCompany: async (companyId: string): Promise<Organization> => {
     const { data } = await apiClient.post<{ company: Organization }>(`/admin/companies/${companyId}/approve`);
     return data.company;

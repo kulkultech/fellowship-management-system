@@ -27,3 +27,15 @@ func TestParsePageAndSlice(t *testing.T) {
 		t.Fatalf("past the end = %v", got)
 	}
 }
+
+func TestMatches(t *testing.T) {
+	if !Matches("", "anything") {
+		t.Fatal("empty query should match")
+	}
+	if !Matches("ann", "Bob", "Joanna") {
+		t.Fatal("expected a case-insensitive match")
+	}
+	if Matches("zed", "Bob", "") {
+		t.Fatal("unexpected match")
+	}
+}

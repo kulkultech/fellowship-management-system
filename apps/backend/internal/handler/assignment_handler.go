@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"time"
 
@@ -103,10 +104,78 @@ func (h *AssignmentHandler) ListAssignments(w http.ResponseWriter, r *http.Reque
 		assignments = []*model.ProgramAssignment{}
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"assignments": assignments,
-		"count":       len(assignments),
-	})
+	page, paged := httpx.ParsePage(r)
+	if !paged {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"assignments": assignments,
+			"count":       len(assignments),
+		})
+		return
+	}
+
+	// A fellow's progress counts every assignment, not just the page on screen.
+	resp := map[string]any{}
+	if fellowApplicantID != nil {
+		resp["fellow_stats"] = assignmentFellowStats(assignments)
+	}
+	if q := httpx.SearchQuery(r); q != "" {
+		matched := make([]*model.ProgramAssignment, 0, len(assignments))
+		for _, a := range assignments {
+			if httpx.Matches(q, a.Title, a.Description, a.TrackName, a.CreatorName) {
+				matched = append(matched, a)
+			}
+		}
+		assignments = matched
+	}
+	// A shared link to one assignment opens the page that holds it.
+	if focus := r.URL.Query().Get("focus"); focus != "" {
+		for i, a := range assignments {
+			if a.ID.String() == focus {
+				page.Number = i/page.Size + 1
+				break
+			}
+		}
+	}
+	resp["assignments"] = httpx.Slice(assignments, page)
+	resp["count"] = len(assignments)
+	httpx.AddPageMeta(resp, page, len(assignments))
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
+// assignmentFellowStats sums a fellow's submissions and grades across all their assignments.
+func assignmentFellowStats(assignments []*model.ProgramAssignment) map[string]any {
+	submitted, graded := 0, 0
+	var score, maxPossible float64
+	for _, a := range assignments {
+		sub := a.MySubmission
+		if sub == nil {
+			continue
+		}
+		submitted++
+		if sub.Score != nil {
+			graded++
+			score += *sub.Score
+			if a.MaxScore > 0 {
+				maxPossible += float64(a.MaxScore)
+			} else {
+				maxPossible += 100
+			}
+		}
+	}
+	stats := map[string]any{
+		"total":           len(assignments),
+		"submitted":       submitted,
+		"graded":          graded,
+		"completion_rate": 0,
+		"avg_score":       nil,
+	}
+	if len(assignments) > 0 {
+		stats["completion_rate"] = int(math.Round(float64(submitted) / float64(len(assignments)) * 100))
+	}
+	if graded > 0 && maxPossible > 0 {
+		stats["avg_score"] = int(math.Round(score / maxPossible * 100))
+	}
+	return stats
 }
 
 // GetAssignment handles GET /api/v1/programs/{programId}/assignments/{assignmentId}
@@ -387,10 +456,43 @@ func (h *AssignmentHandler) ListSubmissions(w http.ResponseWriter, r *http.Reque
 		subs = []*model.AssignmentSubmission{}
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"submissions": subs,
-		"count":       len(subs),
-	})
+	page, paged := httpx.ParsePage(r)
+	if !paged {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"submissions": subs,
+			"count":       len(subs),
+		})
+		return
+	}
+
+	// Counts cover every submission, so the tabs read the same on every page.
+	graded := 0
+	for _, s := range subs {
+		if s.Status == model.AssignmentSubmissionGraded {
+			graded++
+		}
+	}
+	counts := map[string]int{"all": len(subs), "graded": graded, "pending": len(subs) - graded}
+
+	q := httpx.SearchQuery(r)
+	status := r.URL.Query().Get("status") // "graded" or "pending"
+	matched := make([]*model.AssignmentSubmission, 0, len(subs))
+	for _, s := range subs {
+		isGraded := s.Status == model.AssignmentSubmissionGraded
+		if (status == "graded" && !isGraded) || (status == "pending" && isGraded) {
+			continue
+		}
+		if httpx.Matches(q, s.FellowName, s.FellowEmail, s.TrackName, s.University) {
+			matched = append(matched, s)
+		}
+	}
+	resp := map[string]any{
+		"submissions":   httpx.Slice(matched, page),
+		"count":         len(matched),
+		"status_counts": counts,
+	}
+	httpx.AddPageMeta(resp, page, len(matched))
+	httpx.JSON(w, http.StatusOK, resp)
 }
 
 type SubmitAssignmentRequest struct {

@@ -2323,10 +2323,41 @@ func (h *AdminHandler) ListCompanies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"companies": orgs,
-		"total":     len(orgs),
-	})
+	page, paged := httpx.ParsePage(r)
+	if !paged {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"companies": orgs,
+			"total":     len(orgs),
+		})
+		return
+	}
+
+	// Status counts ignore the status tab and search, so the tiles and tabs stay put.
+	all := orgs
+	if statusFilter != "" {
+		if all, err = h.orgRepo.List(r.Context(), ""); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to list companies")
+			return
+		}
+	}
+	counts := map[string]int{"all": len(all)}
+	for _, o := range all {
+		counts[string(o.Status)]++
+	}
+
+	q := httpx.SearchQuery(r)
+	matched := make([]model.Organization, 0, len(orgs))
+	for _, o := range orgs {
+		if httpx.Matches(q, o.Name, o.Slug, o.ContactEmail) {
+			matched = append(matched, o)
+		}
+	}
+	resp := map[string]any{
+		"companies":     httpx.Slice(matched, page),
+		"status_counts": counts,
+	}
+	httpx.AddPageMeta(resp, page, len(matched))
+	httpx.JSON(w, http.StatusOK, resp)
 }
 
 func (h *AdminHandler) ApproveCompany(w http.ResponseWriter, r *http.Request) {

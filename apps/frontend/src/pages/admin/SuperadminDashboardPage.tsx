@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { adminService } from '@/services/adminService';
 import { mentorService } from '@/services/mentorService';
 import { resolveMediaUrl } from '@/services/apiClient';
@@ -25,6 +25,9 @@ import {
 import type { Organization, Program } from '@/services/types';
 import { TeamManagementView } from '@/components/admin/TeamManagementView';
 import toast from 'react-hot-toast';
+import { Pagination } from '@/components/ui/Pagination';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { usePaging } from '@/hooks/usePaging';
 
 export const SuperadminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -47,17 +50,31 @@ export const SuperadminDashboardPage: React.FC = () => {
   // Programs this superadmin mentors, if any
   const { data: mentorPrograms = [] } = useQuery({ queryKey: ['mentor-programs'], queryFn: mentorService.getPrograms });
 
-  const { data: companiesList = [], isLoading: isCompaniesLoading } = useQuery({
-    queryKey: ['superadmin-companies', companyStatusFilter],
-    queryFn: () => adminService.listCompanies(companyStatusFilter),
+  // Companies: one page at a time, searched by the server; status counts cover every company
+  const debouncedCompanySearch = useDebouncedValue(searchQuery.trim(), 300);
+  const companyPaging = usePaging([companyStatusFilter, debouncedCompanySearch], 25);
+  const {
+    data: companyPage,
+    isLoading: isCompaniesLoading,
+    isFetching: isCompaniesFetching,
+  } = useQuery({
+    queryKey: [
+      'superadmin-companies',
+      'page',
+      companyPaging.page,
+      companyPaging.pageSize,
+      companyStatusFilter,
+      debouncedCompanySearch,
+    ],
+    queryFn: () =>
+      adminService.listCompaniesPage(companyPaging.page, companyPaging.pageSize, {
+        status: companyStatusFilter,
+        q: debouncedCompanySearch,
+      }),
     refetchOnMount: 'always',
+    placeholderData: keepPreviousData,
   });
-
-  // Unfiltered list for the metric tiles, so counts don't change with the status filter
-  const { data: allCompanies = [] } = useQuery({
-    queryKey: ['superadmin-companies', ''],
-    queryFn: () => adminService.listCompanies(''),
-  });
+  const filteredCompanies = companyPage?.companies ?? [];
 
   // 2. Load All Programs Across System
   const { data: allPrograms = [], isLoading: isProgramsLoading } = useQuery({
@@ -148,15 +165,6 @@ export const SuperadminDashboardPage: React.FC = () => {
     },
   });
 
-  // Filtered Companies
-  const filteredCompanies = companiesList.filter((comp) => {
-    const matchesSearch =
-      comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comp.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (comp.contact_email && comp.contact_email.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesSearch;
-  });
-
   // Filtered Programs
   const filteredPrograms = allPrograms.filter((prog) => {
     return (
@@ -165,8 +173,8 @@ export const SuperadminDashboardPage: React.FC = () => {
     );
   });
 
-  const pendingCount = allCompanies.filter((c) => c.status === 'pending_approval').length;
-  const approvedCount = allCompanies.filter((c) => c.status === 'approved').length;
+  const pendingCount = companyPage?.status_counts.pending_approval ?? 0;
+  const approvedCount = companyPage?.status_counts.approved ?? 0;
 
   const getProgramStatus = (prog: Program): { label: string; dot: string; text: string } => {
     if (prog.status === 'draft') return { label: 'Draft', dot: 'bg-slate-400', text: 'text-slate-600' };
@@ -475,6 +483,16 @@ export const SuperadminDashboardPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            <Pagination
+              page={companyPaging.page}
+              pageSize={companyPaging.pageSize}
+              total={companyPage?.total ?? 0}
+              onPageChange={companyPaging.setPage}
+              onPageSizeChange={companyPaging.setPageSize}
+              noun="companies"
+              isFetching={isCompaniesFetching && !isCompaniesLoading}
+            />
           </div>
         )}
 

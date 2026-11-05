@@ -255,7 +255,25 @@ func (h *SessionHandler) GetMentorAttendanceSummary(w http.ResponseWriter, r *ht
 		summaries = append(summaries, s)
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{"summaries": summaries})
+	page, paged := httpx.ParsePage(r)
+	if !paged {
+		httpx.JSON(w, http.StatusOK, map[string]any{"summaries": summaries})
+		return
+	}
+	q := httpx.SearchQuery(r)
+	status := r.URL.Query().Get("status")
+	matched := make([]model.MentorAttendanceSummary, 0, len(summaries))
+	for _, s := range summaries {
+		if status != "" && s.Status != status {
+			continue
+		}
+		if httpx.Matches(q, s.FullName, s.Email, s.RoleTitle) {
+			matched = append(matched, s)
+		}
+	}
+	resp := map[string]any{"summaries": httpx.Slice(matched, page)}
+	httpx.AddPageMeta(resp, page, len(matched))
+	httpx.JSON(w, http.StatusOK, resp)
 }
 
 // loadSessionForMentorAttendance parses the route, checks permission, and loads the session.

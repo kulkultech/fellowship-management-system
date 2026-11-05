@@ -16,6 +16,15 @@ import type {
   MentorCheckInState,
 } from './types';
 
+/** Attendance totals over a whole cohort; avg_attendance_rate is null with no fellows. */
+export interface AttendanceMetrics {
+  total: number;
+  good: number;
+  warning: number;
+  at_risk: number;
+  avg_attendance_rate: number | null;
+}
+
 export type FeedbackAnswers = { scores: Record<string, number>; comment: string };
 
 export const sessionService = {
@@ -126,9 +135,26 @@ export const sessionService = {
     return res.data;
   },
 
-  getAttendanceSummary: async (programId: string): Promise<FellowAttendanceSummary[]> => {
-    const res = await apiClient.get(`/programs/${programId}/attendance-summary`);
-    return res.data.summaries || [];
+  /** One page of the fellows' attendance table, plus totals over the whole cohort. */
+  getAttendanceSummaryPage: async (
+    programId: string,
+    page: number,
+    pageSize: number,
+    filters: { q?: string; status?: string } = {}
+  ): Promise<{
+    summaries: FellowAttendanceSummary[];
+    total: number;
+    metrics: AttendanceMetrics;
+  }> => {
+    const res = await apiClient.get(`/programs/${programId}/attendance-summary`, {
+      params: {
+        page,
+        page_size: pageSize,
+        ...(filters.q ? { q: filters.q } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      },
+    });
+    return { ...res.data, summaries: res.data.summaries || [] };
   },
 
   getMentorAttendance: async (programId: string, sessionId: string): Promise<MentorAttendance[]> => {
@@ -144,9 +170,22 @@ export const sessionService = {
     await apiClient.post(`/programs/${programId}/sessions/${sessionId}/mentor-attendance`, { attendances });
   },
 
-  getMentorAttendanceSummary: async (programId: string): Promise<MentorAttendanceSummary[]> => {
-    const res = await apiClient.get(`/programs/${programId}/sessions/mentor-attendance-summary`);
-    return res.data.summaries || [];
+  /** One page of the mentors' attendance table. */
+  getMentorAttendanceSummaryPage: async (
+    programId: string,
+    page: number,
+    pageSize: number,
+    filters: { q?: string; status?: string } = {}
+  ): Promise<{ summaries: MentorAttendanceSummary[]; total: number }> => {
+    const res = await apiClient.get(`/programs/${programId}/sessions/mentor-attendance-summary`, {
+      params: {
+        page,
+        page_size: pageSize,
+        ...(filters.q ? { q: filters.q } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      },
+    });
+    return { ...res.data, summaries: res.data.summaries || [] };
   },
 
   getHolidays: async (year?: number): Promise<{ date: string; name: string; type: string }[]> => {

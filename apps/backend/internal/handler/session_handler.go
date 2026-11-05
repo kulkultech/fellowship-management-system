@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -870,9 +871,59 @@ func (h *SessionHandler) GetAttendanceSummary(w http.ResponseWriter, r *http.Req
 		summaries = []model.FellowAttendanceSummary{}
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"summaries": summaries,
-	})
+	page, paged := httpx.ParsePage(r)
+	if !paged {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"summaries": summaries,
+		})
+		return
+	}
+
+	// Cohort totals cover every fellow; the search and status filter only narrow the table.
+	rates := make([]int, len(summaries))
+	statuses := make([]string, len(summaries))
+	for i, s := range summaries {
+		rates[i], statuses[i] = s.AttendanceRate, s.Status
+	}
+	q := httpx.SearchQuery(r)
+	status := r.URL.Query().Get("status")
+	matched := make([]model.FellowAttendanceSummary, 0, len(summaries))
+	for _, s := range summaries {
+		if status != "" && s.Status != status {
+			continue
+		}
+		if httpx.Matches(q, s.FullName, s.Email, s.TrackName) {
+			matched = append(matched, s)
+		}
+	}
+	resp := map[string]any{
+		"summaries": httpx.Slice(matched, page),
+		"metrics":   attendanceMetrics(rates, statuses),
+	}
+	httpx.AddPageMeta(resp, page, len(matched))
+	httpx.JSON(w, http.StatusOK, resp)
+}
+
+// attendanceMetrics sums up a whole roster: head count, average rate and how many are in
+// each status. avg_attendance_rate is null when there is nobody to average.
+func attendanceMetrics(rates []int, statuses []string) map[string]any {
+	m := map[string]any{"total": len(rates), "good": 0, "warning": 0, "at_risk": 0, "avg_attendance_rate": nil}
+	sum := 0
+	for i, rate := range rates {
+		sum += rate
+		switch statuses[i] {
+		case "Good":
+			m["good"] = m["good"].(int) + 1
+		case "Warning":
+			m["warning"] = m["warning"].(int) + 1
+		default:
+			m["at_risk"] = m["at_risk"].(int) + 1
+		}
+	}
+	if len(rates) > 0 {
+		m["avg_attendance_rate"] = int(math.Round(float64(sum) / float64(len(rates))))
+	}
+	return m
 }
 
 // GetHolidays handles GET /api/v1/holidays?year=2026

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -38,6 +38,10 @@ export const Pagination: React.FC<PaginationProps> = ({
   isFetching = false,
 }) => {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // Deleting the last rows of the last page would leave an empty page: step back instead.
+  useEffect(() => {
+    if (total > 0 && page > pageCount) onPageChange(pageCount);
+  }, [total, page, pageCount, onPageChange]);
   if (total === 0) return null;
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);

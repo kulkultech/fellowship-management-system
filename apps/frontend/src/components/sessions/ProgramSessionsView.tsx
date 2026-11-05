@@ -42,6 +42,7 @@ import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { Pagination } from '@/components/ui/Pagination';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { usePaging } from '@/hooks/usePaging';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
@@ -130,15 +131,33 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     enabled: Boolean(programId) && activeTab === 'calendar',
   });
 
-  // 2. Fetch Attendance Summary
+  // 2. Attendance summary: one page of fellows at a time; cohort totals come from the server
+  const [summarySearch, setSummarySearch] = useState('');
+  const [summaryStatus, setSummaryStatus] = useState('');
+  const debouncedSummarySearch = useDebouncedValue(summarySearch.trim(), 300);
+  const summaryPaging = usePaging([programId, debouncedSummarySearch, summaryStatus], 25);
   const {
-    data: summaries = [],
+    data: summaryPage,
     isLoading: isLoadingSummaries,
+    isFetching: isFetchingSummaries,
   } = useQuery({
-    queryKey: ['program-attendance-summary', programId],
-    queryFn: () => sessionService.getAttendanceSummary(programId),
+    queryKey: [
+      'program-attendance-summary',
+      programId,
+      summaryPaging.page,
+      summaryPaging.pageSize,
+      debouncedSummarySearch,
+      summaryStatus,
+    ],
+    queryFn: () =>
+      sessionService.getAttendanceSummaryPage(programId, summaryPaging.page, summaryPaging.pageSize, {
+        q: debouncedSummarySearch,
+        status: summaryStatus,
+      }),
     enabled: Boolean(programId),
+    placeholderData: keepPreviousData,
   });
+  const summaries = summaryPage?.summaries ?? [];
 
   // 3. Fetch Attendance for Active Session Modal
   const {
@@ -200,21 +219,40 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     setCheckSheetTab('fellows');
   }, [activeAttendanceSession?.id]);
 
-  const { data: mentorAttendanceList = [], isLoading: isLoadingMentorAttendance } = useQuery({
+  const { data: mentorAttendanceList, isLoading: isLoadingMentorAttendance } = useQuery({
     queryKey: ['session-mentor-attendance', programId, activeAttendanceSession?.id],
     queryFn: () => sessionService.getMentorAttendance(programId, activeAttendanceSession!.id),
     enabled: Boolean(canTrackMentors && programId && activeAttendanceSession?.id),
   });
 
+  // (No "= []" default above: a new empty array every render would re-run this effect forever.)
   React.useEffect(() => {
-    setMentorSheet(mentorAttendanceList.map((m) => ({ ...m, notes: m.notes || '' })));
+    setMentorSheet((mentorAttendanceList ?? []).map((m) => ({ ...m, notes: m.notes || '' })));
   }, [mentorAttendanceList]);
 
-  const { data: mentorSummaries = [], isLoading: isLoadingMentorSummaries } = useQuery({
-    queryKey: ['program-mentor-attendance-summary', programId],
-    queryFn: () => sessionService.getMentorAttendanceSummary(programId),
+  const mentorSummaryPaging = usePaging([programId, debouncedSummarySearch, summaryStatus], 25);
+  const {
+    data: mentorSummaryPage,
+    isLoading: isLoadingMentorSummaries,
+    isFetching: isFetchingMentorSummaries,
+  } = useQuery({
+    queryKey: [
+      'program-mentor-attendance-summary',
+      programId,
+      mentorSummaryPaging.page,
+      mentorSummaryPaging.pageSize,
+      debouncedSummarySearch,
+      summaryStatus,
+    ],
+    queryFn: () =>
+      sessionService.getMentorAttendanceSummaryPage(programId, mentorSummaryPaging.page, mentorSummaryPaging.pageSize, {
+        q: debouncedSummarySearch,
+        status: summaryStatus,
+      }),
     enabled: Boolean(canTrackMentors && programId && activeTab === 'summary' && summaryView === 'mentors'),
+    placeholderData: keepPreviousData,
   });
+  const mentorSummaries = mentorSummaryPage?.summaries ?? [];
 
   const saveMentorAttendanceMutation = useMutation({
     mutationFn: async () => {
@@ -545,35 +583,19 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     );
   };
 
-  // Overall Cohort Metrics
+  // Overall Cohort Metrics (over every fellow, from the server)
   const cohortMetrics = useMemo(() => {
-    const totalFellows = summaries.length;
+    const m = summaryPage?.metrics;
     const totalSessions = totalProgramSessions;
-
-    let totalAttendanceRateSum = 0;
-    let goodCount = 0;
-    let warningCount = 0;
-    let atRiskCount = 0;
-
-    summaries.forEach((s) => {
-      totalAttendanceRateSum += s.attendance_rate;
-      if (s.status === 'Good') goodCount++;
-      else if (s.status === 'Warning') warningCount++;
-      else atRiskCount++;
-    });
-
-    const avgAttendanceRate =
-      totalFellows > 0 ? Math.round(totalAttendanceRateSum / totalFellows) : totalSessions > 0 ? 0 : 100;
-
     return {
-      totalFellows,
+      totalFellows: m?.total ?? 0,
       totalSessions,
-      avgAttendanceRate,
-      goodCount,
-      warningCount,
-      atRiskCount,
+      avgAttendanceRate: m?.avg_attendance_rate ?? (totalSessions > 0 ? 0 : 100),
+      goodCount: m?.good ?? 0,
+      warningCount: m?.warning ?? 0,
+      atRiskCount: m?.at_risk ?? 0,
     };
-  }, [summaries, totalProgramSessions]);
+  }, [summaryPage, totalProgramSessions]);
 
   const formatDateTime = (dateStr: string) => {
     try {
@@ -952,12 +974,39 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
             )}
 
+            <div className="table-toolbar">
+              <div className="search-field">
+                <Search />
+                <input
+                  type="text"
+                  aria-label={summaryView === 'mentors' ? 'Search mentors' : 'Search fellows'}
+                  placeholder={summaryView === 'mentors' ? 'Search mentors by name or email...' : 'Search fellows by name, email, or track...'}
+                  value={summarySearch}
+                  onChange={(e) => setSummarySearch(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              <select
+                aria-label="Filter by attendance status"
+                value={summaryStatus}
+                onChange={(e) => setSummaryStatus(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All Statuses</option>
+                <option value="Good">Good</option>
+                <option value="Warning">Warning</option>
+                <option value="At Risk">At Risk</option>
+              </select>
+            </div>
+
             {summaryView === 'mentors' ? (
               isLoadingMentorSummaries ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <Loader2 className="w-7 h-7 animate-spin text-kulkul-purple" />
                   <span className="text-xs font-bold">Calculating mentor attendance...</span>
                 </div>
+              ) : mentorSummaries.length === 0 && (debouncedSummarySearch || summaryStatus) ? (
+                <div className="py-12 text-center text-xs font-semibold text-slate-500">No mentors match these filters.</div>
               ) : mentorSummaries.length === 0 ? (
                 <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl p-8 space-y-2">
                   <Award className="w-8 h-8 text-slate-400 mx-auto" />
@@ -967,71 +1016,82 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="data-table-wrap">
-                  <table className="data-table min-w-[760px]">
-                    <thead>
-                      <tr>
-                        <th>Mentor</th>
-                        <th className="text-center">Sessions Held</th>
-                        <th className="text-center">Led</th>
-                        <th className="text-center">Present</th>
-                        <th className="text-center">Late</th>
-                        <th className="text-center">Absent</th>
-                        <th className="text-center">Excused</th>
-                        <th className="text-center">Rate (%)</th>
-                        <th className="text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mentorSummaries.map((m) => (
-                        <tr key={m.user_id} className="transition">
-                          <td>
-                            <div className="cell-primary">{m.full_name}</div>
-                            <div className="cell-secondary">{m.role_title || m.email}</div>
-                          </td>
-                          <td className="text-center font-bold text-slate-700">{m.total_sessions}</td>
-                          <td className="text-center font-bold text-kulkul-purple">{m.led_count}</td>
-                          <td className="text-center font-bold text-emerald-700">{m.present_count}</td>
-                          <td className="text-center font-bold text-amber-600">{m.late_count}</td>
-                          <td className="text-center font-bold text-rose-600">{m.absent_count}</td>
-                          <td className="text-center font-bold text-slate-500">{m.excused_count}</td>
-                          <td className="text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className="font-extrabold text-slate-900">{m.attendance_rate}%</span>
-                              <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    m.attendance_rate >= 80
-                                      ? 'bg-emerald-500'
-                                      : m.attendance_rate >= 65
-                                      ? 'bg-amber-500'
-                                      : 'bg-rose-500'
-                                  }`}
-                                  style={{ width: `${m.attendance_rate}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="text-center">
-                            <span
-                              className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
-                                m.status === 'Good'
-                                  ? 'text-emerald-700'
-                                  : m.status === 'Warning'
-                                  ? 'text-amber-700'
-                                  : 'text-rose-700'
-                              }`}
-                            >
-                              {m.status === 'Good' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
-                              {m.status === 'Warning' && <AlertCircle className="w-3 h-3 text-amber-600" />}
-                              {m.status === 'At Risk' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                              <span>{m.status}</span>
-                            </span>
-                          </td>
+                <div>
+                  <div className="data-table-wrap">
+                    <table className="data-table min-w-[760px]">
+                      <thead>
+                        <tr>
+                          <th>Mentor</th>
+                          <th className="text-center">Sessions Held</th>
+                          <th className="text-center">Led</th>
+                          <th className="text-center">Present</th>
+                          <th className="text-center">Late</th>
+                          <th className="text-center">Absent</th>
+                          <th className="text-center">Excused</th>
+                          <th className="text-center">Rate (%)</th>
+                          <th className="text-center">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {mentorSummaries.map((m) => (
+                          <tr key={m.user_id} className="transition">
+                            <td>
+                              <div className="cell-primary">{m.full_name}</div>
+                              <div className="cell-secondary">{m.role_title || m.email}</div>
+                            </td>
+                            <td className="text-center font-bold text-slate-700">{m.total_sessions}</td>
+                            <td className="text-center font-bold text-kulkul-purple">{m.led_count}</td>
+                            <td className="text-center font-bold text-emerald-700">{m.present_count}</td>
+                            <td className="text-center font-bold text-amber-600">{m.late_count}</td>
+                            <td className="text-center font-bold text-rose-600">{m.absent_count}</td>
+                            <td className="text-center font-bold text-slate-500">{m.excused_count}</td>
+                            <td className="text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="font-extrabold text-slate-900">{m.attendance_rate}%</span>
+                                <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      m.attendance_rate >= 80
+                                        ? 'bg-emerald-500'
+                                        : m.attendance_rate >= 65
+                                        ? 'bg-amber-500'
+                                        : 'bg-rose-500'
+                                    }`}
+                                    style={{ width: `${m.attendance_rate}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="text-center">
+                              <span
+                                className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
+                                  m.status === 'Good'
+                                    ? 'text-emerald-700'
+                                    : m.status === 'Warning'
+                                    ? 'text-amber-700'
+                                    : 'text-rose-700'
+                                }`}
+                              >
+                                {m.status === 'Good' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                                {m.status === 'Warning' && <AlertCircle className="w-3 h-3 text-amber-600" />}
+                                {m.status === 'At Risk' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
+                                <span>{m.status}</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Pagination
+                    page={mentorSummaryPaging.page}
+                    pageSize={mentorSummaryPaging.pageSize}
+                    total={mentorSummaryPage?.total ?? 0}
+                    onPageChange={mentorSummaryPaging.setPage}
+                    onPageSizeChange={mentorSummaryPaging.setPageSize}
+                    noun="mentors"
+                    isFetching={isFetchingMentorSummaries && !isLoadingMentorSummaries}
+                  />
                 </div>
               )
             ) : isLoadingSummaries ? (
@@ -1039,6 +1099,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 <Loader2 className="w-7 h-7 animate-spin text-kulkul-purple" />
                 <span className="text-xs font-bold">Calculating attendance metrics...</span>
               </div>
+            ) : summaries.length === 0 && (debouncedSummarySearch || summaryStatus) ? (
+              <div className="py-12 text-center text-xs font-semibold text-slate-500">No fellows match these filters.</div>
             ) : summaries.length === 0 ? (
               <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-3xl p-8 space-y-2">
                 <Users className="w-8 h-8 text-slate-400 mx-auto" />
@@ -1048,83 +1110,94 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="data-table-wrap">
-                <table className="data-table min-w-[700px]">
-                  <thead>
-                    <tr>
-                      <th>Fellow</th>
-                      {tracks.length > 0 && <th>Track</th>}
-                      <th className="text-center">Sessions</th>
-                      <th className="text-center">Present</th>
-                      <th className="text-center">Late</th>
-                      <th className="text-center">Pending</th>
-                      <th className="text-center">Absent</th>
-                      <th className="text-center">Excused</th>
-                      <th className="text-center">Rate (%)</th>
-                      <th className="text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summaries.map((s) => (
-                      <tr key={s.applicant_id} className="transition">
-                        <td>
-                          <div className="cell-primary">{s.full_name}</div>
-                          <div className="cell-secondary">{s.email}</div>
-                        </td>
-                        {tracks.length > 0 && (
-                          <td className="text-slate-600 font-medium">
-                            {s.track_name || <span className="text-slate-400">&mdash;</span>}
-                          </td>
-                        )}
-                        <td className="text-center font-bold text-slate-700">{s.total_sessions}</td>
-                        <td className="text-center font-bold text-emerald-700">{s.present_count}</td>
-                        <td className="text-center font-bold text-amber-600">{s.late_count}</td>
-                        <td className="text-center font-bold text-amber-700">
-                          {s.pending_count !== undefined && s.pending_count > 0 ? (
-                            <span className="text-amber-700 font-extrabold">{s.pending_count}</span>
-                          ) : (
-                            <span className="text-slate-400">0</span>
-                          )}
-                        </td>
-                        <td className="text-center font-bold text-rose-600">{s.absent_count}</td>
-                        <td className="text-center font-bold text-slate-500">{s.excused_count}</td>
-                        <td className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="font-extrabold text-slate-900">{s.attendance_rate}%</span>
-                            <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
-                              <div
-                                className={`h-full rounded-full ${
-                                  s.attendance_rate >= 80
-                                    ? 'bg-emerald-500'
-                                    : s.attendance_rate >= 65
-                                    ? 'bg-amber-500'
-                                    : 'bg-rose-500'
-                                }`}
-                                style={{ width: `${s.attendance_rate}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="text-center">
-                          <span
-                            className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
-                              s.status === 'Good'
-                                ? 'text-emerald-700'
-                                : s.status === 'Warning'
-                                ? 'text-amber-700'
-                                : 'text-rose-700'
-                            }`}
-                          >
-                            {s.status === 'Good' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
-                            {s.status === 'Warning' && <AlertCircle className="w-3 h-3 text-amber-600" />}
-                            {s.status === 'At Risk' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                            <span>{s.status}</span>
-                          </span>
-                        </td>
+              <div>
+                <div className="data-table-wrap">
+                  <table className="data-table min-w-[700px]">
+                    <thead>
+                      <tr>
+                        <th>Fellow</th>
+                        {tracks.length > 0 && <th>Track</th>}
+                        <th className="text-center">Sessions</th>
+                        <th className="text-center">Present</th>
+                        <th className="text-center">Late</th>
+                        <th className="text-center">Pending</th>
+                        <th className="text-center">Absent</th>
+                        <th className="text-center">Excused</th>
+                        <th className="text-center">Rate (%)</th>
+                        <th className="text-center">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {summaries.map((s) => (
+                        <tr key={s.applicant_id} className="transition">
+                          <td>
+                            <div className="cell-primary">{s.full_name}</div>
+                            <div className="cell-secondary">{s.email}</div>
+                          </td>
+                          {tracks.length > 0 && (
+                            <td className="text-slate-600 font-medium">
+                              {s.track_name || <span className="text-slate-400">&mdash;</span>}
+                            </td>
+                          )}
+                          <td className="text-center font-bold text-slate-700">{s.total_sessions}</td>
+                          <td className="text-center font-bold text-emerald-700">{s.present_count}</td>
+                          <td className="text-center font-bold text-amber-600">{s.late_count}</td>
+                          <td className="text-center font-bold text-amber-700">
+                            {s.pending_count !== undefined && s.pending_count > 0 ? (
+                              <span className="text-amber-700 font-extrabold">{s.pending_count}</span>
+                            ) : (
+                              <span className="text-slate-400">0</span>
+                            )}
+                          </td>
+                          <td className="text-center font-bold text-rose-600">{s.absent_count}</td>
+                          <td className="text-center font-bold text-slate-500">{s.excused_count}</td>
+                          <td className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="font-extrabold text-slate-900">{s.attendance_rate}%</span>
+                              <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    s.attendance_rate >= 80
+                                      ? 'bg-emerald-500'
+                                      : s.attendance_rate >= 65
+                                      ? 'bg-amber-500'
+                                      : 'bg-rose-500'
+                                  }`}
+                                  style={{ width: `${s.attendance_rate}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="text-center">
+                            <span
+                              className={`inline-flex items-center gap-1 text-3xs font-extrabold uppercase tracking-wider ${
+                                s.status === 'Good'
+                                  ? 'text-emerald-700'
+                                  : s.status === 'Warning'
+                                  ? 'text-amber-700'
+                                  : 'text-rose-700'
+                              }`}
+                            >
+                              {s.status === 'Good' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                              {s.status === 'Warning' && <AlertCircle className="w-3 h-3 text-amber-600" />}
+                              {s.status === 'At Risk' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
+                              <span>{s.status}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination
+                  page={summaryPaging.page}
+                  pageSize={summaryPaging.pageSize}
+                  total={summaryPage?.total ?? 0}
+                  onPageChange={summaryPaging.setPage}
+                  onPageSizeChange={summaryPaging.setPageSize}
+                  noun="fellows"
+                  isFetching={isFetchingSummaries && !isLoadingSummaries}
+                />
               </div>
             )}
           </div>

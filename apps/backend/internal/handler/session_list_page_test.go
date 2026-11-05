@@ -24,3 +24,26 @@ func TestSessionSearchAndFellowStats(t *testing.T) {
 		t.Errorf("stats = %v", stats)
 	}
 }
+
+func TestAttendanceMetrics(t *testing.T) {
+	m := attendanceMetrics([]int{100, 70, 40}, []string{"Good", "Warning", "At Risk"})
+	if m["total"] != 3 || m["good"] != 1 || m["warning"] != 1 || m["at_risk"] != 1 || m["avg_attendance_rate"] != 70 {
+		t.Errorf("metrics = %v", m)
+	}
+	if empty := attendanceMetrics(nil, nil); empty["avg_attendance_rate"] != nil || empty["total"] != 0 {
+		t.Errorf("empty metrics = %v", empty)
+	}
+}
+
+func TestAssignmentFellowStats(t *testing.T) {
+	score := func(v float64) *float64 { return &v }
+	stats := assignmentFellowStats([]*model.ProgramAssignment{
+		{MaxScore: 100, MySubmission: &model.AssignmentSubmission{Score: score(80)}},
+		{MaxScore: 50, MySubmission: &model.AssignmentSubmission{}},
+		{MaxScore: 100},
+		{MaxScore: 100},
+	})
+	if stats["total"] != 4 || stats["submitted"] != 2 || stats["graded"] != 1 || stats["completion_rate"] != 50 || stats["avg_score"] != 80 {
+		t.Errorf("stats = %v", stats)
+	}
+}
