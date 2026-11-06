@@ -1574,7 +1574,11 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     />
                     <div>
                       <div className="text-xs font-bold text-slate-800">Invite Attendees</div>
-                      <div className="meta-text">Send Google Calendar &amp; email invites</div>
+                      <div className="meta-text">
+                        {editingSession
+                          ? 'Email an invite to anyone you add'
+                          : 'Send Google Calendar & email invites'}
+                      </div>
                     </div>
                   </label>
                 </div>

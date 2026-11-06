@@ -521,6 +521,11 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		existing.MeetingURL = u
 	}
 	existing.RecordingURL = req.RecordingURL
+	// Who was invited before this edit, so people added now can be sent an invite
+	var invitedBefore []calendar.Attendee
+	if h.sessionRepo != nil {
+		invitedBefore, _ = h.sessionRepo.GetSessionInvitedAttendees(r.Context(), programID, existing.TrackID, existing.TargetApplicantIDs, existing.MentorID)
+	}
 	existing.MentorID = req.MentorID
 	existing.TrackID = req.TrackID
 	if req.TargetApplicantIDs != nil {
@@ -550,7 +555,44 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fellows (or a mentor) added by this edit get the same invite email as at creation
+	sendInvites := req.SendCalendarInvites == nil || *req.SendCalendarInvites
+	if sendInvites && h.emailService != nil && h.sessionRepo != nil {
+		invitedAfter, _ := h.sessionRepo.GetSessionInvitedAttendees(r.Context(), programID, updated.TrackID, updated.TargetApplicantIDs, updated.MentorID)
+		if added := newAttendees(invitedBefore, invitedAfter); len(added) > 0 {
+			programName := "Fellowship Cohort"
+			if h.programRepo != nil {
+				if prog, pErr := h.programRepo.GetByID(r.Context(), programID); pErr == nil && prog != nil && prog.Name != "" {
+					programName = prog.Name
+				}
+			}
+			sessionCopy := *updated
+			go func(attendees []calendar.Attendee) {
+				for _, att := range attendees {
+					_ = h.emailService.SendSessionInvitationEmail(att.Email, att.Name, programName, att.TrackName, &sessionCopy, sessionCopy.GoogleCalendarHTMLLink)
+				}
+			}(added)
+		}
+	}
+
 	httpx.JSON(w, http.StatusOK, updated)
+}
+
+// newAttendees returns the people in after (with an email) who were not in before.
+func newAttendees(before, after []calendar.Attendee) []calendar.Attendee {
+	had := make(map[string]bool, len(before))
+	for _, a := range before {
+		had[strings.ToLower(strings.TrimSpace(a.Email))] = true
+	}
+	var added []calendar.Attendee
+	for _, a := range after {
+		key := strings.ToLower(strings.TrimSpace(a.Email))
+		if key != "" && !had[key] {
+			had[key] = true
+			added = append(added, a)
+		}
+	}
+	return added
 }
 
 // DeleteSession handles DELETE /api/v1/programs/{programId}/sessions/{sessionId}

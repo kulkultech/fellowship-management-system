@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kulkul/backend/internal/calendar"
 	"github.com/kulkul/backend/internal/model"
 )
 
@@ -83,5 +84,17 @@ func TestAssignmentProgress(t *testing.T) {
 	p := assignmentProgress(me, []*model.ProgramAssignment{all, mine, targeted, notMine, forOthers, draft}, subs)
 	if p.Total != 3 || p.Submitted != 3 || p.Graded != 2 || p.AvgScore == nil || *p.AvgScore != 80 {
 		t.Errorf("progress = %+v (avg %v)", p, p.AvgScore)
+	}
+}
+
+func TestNewAttendees(t *testing.T) {
+	before := []calendar.Attendee{{Email: "alex@example.com"}, {Email: "mentor@example.com"}}
+	after := []calendar.Attendee{{Email: "Alex@Example.com"}, {Email: "mentor@example.com"}, {Email: "sarah@example.com"}, {Email: ""}, {Email: "sarah@example.com"}}
+	added := newAttendees(before, after)
+	if len(added) != 1 || added[0].Email != "sarah@example.com" {
+		t.Errorf("added = %+v, want only sarah", added)
+	}
+	if len(newAttendees(after, before)) != 0 {
+		t.Error("removing people should invite no one")
 	}
 }
