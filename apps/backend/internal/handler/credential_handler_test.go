@@ -81,6 +81,14 @@ func (m *mockCredentialEmailService) SendAssignmentEmail(recipientEmail, recipie
 	return nil
 }
 
+func (m *mockCredentialEmailService) SendSessionReminderEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL, startsIn string) error {
+	return nil
+}
+
+func (m *mockCredentialEmailService) SendAssignmentReminderEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, dueIn, assignmentURL string) error {
+	return nil
+}
+
 func (m *mockCredentialEmailService) SendCustomEmail(recipientEmail string, customTmpl *model.EmailTemplateConfig, vars map[string]string, actionURL string) error {
 	return nil
 }

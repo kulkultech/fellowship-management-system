@@ -41,3 +41,27 @@ func TestSessionInviteCalendarFallback(t *testing.T) {
 		t.Error("calendar button must not have an empty link")
 	}
 }
+
+func TestReminderEmails(t *testing.T) {
+	start := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	s := &model.ProgramSession{Title: "Async Rust", StartTime: start, EndTime: start.Add(time.Hour)}
+	subject, html, text := buildSessionReminderEmail("Jane", "RSA 2026", "", s, "", "in 1 hour", "https://fellowhire.test", "support@test")
+	if subject != "Reminder: Async Rust starts in 1 hour - RSA 2026" || !strings.Contains(html, "Session Reminder") ||
+		!strings.Contains(html, "Async Rust starts in 1 hour") || !strings.Contains(text, "Reminder: your RSA 2026 session starts in 1 hour.") {
+		t.Errorf("session reminder: %q / %q", subject, text)
+	}
+
+	due := start
+	a := &model.ProgramAssignment{Title: "KV Store", MaxScore: 100, DueDate: &due}
+	subject, html, _ = buildAssignmentReminderEmail("Jane", "RSA 2026", a, "tomorrow at 19:00 WIB", "https://x/room", "https://fellowhire.test", "support@test")
+	if subject != "Reminder: KV Store is due tomorrow at 19:00 WIB - RSA 2026" || !strings.Contains(html, "Assignment Reminder") ||
+		!strings.Contains(html, "submitted this") {
+		t.Errorf("assignment reminder: %q", subject)
+	}
+
+	// The invite and the new-assignment email are unchanged
+	subject, html, _ = buildSessionInvitationEmail("Jane", "RSA 2026", "", s, "", "https://fellowhire.test", "support@test")
+	if subject != "Calendar Invitation: Async Rust - RSA 2026" || !strings.Contains(html, "invited to Async Rust") {
+		t.Errorf("invite changed: %q", subject)
+	}
+}

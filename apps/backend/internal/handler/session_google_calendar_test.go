@@ -84,6 +84,14 @@ func (m *mockSessionCalendarEmailService) SendAssignmentEmail(recipientEmail, re
 	return nil
 }
 
+func (m *mockSessionCalendarEmailService) SendSessionReminderEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL, startsIn string) error {
+	return nil
+}
+
+func (m *mockSessionCalendarEmailService) SendAssignmentReminderEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, dueIn, assignmentURL string) error {
+	return nil
+}
+
 func (m *mockSessionCalendarEmailService) SendCustomEmail(recipientEmail string, customTmpl *model.EmailTemplateConfig, vars map[string]string, actionURL string) error {
 	return nil
 }

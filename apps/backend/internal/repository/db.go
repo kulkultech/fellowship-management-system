@@ -548,6 +548,15 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
 	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS ended_by UUID REFERENCES users(id) ON DELETE SET NULL;
 
+	-- Reminder emails already sent (session starts soon, assignment due soon), so each goes out once
+	CREATE TABLE IF NOT EXISTS reminders_sent (
+		kind VARCHAR(40) NOT NULL,
+		item_id UUID NOT NULL,
+		due_at TIMESTAMPTZ NOT NULL,
+		sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		PRIMARY KEY (kind, item_id, due_at)
+	);
+
 	CREATE TABLE IF NOT EXISTS program_room_content (
 		program_id UUID PRIMARY KEY REFERENCES programs(id) ON DELETE CASCADE,
 		curriculum JSONB NOT NULL DEFAULT '[]'::jsonb,

@@ -19,10 +19,14 @@ func (h *AssignmentHandler) WithEmail(emailSvc email.Service, orgRepo *repositor
 
 // programFellows lists the fellows admitted to a program's room.
 func (h *AssignmentHandler) programFellows(ctx context.Context, programID uuid.UUID) []model.Applicant {
-	if h.applicantRepo == nil {
+	return programFellows(ctx, h.applicantRepo, programID)
+}
+
+func programFellows(ctx context.Context, applicantRepo *repository.ApplicantRepository, programID uuid.UUID) []model.Applicant {
+	if applicantRepo == nil {
 		return nil
 	}
-	applicants, err := h.applicantRepo.ListByProgram(ctx, programID, "")
+	applicants, err := applicantRepo.ListByProgram(ctx, programID, "")
 	if err != nil {
 		return nil
 	}
@@ -61,18 +65,7 @@ func (h *AssignmentHandler) notifyAssignment(ctx context.Context, before, after 
 		return
 	}
 
-	programName := "your fellowship program"
-	link := fmt.Sprintf("%s/candidate/dashboard", h.frontendURL)
-	if prog, err := h.programRepo.GetByID(ctx, after.ProgramID); err == nil && prog != nil {
-		if prog.Name != "" {
-			programName = prog.Name
-		}
-		if h.orgRepo != nil {
-			if org, err := h.orgRepo.GetByID(ctx, prog.OrganizationID); err == nil && org != nil && org.Slug != "" {
-				link = fmt.Sprintf("%s/programs/%s/%s/room?section=assignments&item=%s", h.frontendURL, org.Slug, prog.Slug, after.ID)
-			}
-		}
-	}
+	programName, link := assignmentLink(ctx, h.programRepo, h.orgRepo, h.frontendURL, after)
 
 	a := *after
 	go func() {
@@ -80,4 +73,34 @@ func (h *AssignmentHandler) notifyAssignment(ctx context.Context, before, after 
 			_ = h.emailSvc.SendAssignmentEmail(f.Email, f.FullName, programName, &a, link)
 		}
 	}()
+}
+
+// programInfo returns a program's name and its room address (empty if unknown).
+func programInfo(ctx context.Context, programRepo *repository.ProgramRepository, orgRepo *repository.OrgRepository, frontendURL string, programID uuid.UUID) (name, roomURL string) {
+	name = "your fellowship program"
+	if programRepo == nil {
+		return name, ""
+	}
+	prog, err := programRepo.GetByID(ctx, programID)
+	if err != nil || prog == nil {
+		return name, ""
+	}
+	if prog.Name != "" {
+		name = prog.Name
+	}
+	if orgRepo != nil {
+		if org, err := orgRepo.GetByID(ctx, prog.OrganizationID); err == nil && org != nil && org.Slug != "" {
+			roomURL = fmt.Sprintf("%s/programs/%s/%s/room", frontendURL, org.Slug, prog.Slug)
+		}
+	}
+	return name, roomURL
+}
+
+// assignmentLink returns the program's name and a link that opens the assignment in the room.
+func assignmentLink(ctx context.Context, programRepo *repository.ProgramRepository, orgRepo *repository.OrgRepository, frontendURL string, a *model.ProgramAssignment) (programName, link string) {
+	programName, roomURL := programInfo(ctx, programRepo, orgRepo, frontendURL, a.ProgramID)
+	if roomURL == "" {
+		return programName, fmt.Sprintf("%s/candidate/dashboard", frontendURL)
+	}
+	return programName, fmt.Sprintf("%s?section=assignments&item=%s", roomURL, a.ID)
 }

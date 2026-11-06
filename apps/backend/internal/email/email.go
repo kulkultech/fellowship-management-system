@@ -34,6 +34,8 @@ type Service interface {
 	SendCertificateEmail(recipientEmail, candidateName, programName, trackName, certificateNumber, certificateURL, badgeURL string, issueDate time.Time) error
 	SendSessionInvitationEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL string) error
 	SendAssignmentEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, assignmentURL string) error
+	SendSessionReminderEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL, startsIn string) error
+	SendAssignmentReminderEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, dueIn, assignmentURL string) error
 
 	SendCustomApplicationReceivedEmail(recipientEmail, candidateName, programName, trackName, testURL string, durationMinutes, passingScore int, customTmpl *model.EmailTemplateConfig) error
 	SendCustomLogicTestResultEmail(recipientEmail, candidateName, programName, trackName string, score, passingScore int, passed bool, resultURL, actionURL, nextStep string, customTmpl *model.EmailTemplateConfig) error
@@ -369,6 +371,20 @@ func (s *SESService) SendSessionInvitationEmail(recipientEmail, recipientName, p
 // SendAssignmentEmail tells a fellow about an assignment they were given.
 func (s *SESService) SendAssignmentEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, assignmentURL string) error {
 	subject, html, text := buildAssignmentEmail(recipientName, programName, assignment, assignmentURL, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// SendSessionReminderEmail reminds an invitee that a session starts soon ("tomorrow", "in 1 hour").
+func (s *SESService) SendSessionReminderEmail(recipientEmail, recipientName, programName, trackName string, session *model.ProgramSession, googleCalURL, startsIn string) error {
+	subject, html, text := buildSessionReminderEmail(recipientName, programName, trackName, session, googleCalURL, startsIn, s.frontendURL, s.supportEmail)
+	s.send(recipientEmail, subject, html, text)
+	return nil
+}
+
+// SendAssignmentReminderEmail reminds a fellow who hasn't submitted that an assignment is due soon.
+func (s *SESService) SendAssignmentReminderEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, dueIn, assignmentURL string) error {
+	subject, html, text := buildAssignmentReminderEmail(recipientName, programName, assignment, dueIn, assignmentURL, s.frontendURL, s.supportEmail)
 	s.send(recipientEmail, subject, html, text)
 	return nil
 }

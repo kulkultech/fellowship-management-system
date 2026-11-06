@@ -1136,10 +1136,55 @@ func buildSessionInvitationEmail(
 	googleCalURL string,
 	frontendURL, supportEmail string,
 ) (subject string, html string, text string) {
-	subject = fmt.Sprintf("Calendar Invitation: %s - %s", session.Title, programName)
-	if session.RecurrenceDescription != "" {
-		subject = fmt.Sprintf("Calendar Invitation (repeating): %s - %s", session.Title, programName)
+	c := sessionEmailCopy{
+		Subject:     fmt.Sprintf("Calendar Invitation: %s - %s", session.Title, programName),
+		Label:       "Cohort Session Invitation",
+		HeadingHTML: "You're invited to " + template.HTMLEscapeString(session.Title),
+		IntroHTML: fmt.Sprintf("A live cohort session has been scheduled for <strong>%s</strong>. Join your mentors and fellow cohort members on Google Meet.",
+			template.HTMLEscapeString(programName)),
+		TextIntro: fmt.Sprintf("You are invited to a live cohort session for %s.", programName),
 	}
+	if session.RecurrenceDescription != "" {
+		c.Subject = fmt.Sprintf("Calendar Invitation (repeating): %s - %s", session.Title, programName)
+	}
+	return buildSessionEmail(c, recipientName, programName, trackName, session, googleCalURL, frontendURL, supportEmail)
+}
+
+// sessionEmailCopy is the wording that differs between a session invite and its reminders.
+type sessionEmailCopy struct {
+	Subject     string
+	Label       string // small label above the heading (plain text)
+	HeadingHTML string // already escaped
+	IntroHTML   string // already escaped
+	TextIntro   string // plain-text version of the intro
+}
+
+// buildSessionReminderEmail reminds an invitee that a session starts soon ("tomorrow", "in 1 hour").
+func buildSessionReminderEmail(
+	recipientName, programName, trackName string,
+	session *model.ProgramSession,
+	googleCalURL, startsIn string,
+	frontendURL, supportEmail string,
+) (subject string, html string, text string) {
+	c := sessionEmailCopy{
+		Subject:     fmt.Sprintf("Reminder: %s starts %s - %s", session.Title, startsIn, programName),
+		Label:       "Session Reminder",
+		HeadingHTML: fmt.Sprintf("%s starts %s", template.HTMLEscapeString(session.Title), template.HTMLEscapeString(startsIn)),
+		IntroHTML: fmt.Sprintf("This is a reminder that your <strong>%s</strong> session starts %s. The details and links are below.",
+			template.HTMLEscapeString(programName), template.HTMLEscapeString(startsIn)),
+		TextIntro: fmt.Sprintf("Reminder: your %s session starts %s.", programName, startsIn),
+	}
+	return buildSessionEmail(c, recipientName, programName, trackName, session, googleCalURL, frontendURL, supportEmail)
+}
+
+func buildSessionEmail(
+	c sessionEmailCopy,
+	recipientName, programName, trackName string,
+	session *model.ProgramSession,
+	googleCalURL string,
+	frontendURL, supportEmail string,
+) (subject string, html string, text string) {
+	subject = c.Subject
 
 	trackBadge := ""
 	if trackName != "" {
@@ -1210,11 +1255,11 @@ func buildSessionInvitationEmail(
 	}
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple">Cohort Session Invitation%s</span>
+    <span class="badge badge-purple">%s%s</span>
 
-    <h2>You're invited to %s</h2>
+    <h2>%s</h2>
     <p>Dear <strong>%s</strong>,</p>
-    <p>A live cohort session has been scheduled for <strong>%s</strong>. Join your mentors and fellow cohort members on Google Meet.</p>
+    <p>%s</p>
 
     <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
@@ -1251,7 +1296,7 @@ func buildSessionInvitationEmail(
       <a href="%s" style="font-size: 12px; color: #64748b; text-decoration: underline;">Open the Live Workspace (code editor &amp; whiteboard)</a>
     </div>
 `,
-		trackBadge, template.HTMLEscapeString(session.Title), template.HTMLEscapeString(recipientName), template.HTMLEscapeString(programName),
+		template.HTMLEscapeString(c.Label), trackBadge, c.HeadingHTML, template.HTMLEscapeString(recipientName), c.IntroHTML,
 		template.HTMLEscapeString(session.Title), template.HTMLEscapeString(typeLabel), timeStr, mentorRow,
 		meetCell, agendaSection,
 		meetButton, googleCalURL, workspaceURL,
@@ -1264,18 +1309,48 @@ func buildSessionInvitationEmail(
 	}
 
 	text = fmt.Sprintf(
-		"Dear %s,\n\nYou are invited to a live cohort session for %s.\n\nSession: %s\nType: %s\nTime: %s\nGoogle Meet: %s\nAdd to Google Calendar: %s\nLive Workspace: %s\n\nSee you there!\nFellowHire Team",
-		recipientName, programName, session.Title, typeLabel, timeStr, meetText, googleCalURL, workspaceURL,
+		"Dear %s,\n\n%s\n\nSession: %s\nType: %s\nTime: %s\nGoogle Meet: %s\nAdd to Google Calendar: %s\nLive Workspace: %s\n\nSee you there!\nFellowHire Team",
+		recipientName, c.TextIntro, session.Title, typeLabel, timeStr, meetText, googleCalURL, workspaceURL,
 	)
 	return subject, html, text
 }
 
 // buildAssignmentEmail announces an assignment to a fellow: title, due date, points and a link to it.
 func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAssignment, assignmentURL, frontendURL, supportEmail string) (subject, html, text string) {
+	return buildAssignmentNotice(assignmentEmailCopy{
+		Subject:     fmt.Sprintf("New assignment: %s - %s", a.Title, programName),
+		Label:       "",
+		HeadingHTML: "New assignment: " + template.HTMLEscapeString(a.Title),
+		IntroHTML:   fmt.Sprintf("You have a new assignment in <strong>%s</strong>.", template.HTMLEscapeString(programName)),
+		TextIntro:   fmt.Sprintf("You have a new assignment in %s: %s", programName, a.Title),
+	}, recipientName, a, assignmentURL, frontendURL, supportEmail)
+}
+
+// buildAssignmentReminderEmail reminds a fellow who hasn't submitted that an assignment is due soon.
+func buildAssignmentReminderEmail(recipientName, programName string, a *model.ProgramAssignment, dueIn, assignmentURL, frontendURL, supportEmail string) (subject, html, text string) {
+	return buildAssignmentNotice(assignmentEmailCopy{
+		Subject:     fmt.Sprintf("Reminder: %s is due %s - %s", a.Title, dueIn, programName),
+		Label:       "Assignment Reminder",
+		HeadingHTML: fmt.Sprintf("%s is due %s", template.HTMLEscapeString(a.Title), template.HTMLEscapeString(dueIn)),
+		IntroHTML: fmt.Sprintf("You haven't submitted this <strong>%s</strong> assignment yet. It is due %s.",
+			template.HTMLEscapeString(programName), template.HTMLEscapeString(dueIn)),
+		TextIntro: fmt.Sprintf("Reminder: you haven't submitted %s for %s yet. It is due %s.", a.Title, programName, dueIn),
+	}, recipientName, a, assignmentURL, frontendURL, supportEmail)
+}
+
+type assignmentEmailCopy struct {
+	Subject     string
+	Label       string // optional small label above the heading (plain text)
+	HeadingHTML string // already escaped
+	IntroHTML   string // already escaped
+	TextIntro   string
+}
+
+func buildAssignmentNotice(c assignmentEmailCopy, recipientName string, a *model.ProgramAssignment, assignmentURL, frontendURL, supportEmail string) (subject, html, text string) {
 	if recipientName == "" {
 		recipientName = "Fellow"
 	}
-	subject = fmt.Sprintf("New assignment: %s - %s", a.Title, programName)
+	subject = c.Subject
 
 	due := "No deadline"
 	if a.DueDate != nil {
@@ -1307,10 +1382,15 @@ func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAss
         </tr>`, border, label, border, template.HTMLEscapeString(value))
 	}
 
+	label := ""
+	if c.Label != "" {
+		label = fmt.Sprintf(`<span class="badge badge-amber">%s</span>`, template.HTMLEscapeString(c.Label))
+	}
 	body := fmt.Sprintf(`
-    <h2>New assignment: %s</h2>
+    %s
+    <h2>%s</h2>
     <p>Hi <strong>%s</strong>,</p>
-    <p>You have a new assignment in <strong>%s</strong>.</p>
+    <p>%s</p>
 
     <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>%s%s</tbody>
@@ -1319,13 +1399,13 @@ func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAss
     <div class="btn-container">
       <a href="%s" class="btn" style="background-color: #33125d; color: #ffffff;">Open Assignment</a>
     </div>
-  `, template.HTMLEscapeString(a.Title), template.HTMLEscapeString(recipientName), template.HTMLEscapeString(programName),
+  `, label, c.HeadingHTML, template.HTMLEscapeString(recipientName), c.IntroHTML,
 		row("Due", due, false), row("Points", fmt.Sprintf("%d", a.MaxScore), true),
 		previewHTML, template.HTMLEscapeString(assignmentURL))
 
 	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
-	text = fmt.Sprintf("Hi %s,\n\nYou have a new assignment in %s: %s\n\nDue: %s\nPoints: %d\n\n%s\n\nOpen it here:\n%s\n",
-		recipientName, programName, a.Title, due, a.MaxScore, preview, assignmentURL)
+	text = fmt.Sprintf("Hi %s,\n\n%s\n\nDue: %s\nPoints: %d\n\n%s\n\nOpen it here:\n%s\n",
+		recipientName, c.TextIntro, due, a.MaxScore, preview, assignmentURL)
 	return
 }
 

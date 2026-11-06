@@ -102,6 +102,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
 	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo).
 		WithEmail(emailSvc, orgRepo, cfg.SES.FrontendURL)
+	// Reminder emails: sessions starting tomorrow / in an hour, assignments due within a day
+	if pool != nil {
+		handler.NewReminders(repository.NewReminderRepository(pool), sessionRepo, assignmentRepo, applicantRepo,
+			programRepo, orgRepo, emailSvc, cfg.SES.FrontendURL, logger).Start(context.Background())
+	}
 	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo)
 	fellowGroupHandler := handler.NewFellowGroupHandler(repository.NewFellowGroupRepository(pool), programRepo, applicantRepo, mentorRepo)
 	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))
