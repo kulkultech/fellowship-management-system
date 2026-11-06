@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"net/url"
 	"strings"
 	"time"
 
@@ -22,109 +23,97 @@ const baseHTMLTemplate = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
   <title>{{.Subject}}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
+    /* Matches the FellowHire app: slate-50 page, white rounded cards, Inter, Kulkul purple */
     body {
       margin: 0;
       padding: 0;
       background-color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #1e293b;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
       background-color: #f8fafc;
-      padding: 32px 12px;
+      padding: 28px 12px 36px 12px;
       box-sizing: border-box;
     }
     .container {
       max-width: 600px;
       margin: 0 auto;
-      background-color: #ffffff;
-      border-radius: 20px;
-      overflow: hidden;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 4px 20px rgba(51, 18, 93, 0.06);
     }
+    /* White top bar with the logo, like the app header */
     .header {
-      background-color: #33125d;
-      padding: 28px 32px;
-      text-align: left;
-      border-bottom: 4px solid #fe900d;
+      padding: 20px 32px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #f1f5f9;
     }
-    .header-logo {
-      font-size: 22px;
-      font-weight: 900;
-      color: #ffffff;
-      letter-spacing: -0.5px;
-      text-decoration: none;
-      display: inline-block;
+    .header img {
+      height: 28px;
+      width: auto;
+      border: 0;
+      display: block;
     }
-    .header-logo span {
-      color: #fe900d;
-    }
-    .header-tagline {
-      font-size: 12px;
-      color: #cbd5e1;
-      margin-top: 4px;
-      font-weight: 500;
+    .card {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 24px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      overflow: hidden;
     }
     .content {
-      padding: 36px 32px;
+      padding: 32px;
     }
     .content h2 {
-      margin-top: 0;
-      font-size: 22px;
+      margin: 0 0 4px 0;
+      font-size: 20px;
       font-weight: 800;
       color: #0f172a;
-      letter-spacing: -0.4px;
-      line-height: 1.3;
+      letter-spacing: -0.2px;
+      line-height: 1.35;
     }
     .content p {
       font-size: 14px;
       line-height: 1.65;
-      color: #334155;
-      margin: 16px 0;
+      color: #475569;
+      margin: 14px 0;
     }
+    .content strong {
+      color: #0f172a;
+    }
+    .content a {
+      color: #33125d;
+    }
+    /* Small coloured label above a heading (plain text, like the app's status labels) */
     .badge {
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 9999px;
+      display: block;
       font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 20px;
-    }
-    .badge-purple {
-      background-color: #f3e8ff;
+      letter-spacing: 0.7px;
+      margin-bottom: 10px;
       color: #33125d;
-      border: 1px solid #d8b4fe;
     }
-    .badge-emerald {
-      background-color: #ecfdf5;
-      color: #047857;
-      border: 1px solid #a7f3d0;
-    }
-    .badge-amber {
-      background-color: #fffbeb;
-      color: #b45309;
-      border: 1px solid #fde68a;
-    }
+    .badge-purple { color: #33125d; }
+    .badge-emerald { color: #047857; }
+    .badge-amber { color: #b45309; }
     .info-box {
       background-color: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 18px 20px;
+      border-radius: 16px;
+      padding: 16px 20px;
       margin: 24px 0;
     }
     .info-row {
       display: table;
       width: 100%;
-      padding: 7px 0;
+      padding: 8px 0;
       font-size: 13px;
-      border-bottom: 1px dashed #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
     }
     .info-row:last-child {
       border-bottom: none;
@@ -142,8 +131,8 @@ const baseHTMLTemplate = `<!DOCTYPE html>
       text-align: right;
     }
     .score-banner {
-      background-color: #f3e8ff;
-      border: 1px solid #d8b4fe;
+      background-color: #f5f0fa;
+      border: 1px solid #ede4f7;
       border-radius: 16px;
       padding: 20px;
       text-align: center;
@@ -152,13 +141,13 @@ const baseHTMLTemplate = `<!DOCTYPE html>
     .score-label {
       font-size: 11px;
       font-weight: 800;
-      color: #33125d;
+      color: #64748b;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.7px;
     }
     .score-number {
-      font-size: 38px;
-      font-weight: 900;
+      font-size: 36px;
+      font-weight: 800;
       color: #33125d;
       line-height: 1.1;
       margin: 6px 0;
@@ -166,28 +155,28 @@ const baseHTMLTemplate = `<!DOCTYPE html>
     .score-subtext {
       font-size: 12px;
       font-weight: 600;
-      color: #6b21a8;
+      color: #64748b;
     }
     .btn-container {
       text-align: center;
-      margin: 32px 0 16px 0;
+      margin: 28px 0 8px 0;
     }
     .btn {
       display: inline-block;
       background-color: #33125d;
       color: #ffffff !important;
-      padding: 14px 34px;
+      padding: 12px 26px;
       border-radius: 9999px;
       font-weight: 700;
       font-size: 14px;
+      line-height: 1.2;
       text-decoration: none;
-      box-shadow: 0 4px 12px rgba(51, 18, 93, 0.25);
     }
     .guidelines {
-      background-color: #faf5ff;
-      border-left: 4px solid #33125d;
-      border-radius: 0 12px 12px 0;
-      padding: 14px 18px;
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px 20px;
       margin: 20px 0;
       font-size: 13px;
       color: #475569;
@@ -200,9 +189,7 @@ const baseHTMLTemplate = `<!DOCTYPE html>
       margin-bottom: 4px;
     }
     .footer {
-      background-color: #f8fafc;
-      padding: 24px 32px;
-      border-top: 1px solid #e2e8f0;
+      padding: 20px 16px 0 16px;
       text-align: center;
       font-size: 12px;
       color: #64748b;
@@ -213,27 +200,28 @@ const baseHTMLTemplate = `<!DOCTYPE html>
       font-weight: 600;
       text-decoration: underline;
     }
+    @media (max-width: 480px) {
+      .content { padding: 24px 20px; }
+      .header { padding: 16px 20px; }
+    }
   </style>
 </head>
 <body>
   <div class="wrapper">
     <div class="container">
-      <!-- HEADER -->
-      <div class="header">
-        <a href="{{.FrontendURL}}" class="header-logo">KulKul <span>|</span> FellowHire</a>
-        <div class="header-tagline">Fellowship Management Platform</div>
+      <div class="card">
+        <div class="header">
+          <a href="{{.FrontendURL}}"><img src="{{.FrontendURL}}/email/kulkul-logo.png" alt="Kulkul" height="28"></a>
+        </div>
+        <div class="content">
+          {{.BodyHTML}}
+        </div>
       </div>
 
-      <!-- CONTENT BODY -->
-      <div class="content">
-        {{.BodyHTML}}
-      </div>
-
-      <!-- FOOTER -->
       <div class="footer">
-        <p style="margin: 0 0 6px 0;"><strong>FellowHire Assessment Platform</strong> &bull; Powered by KulKul Tech</p>
-        <p style="margin: 0 0 8px 0;">Questions? Contact our admissions support at <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a>.</p>
-        <p style="font-size: 11px; color: #94a3b8; margin: 8px 0 0 0;">This is an automated notification. Please do not share your private assessment or interview tokens with anyone.</p>
+        <p style="margin: 0 0 6px 0;"><strong style="color: #334155;">FellowHire</strong> by Kulkul</p>
+        <p style="margin: 0 0 6px 0;">Questions? Email <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a>.</p>
+        <p style="font-size: 11px; color: #94a3b8; margin: 6px 0 0 0;">This is an automated message. Never share your private test or interview links with anyone.</p>
       </div>
     </div>
   </div>
@@ -267,7 +255,7 @@ func buildRegistrationEmail(userName, companyName, loginURL, frontendURL, suppor
     <p>Thank you for registering <strong>%s</strong> on the FellowHire Multi-Tenant Assessment Platform.</p>
     <p>Your company workspace has been initialized and is queued for verification by the platform administration team.</p>
     
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Organization Name</td>
@@ -308,7 +296,7 @@ func buildCompanyApprovedEmail(userName, companyName, loginURL, frontendURL, sup
     <h2>Welcome to FellowHire, %s!</h2>
     <p>Great news! Your company registration for <strong>%s</strong> has been reviewed and <strong style="color: #16a34a;">approved</strong> by the FellowHire platform administration team.</p>
     
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Organization Name</td>
@@ -352,7 +340,7 @@ func buildApplicationReceivedEmail(candidateName, programName, trackName, testUR
     <p>Dear <strong>%s</strong>,</p>
     <p>We have successfully received your application for the <strong>%s</strong> (%s).</p>
     
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate Name</td>
@@ -419,7 +407,7 @@ func buildLogicTestSubmittedEmail(candidateName, programName, trackName, resultU
     <p>Hello <strong>%s</strong>,</p>
     <p>Your responses for the <strong>%s</strong> (%s) logic test have been safely received and processed by our automated scoring engine.</p>
     
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
@@ -494,7 +482,7 @@ func buildLogicTestResultEmail(candidateName, programName, trackName string, sco
         <div class="score-subtext">Passing Benchmark: %d%% &bull; Result: PASSED</div>
       </div>
 
-      <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
         <tbody>
           <tr>
             <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
@@ -575,7 +563,7 @@ func buildAIInterviewInvitationEmail(candidateName, programName, trackName, inte
     <p>Dear <strong>%s</strong>,</p>
     <p>You have qualified for the next stage of the admissions process: the <strong>AI Technical Video Screening</strong> for <strong>%s</strong> (%s).</p>
 
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
@@ -667,7 +655,7 @@ func buildAIInterviewReinvitationEmail(candidateName, programName, trackName, in
     <p>Dear <strong>%s</strong>,</p>
     <p>You can take the <strong>AI Technical Video Screening</strong> for <strong>%s</strong> (%s) again. Your previous attempt has been set aside, and this new take will be the one reviewed.</p>
     %s
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; width: 45%%;">Start Before</td>
@@ -715,7 +703,7 @@ func buildFinalInterviewInvitationEmail(candidateName, programName, trackName, d
     <p>Dear <strong>%s</strong>,</p>
     <p>We are delighted to inform you that your application and assessments for <strong>%s</strong> (%s) have been <strong>officially approved by the Admissions Committee</strong>!</p>
 
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Candidate</td>
@@ -958,7 +946,7 @@ func buildCustomEmail(
 
 	var bodyBuilder strings.Builder
 	if headline != "" {
-		bodyBuilder.WriteString(fmt.Sprintf(`<h2 style="margin: 0 0 18px 0; color: #1e1b4b; font-size: 22px; font-weight: 800; line-height: 1.3;">%s</h2>`, template.HTMLEscapeString(headline)))
+		bodyBuilder.WriteString(fmt.Sprintf(`<h2 style="margin: 0 0 18px 0; color: #0f172a; font-size: 20px; font-weight: 800; line-height: 1.3;">%s</h2>`, template.HTMLEscapeString(headline)))
 	}
 
 	// Split body into paragraphs
@@ -1002,7 +990,7 @@ func buildRejectionEmail(candidateName, programName, trackName, notes, frontendU
 
 	var notesHTML string
 	if notes != "" {
-		notesHTML = fmt.Sprintf(`<div class="guidelines" style="margin: 20px 0; background-color: #f8fafc; border-left: 4px solid #94a3b8; padding: 14px 18px; border-radius: 6px;"><strong>Admissions Feedback:</strong><p style="margin: 8px 0 0 0; font-size: 13px; color: #475569;">%s</p></div>`, template.HTMLEscapeString(notes))
+		notesHTML = fmt.Sprintf(`<div class="guidelines" style="margin: 20px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px 20px; border-radius: 16px;"><strong>Admissions Feedback:</strong><p style="margin: 8px 0 0 0; font-size: 13px; color: #475569;">%s</p></div>`, template.HTMLEscapeString(notes))
 	}
 
 	body := fmt.Sprintf(`
@@ -1033,12 +1021,12 @@ func buildProgramRoomInvitationEmail(candidateName, programName, trackName, room
 	subject = fmt.Sprintf("🎉 Welcome to the Program Room! Official Invitation - %s", programName)
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">Cohort Access Granted</span>
-    <h2>Welcome to the Program Room! 🎉</h2>
+    <span class="badge badge-emerald">Cohort Access Granted</span>
+    <h2>Welcome to the Program Room</h2>
     <p>Dear <strong>%s</strong>,</p>
     <p>Congratulations! Following your official acceptance into <strong>%s</strong> (%s), you have now been granted direct access to your <strong>Fellowship Program Room</strong>.</p>
     
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Fellow</td>
@@ -1085,8 +1073,8 @@ func buildCertificateEmail(candidateName, programName, trackName, certNumber, ce
 	dateFormatted := issueDate.Format("January 02, 2006")
 
 	body := fmt.Sprintf(`
-    <span class="badge badge-purple" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Official Credential Issued</span>
-    <h2>Congratulations on Your Graduation! 🎓</h2>
+    <span class="badge badge-amber">Official Credential Issued</span>
+    <h2>Congratulations on your graduation</h2>
     <p>Dear <strong>%s</strong>,</p>
     <p>We are delighted to congratulate you on successfully completing and graduating from <strong>%s</strong> (%s)!</p>
     
@@ -1100,7 +1088,7 @@ func buildCertificateEmail(candidateName, programName, trackName, certNumber, ce
       </div>
     </div>
 
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 20px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 20px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 45%%;">Recipient</td>
@@ -1155,7 +1143,7 @@ func buildSessionInvitationEmail(
 
 	trackBadge := ""
 	if trackName != "" {
-		trackBadge = fmt.Sprintf(`<span style="display: inline-block; padding: 4px 10px; background-color: #f3e8ff; color: #6b21a8; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-left: 8px;">%s Track</span>`, template.HTMLEscapeString(trackName))
+		trackBadge = fmt.Sprintf(`<span style="color: #64748b;"> · %s track</span>`, template.HTMLEscapeString(trackName))
 	}
 
 	loc, _ := time.LoadLocation("Asia/Jakarta")
@@ -1173,13 +1161,14 @@ func buildSessionInvitationEmail(
 	meetText := "will be shared before the session"
 	if meetURL != "" {
 		meetCell = fmt.Sprintf(`<a href="%s" style="color: #2563eb; text-decoration: underline;">%s</a>`, template.HTMLEscapeString(meetURL), template.HTMLEscapeString(meetURL))
-		meetButton = fmt.Sprintf(`<a href="%s" style="display: inline-block; background-color: #33125d; color: #ffffff !important; padding: 14px 28px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(51, 18, 93, 0.25); margin: 0 6px 10px 6px;">
-        Join Google Meet &rarr;
-      </a>`, template.HTMLEscapeString(meetURL))
+		meetButton = fmt.Sprintf(`<a href="%s" style="display: inline-block; background-color: #33125d; color: #ffffff !important; padding: 12px 26px; border-radius: 9999px; font-weight: 700; font-size: 14px; line-height: 1.2; text-decoration: none; margin: 0 4px 10px 4px;">Join Google Meet</a>`, template.HTMLEscapeString(meetURL))
 		meetText = meetURL
 	}
 
 	workspaceURL := fmt.Sprintf("%s/sessions/%s/room", frontendURL, session.ID)
+	if googleCalURL == "" {
+		googleCalURL = googleCalendarTemplateURL(session, programName, workspaceURL)
+	}
 
 	typeLabel := "Live Lecture"
 	switch session.SessionType {
@@ -1214,23 +1203,20 @@ func buildSessionInvitationEmail(
 	agendaSection := ""
 	if session.Description != "" {
 		agendaSection = fmt.Sprintf(`
-      <div style="margin: 24px 0; padding: 18px; background-color: #f8fafc; border-left: 4px solid #33125d; border-radius: 0 12px 12px 0;">
-        <h4 style="margin: 0 0 8px 0; font-size: 13px; font-weight: 800; color: #33125d; text-transform: uppercase; letter-spacing: 0.5px;">Agenda &amp; Topics</h4>
+      <div style="margin: 24px 0; padding: 16px 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.7px;">Agenda &amp; Topics</h4>
         <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #334155; white-space: pre-wrap;">%s</p>
       </div>`, template.HTMLEscapeString(session.Description))
 	}
 
 	body := fmt.Sprintf(`
-    <div style="margin-bottom: 20px;">
-      <span class="badge badge-purple">Cohort Session Invitation</span>
-      %s
-    </div>
+    <span class="badge badge-purple">Cohort Session Invitation%s</span>
 
     <h2>You're invited to %s</h2>
     <p>Dear <strong>%s</strong>,</p>
     <p>A live cohort session has been scheduled for <strong>%s</strong>. Join your mentors and fellow cohort members on Google Meet.</p>
 
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>
         <tr>
           <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; border-bottom: 1px solid #edf2f7; width: 40%%;">Session Title</td>
@@ -1258,15 +1244,11 @@ func buildSessionInvitationEmail(
 
     <div style="text-align: center; margin: 32px 0 16px 0;">
       %s
-      <a href="%s" target="_blank" style="display: inline-block; background-color: #ffffff; color: #33125d !important; border: 2px solid #33125d; padding: 12px 24px; border-radius: 9999px; font-weight: 800; font-size: 14px; text-decoration: none; margin: 0 6px 10px 6px;">
-        Add to Google Calendar
-      </a>
+      <a href="%s" target="_blank" style="display: inline-block; background-color: #ffffff; color: #334155 !important; border: 1px solid #cbd5e1; padding: 11px 24px; border-radius: 9999px; font-weight: 700; font-size: 14px; line-height: 1.2; text-decoration: none; margin: 0 4px 10px 4px;">Add to Google Calendar</a>
     </div>
 
     <div style="text-align: center; margin-top: 12px;">
-      <a href="%s" style="font-size: 12px; color: #64748b; text-decoration: underline;">
-        Open FellowHire Live Workspace (Code Editor &amp; Whiteboard)
-      </a>
+      <a href="%s" style="font-size: 12px; color: #64748b; text-decoration: underline;">Open the Live Workspace (code editor &amp; whiteboard)</a>
     </div>
 `,
 		trackBadge, template.HTMLEscapeString(session.Title), template.HTMLEscapeString(recipientName), template.HTMLEscapeString(programName),
@@ -1311,7 +1293,7 @@ func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAss
 	}
 	previewHTML := ""
 	if preview != "" {
-		previewHTML = fmt.Sprintf(`<p style="white-space: pre-line; color: #475569; font-size: 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px;">%s</p>`, template.HTMLEscapeString(preview))
+		previewHTML = fmt.Sprintf(`<p style="white-space: pre-line; color: #475569; font-size: 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 14px 16px;">%s</p>`, template.HTMLEscapeString(preview))
 	}
 
 	row := func(label, value string, last bool) string {
@@ -1330,7 +1312,7 @@ func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAss
     <p>Hi <strong>%s</strong>,</p>
     <p>You have a new assignment in <strong>%s</strong>.</p>
 
-    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;" cellpadding="0" cellspacing="0">
       <tbody>%s%s</tbody>
     </table>
     %s
@@ -1345,4 +1327,23 @@ func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAss
 	text = fmt.Sprintf("Hi %s,\n\nYou have a new assignment in %s: %s\n\nDue: %s\nPoints: %d\n\n%s\n\nOpen it here:\n%s\n",
 		recipientName, programName, a.Title, due, a.MaxScore, preview, assignmentURL)
 	return
+}
+
+// googleCalendarTemplateURL opens Google Calendar's "add event" page filled in with the session,
+// for invites sent when no Google Calendar event exists.
+func googleCalendarTemplateURL(session *model.ProgramSession, programName, workspaceURL string) string {
+	const layout = "20060102T150405Z"
+	details := fmt.Sprintf("%s\n\nLive Workspace: %s", programName, workspaceURL)
+	if session.MeetingURL != "" {
+		details += "\nGoogle Meet: " + session.MeetingURL
+	}
+	q := url.Values{}
+	q.Set("action", "TEMPLATE")
+	q.Set("text", session.Title)
+	q.Set("dates", session.StartTime.UTC().Format(layout)+"/"+session.EndTime.UTC().Format(layout))
+	q.Set("details", details)
+	if session.MeetingURL != "" {
+		q.Set("location", session.MeetingURL)
+	}
+	return "https://calendar.google.com/calendar/render?" + q.Encode()
 }

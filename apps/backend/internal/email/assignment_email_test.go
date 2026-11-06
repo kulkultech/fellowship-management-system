@@ -28,3 +28,16 @@ func TestBuildAssignmentEmail(t *testing.T) {
 		t.Errorf("text = %q", text)
 	}
 }
+
+func TestSessionInviteCalendarFallback(t *testing.T) {
+	start := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	s := &model.ProgramSession{Title: "Rust & Async", StartTime: start, EndTime: start.Add(90 * time.Minute), MeetingURL: "https://meet.google.com/abc-defg-hij"}
+	_, html, _ := buildSessionInvitationEmail("Jane", "RSA 2026", "", s, "", "https://fellowhire.test", "support@test")
+	if !strings.Contains(html, "https://calendar.google.com/calendar/render?action=TEMPLATE") ||
+		!strings.Contains(html, "dates=20261120T120000Z%2F20261120T133000Z") {
+		t.Error("without a Google Calendar event the invite should link to an add-event page")
+	}
+	if strings.Contains(html, `href="" target="_blank"`) {
+		t.Error("calendar button must not have an empty link")
+	}
+}

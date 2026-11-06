@@ -19,8 +19,8 @@ func TestEmailTemplates(t *testing.T) {
 		if !strings.Contains(subj, "Acme Corp") {
 			t.Errorf("expected subject to contain Acme Corp, got %s", subj)
 		}
-		if !strings.Contains(html, "KulKul") || !strings.Contains(html, "FellowHire") {
-			t.Errorf("expected html to contain KulKul branding")
+		if !strings.Contains(html, "/email/kulkul-logo.png") || !strings.Contains(html, "Kulkul") || !strings.Contains(html, "FellowHire") {
+			t.Errorf("expected html to contain the Kulkul logo and FellowHire branding")
 		}
 		if !strings.Contains(text, "Alex Rivera") {
 			t.Errorf("expected text to contain user name")
