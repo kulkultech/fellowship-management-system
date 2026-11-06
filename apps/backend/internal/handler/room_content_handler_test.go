@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/auth"
 	"github.com/kulkul/backend/internal/handler"
@@ -153,5 +154,82 @@ func TestProgramRoomContent(t *testing.T) {
 	}
 	if w, _ := do(staff(otherAdmin), http.MethodPut, base+"/curriculum", map[string]any{"items": []any{}}); w.Code != http.StatusForbidden {
 		t.Fatalf("expected other org admin edit to be forbidden, got %d", w.Code)
+	}
+}
+
+// Modules can be for everyone, one track, or a group of fellows, like assignments and sessions.
+func TestCurriculumModuleAudience(t *testing.T) {
+	ctx := context.Background()
+	userRepo := repository.NewUserRepository(nil)
+	orgRepo := repository.NewOrgRepository(nil)
+	programRepo := repository.NewProgramRepository(nil)
+	applicantRepo := repository.NewApplicantRepository(nil)
+	mentorRepo := repository.NewMentorRepository(nil)
+
+	org, _ := orgRepo.Register(ctx, "aud-org", "Audience Org", "admin@aud.test", "", model.OrgStatusApproved)
+	mentor, _ := userRepo.Create(ctx, "mentor@aud.test", "hash", "Mentor", model.RoleMentor, &org.ID)
+	program, _ := programRepo.Create(ctx, &model.Program{OrganizationID: org.ID, Slug: "aud", Name: "Audience Program"})
+	_, _ = mentorRepo.AssignMentor(ctx, program.ID, mentor.ID, "Mentor", "")
+	qa, backend := uuid.New(), uuid.New()
+	ana, _, _ := applicantRepo.CreateOrGet(ctx, &model.Applicant{
+		OrganizationID: org.ID, ProgramID: program.ID, Email: "ana@aud.test", FullName: "Ana", CurrentStage: model.StageApprovedForLive, TrackID: &qa,
+	})
+	_, _, _ = applicantRepo.CreateOrGet(ctx, &model.Applicant{
+		OrganizationID: org.ID, ProgramID: program.ID, Email: "budi@aud.test", FullName: "Budi", CurrentStage: model.StageApprovedForLive, TrackID: &backend,
+	})
+
+	h := handler.NewRoomContentHandler(repository.NewRoomContentRepository(nil), programRepo, applicantRepo, mentorRepo)
+	r := chi.NewRouter()
+	r.Get("/programs/{programId}/room-content", h.GetContent)
+	r.Put("/programs/{programId}/room-content/curriculum", h.SaveCurriculum)
+	base := "/programs/" + program.ID.String() + "/room-content"
+	do := func(c *auth.Claims, method, path string, body any) model.ProgramRoomContent {
+		var buf bytes.Buffer
+		if body != nil {
+			_ = json.NewEncoder(&buf).Encode(body)
+		}
+		req := httptest.NewRequest(method, path, &buf).WithContext(middleware.WithUser(ctx, c))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s %s: %d %s", method, path, w.Code, w.Body.String())
+		}
+		var resp struct{ Content model.ProgramRoomContent }
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+		return resp.Content
+	}
+	staff := &auth.Claims{UserID: mentor.ID, Email: mentor.Email, Role: model.RoleMentor, OrganizationID: &org.ID}
+
+	saved := do(staff, http.MethodPut, base+"/curriculum", map[string]any{"items": []map[string]any{
+		{"title": "Everyone"},
+		{"title": "QA track", "track_id": qa},
+		{"title": "Ana's group", "target_applicant_ids": []uuid.UUID{ana.ID, ana.ID}},
+	}})
+	if got := saved.Curriculum[2].TargetApplicantIDs; len(got) != 1 || got[0] != ana.ID {
+		t.Fatalf("targets should be kept once each, got %v", got)
+	}
+	if saved.Curriculum[1].TrackID == nil || *saved.Curriculum[1].TrackID != qa {
+		t.Fatalf("track not kept: %+v", saved.Curriculum[1])
+	}
+
+	titles := func(c model.ProgramRoomContent) string {
+		var out []string
+		for _, it := range c.Curriculum {
+			out = append(out, it.Title)
+		}
+		return strings.Join(out, ", ")
+	}
+	if got := titles(do(staff, http.MethodGet, base, nil)); got != "Everyone, QA track, Ana's group" {
+		t.Fatalf("staff should see every module, got %q", got)
+	}
+	anaView := do(&auth.Claims{Email: "ana@aud.test", Role: model.RoleCandidate}, http.MethodGet, base, nil)
+	if got := titles(anaView); got != "Everyone, QA track, Ana's group" {
+		t.Fatalf("Ana should see all three, got %q", got)
+	}
+	if anaView.Curriculum[2].TargetApplicantIDs != nil {
+		t.Fatal("a fellow should not see who else a module is for")
+	}
+	if got := titles(do(&auth.Claims{Email: "budi@aud.test", Role: model.RoleCandidate}, http.MethodGet, base, nil)); got != "Everyone" {
+		t.Fatalf("Budi (other track, not in the group) should see only Everyone, got %q", got)
 	}
 }

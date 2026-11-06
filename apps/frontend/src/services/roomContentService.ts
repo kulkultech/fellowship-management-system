@@ -6,6 +6,10 @@ export interface CurriculumItem {
   description?: string;
   start_date?: string; // YYYY-MM-DD
   end_date?: string; // YYYY-MM-DD
+  /** Only this track's fellows see the module (staff only; fellows get just their own modules). */
+  track_id?: string;
+  /** Only these fellows see the module; empty means everyone (in the track). */
+  target_applicant_ids?: string[];
 }
 
 export type RoomResourceCategory = 'channel' | 'repository' | 'document' | 'link';

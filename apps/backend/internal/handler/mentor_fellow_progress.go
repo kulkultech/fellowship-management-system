@@ -113,18 +113,7 @@ func assignmentIsFor(f model.Applicant, a *model.ProgramAssignment) bool {
 	if a.Status == model.AssignmentStatusDraft {
 		return false
 	}
-	if a.TrackID != nil && (f.TrackID == nil || *f.TrackID != *a.TrackID) {
-		return false
-	}
-	if len(a.TargetApplicantIDs) == 0 {
-		return true
-	}
-	for _, id := range a.TargetApplicantIDs {
-		if id == f.ID {
-			return true
-		}
-	}
-	return false
+	return model.AudienceIncludes(a.TrackID, a.TargetApplicantIDs, f.ID, f.TrackID)
 }
 
 // assignmentProgress counts one fellow's published assignments (all-cohort, their track, or

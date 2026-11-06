@@ -13,6 +13,9 @@ import {
   Pencil,
   Plus,
   Trash2,
+  User,
+  UserCheck,
+  Users,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -26,6 +29,8 @@ import { MarkdownContent } from '@/components/ui/MarkdownContent';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { focusItemDomId, useFocusItem } from '@/hooks/useFocusItem';
 import { roomLink } from '@/utils/shareLinks';
+import { mentorService } from '@/services/mentorService';
+import { FellowPicker } from '@/components/sessions/FellowPicker';
 
 interface RoomContentViewProps {
   programId: string;
@@ -35,6 +40,8 @@ interface RoomContentViewProps {
   programSlug?: string;
   /** An item opened from a shared link: scrolled into view and highlighted. */
   focusId?: string;
+  /** The program's tracks, for choosing who a module is for. */
+  tracks?: Array<{ id: string; name: string }>;
 }
 
 export const roomContentQueryKey = (programId: string) => ['room-content', programId];
@@ -70,11 +77,41 @@ const hostOf = (url: string) => {
   }
 };
 
-type Draft = { id?: string; title: string; description: string; start_date: string; end_date: string; url: string; category: RoomResourceCategory };
-const emptyDraft: Draft = { title: '', description: '', start_date: '', end_date: '', url: '', category: 'link' };
+type Draft = {
+  id?: string;
+  title: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  url: string;
+  category: RoomResourceCategory;
+  track_id: string;
+  audience: 'all' | 'specific';
+  target_ids: string[];
+};
+const emptyDraft: Draft = {
+  title: '',
+  description: '',
+  start_date: '',
+  end_date: '',
+  url: '',
+  category: 'link',
+  track_id: '',
+  audience: 'all',
+  target_ids: [],
+};
+
+/** Who a module is for, as a short label for staff ("" when it is for everyone). */
+const audienceLabel = (item: CurriculumItem, tracks: Array<{ id: string; name: string }>) => {
+  const parts: string[] = [];
+  if (item.track_id) parts.push(tracks.find((t) => t.id === item.track_id)?.name || 'One track');
+  const n = item.target_applicant_ids?.length || 0;
+  if (n > 0) parts.push(n === 1 ? '1 fellow' : `Group (${n} fellows)`);
+  return parts.join(' · ');
+};
 
 /** Curriculum or resources of a program room. Fellows read; the program's admins and mentors can edit. */
-export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, section, orgSlug, programSlug, focusId }) => {
+export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, section, orgSlug, programSlug, focusId, tracks = [] }) => {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -90,6 +127,14 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
   const highlighted = useFocusItem(focusId, !isLoading);
   const linkTo = (id: string) => (orgSlug && programSlug ? roomLink(orgSlug, programSlug, section, id) : '');
   const highlightClass = (id: string) => (highlighted === id ? 'ring-2 ring-kulkul-purple ring-offset-2' : '');
+
+  // The program's fellows, for picking who a module is for (only while editing a module)
+  const { data: fellowsData } = useQuery({
+    queryKey: ['program-fellows-for-assignment', programId],
+    queryFn: () => mentorService.getProgramFellows(programId),
+    enabled: Boolean(programId) && canEdit && section === 'curriculum' && Boolean(draft),
+  });
+  const allFellows = fellowsData?.fellows || [];
 
   const saveMutation = useMutation({
     mutationFn: (next: Array<CurriculumItem | RoomResource>) =>
@@ -124,6 +169,10 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
   const submitDraft = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft) return;
+    if (section === 'curriculum' && draft.audience === 'specific' && draft.target_ids.length === 0) {
+      toast.error('Pick at least one fellow, or make the module for all fellows');
+      return;
+    }
     const entry =
       section === 'curriculum'
         ? {
@@ -132,6 +181,8 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
             description: draft.description,
             start_date: draft.start_date,
             end_date: draft.end_date,
+            track_id: draft.track_id || undefined,
+            target_applicant_ids: draft.audience === 'specific' ? draft.target_ids : undefined,
           }
         : { id: draft.id || '', title: draft.title, description: draft.description, url: draft.url, category: draft.category };
     const next = draft.id
@@ -152,6 +203,9 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
       end_date: asCurriculum.end_date || '',
       url: asResource.url || '',
       category: asResource.category || 'link',
+      track_id: asCurriculum.track_id || '',
+      audience: asCurriculum.target_applicant_ids?.length ? 'specific' : 'all',
+      target_ids: asCurriculum.target_applicant_ids || [],
     });
   };
 
@@ -193,6 +247,7 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
           {curriculum.map((item, index) => {
             const current = isCurrent(item);
             const range = dateRange(item);
+            const audience = canEdit ? audienceLabel(item, tracks) : '';
             return (
               <li
                 key={item.id}
@@ -210,6 +265,12 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="card-title">{item.title}</span>
                     {current && <span className="text-2xs font-bold text-kulkul-purple">Now</span>}
+                    {audience && (
+                      <span className="text-3xs font-extrabold text-indigo-700 uppercase tracking-wider flex items-center gap-1">
+                        {item.target_applicant_ids?.length === 1 ? <User className="w-2.5 h-2.5" /> : <Users className="w-2.5 h-2.5" />}
+                        {audience}
+                      </span>
+                    )}
                   </div>
                   {range && <p className="meta-text">{range}</p>}
                   {item.description && (
@@ -375,6 +436,10 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                 </div>
               )}
 
+              {section === 'curriculum' && (
+                <ModuleAudience programId={programId} tracks={tracks} fellows={allFellows} draft={draft} onChange={setDraft} />
+              )}
+
               {section === 'curriculum' ? (
                 <MarkdownField value={draft.description} onChange={(description) => setDraft({ ...draft, description })} />
               ) : (
@@ -433,6 +498,85 @@ const ItemControls: React.FC<{
     </button>
   </div>
 );
+
+/** Who a module is for: everyone, one track, and/or chosen fellows or a Fellow Group. */
+const ModuleAudience: React.FC<{
+  programId: string;
+  tracks: Array<{ id: string; name: string }>;
+  fellows: React.ComponentProps<typeof FellowPicker>['fellows'];
+  draft: Draft;
+  onChange: (draft: Draft) => void;
+}> = ({ programId, tracks, fellows, draft, onChange }) => {
+  const choice = (value: Draft['audience'], icon: React.ReactNode, title: string, hint: string) => (
+    <button
+      type="button"
+      onClick={() => onChange({ ...draft, audience: value })}
+      className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
+        draft.audience === value
+          ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
+          : 'border-slate-200 hover:border-slate-300 bg-white'
+      }`}
+    >
+      <div className={`p-2 rounded-xl shrink-0 ${draft.audience === value ? 'bg-kulkul-purple text-white' : 'bg-slate-100 text-slate-500'}`}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-sm font-bold text-slate-900">{title}</div>
+        <div className="text-xs text-slate-500 mt-0.5">{hint}</div>
+      </div>
+    </button>
+  );
+
+  return (
+    <div className="space-y-2.5">
+      <div className={tracks.length > 0 ? 'grid grid-cols-1 sm:grid-cols-3 gap-3 items-end' : ''}>
+        {tracks.length > 0 && (
+          <div>
+            <label className="field-label" htmlFor="room-item-track">
+              Track
+            </label>
+            <select
+              id="room-item-track"
+              value={draft.track_id}
+              onChange={(e) => onChange({ ...draft, track_id: e.target.value })}
+              className="form-input"
+            >
+              <option value="">All tracks</option>
+              {tracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className={tracks.length > 0 ? 'sm:col-span-2' : ''}>
+          <span className="field-label">Who can see this module</span>
+          <div className="grid grid-cols-2 gap-3">
+            {choice('all', <Users className="w-4 h-4" />, 'All Fellows', tracks.length > 0 ? 'Cohort or track-wide' : 'Cohort-wide')}
+            {choice(
+              'specific',
+              <UserCheck className="w-4 h-4" />,
+              'Specific Fellows / Group',
+              draft.target_ids.length > 0
+                ? `${draft.target_ids.length} fellow${draft.target_ids.length > 1 ? 's' : ''} selected`
+                : 'One fellow or a small group'
+            )}
+          </div>
+        </div>
+      </div>
+      {draft.audience === 'specific' && (
+        <FellowPicker
+          programId={programId}
+          fellows={fellows}
+          showTracks={tracks.length > 0}
+          selectedIds={draft.target_ids}
+          onChange={(target_ids) => onChange({ ...draft, target_ids })}
+        />
+      )}
+    </div>
+  );
+};
 
 const MODULE_CONTENT_LIMIT = 200000;
 const MODULE_PLACEHOLDER = `## What you'll learn

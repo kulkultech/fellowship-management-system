@@ -334,7 +334,14 @@ export const ProgramRoomPage: React.FC = () => {
         )}
 
         {activeTab === 'curriculum' && program?.id && (
-          <RoomContentView programId={program.id} section="curriculum" orgSlug={orgSlug} programSlug={programSlug} focusId={focusId} />
+          <RoomContentView
+            programId={program.id}
+            section="curriculum"
+            orgSlug={orgSlug}
+            programSlug={programSlug}
+            focusId={focusId}
+            tracks={program.tracks}
+          />
         )}
         {activeTab === 'resources' && program?.id && (
           <RoomContentView programId={program.id} section="resources" orgSlug={orgSlug} programSlug={programSlug} focusId={focusId} />

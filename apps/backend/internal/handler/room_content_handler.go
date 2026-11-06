@@ -27,6 +27,7 @@ const (
 	// The whole curriculum is saved at once, so its request may be large
 	maxCurriculumBody = 8 << 20
 	maxRoomURL        = 2000
+	maxModuleTargets  = 1000
 	roomDateLayout    = "2006-01-02"
 )
 
@@ -67,24 +68,25 @@ func (h *RoomContentHandler) canEdit(ctx context.Context, claims *auth.Claims, p
 	return false
 }
 
-// isFellow: an accepted (or room-invited) fellow of the program.
-func (h *RoomContentHandler) isFellow(ctx context.Context, claims *auth.Claims, programID uuid.UUID) bool {
+// fellowApplication: the caller's application if they are an accepted (or room-invited) fellow of
+// the program, else nil.
+func (h *RoomContentHandler) fellowApplication(ctx context.Context, claims *auth.Claims, programID uuid.UUID) *model.Applicant {
 	if claims.Email == "" {
-		return false
+		return nil
 	}
 	apps, err := h.applicantRepo.ListByEmail(ctx, claims.Email)
 	if err != nil {
-		return false
+		return nil
 	}
 	for _, app := range apps {
 		if app.ProgramID != programID || app.DeletedAt != nil {
 			continue
 		}
 		if app.CurrentStage == model.StageApprovedForLive || app.CurrentStage == model.StageCompleted || app.ProgramRoomInvitedAt != nil {
-			return true
+			return &app
 		}
 	}
-	return false
+	return nil
 }
 
 func (h *RoomContentHandler) loadProgram(w http.ResponseWriter, r *http.Request) (*model.Program, *auth.Claims, bool) {
@@ -113,14 +115,30 @@ func (h *RoomContentHandler) GetContent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	canEdit := h.canEdit(r.Context(), claims, program)
-	if !canEdit && !h.isFellow(r.Context(), claims, program.ID) {
-		httpx.Error(w, http.StatusForbidden, "only this program's fellows and staff can view the program room")
-		return
+	var fellow *model.Applicant
+	if !canEdit {
+		if fellow = h.fellowApplication(r.Context(), claims, program.ID); fellow == nil {
+			httpx.Error(w, http.StatusForbidden, "only this program's fellows and staff can view the program room")
+			return
+		}
 	}
 	content, err := h.contentRepo.Get(r.Context(), program.ID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load program room content")
 		return
+	}
+	if fellow != nil {
+		// A fellow sees only the modules meant for them, and not who else they are for
+		mine := make([]model.CurriculumItem, 0, len(content.Curriculum))
+		for _, item := range content.Curriculum {
+			if item.IsFor(fellow.ID, fellow.TrackID) {
+				item.TrackID, item.TargetApplicantIDs = nil, nil
+				mine = append(mine, item)
+			}
+		}
+		shown := *content
+		shown.Curriculum = mine
+		content = &shown
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"content": content, "can_edit": canEdit})
 }
@@ -184,8 +202,14 @@ func (h *RoomContentHandler) SaveCurriculum(w http.ResponseWriter, r *http.Reque
 		case start != "" && end != "" && end < start:
 			httpx.Error(w, http.StatusBadRequest, "a curriculum item cannot end before it starts")
 			return
+		case len(it.TargetApplicantIDs) > maxModuleTargets:
+			httpx.Error(w, http.StatusBadRequest, "a module can be for at most 1,000 fellows; leave it for everyone instead")
+			return
 		}
-		items = append(items, model.CurriculumItem{ID: roomItemID(it.ID), Title: title, Description: desc, StartDate: start, EndDate: end})
+		items = append(items, model.CurriculumItem{
+			ID: roomItemID(it.ID), Title: title, Description: desc, StartDate: start, EndDate: end,
+			TrackID: it.TrackID, TargetApplicantIDs: uniqueIDs(it.TargetApplicantIDs),
+		})
 	}
 	content, err := h.contentRepo.SaveCurriculum(r.Context(), program.ID, claims.UserID, items)
 	if err != nil {
@@ -248,4 +272,18 @@ func (h *RoomContentHandler) SaveResources(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"content": content})
+}
+
+// uniqueIDs drops repeats and the nil id, keeping order; nil when nothing is left.
+func uniqueIDs(ids []uuid.UUID) []uuid.UUID {
+	var out []uuid.UUID
+	seen := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		if id == uuid.Nil || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
 }
