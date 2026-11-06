@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { assignmentService } from '@/services/assignmentService';
 import { uploadService } from '@/services/uploadService';
@@ -357,10 +357,10 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                         )}
                       </div>
 
-                      {/* Description */}
-                      <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                        {assignment.description || 'No additional instructions specified.'}
-                      </p>
+                      <AssignmentDescription
+                        text={assignment.description || 'No additional instructions specified.'}
+                        startOpen={highlighted === assignment.id}
+                      />
 
                       {/* Metadata: Due Date & Starter File Attachment */}
                       <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap pt-1">
@@ -606,6 +606,43 @@ interface CreateAssignmentModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+const DESCRIPTION_FOLD_PX = 96;
+
+/** An assignment's instructions. Long ones are folded to a few lines with "Read more". */
+const AssignmentDescription: React.FC<{ text: string; startOpen: boolean }> = ({ text, startOpen }) => {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [open, setOpen] = useState(startOpen);
+  const [isLong, setIsLong] = useState(false);
+
+  useLayoutEffect(() => {
+    // Fold only when it saves real space, not to hide the last line or two
+    if (ref.current) setIsLong(ref.current.scrollHeight > DESCRIPTION_FOLD_PX + 40);
+  }, [text]);
+
+  useEffect(() => {
+    if (startOpen) setOpen(true);
+  }, [startOpen]);
+
+  const folded = isLong && !open;
+  return (
+    <div>
+      <p
+        ref={ref}
+        className={`text-xs text-slate-600 whitespace-pre-line leading-relaxed ${
+          folded ? 'max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]' : ''
+        }`}
+      >
+        {text}
+      </p>
+      {isLong && (
+        <button type="button" onClick={() => setOpen((o) => !o)} className="btn btn-sm btn-ghost mt-1 -ml-2">
+          {open ? 'Show less' : 'Read more'}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
   programId,
