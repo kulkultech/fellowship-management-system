@@ -218,7 +218,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
       next_step: activeTabKey === 'test_result_passed' ? 'AI Video Screening' : 'Review Assessment',
       expires_at: 'Monday, October 5, 2026 at 18:00 WIB',
       notes: 'Strong understanding of software patterns and solid problem-solving demonstrated.',
-      support_email: 'support@fellowhire.kul.to',
+      support_email: 'support@kulkul.tech',
     };
   }, [program, activeTabKey, activeMeta]);
 
@@ -668,7 +668,7 @@ export const ProgramEmailTemplatesView: React.FC<Props> = ({ program, onUpdatePr
                     <p className="font-semibold text-slate-500">FellowHire Admissions Committee</p>
                     <p>
                       Questions or need accommodations? Contact{' '}
-                      <span className="text-indigo-600">support@fellowhire.kul.to</span>
+                      <span className="text-indigo-600">support@kulkul.tech</span>
                     </p>
                     <p className="text-3xs text-slate-400 pt-1">
                       © {new Date().getFullYear()} FellowHire. All rights reserved.

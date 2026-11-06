@@ -62,14 +62,16 @@ func NewService(cfg config.SESConfig, logger *slog.Logger) Service {
 	s := &SESService{
 		fromEmail:    cfg.FromEmail,
 		frontendURL:  strings.TrimRight(cfg.FrontendURL, "/"),
-		supportEmail: cfg.FromEmail,
+		supportEmail: strings.TrimSpace(cfg.SupportEmail),
 		logger:       logger,
 		enabled:      false,
 	}
 
 	if s.fromEmail == "" {
 		s.fromEmail = "support@fellowhire.kul.to"
-		s.supportEmail = "support@fellowhire.kul.to"
+	}
+	if s.supportEmail == "" {
+		s.supportEmail = config.DefaultSupportEmail
 	}
 	if s.frontendURL == "" {
 		s.frontendURL = "http://localhost:5173"
@@ -151,7 +153,8 @@ func (s *SESService) send(recipient, subject, htmlBody, textBody string) {
 			defer cancel()
 
 			input := &ses.SendEmailInput{
-				Source: aws.String(s.fromEmail),
+				Source:           aws.String(s.fromEmail),
+				ReplyToAddresses: []string{s.supportEmail},
 				Destination: &types.Destination{
 					ToAddresses: []string{recipient},
 				},
@@ -195,6 +198,7 @@ func (s *SESService) sendSMTP(recipient, subject, htmlBody, textBody string) err
 	boundary := fmt.Sprintf("boundary-%d", time.Now().UnixNano())
 	var msg bytes.Buffer
 	msg.WriteString(fmt.Sprintf("From: FellowHire Support <%s>\r\n", s.fromEmail))
+	msg.WriteString(fmt.Sprintf("Reply-To: %s\r\n", s.supportEmail))
 	msg.WriteString(fmt.Sprintf("To: %s\r\n", recipient))
 	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	msg.WriteString("MIME-Version: 1.0\r\n")

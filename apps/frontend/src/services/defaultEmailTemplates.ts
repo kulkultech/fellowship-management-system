@@ -23,7 +23,7 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
       { variable: '{{test_link}}', label: 'Test Link', example: 'https://fellowhire.kul.to/test/xyz' },
       { variable: '{{duration_minutes}}', label: 'Duration (mins)', example: '45' },
       { variable: '{{passing_score}}', label: 'Passing Benchmark (%)', example: '70' },
-      { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
+      { variable: '{{support_email}}', label: 'Support Email', example: 'support@kulkul.tech' },
     ],
   },
   {
@@ -41,7 +41,7 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
       { variable: '{{next_step}}', label: 'Next Step Name', example: 'AI Video Interview' },
       { variable: '{{action_url}}', label: 'Next Step Link', example: 'https://fellowhire.kul.to/interview/xyz' },
       { variable: '{{result_url}}', label: 'Scorecard Link', example: 'https://fellowhire.kul.to/result/xyz' },
-      { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
+      { variable: '{{support_email}}', label: 'Support Email', example: 'support@kulkul.tech' },
     ],
   },
   {
@@ -57,7 +57,7 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
       { variable: '{{score}}', label: 'Candidate Score (%)', example: '55' },
       { variable: '{{passing_score}}', label: 'Passing Benchmark (%)', example: '70' },
       { variable: '{{result_url}}', label: 'Scorecard Link', example: 'https://fellowhire.kul.to/result/xyz' },
-      { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
+      { variable: '{{support_email}}', label: 'Support Email', example: 'support@kulkul.tech' },
     ],
   },
   {
@@ -72,7 +72,7 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
       { variable: '{{track_name}}', label: 'Track Name', example: 'Full Stack Engineering' },
       { variable: '{{interview_link}}', label: 'Interview Room Link', example: 'https://fellowhire.kul.to/interview/xyz' },
       { variable: '{{expires_at}}', label: 'Expiration Deadline', example: 'Monday, Oct 5 at 18:00' },
-      { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
+      { variable: '{{support_email}}', label: 'Support Email', example: 'support@kulkul.tech' },
     ],
   },
   {
@@ -87,7 +87,7 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
       { variable: '{{track_name}}', label: 'Track Name', example: 'Full Stack Engineering' },
       { variable: '{{dashboard_url}}', label: 'Candidate Dashboard', example: 'https://fellowhire.kul.to/candidate/dashboard' },
       { variable: '{{notes}}', label: 'Admissions Feedback / Notes', example: 'Selected to advance to the next round.' },
-      { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
+      { variable: '{{support_email}}', label: 'Support Email', example: 'support@kulkul.tech' },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const EMAIL_TEMPLATE_TYPES: EmailTemplateMeta[] = [
       { variable: '{{program_name}}', label: 'Program Name', example: 'Tech Fellowship 2026' },
       { variable: '{{track_name}}', label: 'Track Name', example: 'Full Stack Engineering' },
       { variable: '{{notes}}', label: 'Feedback Notes', example: 'High volume of applicants this cohort.' },
-      { variable: '{{support_email}}', label: 'Support Email', example: 'support@fellowhire.kul.to' },
+      { variable: '{{support_email}}', label: 'Support Email', example: 'support@kulkul.tech' },
     ],
   },
 ];

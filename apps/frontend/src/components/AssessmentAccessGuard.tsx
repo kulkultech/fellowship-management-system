@@ -229,7 +229,7 @@ export const AssessmentAccessGuard: React.FC<AssessmentAccessGuardProps> = ({
 
             {/* Help text */}
             <div className="pt-2 meta-text">
-              Need assistance? Contact our team at <a href="mailto:support@fellowhire.kul.to" className="text-kulkul-purple font-bold hover:underline">support@fellowhire.kul.to</a>
+              Need assistance? Contact our team at <a href="mailto:support@kulkul.tech" className="text-kulkul-purple font-bold hover:underline">support@kulkul.tech</a>
             </div>
           </div>
         </div>

@@ -37,6 +37,7 @@ type SESConfig struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	FromEmail       string
+	SupportEmail    string
 	FrontendURL     string
 }
 
@@ -178,6 +179,7 @@ func Load() (*Config, error) {
 			AccessKeyID:     getString("AWS_SES_ACCESS_KEY_ID", ""),
 			SecretAccessKey: getString("AWS_SES_SECRET_ACCESS_KEY", ""),
 			FromEmail:       getString("EMAIL_FROM", "support@fellowhire.kul.to"),
+			SupportEmail:    getString("SUPPORT_EMAIL", DefaultSupportEmail),
 			FrontendURL:     getString("FRONTEND_URL", "https://fellowhire.kul.to"),
 		},
 		SentryDSN: cleanDSN(func() string {
@@ -276,3 +278,6 @@ func cleanDSN(s string) string {
 	return s
 }
 
+// DefaultSupportEmail is the inbox people are told to write to, and where replies to app emails go.
+// The sending address (EMAIL_FROM) has no inbox behind it.
+const DefaultSupportEmail = "support@kulkul.tech"
