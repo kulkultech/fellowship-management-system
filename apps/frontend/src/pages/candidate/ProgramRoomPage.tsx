@@ -43,6 +43,7 @@ import { SessionParticipantsDialog } from '@/components/sessions/SessionParticip
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ROOM_SECTIONS, loginPathFor, workspaceLink, type RoomSection } from '@/utils/shareLinks';
+import { dashboardHome } from '@/utils/dashboardHome';
 
 export const ProgramRoomPage: React.FC = () => {
   const { orgSlug = '', programSlug = '' } = useParams<{ orgSlug: string; programSlug: string }>();
@@ -223,12 +224,8 @@ export const ProgramRoomPage: React.FC = () => {
     onClick: () => setActiveTab(section.id),
   }));
 
-  const staffDashboardUrl =
-    authUser?.role === 'mentor'
-      ? '/mentor/dashboard'
-      : authUser?.role === 'superadmin'
-      ? '/superadmin/dashboard'
-      : '/admin/dashboard';
+  const home = dashboardHome(authUser?.role);
+  const staffDashboardUrl = home.path;
 
   // Every Program Room this fellow has joined. With more than one, list each program and
   // expand the current one into its sections so they can switch rooms in one click.
@@ -274,14 +271,7 @@ export const ProgramRoomPage: React.FC = () => {
         { id: 'credentials', label: 'Badges & Certificates', icon: Award, onClick: () => navigate('/candidate/dashboard?tab=credentials') },
       ];
 
-  const portalType =
-    authUser?.role === 'mentor'
-      ? 'mentor'
-      : authUser?.role === 'superadmin'
-      ? 'superadmin'
-      : authUser?.role === 'org_admin'
-      ? 'company_admin'
-      : 'candidate';
+  const portalType = home.portal;
 
   const roomSubtitle = [
     program?.tracks && program.tracks.length > 0 && currentApp?.track_name ? `Track: ${currentApp.track_name}` : '',

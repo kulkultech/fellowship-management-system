@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -28,6 +28,7 @@ import { BadgeVerificationPage } from '@/pages/credentials/BadgeVerificationPage
 import { useUiStore } from '@/hooks/useUiStore';
 import { initFirebaseAnalytics } from '@/lib/firebase';
 import { useFirebasePageTracking } from '@/hooks/useFirebasePageTracking';
+import { rememberDashboard } from '@/utils/dashboardHome';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,13 @@ const queryClient = new QueryClient({
 
 function FirebasePageTracker() {
   useFirebasePageTracking();
+  return null;
+}
+
+/** Remembers the last dashboard opened, so "Back to Dashboard" returns to it. */
+function DashboardTracker() {
+  const { pathname } = useLocation();
+  useEffect(() => rememberDashboard(pathname), [pathname]);
   return null;
 }
 
@@ -58,6 +66,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <FirebasePageTracker />
+        <DashboardTracker />
         <Toaster
           position="top-right"
           toastOptions={{

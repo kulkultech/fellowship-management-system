@@ -58,6 +58,7 @@ import { SessionFeedbackPanel } from '@/components/sessions/SessionFeedbackPanel
 import { useSessionWorkspaceSocket, WorkspaceInitState, YjsTag } from '@/hooks/useSessionWorkspaceSocket';
 import type { LogItem } from '@/components/sessions/codeRunners';
 import type { AttendanceStatus } from '@/services/types';
+import { dashboardHome } from '@/utils/dashboardHome';
 
 const DEFAULT_SCRATCHPAD = `# Session Scratchpad & Key Takeaways\n\n- Topic: Microservices Architecture & Live Demos\n- Agenda:\n  1. Review distributed transactions & idempotency\n  2. Live coding session (Java backend & HTML/CSS/JS frontend)\n  3. Q&A and assignment brief\n\n### Important Links:\n- Class repo: https://github.com/kulkultech/fellowship-cohort\n- API Documentation: https://docs.fellowhire.org/api`;
 
@@ -515,24 +516,9 @@ export const SessionWorkspacePage: React.FC = () => {
     }
   };
 
-  const backUrl = orgSlug && programSlug
-    ? `/programs/${orgSlug}/${programSlug}/room`
-    : user?.role === 'mentor'
-    ? '/mentor/dashboard'
-    : user?.role === 'superadmin'
-    ? '/superadmin/dashboard'
-    : user?.role === 'org_admin'
-    ? '/admin/dashboard'
-    : '/candidate/dashboard';
-
-  const portalType =
-    user?.role === 'mentor'
-      ? 'mentor'
-      : user?.role === 'superadmin'
-      ? 'superadmin'
-      : user?.role === 'org_admin'
-      ? 'company_admin'
-      : 'candidate';
+  const home = dashboardHome(user?.role);
+  const backUrl = orgSlug && programSlug ? `/programs/${orgSlug}/${programSlug}/room` : home.path;
+  const portalType = home.portal;
 
   const roleLabel = (role: string) =>
     role === 'mentor' ? 'Mentor' : role === 'org_admin' || role === 'superadmin' ? 'Admin' : 'Fellow';
