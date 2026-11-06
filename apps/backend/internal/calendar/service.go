@@ -67,6 +67,9 @@ type Config struct {
 	// Impersonate is the Workspace user the service account acts as (domain-wide delegation).
 	// Google only lets a service account invite attendees and add Meet links on a user's behalf.
 	Impersonate string
+	// AutoRecord turns on Meet's auto-recording for the Meet rooms Google creates for events.
+	// It needs the meetings.space.settings scope added to the domain-wide delegation grant.
+	AutoRecord bool
 }
 
 // Service defines methods for calendar & Google Meet operations.
@@ -81,8 +84,12 @@ type Service interface {
 type googleCalendarService struct {
 	calendarID string
 	jwtConfig  *jwt.Config
-	logger     *slog.Logger
-	httpClient *http.Client
+	// meetConfig is set when auto-recording is on; it asks for the Meet settings scope separately,
+	// so a missing grant only skips recording instead of breaking calendar events.
+	meetConfig  *jwt.Config
+	meetAPIBase string
+	logger      *slog.Logger
+	httpClient  *http.Client
 }
 
 // NewService initializes a new Calendar & Google Meet service.
@@ -97,9 +104,10 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 	}
 
 	svc := &googleCalendarService{
-		calendarID: calID,
-		logger:     logger,
-		httpClient: &http.Client{Timeout: 15 * time.Second},
+		calendarID:  calID,
+		logger:      logger,
+		httpClient:  &http.Client{Timeout: 15 * time.Second},
+		meetAPIBase: "https://meet.googleapis.com/v2",
 	}
 
 	rawJSON := strings.TrimSpace(cfg.ServiceAccountJSON)
@@ -118,7 +126,12 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 		} else {
 			jwtCfg.Subject = strings.TrimSpace(cfg.Impersonate)
 			svc.jwtConfig = jwtCfg
-			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID, "impersonate", jwtCfg.Subject)
+			if cfg.AutoRecord {
+				meetCfg := *jwtCfg
+				meetCfg.Scopes = []string{meetSettingsScope}
+				svc.meetConfig = &meetCfg
+			}
+			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID, "impersonate", jwtCfg.Subject, "meet_auto_record", cfg.AutoRecord)
 		}
 	} else {
 		logger.Info("Google Calendar service account not configured; running calendar & meet service in automated link & ICS mode")
@@ -415,7 +428,8 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 		HTMLLink       string `json:"htmlLink"`
 		HangoutLink    string `json:"hangoutLink"`
 		ConferenceData struct {
-			EntryPoints []struct {
+			ConferenceID string `json:"conferenceId"`
+			EntryPoints  []struct {
 				EntryPointType string `json:"entryPointType"`
 				URI            string `json:"uri"`
 			} `json:"entryPoints"`
@@ -437,6 +451,12 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 	}
 	if meetURL == "" {
 		meetURL = fallbackMeetURL
+	}
+
+	if s.meetConfig != nil && respBody.ConferenceData.ConferenceID != "" {
+		if err := s.enableAutoRecording(ctx, s.meetConfig.Client(ctx), respBody.ConferenceData.ConferenceID); err != nil {
+			s.logger.Warn("could not turn on Meet auto-recording; the meeting will not record on its own", "meeting_code", respBody.ConferenceData.ConferenceID, "error", err)
+		}
 	}
 
 	return &EventResult{
@@ -573,4 +593,29 @@ func untilAsUTC(rrule string, loc *time.Location) string {
 		parts[i] = "UNTIL=" + d.Add(24*time.Hour-time.Second).UTC().Format("20060102T150405Z")
 	}
 	return strings.Join(parts, ";")
+}
+
+const meetSettingsScope = "https://www.googleapis.com/auth/meetings.space.settings"
+
+// enableAutoRecording turns on auto-recording for the Meet room with the given meeting code.
+// Meet then starts recording as soon as someone allowed to record joins.
+func (s *googleCalendarService) enableAutoRecording(ctx context.Context, client *http.Client, meetingCode string) error {
+	apiURL := fmt.Sprintf("%s/spaces/%s?updateMask=config.artifactConfig.recordingConfig.autoRecordingGeneration",
+		s.meetAPIBase, url.PathEscape(meetingCode))
+	body := `{"config":{"artifactConfig":{"recordingConfig":{"autoRecordingGeneration":"ON"}}}}`
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, apiURL, strings.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("google meet api error %d: %s", resp.StatusCode, string(msg))
+	}
+	return nil
 }

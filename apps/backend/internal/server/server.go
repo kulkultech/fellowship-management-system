@@ -84,6 +84,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		CalendarID:         cfg.GoogleCalendar.CalendarID,
 		ServiceAccountJSON: cfg.GoogleCalendar.ServiceAccountJSON,
 		Impersonate:        cfg.GoogleCalendar.Impersonate,
+		AutoRecord:         cfg.GoogleCalendar.MeetAutoRecord,
 	}, logger)
 	// Live session workspace hub. With REDIS_URL set, instances relay updates to each other so
 	// participants connected to different backend instances share one workspace.

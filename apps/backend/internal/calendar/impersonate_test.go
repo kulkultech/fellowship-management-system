@@ -19,3 +19,21 @@ func TestNewServiceImpersonatesConfiguredUser(t *testing.T) {
 		t.Fatalf("subject = %q, want none when not configured", svc.jwtConfig.Subject)
 	}
 }
+
+func TestAutoRecordUsesSeparateMeetScope(t *testing.T) {
+	svc := NewService(Config{ServiceAccountJSON: testServiceAccountJSON, Impersonate: "ragil@kulkul.tech", AutoRecord: true}, nil).(*googleCalendarService)
+	if svc.meetConfig == nil {
+		t.Fatal("auto-record on but no Meet config")
+	}
+	if len(svc.meetConfig.Scopes) != 1 || svc.meetConfig.Scopes[0] != meetSettingsScope || svc.meetConfig.Subject != "ragil@kulkul.tech" {
+		t.Fatalf("meet config = %v / %q", svc.meetConfig.Scopes, svc.meetConfig.Subject)
+	}
+	if len(svc.jwtConfig.Scopes) != 1 || svc.jwtConfig.Scopes[0] != "https://www.googleapis.com/auth/calendar.events" {
+		t.Fatalf("calendar scopes changed: %v", svc.jwtConfig.Scopes)
+	}
+
+	svc = NewService(Config{ServiceAccountJSON: testServiceAccountJSON}, nil).(*googleCalendarService)
+	if svc.meetConfig != nil {
+		t.Fatal("Meet config set although auto-record is off")
+	}
+}
