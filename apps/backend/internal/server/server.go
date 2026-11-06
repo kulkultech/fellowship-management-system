@@ -369,7 +369,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			})
 
 			// Program room curriculum & resources (read: program fellows and staff; edit: admins and mentors)
-			protected.Get("/programs/{programId}/room-content", roomContentHandler.GetContent)
+			// Compressed: the curriculum can hold whole chapters of course material
+			protected.With(chimiddleware.Compress(5, "application/json")).Get("/programs/{programId}/room-content", roomContentHandler.GetContent)
 			protected.Put("/programs/{programId}/room-content/curriculum", roomContentHandler.SaveCurriculum)
 			protected.Put("/programs/{programId}/room-content/resources", roomContentHandler.SaveResources)
 

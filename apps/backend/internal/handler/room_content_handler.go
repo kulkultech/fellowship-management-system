@@ -22,9 +22,12 @@ const (
 	maxRoomTitle       = 200
 	maxRoomDescription = 2000
 	// A curriculum module's content is Markdown and can be a full lesson page
-	maxModuleContent = 20000
-	maxRoomURL       = 2000
-	roomDateLayout   = "2006-01-02"
+	// A module can hold a whole chapter of course material (Markdown)
+	maxModuleContent = 200000
+	// The whole curriculum is saved at once, so its request may be large
+	maxCurriculumBody = 8 << 20
+	maxRoomURL        = 2000
+	roomDateLayout    = "2006-01-02"
 )
 
 var roomResourceCategories = map[string]bool{"channel": true, "repository": true, "document": true, "link": true}
@@ -155,7 +158,7 @@ func (h *RoomContentHandler) SaveCurriculum(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Items []model.CurriculumItem `json:"items"`
 	}
-	if err := httpx.Decode(w, r, &req); err != nil {
+	if err := httpx.DecodeLimit(w, r, &req, maxCurriculumBody); err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -173,7 +176,7 @@ func (h *RoomContentHandler) SaveCurriculum(w http.ResponseWriter, r *http.Reque
 			httpx.Error(w, http.StatusBadRequest, "every curriculum item needs a title")
 			return
 		case !okTitle || !okDesc:
-			httpx.Error(w, http.StatusBadRequest, "module title or content is too long (content is limited to 20,000 characters)")
+			httpx.Error(w, http.StatusBadRequest, "module title or content is too long (content is limited to 200,000 characters)")
 			return
 		case !validRoomDate(start) || !validRoomDate(end):
 			httpx.Error(w, http.StatusBadRequest, "curriculum dates must be YYYY-MM-DD")

@@ -27,7 +27,12 @@ func Error(w http.ResponseWriter, status int, msg string) {
 }
 
 func Decode(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	return DecodeLimit(w, r, dst, maxBodyBytes)
+}
+
+// DecodeLimit is Decode with its own body size limit, for endpoints that take long text.
+func DecodeLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 
 	if err := dec.Decode(dst); err != nil {

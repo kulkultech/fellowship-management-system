@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -85,6 +87,27 @@ func TestProgramRoomContent(t *testing.T) {
 	_ = json.Unmarshal(resp["content"], &content)
 	if len(content.Curriculum) != 2 || content.Curriculum[0].Title != "Week 1: Foundations" || content.Curriculum[0].ID == "" {
 		t.Fatalf("unexpected curriculum: %+v", content.Curriculum)
+	}
+
+	// A module can hold a whole chapter: a 150,000-character module in a >1 MB request saves
+	chapter := strings.Repeat("Lorem ipsum dolor sit amet. ", 150000/28)
+	long := []map[string]string{}
+	for i := 0; i < 8; i++ {
+		long = append(long, map[string]string{"title": fmt.Sprintf("Chapter %d", i), "description": chapter})
+	}
+	if w, _ := do(staff(mentor), http.MethodPut, base+"/curriculum", map[string]any{"items": long}); w.Code != http.StatusOK {
+		t.Fatalf("expected chapter-sized modules to save, got %d: %.200s", w.Code, w.Body.String())
+	}
+	tooLong := []map[string]string{{"title": "Too long", "description": strings.Repeat("x", 200001)}}
+	if w, _ := do(staff(mentor), http.MethodPut, base+"/curriculum", map[string]any{"items": tooLong}); w.Code != http.StatusBadRequest {
+		t.Fatalf("expected a module over 200,000 characters to be rejected, got %d", w.Code)
+	}
+	// Put the two-week curriculum back for the checks below
+	if w, _ := do(staff(mentor), http.MethodPut, base+"/curriculum", map[string]any{"items": []map[string]string{
+		{"title": "Week 1: Foundations", "description": "Rust basics", "start_date": "2026-10-01", "end_date": "2026-10-07"},
+		{"title": "Week 2: Async"},
+	}}); w.Code != http.StatusOK {
+		t.Fatalf("restore curriculum: %d", w.Code)
 	}
 
 	// Admin saves resources

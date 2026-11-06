@@ -434,7 +434,7 @@ const ItemControls: React.FC<{
   </div>
 );
 
-const MODULE_CONTENT_LIMIT = 20000;
+const MODULE_CONTENT_LIMIT = 200000;
 const MODULE_PLACEHOLDER = `## What you'll learn
 - Ownership and borrowing
 - Error handling with \`Result\`
