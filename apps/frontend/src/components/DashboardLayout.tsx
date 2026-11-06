@@ -169,7 +169,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* 1. TOP BAR (T-LAYOUT TOP HEADER) */}
       {/* ========================================================================= */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100/90 shadow-2xs">
-        <div className="w-full px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-4 h-20 sm:h-24">
+        <div className="w-full px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-2 sm:gap-4 h-20 sm:h-24">
           {/* Left: Sidebar Toggle (≡) + Logo */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <button
@@ -198,7 +198,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           {/* Right: Actions / Workspace Switcher + Sign Out */}
-          <div className="flex items-center justify-end flex-wrap gap-3 sm:gap-4 shrink-0">
+          <div className="flex items-center justify-end gap-2 sm:gap-4 min-w-0">
             {/* Superadmin Company Switcher Dropdown */}
             {user?.role === 'superadmin' && (portalType === 'company_admin' || portalType === 'superadmin') && (
               <SuperadminCompanySwitcher
@@ -211,10 +211,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && portalType === 'company_admin' && (
               <Link
                 to="/superadmin/dashboard"
-                className="btn btn-md btn-outline whitespace-nowrap"
+                className="btn btn-md btn-outline whitespace-nowrap shrink-0"
+                title="Superadmin Console"
               >
                 <ShieldCheck className="w-4 h-4 text-slate-600" />
-                <span>Superadmin Console</span>
+                <span className="hidden lg:inline">Superadmin Console</span>
               </Link>
             )}
 
@@ -223,11 +224,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {((portalType === 'candidate' && Boolean(candidateEmail)) || (portalType !== 'candidate' && Boolean(user))) && (
               <button
                 onClick={handleSignOut}
-                className="btn btn-md btn-secondary"
+                className="btn btn-md btn-secondary shrink-0"
                 title="Sign Out"
+                aria-label="Sign Out"
               >
                 <LogOut className="w-4 h-4 text-white" />
-                <span>Sign Out</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             )}
           </div>

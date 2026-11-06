@@ -39,6 +39,7 @@ import { roomContentService } from '@/services/roomContentService';
 import { uploadService } from '@/services/uploadService';
 import type { ProgramSession, SessionAttendance } from '@/services/types';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
+import { SessionParticipantsDialog } from '@/components/sessions/SessionParticipantsDialog';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ROOM_SECTIONS, loginPathFor, workspaceLink, type RoomSection } from '@/utils/shareLinks';
@@ -71,6 +72,7 @@ export const ProgramRoomPage: React.FC = () => {
   // Check-In with Proof State
   const [checkInSession, setCheckInSession] = useState<ProgramSession | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [participantsSession, setParticipantsSession] = useState<ProgramSession | null>(null);
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string>('');
   const [checkInNotes, setCheckInNotes] = useState<string>('');
   const [isUploadingProof, setIsUploadingProof] = useState<boolean>(false);
@@ -423,13 +425,13 @@ export const ProgramRoomPage: React.FC = () => {
                       return (
                         <div
                           key={sess.id}
-                          className="panel-muted hover:border-slate-300 transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                          className="panel-muted hover:border-slate-300 transition flex flex-col xl:flex-row xl:items-center justify-between gap-4"
                         >
-                          <div className="flex items-start gap-3.5">
+                          <div className="flex items-start gap-3.5 min-w-0 flex-1">
                             <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
                               <Video className="w-5 h-5" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="card-title">{sess.title}</h4>
                                 <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
@@ -472,8 +474,18 @@ export const ProgramRoomPage: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
-                            {isPendingValidation ? (
+                          <div className="flex items-center gap-2.5 shrink-0 self-start xl:self-auto flex-wrap">
+                            {isMentorOrAdmin ? (
+                              // Mentors don't check in here: they see who is invited and how attendance stands
+                              <button
+                                type="button"
+                                onClick={() => setParticipantsSession(sess)}
+                                className="btn btn-sm btn-outline"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                                <span>Participants</span>
+                              </button>
+                            ) : isPendingValidation ? (
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
                                   <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
@@ -552,10 +564,10 @@ export const ProgramRoomPage: React.FC = () => {
                             <Link
                               to={`/programs/${orgSlug}/${programSlug}/sessions/${sess.id}/room`}
                               className="btn btn-sm btn-outline"
-                              title="Open Live Code Workspace"
+                              title="Open the Live Workspace"
                             >
                               <Code2 className="w-3.5 h-3.5" />
-                              <span>Code Workspace</span>
+                              <span>Live Workspace</span>
                             </Link>
                             <CopyLinkButton url={workspaceLink(sess.id)} what="workspace" />
 
@@ -571,6 +583,7 @@ export const ProgramRoomPage: React.FC = () => {
                                 <span>Meet</span>
                               </a>
                             )}
+                            {sess.meeting_url && <CopyLinkButton url={sess.meeting_url} what="meeting" />}
 
                             <a
                               href={getGoogleCalendarUrl(sess)}
@@ -773,6 +786,14 @@ export const ProgramRoomPage: React.FC = () => {
         )}
 
         {/* View Submitted Proof Modal */}
+        {participantsSession && program?.id && (
+          <SessionParticipantsDialog
+            programId={program.id}
+            session={participantsSession}
+            onClose={() => setParticipantsSession(null)}
+          />
+        )}
+
         {viewProofAttendance && (
           <div className="modal-backdrop animate-in fade-in">
             <div className="modal-panel max-w-xl animate-in zoom-in-95">

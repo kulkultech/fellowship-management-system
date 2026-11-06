@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -95,10 +97,20 @@ func (h *AssignmentHandler) ListAssignments(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	staff := h.canManageAssignments(r, programID)
+	if !staff && fellowApplicantID == nil {
+		// Neither staff nor a fellow of this program: nothing to see.
+		httpx.JSON(w, http.StatusOK, map[string]any{"assignments": []*model.ProgramAssignment{}, "count": 0})
+		return
+	}
+
 	assignments, err := h.assignmentRepo.ListAssignmentsByProgram(r.Context(), programID, trackID, fellowApplicantID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if !staff {
+		assignments = withoutDrafts(assignments)
 	}
 	if assignments == nil {
 		assignments = []*model.ProgramAssignment{}
@@ -118,15 +130,34 @@ func (h *AssignmentHandler) ListAssignments(w http.ResponseWriter, r *http.Reque
 	if fellowApplicantID != nil {
 		resp["fellow_stats"] = assignmentFellowStats(assignments)
 	}
-	if q := httpx.SearchQuery(r); q != "" {
-		matched := make([]*model.ProgramAssignment, 0, len(assignments))
-		for _, a := range assignments {
-			if httpx.Matches(q, a.Title, a.Description, a.TrackName, a.CreatorName) {
-				matched = append(matched, a)
+	q := httpx.SearchQuery(r)
+	status := r.URL.Query().Get("status") // published, draft or closed
+	due := r.URL.Query().Get("due")       // upcoming, past or none
+	now := time.Now()
+	matched := make([]*model.ProgramAssignment, 0, len(assignments))
+	for _, a := range assignments {
+		if status != "" && string(a.Status) != status {
+			continue
+		}
+		switch due {
+		case "upcoming":
+			if a.DueDate == nil || a.DueDate.Before(now) {
+				continue
+			}
+		case "past":
+			if a.DueDate == nil || !a.DueDate.Before(now) {
+				continue
+			}
+		case "none":
+			if a.DueDate != nil {
+				continue
 			}
 		}
-		assignments = matched
+		if httpx.Matches(q, a.Title, a.Description, a.TrackName, a.CreatorName) {
+			matched = append(matched, a)
+		}
 	}
+	assignments = matched
 	// A shared link to one assignment opens the page that holds it.
 	if focus := r.URL.Query().Get("focus"); focus != "" {
 		for i, a := range assignments {
@@ -140,6 +171,31 @@ func (h *AssignmentHandler) ListAssignments(w http.ResponseWriter, r *http.Reque
 	resp["count"] = len(assignments)
 	httpx.AddPageMeta(resp, page, len(assignments))
 	httpx.JSON(w, http.StatusOK, resp)
+}
+
+// isLinkOrUpload accepts "", a path on this site (an uploaded file) or an http(s) link, so a
+// stored link can never run script when clicked (javascript:, data:, ...).
+func isLinkOrUpload(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return true
+	}
+	if strings.HasPrefix(raw, "/") {
+		return !strings.HasPrefix(raw, "//") && !strings.HasPrefix(raw, "/\\")
+	}
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+// withoutDrafts drops assignments that are not published yet.
+func withoutDrafts(assignments []*model.ProgramAssignment) []*model.ProgramAssignment {
+	out := make([]*model.ProgramAssignment, 0, len(assignments))
+	for _, a := range assignments {
+		if a.Status != model.AssignmentStatusDraft {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // assignmentFellowStats sums a fellow's submissions and grades across all their assignments.
@@ -197,6 +253,12 @@ func (h *AssignmentHandler) GetAssignment(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Drafts are hidden from everyone who can't edit them
+	if assignment.Status == model.AssignmentStatusDraft && !h.canManageAssignments(r, assignment.ProgramID) {
+		httpx.Error(w, http.StatusNotFound, "assignment not found")
+		return
+	}
+
 	// Check if fellow is requesting
 	claims, _ := middleware.GetUser(r.Context())
 	if claims != nil && (claims.Role == model.RoleCandidate || claims.Role == "") {
@@ -247,6 +309,10 @@ func (h *AssignmentHandler) CreateAssignment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if !isLinkOrUpload(req.AttachmentURL) {
+		httpx.Error(w, http.StatusBadRequest, "starter material must be an uploaded file or an http(s) link")
+		return
+	}
 	if req.Title == "" {
 		httpx.Error(w, http.StatusBadRequest, "assignment title is required")
 		return
@@ -356,10 +422,13 @@ func (h *AssignmentHandler) UpdateAssignment(w http.ResponseWriter, r *http.Requ
 	if req.MaxScore > 0 {
 		existing.MaxScore = req.MaxScore
 	}
-	if req.AttachmentURL != "" {
-		existing.AttachmentURL = req.AttachmentURL
-		existing.AttachmentName = req.AttachmentName
+	// The form always sends the whole assignment, so an empty value removes the starter material.
+	if !isLinkOrUpload(req.AttachmentURL) {
+		httpx.Error(w, http.StatusBadRequest, "starter material must be an uploaded file or an http(s) link")
+		return
 	}
+	existing.AttachmentURL = strings.TrimSpace(req.AttachmentURL)
+	existing.AttachmentName = req.AttachmentName
 	if req.Status != "" {
 		existing.Status = model.AssignmentStatus(req.Status)
 	}
@@ -525,9 +594,9 @@ func (h *AssignmentHandler) SubmitAssignment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Verify assignment belongs to program
+	// Verify assignment belongs to program (and is published: drafts can't be submitted)
 	assignment, err := h.assignmentRepo.GetAssignmentByID(r.Context(), assignmentID)
-	if err != nil || assignment.ProgramID != programID {
+	if err != nil || assignment.ProgramID != programID || assignment.Status == model.AssignmentStatusDraft {
 		httpx.Error(w, http.StatusNotFound, "assignment not found for this program")
 		return
 	}

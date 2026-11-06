@@ -231,7 +231,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ events }) =>
                     {e.kind === 'session' && e.meetingUrl && (
                       <a href={e.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Join Call</span>
+                        <span>Meet</span>
                       </a>
                     )}
                     {e.href && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FileCode, FileText, MoreHorizontal, PenTool, Plus, X } from 'lucide-react';
 import { SUPPORTED_EXTENSIONS_HINT, WorkspaceFile, fileKind, validateFileName } from './workspaceFiles';
 
@@ -79,9 +79,30 @@ export const WorkspaceFileBar: React.FC<{
   onRename: (file: WorkspaceFile, name: string) => string | null;
   onRemove: (file: WorkspaceFile) => void;
   trailing?: React.ReactNode;
-}> = ({ files, activeId, canManage, onSelect, onCreate, onRename, onRemove, trailing }) => {
+  /** Hide "New file" (the workspace is view-only) */
+  canCreate?: boolean;
+}> = ({ files, activeId, canManage, onSelect, onCreate, onRename, onRemove, trailing, canCreate = true }) => {
   const [dialog, setDialog] = useState<{ mode: 'new' } | { mode: 'rename'; file: WorkspaceFile } | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const menuTabRef = useRef<HTMLDivElement>(null);
+
+  // The file menu closes on a click anywhere else, on Escape, or when another file opens
+  useEffect(() => {
+    if (!menuFor) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!menuTabRef.current?.contains(e.target as Node)) setMenuFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuFor(null);
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuFor]);
+  useEffect(() => {
+    setMenuFor(null);
+  }, [activeId, canManage]);
 
   return (
     <div className="flex flex-wrap items-stretch bg-slate-50 border-b border-slate-200" role="tablist" aria-label="Workspace files">
@@ -90,6 +111,7 @@ export const WorkspaceFileBar: React.FC<{
         return (
           <div
             key={f.id}
+            ref={menuFor === f.id ? menuTabRef : undefined}
             className={`relative flex items-center border-r border-slate-200 ${
               active ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white/70'
             }`}
@@ -144,15 +166,17 @@ export const WorkspaceFileBar: React.FC<{
           </div>
         );
       })}
-      <button
-        type="button"
-        onClick={() => setDialog({ mode: 'new' })}
-        className="flex items-center gap-1 h-10 px-3 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-white/70"
-        title="New file"
-      >
-        <Plus className="w-4 h-4" />
-        <span>New file</span>
-      </button>
+      {canCreate && (
+        <button
+          type="button"
+          onClick={() => setDialog({ mode: 'new' })}
+          className="flex items-center gap-1 h-10 px-3 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-white/70"
+          title="New file"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New file</span>
+        </button>
+      )}
       {trailing && <div className="ml-auto flex items-stretch border-l border-slate-200">{trailing}</div>}
 
       {dialog?.mode === 'new' && (

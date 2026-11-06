@@ -197,7 +197,7 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
               <li
                 key={item.id}
                 id={focusItemDomId(item.id)}
-                className={`panel flex gap-4 scroll-mt-24 transition ${current ? 'border-kulkul-purple' : ''} ${highlightClass(item.id)}`}
+                className={`panel flex flex-wrap sm:flex-nowrap gap-x-4 gap-y-2 scroll-mt-24 transition ${current ? 'border-kulkul-purple' : ''} ${highlightClass(item.id)}`}
               >
                 <span
                   className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
@@ -218,7 +218,7 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                     </div>
                   )}
                 </div>
-                <div className="flex items-start gap-0.5 shrink-0">
+                <div className="flex items-start justify-end gap-0.5 shrink-0 basis-full sm:basis-auto border-t border-slate-100 pt-2 sm:border-0 sm:pt-0">
                   {linkTo(item.id) && <CopyLinkButton url={linkTo(item.id)} what="module" />}
                   {canEdit && (
                     <ItemControls
@@ -250,29 +250,31 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                   <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0 space-y-1">
-                  <div className="card-title truncate">{item.title}</div>
+                  <div className="card-title break-words">{item.title}</div>
                   <p className="meta-text truncate">
                     {meta.label} · {hostOf(item.url)}
                   </p>
                   {item.description && <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>}
-                  <div className="flex items-center gap-1 pt-1">
+                  <div className="flex items-center flex-wrap gap-1 pt-1">
                     <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline">
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>Open</span>
                     </a>
                     {linkTo(item.id) && <CopyLinkButton url={linkTo(item.id)} what="resource" />}
+                    {canEdit && (
+                      <div className="ml-auto">
+                        <ItemControls
+                          index={index}
+                          count={resources.length}
+                          busy={saveMutation.isPending}
+                          onMove={move}
+                          onEdit={() => openEditor(item)}
+                          onRemove={() => remove(index)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-                {canEdit && (
-                  <ItemControls
-                    index={index}
-                    count={resources.length}
-                    busy={saveMutation.isPending}
-                    onMove={move}
-                    onEdit={() => openEditor(item)}
-                    onRemove={() => remove(index)}
-                  />
-                )}
               </div>
             );
           })}
@@ -281,7 +283,7 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
 
       {draft && (
         <div className="modal-backdrop" onClick={() => setDraft(null)}>
-          <form className={`modal-panel ${section === 'curriculum' ? 'max-w-4xl' : 'max-w-lg'}`} onClick={(e) => e.stopPropagation()} onSubmit={submitDraft}>
+          <form className={`modal-panel ${section === 'curriculum' ? 'max-w-7xl' : 'max-w-lg'}`} onClick={(e) => e.stopPropagation()} onSubmit={submitDraft}>
             <div className="section-header">
               <h2 className="section-title">{draft.id ? `Edit ${noun}` : `Add ${noun}`}</h2>
               <button type="button" onClick={() => setDraft(null)} className="btn btn-icon-sm btn-ghost" aria-label="Close">
@@ -472,9 +474,9 @@ const MarkdownField: React.FC<{ value: string; onChange: (value: string) => void
           onChange={(e) => onChange(e.target.value)}
           placeholder={MODULE_PLACEHOLDER}
           spellCheck={false}
-          className={`form-textarea font-mono h-80 resize-y ${tab === 'preview' ? 'hidden lg:block' : ''}`}
+          className={`form-textarea font-mono h-[55vh] min-h-80 resize-y ${tab === 'preview' ? 'hidden lg:block' : ''}`}
         />
-        <div className={`panel-muted h-80 overflow-y-auto ${tab === 'write' ? 'hidden lg:block' : ''}`}>
+        <div className={`panel-muted h-[55vh] min-h-80 overflow-y-auto ${tab === 'write' ? 'hidden lg:block' : ''}`}>
           <p className="subsection-title mb-3">Preview</p>
           {value.trim() ? (
             <MarkdownContent>{value}</MarkdownContent>

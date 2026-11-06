@@ -576,3 +576,40 @@ func (r *AssignmentRepository) GradeSubmission(
 	}
 	return &res, nil
 }
+
+// ListSubmissionsByProgram returns every submission to a program's assignments in one query
+// (no fellow details joined), for per-fellow progress summaries.
+func (r *AssignmentRepository) ListSubmissionsByProgram(ctx context.Context, programID uuid.UUID) ([]*model.AssignmentSubmission, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var res []*model.AssignmentSubmission
+		for _, s := range r.memSubmissions {
+			if a, ok := r.memAssignments[s.AssignmentID]; ok && a.ProgramID == programID {
+				cp := *s
+				res = append(res, &cp)
+			}
+		}
+		return res, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT s.id, s.assignment_id, s.applicant_id, s.status, s.score, s.submitted_at
+		FROM assignment_submissions s
+		JOIN program_assignments a ON a.id = s.assignment_id
+		WHERE a.program_id = $1
+	`, programID)
+	if err != nil {
+		return nil, fmt.Errorf("assignment_repo: list submissions by program: %w", err)
+	}
+	defer rows.Close()
+	var subs []*model.AssignmentSubmission
+	for rows.Next() {
+		var s model.AssignmentSubmission
+		if err := rows.Scan(&s.ID, &s.AssignmentID, &s.ApplicantID, &s.Status, &s.Score, &s.SubmittedAt); err != nil {
+			return nil, fmt.Errorf("assignment_repo: scan program submission: %w", err)
+		}
+		subs = append(subs, &s)
+	}
+	return subs, rows.Err()
+}

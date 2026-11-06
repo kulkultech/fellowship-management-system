@@ -18,6 +18,12 @@ type MentorHandler struct {
 	userRepo      *repository.UserRepository
 	programRepo   *repository.ProgramRepository
 	applicantRepo *repository.ApplicantRepository
+
+	// Optional (see WithProgress): fellows' scores, assignment grades and attendance
+	submissionRepo *repository.SubmissionRepository
+	aiRepo         *repository.AIInterviewRepository
+	assignmentRepo *repository.AssignmentRepository
+	sessionRepo    *repository.SessionRepository
 }
 
 func NewMentorHandler(
@@ -181,11 +187,13 @@ func (h *MentorHandler) ListFellows(w http.ResponseWriter, r *http.Request) {
 			}
 			fellows = matched
 		}
-		resp["fellows"] = httpx.Slice(fellows, page)
+		resp["fellows"] = h.withProgress(ctx, programID, httpx.Slice(fellows, page))
 		resp["count"] = len(fellows)
 		for k, v := range httpx.PageMeta(page, len(fellows)) {
 			resp[k] = v
 		}
+	} else {
+		resp["fellows"] = h.withProgress(ctx, programID, fellows)
 	}
 	httpx.JSON(w, http.StatusOK, resp)
 }

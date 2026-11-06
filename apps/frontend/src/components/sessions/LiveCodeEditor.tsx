@@ -477,6 +477,8 @@ interface LiveCodeEditorProps {
   fileName?: string;
   /** Sits inside the workspace frame (no own border or rounded corners) */
   embedded?: boolean;
+  /** View only (e.g. after the session ended); code can still be run */
+  readOnly?: boolean;
 }
 
 export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
@@ -493,6 +495,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   textKeyFor,
   fileName,
   embedded = false,
+  readOnly = false,
 }) => {
   // A single-file editor opens in its file's language
   const startLang = lockedLanguage || initialLanguage;
@@ -1106,6 +1109,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
               onMount={handleEditorMount}
               onChange={handleCodeChange}
               options={{
+                readOnly,
                 fontSize: fontSize,
                 wordWrap: wordWrap,
                 minimap: { enabled: minimap },

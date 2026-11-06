@@ -1,6 +1,12 @@
 import { apiClient } from './apiClient';
 import type { MentorOverview, MentorProgramSummary, ApplicantListItem } from './types';
 
+/** A cohort fellow with their admission scores and progress in the program. */
+export type MentorFellow = ApplicantListItem & {
+  assignments?: { total: number; submitted: number; graded: number; avg_score?: number };
+  attendance?: { total_sessions: number; attended: number; rate: number; status: string };
+};
+
 export const mentorService = {
   getOverview: async (): Promise<MentorOverview> => {
     const res = await apiClient.get('/mentor/overview');
@@ -25,7 +31,7 @@ export const mentorService = {
     page: number,
     pageSize: number,
     q = ''
-  ): Promise<{ fellows: ApplicantListItem[]; count: number; total: number; page: number; page_size: number }> => {
+  ): Promise<{ fellows: MentorFellow[]; count: number; total: number; page: number; page_size: number }> => {
     const res = await apiClient.get(`/mentor/programs/${programId}/fellows`, {
       params: { page, page_size: pageSize, ...(q ? { q } : {}) },
     });

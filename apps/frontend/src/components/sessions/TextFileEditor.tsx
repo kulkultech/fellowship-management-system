@@ -6,7 +6,12 @@ import toast from 'react-hot-toast';
 import { bindMonacoToYText } from './collab';
 
 /** A shared notes file (.txt, .md): everyone edits the same text live. */
-export const TextFileEditor: React.FC<{ ydoc: Y.Doc; textKey: string; fileName: string }> = ({ ydoc, textKey, fileName }) => {
+export const TextFileEditor: React.FC<{ ydoc: Y.Doc; textKey: string; fileName: string; readOnly?: boolean }> = ({
+  ydoc,
+  textKey,
+  fileName,
+  readOnly = false,
+}) => {
   const [editor, setEditor] = useState<any>(null);
   const handleMount: OnMount = (instance) => setEditor(instance);
 
@@ -57,6 +62,7 @@ export const TextFileEditor: React.FC<{ ydoc: Y.Doc; textKey: string; fileName: 
           onMount={handleMount}
           theme="light"
           options={{
+            readOnly,
             wordWrap: 'on',
             minimap: { enabled: false },
             lineNumbers: 'off',

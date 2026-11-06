@@ -883,7 +883,7 @@ export const CandidateDashboardPage: React.FC = () => {
                             {item.kind === 'session' && item.meetingUrl && (
                               <a href={item.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
                                 <ExternalLink className="w-3.5 h-3.5" />
-                                <span>Join Call</span>
+                                <span>Meet</span>
                               </a>
                             )}
                             {item.href && (

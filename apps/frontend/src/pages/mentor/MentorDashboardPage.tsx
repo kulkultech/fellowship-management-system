@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
-import { mentorService } from '@/services/mentorService';
+import { mentorService, type MentorFellow } from '@/services/mentorService';
 import { sessionService } from '@/services/sessionService';
 import { assignmentService } from '@/services/assignmentService';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
-import type { ApplicantListItem, MentorProgramSummary, ProgramAssignment, ProgramSession } from '@/services/types';
+import type { MentorProgramSummary, ProgramAssignment, ProgramSession } from '@/services/types';
 import {
   GraduationCap,
   Users,
@@ -23,6 +23,7 @@ import {
   Building2,
   Calendar,
   ShieldCheck,
+  Code2,
 } from 'lucide-react';
 import { ProgramSessionsView } from '@/components/sessions/ProgramSessionsView';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
@@ -43,7 +44,7 @@ export const MentorDashboardPage: React.FC = () => {
   // Program selection for fellow listing
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
   const [searchFellowQuery, setSearchFellowQuery] = useState<string>('');
-  const [selectedFellow, setSelectedFellow] = useState<ApplicantListItem | null>(null);
+  const [selectedFellow, setSelectedFellow] = useState<MentorFellow | null>(null);
 
   // 1. Fetch Mentor Overview
   const {
@@ -82,7 +83,7 @@ export const MentorDashboardPage: React.FC = () => {
     placeholderData: keepPreviousData,
   });
 
-  const fellowsList: ApplicantListItem[] = fellowsData?.fellows || [];
+  const fellowsList: MentorFellow[] = fellowsData?.fellows || [];
   const filteredFellows = fellowsList;
 
   // Check if any fellow in this program has a track assigned
@@ -294,12 +295,13 @@ export const MentorDashboardPage: React.FC = () => {
                             <>
                               {item.meetingUrl && (
                                 <a href={item.meetingUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                  <span>Join Call</span>
+                                  <Video className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>Meet</span>
                                 </a>
                               )}
                               <Link to={`/sessions/${item.id}/room`} className="btn btn-sm btn-primary">
-                                <span>Open Room</span>
+                                <Code2 className="w-3.5 h-3.5" />
+                                <span>Live Workspace</span>
                               </Link>
                               <CopyLinkButton url={workspaceLink(item.id)} what="workspace" />
                             </>
@@ -412,28 +414,15 @@ export const MentorDashboardPage: React.FC = () => {
         {/* 4. COHORT FELLOWS TABLE VIEW */}
         {/* ========================================================================= */}
         {activeNavId === 'fellows' && (
-          <div className={`${cardShell} space-y-5`}>
-            <div className="section-header">
-              <h3 className="section-title">Cohort Fellows Directory</h3>
-            </div>
-
-            <div className="table-toolbar">
-              <div className="search-field">
-                <Search />
-                <input
-                  type="text"
-                  value={searchFellowQuery}
-                  onChange={(e) => setSearchFellowQuery(e.target.value)}
-                  placeholder="Search fellow name or email..."
-                  className="search-input"
-                />
-              </div>
-              {programs.length > 1 && (
+          <div className="space-y-6">
+            {programs.length > 1 && (
+              <div className="content-card py-4 flex items-center justify-between gap-4">
+                <span className="text-xs font-bold text-slate-700">Active Program:</span>
                 <select
                   value={activeProgramId}
                   onChange={(e) => setSelectedProgramId(e.target.value)}
                   className="filter-select"
-                  aria-label="Program"
+                  aria-label="Active program"
                 >
                   {programs.map((p) => (
                     <option key={p.program_id} value={p.program_id}>
@@ -441,155 +430,228 @@ export const MentorDashboardPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
-              )}
-            </div>
+              </div>
+            )}
+            <div className={`${cardShell} space-y-5`}>
+              <div className="section-header">
+                <h3 className="section-title">Cohort Fellows Directory</h3>
+              </div>
 
-            {/* Fellows Table Content */}
-            <div className="data-table-wrap">
-              {isLoadingFellows ? (
-                <div className="py-16 text-center text-slate-400 space-y-3">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-kulkul-purple" />
-                  <p className="text-xs font-semibold">Loading fellows list...</p>
+              <div className="table-toolbar">
+                <div className="search-field">
+                  <Search />
+                  <input
+                    type="text"
+                    value={searchFellowQuery}
+                    onChange={(e) => setSearchFellowQuery(e.target.value)}
+                    placeholder="Search fellow name or email..."
+                    className="search-input"
+                  />
                 </div>
-              ) : filteredFellows.length === 0 ? (
-                <div className="py-16 text-center text-slate-400 space-y-2">
-                  <Users className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
-                  <p className="text-sm font-bold text-slate-600">No fellows found</p>
-                  <p className="text-xs text-slate-400">
-                    {searchFellowQuery
-                      ? 'No fellows matched your search query.'
-                      : 'No candidates have enrolled in this fellowship program yet.'}
-                  </p>
-                </div>
-              ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Fellow Details</th>
-                      {hasTracks && <th className="whitespace-nowrap">Track</th>}
-                      <th className="whitespace-nowrap">Assessment</th>
-                      <th className="whitespace-nowrap">Profiles</th>
-                      <th className="text-right whitespace-nowrap">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredFellows.map((fellow) => (
-                      <tr key={fellow.id} className="transition">
-                        <td>
-                          <div className="cell-primary">
-                            {fellow.full_name}
-                          </div>
-                          <div className="cell-secondary mt-0.5 flex items-center gap-2">
-                            <span>{fellow.email}</span>
-                            {fellow.phone && (
-                              <>
-                                <span>•</span>
-                                <span>{fellow.phone}</span>
-                              </>
-                            )}
-                          </div>
-                          {fellow.university && (
-                            <div className="text-3xs text-slate-400 mt-0.5">
-                              {fellow.university} {fellow.major ? `(${fellow.major})` : ''}
+              </div>
+
+              {/* Fellows Table Content */}
+              <div className="data-table-wrap">
+                {isLoadingFellows ? (
+                  <div className="py-16 text-center text-slate-400 space-y-3">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-kulkul-purple" />
+                    <p className="text-xs font-semibold">Loading fellows list...</p>
+                  </div>
+                ) : filteredFellows.length === 0 ? (
+                  <div className="py-16 text-center text-slate-400 space-y-2">
+                    <Users className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
+                    <p className="text-sm font-bold text-slate-600">No fellows found</p>
+                    <p className="text-xs text-slate-400">
+                      {searchFellowQuery
+                        ? 'No fellows matched your search query.'
+                        : 'No candidates have enrolled in this fellowship program yet.'}
+                    </p>
+                  </div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Fellow Details</th>
+                        {hasTracks && <th className="whitespace-nowrap">Track</th>}
+                        <th className="whitespace-nowrap">Admission Scores</th>
+                        <th className="whitespace-nowrap">Assignments</th>
+                        <th className="whitespace-nowrap">Attendance</th>
+                        <th className="whitespace-nowrap">Profiles</th>
+                        <th className="text-right whitespace-nowrap">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredFellows.map((fellow) => (
+                        <tr key={fellow.id} className="transition">
+                          <td>
+                            <div className="cell-primary">
+                              {fellow.full_name}
                             </div>
-                          )}
-                        </td>
-
-                        {hasTracks && (
-                          <td className="whitespace-nowrap">
-                            {fellow.track_name ? (
-                              <span className="text-2xs font-extrabold text-kulkul-purple">
-                                {fellow.track_name}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 italic">&mdash;</span>
+                            <div className="cell-secondary mt-0.5 flex items-center gap-2">
+                              <span>{fellow.email}</span>
+                              {fellow.phone && (
+                                <>
+                                  <span>•</span>
+                                  <span>{fellow.phone}</span>
+                                </>
+                              )}
+                            </div>
+                            {fellow.university && (
+                              <div className="text-3xs text-slate-400 mt-0.5">
+                                {fellow.university} {fellow.major ? `(${fellow.major})` : ''}
+                              </div>
                             )}
                           </td>
-                        )}
 
-                        <td className="whitespace-nowrap">
-                          <div className="space-y-0.5">
-                            {fellow.mcq_score !== undefined && (
-                              <div className="text-2xs font-semibold text-slate-700">
-                                MCQ: <span className="font-bold text-slate-900">{fellow.mcq_score}%</span>
+                          {hasTracks && (
+                            <td className="whitespace-nowrap">
+                              {fellow.track_name ? (
+                                <span className="text-2xs font-extrabold text-kulkul-purple">
+                                  {fellow.track_name}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">&mdash;</span>
+                              )}
+                            </td>
+                          )}
+
+                          <td className="whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              {fellow.mcq_score !== undefined && (
+                                <div className="text-2xs font-semibold text-slate-700">
+                                  MCQ: <span className="font-bold text-slate-900">{fellow.mcq_score}%</span>
+                                </div>
+                              )}
+                              {fellow.ai_score !== undefined && (
+                                <div className="text-2xs font-semibold text-purple-700">
+                                  AI Interview: <span className="font-bold text-purple-900">{fellow.ai_score}%</span>
+                                </div>
+                              )}
+                              {fellow.mcq_score === undefined && fellow.ai_score === undefined && (
+                                <span className="text-slate-400 text-3xs italic">No admission test</span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="whitespace-nowrap">
+                            {fellow.assignments && fellow.assignments.total > 0 ? (
+                              <div className="space-y-0.5">
+                                <div className="text-2xs font-semibold text-slate-700">
+                                  <span className="font-bold text-slate-900">
+                                    {fellow.assignments.submitted}/{fellow.assignments.total}
+                                  </span>{' '}
+                                  submitted
+                                </div>
+                                <div className="text-2xs font-semibold text-slate-500">
+                                  {fellow.assignments.avg_score !== undefined ? (
+                                    <>
+                                      Avg grade{' '}
+                                      <span className="font-bold text-emerald-700">{fellow.assignments.avg_score}%</span>
+                                      {fellow.assignments.graded < fellow.assignments.submitted &&
+                                        ` · ${fellow.assignments.submitted - fellow.assignments.graded} to grade`}
+                                    </>
+                                  ) : fellow.assignments.submitted > 0 ? (
+                                    `${fellow.assignments.submitted} to grade`
+                                  ) : (
+                                    'Not graded yet'
+                                  )}
+                                </div>
                               </div>
+                            ) : (
+                              <span className="text-slate-400 text-3xs italic">No assignments</span>
                             )}
-                            {fellow.ai_score !== undefined && (
-                              <div className="text-2xs font-semibold text-purple-700">
-                                AI Interview: <span className="font-bold text-purple-900">{fellow.ai_score}%</span>
+                          </td>
+
+                          <td className="whitespace-nowrap">
+                            {fellow.attendance && fellow.attendance.total_sessions > 0 ? (
+                              <div className="space-y-0.5">
+                                <div className="text-2xs font-semibold text-slate-700">
+                                  <span className="font-bold text-slate-900">{fellow.attendance.rate}%</span>{' '}
+                                  ({fellow.attendance.attended}/{fellow.attendance.total_sessions} sessions)
+                                </div>
+                                <div
+                                  className={`text-2xs font-bold ${
+                                    fellow.attendance.status === 'Good'
+                                      ? 'text-emerald-700'
+                                      : fellow.attendance.status === 'Warning'
+                                      ? 'text-amber-700'
+                                      : 'text-rose-700'
+                                  }`}
+                                >
+                                  {fellow.attendance.status}
+                                </div>
                               </div>
+                            ) : (
+                              <span className="text-slate-400 text-3xs italic">No sessions yet</span>
                             )}
-                            {fellow.mcq_score === undefined && fellow.ai_score === undefined && (
-                              <span className="text-slate-400 text-3xs italic">No score data</span>
-                            )}
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            {fellow.github_url && (
-                              <a
-                                href={fellow.github_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-icon-sm btn-ghost"
-                                title="View GitHub"
-                              >
-                                <Github className="w-4 h-4" />
-                              </a>
-                            )}
-                            {fellow.linkedin_url && (
-                              <a
-                                href={fellow.linkedin_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-icon-sm btn-ghost"
-                                title="View LinkedIn"
-                              >
-                                <Linkedin className="w-4 h-4 text-blue-600" />
-                              </a>
-                            )}
-                            {fellow.resume_url && (
-                              <a
-                                href={fellow.resume_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-icon-sm btn-ghost"
-                                title="View Resume / CV"
-                              >
-                                <FileText className="w-4 h-4" />
-                              </a>
-                            )}
-                            {!fellow.github_url && !fellow.linkedin_url && !fellow.resume_url && (
-                              <span className="text-slate-400 text-3xs italic">—</span>
-                            )}
-                          </div>
-                        </td>
+                          <td className="whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {fellow.github_url && (
+                                <a
+                                  href={fellow.github_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-icon-sm btn-ghost"
+                                  title="View GitHub"
+                                >
+                                  <Github className="w-4 h-4" />
+                                </a>
+                              )}
+                              {fellow.linkedin_url && (
+                                <a
+                                  href={fellow.linkedin_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-icon-sm btn-ghost"
+                                  title="View LinkedIn"
+                                >
+                                  <Linkedin className="w-4 h-4 text-blue-600" />
+                                </a>
+                              )}
+                              {fellow.resume_url && (
+                                <a
+                                  href={fellow.resume_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-icon-sm btn-ghost"
+                                  title="View Resume / CV"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                </a>
+                              )}
+                              {!fellow.github_url && !fellow.linkedin_url && !fellow.resume_url && (
+                                <span className="text-slate-400 text-3xs italic">—</span>
+                              )}
+                            </div>
+                          </td>
 
-                        <td className="text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFellow(fellow)}
-                            className="btn btn-sm btn-outline"
-                          >
-                            Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                          <td className="text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFellow(fellow)}
+                              className="btn btn-sm btn-outline"
+                            >
+                              Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <Pagination
+                page={fellowPage}
+                pageSize={fellowPageSize}
+                total={fellowsData?.total ?? 0}
+                onPageChange={setFellowPage}
+                onPageSizeChange={setFellowPageSize}
+                noun="fellows"
+                isFetching={isFetchingFellows && !isLoadingFellows}
+              />
             </div>
-            <Pagination
-              page={fellowPage}
-              pageSize={fellowPageSize}
-              total={fellowsData?.total ?? 0}
-              onPageChange={setFellowPage}
-              onPageSizeChange={setFellowPageSize}
-              noun="fellows"
-              isFetching={isFetchingFellows && !isLoadingFellows}
-            />
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as Y from 'yjs';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,8 @@ import {
   X,
   Eye,
   MessageSquare,
+  Lock,
+  Pencil,
   Flag,
   RotateCcw,
 } from 'lucide-react';
@@ -355,6 +357,12 @@ export const SessionWorkspacePage: React.FC = () => {
 
   // Feedback opens only after a mentor ends the session
   const isSessionEnded = Boolean(session?.ended_at);
+  // After the session ends every file is view-only; a mentor can unlock editing for themselves
+  const [mentorEditing, setMentorEditing] = useState(false);
+  useEffect(() => {
+    if (!isSessionEnded) setMentorEditing(false);
+  }, [isSessionEnded]);
+  const filesReadOnly = isSessionEnded && !(isMentorOrAdmin && mentorEditing);
   useEffect(() => {
     if (session && !session.ended_at && activeWorkspaceTab === 'feedback') {
       setActiveWorkspaceTab(filesRef.current[0]?.id || '');
@@ -402,6 +410,17 @@ export const SessionWorkspacePage: React.FC = () => {
       migrateLegacyBoard();
     }
   }, [session, migrateLegacyBoard]);
+
+  // One row per person: the same person in several tabs or devices is listed once
+  const people = useMemo(() => {
+    const seen = new Set<string>();
+    return participants.filter((p) => {
+      const key = p.user_id || p.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [participants]);
 
   // Someone joined: tell them which file the presenter has open, so followers start in sync
   const participantCount = participants.length;
@@ -523,16 +542,16 @@ export const SessionWorkspacePage: React.FC = () => {
     <div className="space-y-3">
       <div className={`flex items-center justify-between px-1 ${isMinimized ? 'lg:hidden' : ''}`}>
         <span className="subsection-title">In this workspace</span>
-        <span className="text-2xs font-bold text-slate-400">{participants.length}</span>
+        <span className="text-2xs font-bold text-slate-400">{people.length}</span>
       </div>
 
-      {participants.length === 0 ? (
+      {people.length === 0 ? (
         <p className={`px-1 meta-text ${isMinimized ? 'lg:hidden' : ''}`}>
           {isConnected ? 'Waiting for others to join…' : 'Connecting…'}
         </p>
       ) : (
         <ul className="space-y-1">
-          {participants.map((p) => (
+          {people.map((p) => (
             <li
               key={p.id}
               className={`flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-slate-50 ${
@@ -624,7 +643,8 @@ export const SessionWorkspacePage: React.FC = () => {
           <WorkspaceFileBar
             files={files}
             activeId={activeWorkspaceTab}
-            canManage={isMentorOrAdmin}
+            canManage={isMentorOrAdmin && !filesReadOnly}
+            canCreate={!filesReadOnly}
             onSelect={handleSelectTab}
             onCreate={handleCreateFile}
             onRename={(file, name) => renameFile(ydoc, file, name)}
@@ -648,6 +668,33 @@ export const SessionWorkspacePage: React.FC = () => {
             }
           />
 
+          {isSessionEnded && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 border-b border-amber-200">
+              <p className="text-xs font-semibold text-amber-900">
+                This session has ended.{' '}
+                {filesReadOnly ? 'Files are view-only.' : 'You are editing the files.'}
+              </p>
+              <div className="flex items-center gap-2">
+                {isMentorOrAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setMentorEditing((v) => !v)}
+                    className="btn btn-sm btn-outline"
+                  >
+                    {mentorEditing ? <Lock className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                    <span>{mentorEditing ? 'Done Editing' : 'Edit Files'}</span>
+                  </button>
+                )}
+                {activeWorkspaceTab !== 'feedback' && (
+                  <button type="button" onClick={() => handleSelectTab('feedback')} className="btn btn-sm btn-primary">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeWorkspaceTab === 'feedback' && (
             <div className="p-4 sm:p-6 bg-slate-50">
               <SessionFeedbackPanel sessionId={session.id} />
@@ -655,7 +702,13 @@ export const SessionWorkspacePage: React.FC = () => {
           )}
 
           {activeFile && activeKind?.kind === 'notes' && (
-            <TextFileEditor key={activeFile.id} ydoc={ydoc} textKey={activeFile.key} fileName={activeFile.name} />
+            <TextFileEditor
+              key={activeFile.id}
+              ydoc={ydoc}
+              textKey={activeFile.key}
+              fileName={activeFile.name}
+              readOnly={filesReadOnly}
+            />
           )}
 
           {activeFile && activeKind?.kind === 'code' && (
@@ -666,6 +719,7 @@ export const SessionWorkspacePage: React.FC = () => {
               fileName={activeFile.name}
               textKeyFor={(lang) => (lang === activeKind.language ? activeFile.key : firstKeyFor(lang))}
               embedded
+              readOnly={filesReadOnly}
               onCodeRun={(lang, logs) => {
                 sendCodeRun(lang, logs);
               }}
@@ -680,6 +734,7 @@ export const SessionWorkspacePage: React.FC = () => {
               boardKey={activeFile.key}
               cacheKey={activeFile.key === MAIN_BOARD_KEY ? session.id : `${session.id}:${activeFile.id}`}
               isMentor={isMentorOrAdmin}
+              readOnly={filesReadOnly}
             />
           )}
 

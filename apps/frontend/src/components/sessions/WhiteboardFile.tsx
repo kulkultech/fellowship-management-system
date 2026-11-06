@@ -8,12 +8,13 @@ import { writeBoardElements } from './workspaceFiles';
  * An .excalidraw file. Its elements live in a shared map (element id -> newest element), so boards
  * sync, merge and persist with the rest of the workspace.
  */
-export const WhiteboardFile: React.FC<{ ydoc: Y.Doc; boardKey: string; cacheKey: string; isMentor: boolean }> = ({
-  ydoc,
-  boardKey,
-  cacheKey,
-  isMentor,
-}) => {
+export const WhiteboardFile: React.FC<{
+  ydoc: Y.Doc;
+  boardKey: string;
+  cacheKey: string;
+  isMentor: boolean;
+  readOnly?: boolean;
+}> = ({ ydoc, boardKey, cacheKey, isMentor, readOnly = false }) => {
   const board = useMemo(() => ydoc.getMap<any>(boardKey), [ydoc, boardKey]);
   const [initialElements] = useState<any[]>(() => Array.from(board.values()));
   const [remote, setRemote] = useState<{ elements: any[] } | null>(null);
@@ -37,6 +38,7 @@ export const WhiteboardFile: React.FC<{ ydoc: Y.Doc; boardKey: string; cacheKey:
     <LiveWhiteboard
       sessionId={cacheKey}
       isMentor={isMentor}
+      readOnly={readOnly}
       initialElements={initialElements}
       onElementsChange={(elements) => writeBoardElements(ydoc, boardKey, elements)}
       remoteWhiteboardUpdate={remote}

@@ -112,3 +112,59 @@ func TestListSubmissionsPaged(t *testing.T) {
 		t.Errorf("pending filter = %+v", pending)
 	}
 }
+
+func TestDraftAssignmentsHiddenFromFellows(t *testing.T) {
+	ctx := context.Background()
+	appRepo := repository.NewApplicantRepository(nil)
+	userRepo := repository.NewUserRepository(nil)
+	assignRepo := repository.NewAssignmentRepository(nil, appRepo, userRepo)
+	h := handler.NewAssignmentHandler(assignRepo, repository.NewProgramRepository(nil), appRepo, nil, userRepo)
+	programID := uuid.New()
+	_, _, err := appRepo.CreateOrGet(ctx, &model.Applicant{
+		OrganizationID: uuid.New(), ProgramID: programID, Email: "fellow@example.test",
+		FullName: "Fellow", CurrentStage: model.StageApprovedForLive,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	published, _ := assignRepo.CreateAssignment(ctx, &model.ProgramAssignment{ProgramID: programID, Title: "Live", Status: model.AssignmentStatusPublished})
+	draft, _ := assignRepo.CreateAssignment(ctx, &model.ProgramAssignment{ProgramID: programID, Title: "Hidden", Status: model.AssignmentStatusDraft})
+
+	r := chi.NewRouter()
+	r.Get("/programs/{programId}/assignments", h.ListAssignments)
+	r.Get("/programs/{programId}/assignments/{assignmentId}", h.GetAssignment)
+	call := func(url string, claims *auth.Claims) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, url, nil)
+		req = req.WithContext(middleware.WithUser(req.Context(), claims))
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec
+	}
+	count := func(rec *httptest.ResponseRecorder) int {
+		var body struct {
+			Count int `json:"count"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+		return body.Count
+	}
+	fellowClaims := &auth.Claims{UserID: uuid.New(), Role: model.RoleCandidate, Email: "fellow@example.test"}
+	strangerClaims := &auth.Claims{UserID: uuid.New(), Role: model.RoleCandidate, Email: "other@example.test"}
+	adminClaims := &auth.Claims{UserID: uuid.New(), Role: model.RoleSuperadmin}
+	list := "/programs/" + programID.String() + "/assignments"
+
+	if n := count(call(list, fellowClaims)); n != 1 {
+		t.Errorf("fellow sees %d assignments, want 1 (draft hidden)", n)
+	}
+	if n := count(call(list, strangerClaims)); n != 0 {
+		t.Errorf("non-fellow sees %d assignments, want 0", n)
+	}
+	if n := count(call(list, adminClaims)); n != 2 {
+		t.Errorf("staff sees %d assignments, want 2", n)
+	}
+	if rec := call(list+"/"+draft.ID.String(), fellowClaims); rec.Code != http.StatusNotFound {
+		t.Errorf("fellow opening a draft: status %d, want 404", rec.Code)
+	}
+	if rec := call(list+"/"+published.ID.String(), fellowClaims); rec.Code != http.StatusOK {
+		t.Errorf("fellow opening a published assignment: status %d", rec.Code)
+	}
+}

@@ -163,7 +163,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`btn btn-md btn-outline whitespace-nowrap ${
+          className={`btn btn-md btn-outline whitespace-nowrap min-w-0 ${
             isOpen ? 'bg-slate-100 text-slate-900 border-slate-300' : ''
           }`}
           title="Switch Company Workspace (Superadmin)"
@@ -171,7 +171,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
           aria-haspopup="true"
         >
           {/* Hamburger / Menu Icon */}
-          <div className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-slate-600 shrink-0">
+          <div className="w-4 h-4 hidden sm:flex items-center justify-center text-slate-400 hover:text-slate-600 shrink-0">
             <Menu className="w-3.5 h-3.5" />
           </div>
 
@@ -190,7 +190,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
             )}
           </div>
 
-          <span className="truncate max-w-[130px] sm:max-w-[200px] text-slate-800">
+          <span className="hidden sm:inline truncate max-w-[200px] text-slate-800">
             {displayCompanyName}
           </span>
 
@@ -204,7 +204,7 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
 
       {/* Dropdown Menu Popover */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm rounded-3xl bg-white border border-slate-200/90 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+        <div className="fixed inset-x-4 top-20 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-96 sm:max-w-sm rounded-3xl bg-white border border-slate-200/90 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
           {/* Header */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">

@@ -44,7 +44,7 @@ export const assignmentService = {
     page: number,
     pageSize: number,
     /** focus: an assignment id whose page should be returned instead of `page`. */
-    filters: { trackId?: string; q?: string; focus?: string } = {}
+    filters: { trackId?: string; q?: string; focus?: string; status?: string; due?: string } = {}
   ): Promise<AssignmentPage> => {
     const res = await apiClient.get(`/programs/${programId}/assignments`, {
       params: {
@@ -53,6 +53,8 @@ export const assignmentService = {
         ...(filters.trackId ? { track_id: filters.trackId } : {}),
         ...(filters.q ? { q: filters.q } : {}),
         ...(filters.focus ? { focus: filters.focus } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.due ? { due: filters.due } : {}),
       },
     });
     return { ...res.data, assignments: res.data.assignments || [] };

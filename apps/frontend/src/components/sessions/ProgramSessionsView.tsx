@@ -670,8 +670,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
       {/* Main Container */}
       <div className="content-card space-y-6">
         {/* Tabs + primary action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveTab('sessions')}
               className={`tab-pill shrink-0 ${activeTab === 'sessions' ? 'tab-pill-active' : ''}`}
@@ -697,7 +697,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             </button>
           </div>
 
-          <button onClick={() => openCreateModal()} className="btn btn-sm btn-primary shrink-0 self-end sm:self-auto">
+          <button onClick={() => openCreateModal()} className="btn btn-sm btn-primary shrink-0 self-start lg:self-auto">
             <Plus className="w-3.5 h-3.5" />
             <span>Schedule New Session</span>
           </button>
@@ -859,6 +859,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             <span>Meet</span>
                           </a>
                         )}
+                        {sess.meeting_url && <CopyLinkButton url={sess.meeting_url} what="meeting" />}
 
                         {!sess.google_calendar_event_id && (
                           <a
@@ -1295,7 +1296,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       setFormAudience('all');
                       setSelectedFellowIds([]);
                     }}
-                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col sm:flex-row items-start gap-2 sm:gap-3 transition cursor-pointer ${
                       formAudience === 'all'
                         ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -1326,7 +1327,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         setFormType('group_sync');
                       }
                     }}
-                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col sm:flex-row items-start gap-2 sm:gap-3 transition cursor-pointer ${
                       formAudience === 'group'
                         ? 'border-kulkul-purple bg-purple-50/50 ring-2 ring-purple-100 shadow-2xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -1421,12 +1422,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="field-label">
                     Start Date &amp; Time *
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2">
                     <input
                       type="date"
                       required
@@ -1452,7 +1453,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   <label className="field-label">
                     End Date &amp; Time *
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2">
                     <input
                       type="date"
                       required
@@ -1558,8 +1559,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                         className="checkbox checkbox-sm checkbox-primary rounded"
                       />
                       <div>
-                        <div className="text-xs font-bold text-slate-800">Auto-Generate Meet</div>
-                        <div className="meta-text">Google Calendar creates the Meet room</div>
+                        <div className="text-xs font-bold text-slate-800">Create Meet link for me</div>
+                        <div className="meta-text">Untick to paste your own Meet or Zoom link</div>
                       </div>
                     </label>
                   )}
@@ -1579,16 +1580,16 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </div>
 
                 {formSendCalendarInvites && (
-                  <div className="flex items-center justify-between text-xs text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
-                    <span className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-kulkul-purple" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
+                    <span className="flex items-start gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-kulkul-purple shrink-0 mt-0.5" />
                       <span>
                         {formAudience === 'all'
                           ? `Will invite all fellows in this cohort${tracks.length > 0 && formTrackId ? ' (filtered track)' : ''} + assigned mentor`
                           : `Will invite ${selectedFellowIds.length} selected fellow${selectedFellowIds.length === 1 ? '' : 's'} + assigned mentor`}
                       </span>
                     </span>
-                    <span className="font-bold text-kulkul-purple">
+                    <span className="font-bold text-kulkul-purple shrink-0 pl-5 sm:pl-0">
                       {formAudience === 'all'
                         ? `${allFellows.length + (formMentorId ? 1 : 0)} people`
                         : `${selectedFellowIds.length + (formMentorId ? 1 : 0)} people`}
@@ -1602,16 +1603,19 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   <label className="field-label">
                     Meeting URL{editingSession ? '' : ' *'}
                   </label>
-                  <div className="relative">
-                    <Video className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="url"
-                      required={!editingSession}
-                      placeholder="Paste a Google Meet or Zoom link"
-                      value={formMeetingUrl}
-                      onChange={(e) => setFormMeetingUrl(e.target.value)}
-                      className="form-input pl-10"
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-0">
+                      <Video className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="url"
+                        required={!editingSession}
+                        placeholder="Paste a Google Meet or Zoom link"
+                        value={formMeetingUrl}
+                        onChange={(e) => setFormMeetingUrl(e.target.value)}
+                        className="form-input pl-10"
+                      />
+                    </div>
+                    {formMeetingUrl.trim() && <CopyLinkButton url={formMeetingUrl.trim()} what="meeting" />}
                   </div>
                   {editingSession && !editingSession.meeting_url && (
                     <p className="meta-text mt-1.5">

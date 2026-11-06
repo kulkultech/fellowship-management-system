@@ -505,7 +505,8 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                         </div>
 
                         {/* Day Footer Action for Mentors */}
-                        {isMentorOrAdmin && dayItem.isCurrentMonth && !isNationalHoliday && dayItem.sessions.length === 0 && (
+                        {/* Always offered, so a day can hold more than one session */}
+                        {isMentorOrAdmin && dayItem.isCurrentMonth && !isNationalHoliday && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -713,7 +714,7 @@ export const IndonesianCalendarView: React.FC<IndonesianCalendarViewProps> = ({
                                       className="inline-flex items-center gap-1 text-kulkul-purple hover:underline font-bold"
                                     >
                                       <Video className="w-3 h-3" />
-                                      <span>Join Call</span>
+                                      <span>Meet</span>
                                     </a>
                                   )}
                                 </div>

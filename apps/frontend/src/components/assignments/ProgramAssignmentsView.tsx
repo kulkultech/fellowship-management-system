@@ -77,7 +77,12 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebouncedValue(searchQuery.trim(), 300);
   const trackId = selectedTrackFilter !== 'all' ? selectedTrackFilter : '';
-  const { page, setPage, pageSize, setPageSize } = usePaging([programId, debouncedSearch, trackId], 10);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dueFilter, setDueFilter] = useState('');
+  const { page, setPage, pageSize, setPageSize } = usePaging(
+    [programId, debouncedSearch, trackId, statusFilter, dueFilter],
+    10
+  );
   // A shared link asks the server for the page holding that assignment, once
   const [pendingFocus, setPendingFocus] = useState(focusId);
   const {
@@ -85,11 +90,24 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
     isLoading,
     isFetching,
   } = useQuery({
-    queryKey: ['program-assignments', programId, 'page', page, pageSize, debouncedSearch, trackId, pendingFocus ?? ''],
+    queryKey: [
+      'program-assignments',
+      programId,
+      'page',
+      page,
+      pageSize,
+      debouncedSearch,
+      trackId,
+      statusFilter,
+      dueFilter,
+      pendingFocus ?? '',
+    ],
     queryFn: () =>
       assignmentService.listAssignmentsPage(programId, page, pageSize, {
         trackId,
         q: debouncedSearch,
+        status: statusFilter,
+        due: dueFilter,
         ...(pendingFocus ? { focus: pendingFocus } : {}),
       }),
     enabled: Boolean(programId),
@@ -179,6 +197,28 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
 
             {isMentorOrAdmin && (
               <div className="section-actions justify-end">
+                <select
+                  aria-label="Filter assignments by publication status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft (Hidden)</option>
+                  <option value="closed">Closed</option>
+                </select>
+                <select
+                  aria-label="Filter assignments by due date"
+                  value={dueFilter}
+                  onChange={(e) => setDueFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="">Any Due Date</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="past">Past Due</option>
+                  <option value="none">No Deadline</option>
+                </select>
                 {tracks.length > 0 && (
                   <select
                     aria-label="Filter assignments by track"
@@ -217,9 +257,9 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
             <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
             <span className="text-xs font-bold">Loading cohort assignments...</span>
           </div>
-        ) : assignments.length === 0 && debouncedSearch ? (
+        ) : assignments.length === 0 && (debouncedSearch || statusFilter || dueFilter || trackId) ? (
           <div className="py-12 text-center text-slate-500 text-xs font-semibold">
-            No assignments match &ldquo;{debouncedSearch}&rdquo;.
+            No assignments match these filters.
           </div>
         ) : assignments.length === 0 ? (
           <div className="py-12 text-center space-y-4">
@@ -307,6 +347,14 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                             Max: {assignment.max_score} pts
                           </span>
                         )}
+                        {isMentorOrAdmin && assignment.status === 'draft' && (
+                          <span className="text-3xs font-extrabold text-amber-700 uppercase tracking-wider">
+                            Draft · hidden from fellows
+                          </span>
+                        )}
+                        {isMentorOrAdmin && assignment.status === 'closed' && (
+                          <span className="text-3xs font-extrabold text-slate-500 uppercase tracking-wider">Closed</span>
+                        )}
                       </div>
 
                       {/* Description */}
@@ -339,8 +387,7 @@ export const ProgramAssignmentsView: React.FC<ProgramAssignmentsViewProps> = ({
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>
-                              Download Materials (
-                              {assignment.attachment_name || 'Starter Files'})
+                              Starter Materials ({assignment.attachment_name || 'Starter Files'})
                             </span>
                           </a>
                         )}
@@ -575,6 +622,25 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
   const [attachmentName, setAttachmentName] = useState(existing?.attachment_name || '');
   const [status, setStatus] = useState<AssignmentStatus>(existing?.status || 'published');
   const [isUploading, setIsUploading] = useState(false);
+  const [linkInput, setLinkInput] = useState('');
+
+  const addStarterLink = () => {
+    const raw = linkInput.trim();
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+      toast.error('Paste a full link starting with https://');
+      return;
+    }
+    const lastPart = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || '');
+    setAttachmentUrl(parsed.href);
+    setAttachmentName(lastPart ? `${parsed.hostname} · ${lastPart}` : parsed.hostname);
+    setLinkInput('');
+  };
 
   // Program fellows for targeting
   const { data: fellowsData } = useQuery({
@@ -657,8 +723,8 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
       description: description.trim(),
       track_id: trackId ? trackId : undefined,
       max_score: maxScore > 0 ? maxScore : 100,
-      attachment_url: attachmentUrl || undefined,
-      attachment_name: attachmentName || undefined,
+      attachment_url: attachmentUrl,
+      attachment_name: attachmentName,
       status,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
       target_applicant_ids: targetAudience === 'specific' ? selectedFellowIds : [],
@@ -863,7 +929,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
           {/* Starter Attachment Upload */}
           <div>
             <label className="field-label">
-              Starter Materials / Template File (Optional)
+              Starter Materials / Template (Optional)
             </label>
             {attachmentUrl ? (
               <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between">
@@ -901,6 +967,32 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                   </span>
                   <span className="meta-text">Up to 100MB supported</span>
                 </div>
+              </div>
+            )}
+            {!attachmentUrl && (
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="url"
+                  aria-label="Starter material link"
+                  placeholder="…or paste a link, e.g. a file in a GitHub repo"
+                  value={linkInput}
+                  onChange={(e) => setLinkInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addStarterLink();
+                    }
+                  }}
+                  className="form-input flex-1 min-w-0"
+                />
+                <button
+                  type="button"
+                  onClick={addStarterLink}
+                  disabled={!linkInput.trim()}
+                  className="btn btn-sm btn-outline shrink-0"
+                >
+                  Add Link
+                </button>
               </div>
             )}
           </div>

@@ -78,7 +78,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	adminHandler.SetMentorRepo(mentorRepo)
 	adminHandler.SetCredentialRepo(credentialRepo)
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
-	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo)
+	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo).
+		WithProgress(submissionRepo, aiInterviewRepo, repository.NewAssignmentRepository(pool, applicantRepo, userRepo), sessionRepo)
 	calendarSvc := calendar.NewService(calendar.Config{
 		CalendarID:         cfg.GoogleCalendar.CalendarID,
 		ServiceAccountJSON: cfg.GoogleCalendar.ServiceAccountJSON,

@@ -24,6 +24,8 @@ import toast from 'react-hot-toast';
 interface LiveWhiteboardProps {
   sessionId: string;
   isMentor?: boolean;
+  /** View only: the board can be panned and zoomed but not changed */
+  readOnly?: boolean;
   initialElements?: any[];
   initialAppState?: any;
   /** Called with only the elements that changed (including deletions) since the last call */
@@ -35,6 +37,7 @@ interface LiveWhiteboardProps {
 
 export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
   sessionId,
+  readOnly = false,
   initialElements,
   initialAppState,
   onElementsChange,
@@ -542,6 +545,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
             excalidrawAPI={(api: any) => setExcalidrawAPI(api)}
             initialData={initialData}
             onChange={handleChange}
+            viewModeEnabled={readOnly}
             theme={theme}
             UIOptions={{
               canvasActions: {
