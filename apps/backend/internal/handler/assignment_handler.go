@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/kulkul/backend/internal/email"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
@@ -18,6 +19,11 @@ import (
 )
 
 type AssignmentHandler struct {
+	// Optional (see WithEmail): emails fellows about assignments
+	emailSvc    email.Service
+	orgRepo     *repository.OrgRepository
+	frontendURL string
+
 	assignmentRepo *repository.AssignmentRepository
 	programRepo    *repository.ProgramRepository
 	applicantRepo  *repository.ApplicantRepository
@@ -287,6 +293,12 @@ type CreateAssignmentRequest struct {
 	AttachmentName     string      `json:"attachment_name"`
 	Status             string      `json:"status"`
 	TargetApplicantIDs []uuid.UUID `json:"target_applicant_ids"`
+	// NotifyFellows emails the fellows given this assignment (default true)
+	NotifyFellows *bool `json:"notify_fellows,omitempty"`
+}
+
+func (req CreateAssignmentRequest) notify() bool {
+	return req.NotifyFellows == nil || *req.NotifyFellows
 }
 
 // CreateAssignment handles POST /api/v1/programs/{programId}/assignments
@@ -373,6 +385,9 @@ func (h *AssignmentHandler) CreateAssignment(w http.ResponseWriter, r *http.Requ
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if req.notify() {
+		h.notifyAssignment(r.Context(), nil, created)
+	}
 
 	httpx.JSON(w, http.StatusCreated, created)
 }
@@ -413,6 +428,9 @@ func (h *AssignmentHandler) UpdateAssignment(w http.ResponseWriter, r *http.Requ
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	// As it was before this edit, so only newly added fellows are emailed
+	before := *existing
+	before.TargetApplicantIDs = append([]uuid.UUID(nil), existing.TargetApplicantIDs...)
 
 	if req.Title != "" {
 		existing.Title = req.Title
@@ -455,6 +473,10 @@ func (h *AssignmentHandler) UpdateAssignment(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	if req.notify() {
+		h.notifyAssignment(r.Context(), &before, updated)
 	}
 
 	httpx.JSON(w, http.StatusOK, updated)

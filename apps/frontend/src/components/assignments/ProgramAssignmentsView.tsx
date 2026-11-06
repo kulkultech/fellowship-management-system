@@ -623,6 +623,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
   const [status, setStatus] = useState<AssignmentStatus>(existing?.status || 'published');
   const [isUploading, setIsUploading] = useState(false);
   const [linkInput, setLinkInput] = useState('');
+  const [notifyFellows, setNotifyFellows] = useState(true);
 
   const addStarterLink = () => {
     const raw = linkInput.trim();
@@ -728,6 +729,7 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
       status,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
       target_applicant_ids: targetAudience === 'specific' ? selectedFellowIds : [],
+      notify_fellows: notifyFellows,
     };
 
     mutation.mutate(payload);
@@ -996,6 +998,25 @@ const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               </div>
             )}
           </div>
+
+          <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
+            <input
+              type="checkbox"
+              checked={notifyFellows}
+              onChange={(e) => setNotifyFellows(e.target.checked)}
+              className="checkbox checkbox-sm checkbox-primary rounded"
+            />
+            <div>
+              <div className="text-xs font-bold text-slate-800">Email fellows</div>
+              <div className="meta-text">
+                {status === 'draft'
+                  ? 'Drafts are not emailed; fellows get the email when you publish'
+                  : existing
+                  ? 'Email anyone newly given this assignment'
+                  : 'Email every fellow this assignment is for'}
+              </div>
+            </div>
+          </label>
 
           <div className="modal-footer">
             <button

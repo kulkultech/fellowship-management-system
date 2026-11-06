@@ -98,3 +98,43 @@ func TestNewAttendees(t *testing.T) {
 		t.Error("removing people should invite no one")
 	}
 }
+
+func TestAssignmentRecipients(t *testing.T) {
+	track := uuid.New()
+	alex := model.Applicant{ID: uuid.New(), Email: "alex@example.com", TrackID: &track}
+	sarah := model.Applicant{ID: uuid.New(), Email: "sarah@example.com"}
+	jane := model.Applicant{ID: uuid.New(), Email: "jane@example.com"}
+	noEmail := model.Applicant{ID: uuid.New()}
+	fellows := []model.Applicant{alex, sarah, jane, noEmail}
+	names := func(list []model.Applicant) string {
+		out := ""
+		for _, f := range list {
+			out += f.Email + ";"
+		}
+		return out
+	}
+
+	everyone := &model.ProgramAssignment{Status: model.AssignmentStatusPublished}
+	if got := names(assignmentRecipients(fellows, nil, everyone)); got != "alex@example.com;sarah@example.com;jane@example.com;" {
+		t.Errorf("new cohort-wide assignment emails %q", got)
+	}
+
+	solo := &model.ProgramAssignment{Status: model.AssignmentStatusPublished, TargetApplicantIDs: []uuid.UUID{sarah.ID}}
+	plusJane := &model.ProgramAssignment{Status: model.AssignmentStatusPublished, TargetApplicantIDs: []uuid.UUID{sarah.ID, jane.ID}}
+	if got := names(assignmentRecipients(fellows, solo, plusJane)); got != "jane@example.com;" {
+		t.Errorf("adding Jane emails %q, want only Jane", got)
+	}
+
+	draft := &model.ProgramAssignment{Status: model.AssignmentStatusDraft, TargetApplicantIDs: []uuid.UUID{sarah.ID}}
+	if got := names(assignmentRecipients(fellows, nil, draft)); got != "" {
+		t.Errorf("a draft emails %q, want no one", got)
+	}
+	if got := names(assignmentRecipients(fellows, draft, solo)); got != "sarah@example.com;" {
+		t.Errorf("publishing a draft emails %q, want Sarah", got)
+	}
+
+	trackOnly := &model.ProgramAssignment{Status: model.AssignmentStatusPublished, TrackID: &track}
+	if got := names(assignmentRecipients(fellows, nil, trackOnly)); got != "alex@example.com;" {
+		t.Errorf("track assignment emails %q, want Alex", got)
+	}
+}

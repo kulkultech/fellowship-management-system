@@ -1288,5 +1288,61 @@ func buildSessionInvitationEmail(
 	return subject, html, text
 }
 
+// buildAssignmentEmail announces an assignment to a fellow: title, due date, points and a link to it.
+func buildAssignmentEmail(recipientName, programName string, a *model.ProgramAssignment, assignmentURL, frontendURL, supportEmail string) (subject, html, text string) {
+	if recipientName == "" {
+		recipientName = "Fellow"
+	}
+	subject = fmt.Sprintf("New assignment: %s - %s", a.Title, programName)
 
+	due := "No deadline"
+	if a.DueDate != nil {
+		loc, _ := time.LoadLocation("Asia/Jakarta")
+		if loc == nil {
+			loc = time.FixedZone("WIB", 7*3600)
+		}
+		due = a.DueDate.In(loc).Format("Monday, 02 Jan 2006, 15:04") + " WIB"
+	}
 
+	// A short preview of the instructions; the full text is in the program room
+	preview := strings.TrimSpace(a.Description)
+	if r := []rune(preview); len(r) > 300 {
+		preview = strings.TrimSpace(string(r[:300])) + "…"
+	}
+	previewHTML := ""
+	if preview != "" {
+		previewHTML = fmt.Sprintf(`<p style="white-space: pre-line; color: #475569; font-size: 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px;">%s</p>`, template.HTMLEscapeString(preview))
+	}
+
+	row := func(label, value string, last bool) string {
+		border := "border-bottom: 1px solid #edf2f7;"
+		if last {
+			border = ""
+		}
+		return fmt.Sprintf(`<tr>
+          <td style="padding: 12px 18px; color: #64748b; font-size: 13px; font-weight: 600; width: 40%%; %s">%s</td>
+          <td style="padding: 12px 18px; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right; %s">%s</td>
+        </tr>`, border, label, border, template.HTMLEscapeString(value))
+	}
+
+	body := fmt.Sprintf(`
+    <h2>New assignment: %s</h2>
+    <p>Hi <strong>%s</strong>,</p>
+    <p>You have a new assignment in <strong>%s</strong>.</p>
+
+    <table style="width: 100%%; border-collapse: separate; border-spacing: 0; margin: 24px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;" cellpadding="0" cellspacing="0">
+      <tbody>%s%s</tbody>
+    </table>
+    %s
+    <div class="btn-container">
+      <a href="%s" class="btn" style="background-color: #33125d; color: #ffffff;">Open Assignment</a>
+    </div>
+  `, template.HTMLEscapeString(a.Title), template.HTMLEscapeString(recipientName), template.HTMLEscapeString(programName),
+		row("Due", due, false), row("Points", fmt.Sprintf("%d", a.MaxScore), true),
+		previewHTML, template.HTMLEscapeString(assignmentURL))
+
+	html, _ = renderHTML(subject, frontendURL, supportEmail, body)
+	text = fmt.Sprintf("Hi %s,\n\nYou have a new assignment in %s: %s\n\nDue: %s\nPoints: %d\n\n%s\n\nOpen it here:\n%s\n",
+		recipientName, programName, a.Title, due, a.MaxScore, preview, assignmentURL)
+	return
+}

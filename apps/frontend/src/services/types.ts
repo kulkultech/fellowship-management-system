@@ -920,6 +920,8 @@ export interface CreateAssignmentPayload {
   attachment_name?: string;
   status?: AssignmentStatus;
   target_applicant_ids?: string[];
+  /** Email the fellows given this assignment (on edits: only those newly added). Default true. */
+  notify_fellows?: boolean;
 }
 
 export interface SubmitAssignmentPayload {

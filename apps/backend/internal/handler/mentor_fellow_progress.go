@@ -107,30 +107,34 @@ func (h *MentorHandler) withProgress(ctx context.Context, programID uuid.UUID, f
 	return out
 }
 
+// assignmentIsFor reports whether a published assignment is meant for this fellow: the whole
+// cohort, their track, or a list of fellows that includes them.
+func assignmentIsFor(f model.Applicant, a *model.ProgramAssignment) bool {
+	if a.Status == model.AssignmentStatusDraft {
+		return false
+	}
+	if a.TrackID != nil && (f.TrackID == nil || *f.TrackID != *a.TrackID) {
+		return false
+	}
+	if len(a.TargetApplicantIDs) == 0 {
+		return true
+	}
+	for _, id := range a.TargetApplicantIDs {
+		if id == f.ID {
+			return true
+		}
+	}
+	return false
+}
+
 // assignmentProgress counts one fellow's published assignments (all-cohort, their track, or
 // targeted at them) and how many they handed in and got graded.
 func assignmentProgress(f model.Applicant, assignments []*model.ProgramAssignment, subs []*model.AssignmentSubmission) fellowAssignmentProgress {
 	mine := map[uuid.UUID]*model.ProgramAssignment{}
 	for _, a := range assignments {
-		if a.Status == model.AssignmentStatusDraft {
-			continue
+		if assignmentIsFor(f, a) {
+			mine[a.ID] = a
 		}
-		if a.TrackID != nil && (f.TrackID == nil || *f.TrackID != *a.TrackID) {
-			continue
-		}
-		if len(a.TargetApplicantIDs) > 0 {
-			targeted := false
-			for _, id := range a.TargetApplicantIDs {
-				if id == f.ID {
-					targeted = true
-					break
-				}
-			}
-			if !targeted {
-				continue
-			}
-		}
-		mine[a.ID] = a
 	}
 
 	p := fellowAssignmentProgress{Total: len(mine)}

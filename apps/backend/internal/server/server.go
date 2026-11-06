@@ -100,7 +100,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	wsHub := sessionws.NewHub(sessionRepo, logger, wsOpts)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, programRepo, applicantRepo, mentorRepo, userRepo, calendarSvc, emailSvc, cfg.SES.FrontendURL, authSvc, wsHub, repository.NewSessionFeedbackRepository(pool))
 	assignmentRepo := repository.NewAssignmentRepository(pool, applicantRepo, userRepo)
-	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo)
+	assignmentHandler := handler.NewAssignmentHandler(assignmentRepo, programRepo, applicantRepo, mentorRepo, userRepo).
+		WithEmail(emailSvc, orgRepo, cfg.SES.FrontendURL)
 	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo)
 	fellowGroupHandler := handler.NewFellowGroupHandler(repository.NewFellowGroupRepository(pool), programRepo, applicantRepo, mentorRepo)
 	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))

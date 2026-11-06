@@ -80,6 +80,10 @@ func (m *mockSessionCalendarEmailService) SendCustomFinalInterviewInvitationEmai
 func (m *mockSessionCalendarEmailService) SendRejectionEmail(recipientEmail, candidateName, programName, trackName, notes string, customTmpl *model.EmailTemplateConfig) error {
 	return nil
 }
+func (m *mockSessionCalendarEmailService) SendAssignmentEmail(recipientEmail, recipientName, programName string, assignment *model.ProgramAssignment, assignmentURL string) error {
+	return nil
+}
+
 func (m *mockSessionCalendarEmailService) SendCustomEmail(recipientEmail string, customTmpl *model.EmailTemplateConfig, vars map[string]string, actionURL string) error {
 	return nil
 }
