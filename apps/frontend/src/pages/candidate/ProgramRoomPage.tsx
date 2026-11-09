@@ -32,6 +32,7 @@ import {
   CalendarDays,
   BookOpen,
   Link2,
+  MessageSquare,
 } from 'lucide-react';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 import { RoomContentView, roomContentQueryKey } from '@/components/room/RoomContentView';
@@ -556,6 +557,16 @@ export const ProgramRoomPage: React.FC = () => {
                                 <Camera className="w-3.5 h-3.5" />
                                 <span>Check-in Attendance</span>
                               </button>
+                            )}
+
+                            {sess.ended_at && (
+                              <Link
+                                to={`/programs/${orgSlug}/${programSlug}/sessions/${sess.id}/room?tab=feedback`}
+                                className="btn btn-sm btn-primary"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
+                              </Link>
                             )}
 
                             <Link

@@ -436,7 +436,7 @@ export const LiveWhiteboard: React.FC<LiveWhiteboardProps> = ({
         embedded ? '' : 'rounded-3xl border border-slate-200 shadow-sm'
       } ${
         isFullscreen
-          ? 'fixed inset-0 z-50 rounded-none border-none'
+          ? 'fixed inset-0 !m-0 z-50 rounded-none border-none'
           : embedded
           ? 'h-[720px] w-full'
           : 'h-[750px] w-full'

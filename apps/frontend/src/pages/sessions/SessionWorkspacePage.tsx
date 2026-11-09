@@ -102,8 +102,20 @@ export const SessionWorkspacePage: React.FC = () => {
   const isMentorOrAdmin =
     user?.role === 'mentor' || user?.role === 'org_admin' || user?.role === 'superadmin';
 
-  // The open file (its id), or 'feedback'
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<string>('');
+  // The open file (its id), or 'feedback'. A link with ?tab=feedback opens the feedback.
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<string>(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'feedback' ? 'feedback' : ''
+  );
+  // The feedback panel can sit below the fold, so opening it also scrolls it into view
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const scrollToFeedbackRef = useRef(activeWorkspaceTab === 'feedback');
+  useEffect(() => {
+    if (activeWorkspaceTab === 'feedback' && scrollToFeedbackRef.current && feedbackRef.current) {
+      scrollToFeedbackRef.current = false;
+      // Wait for the files and the form above it to settle, so it scrolls to where the panel ends up
+      window.setTimeout(() => feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
+    }
+  });
   // Live attendance drawer (for mentors)
   const [isAttendanceDrawerOpen, setIsAttendanceDrawerOpen] = useState<boolean>(false);
   // Shared document (Yjs) for the code editor and notes: concurrent edits merge instead of overwriting
@@ -257,6 +269,7 @@ export const SessionWorkspacePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['session-detail', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['session-feedback', sessionId] });
       if (payload.ended_at && !isMentorOrAdmin) {
+        scrollToFeedbackRef.current = true;
         setActiveWorkspaceTab('feedback');
         toast.success(`${payload.ended_by_name || 'Your mentor'} ended the session. Please share your feedback.`);
       }
@@ -394,6 +407,7 @@ export const SessionWorkspacePage: React.FC = () => {
       queryClient.setQueryData(['session-detail', sessionId], (old: any) => (old ? { ...old, ...updated } : updated));
       queryClient.invalidateQueries({ queryKey: ['session-feedback', sessionId] });
       if (end) {
+        scrollToFeedbackRef.current = true;
         setActiveWorkspaceTab('feedback');
         toast.success('Session ended. Feedback is now open for fellows.');
       } else {
@@ -438,6 +452,15 @@ export const SessionWorkspacePage: React.FC = () => {
     if (isMentorOrAdmin && tab !== 'feedback') {
       sendTabChange(tab);
     }
+  };
+
+  const openFeedback = () => {
+    if (activeWorkspaceTab === 'feedback') {
+      feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    scrollToFeedbackRef.current = true;
+    handleSelectTab('feedback');
   };
 
   const handleCreateFile = (name: string) => {
@@ -672,7 +695,7 @@ export const SessionWorkspacePage: React.FC = () => {
                   </button>
                 )}
                 {activeWorkspaceTab !== 'feedback' && (
-                  <button type="button" onClick={() => handleSelectTab('feedback')} className="btn btn-sm btn-primary">
+                  <button type="button" onClick={openFeedback} className="btn btn-sm btn-primary">
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
                   </button>
@@ -682,7 +705,7 @@ export const SessionWorkspacePage: React.FC = () => {
           )}
 
           {activeWorkspaceTab === 'feedback' && (
-            <div className="p-4 sm:p-6 bg-slate-50">
+            <div ref={feedbackRef} className="p-4 sm:p-6 bg-slate-50 scroll-mt-24">
               <SessionFeedbackPanel sessionId={session.id} />
             </div>
           )}
@@ -777,12 +800,19 @@ export const SessionWorkspacePage: React.FC = () => {
           </div>
 
           <div className="content-card p-5 sm:p-5 space-y-2.5">
+            {/* Once the session has ended, feedback is the main thing to do here */}
+            {isSessionEnded && (
+              <button type="button" onClick={openFeedback} className="btn btn-sm btn-primary w-full">
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
+              </button>
+            )}
             {session.meeting_url && (
               <a
                 href={session.meeting_url}
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-sm btn-primary w-full"
+                className={`btn btn-sm w-full ${isSessionEnded ? 'btn-outline' : 'btn-primary'}`}
                 title="Open live video call"
               >
                 <Video className="w-3.5 h-3.5" />
@@ -899,7 +929,7 @@ export const SessionWorkspacePage: React.FC = () => {
 
       {/* Mentor In-Session Attendance Drawer */}
       {isAttendanceDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 !m-0 z-50 flex items-center justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white border-l border-slate-200 w-full max-w-xl h-full shadow-2xl flex flex-col justify-between p-6 space-y-4 animate-in slide-in-from-right duration-200">
             {/* Header */}
             <div className="section-header">

@@ -244,7 +244,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         {isMobileSidebarOpen && (
           <div
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-30 lg:hidden"
+            className="fixed inset-0 !m-0 bg-slate-900/40 backdrop-blur-xs z-30 lg:hidden"
           />
         )}
 

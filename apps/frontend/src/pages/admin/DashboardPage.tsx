@@ -2851,7 +2851,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                   {showCandidateExportMenu && (
                     <>
                       <div
-                        className="fixed inset-0 z-40"
+                        className="fixed inset-0 !m-0 z-40"
                         onClick={() => setShowCandidateExportMenu(false)}
                       />
                       <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
@@ -4741,7 +4741,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
                 setSelectedApplicantId(null);
               }
             }}
-            className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end cursor-pointer"
+            className="fixed inset-0 !m-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end cursor-pointer"
           >
             <div
               onClick={(e) => e.stopPropagation()}

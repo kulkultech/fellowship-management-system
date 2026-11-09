@@ -849,7 +849,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       ref={containerRef}
       className={`flex flex-col bg-slate-900 overflow-hidden transition-all ${
         embedded ? '' : 'border border-slate-800 rounded-3xl shadow-xl'
-      } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : embedded ? 'h-[720px] w-full' : 'h-[750px] w-full'}`}
+      } ${isFullscreen ? 'fixed inset-0 !m-0 z-50 rounded-none' : embedded ? 'h-[720px] w-full' : 'h-[750px] w-full'}`}
     >
       {/* 1. TOP TOOLBAR */}
       <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs select-none">

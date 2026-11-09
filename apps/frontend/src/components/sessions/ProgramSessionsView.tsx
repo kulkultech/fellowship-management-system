@@ -37,6 +37,7 @@ import {
   Code2,
   CalendarDays,
   Repeat,
+  MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
@@ -872,6 +873,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                             <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
                             <span>Calendar</span>
                           </a>
+                        )}
+
+                        {sess.ended_at && (
+                          <Link to={`/sessions/${sess.id}/room?tab=feedback`} className="btn btn-sm btn-outline">
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Feedback</span>
+                          </Link>
                         )}
 
                         <Link

@@ -392,9 +392,10 @@
     @apply text-2xl font-extrabold text-slate-900;
   }
 
-  /* Dialogs: backdrop, panel, and footer actions (Cancel left of the primary action) */
+  /* Dialogs: backdrop, panel, and footer actions (Cancel left of the primary action).
+     The backdrop drops any margin a parent's space-y gives it, which would leave a strip above it. */
   .modal-backdrop {
-    @apply fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto;
+    @apply fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto;
   }
 
   .modal-panel {
