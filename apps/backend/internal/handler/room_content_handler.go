@@ -11,10 +11,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kulkul/backend/internal/auth"
+	"github.com/kulkul/backend/internal/github"
 	"github.com/kulkul/backend/internal/httpx"
 	"github.com/kulkul/backend/internal/middleware"
 	"github.com/kulkul/backend/internal/model"
 	"github.com/kulkul/backend/internal/repository"
+	"github.com/kulkul/backend/pkg/storage"
 )
 
 const (
@@ -40,6 +42,9 @@ type RoomContentHandler struct {
 	programRepo   *repository.ProgramRepository
 	applicantRepo *repository.ApplicantRepository
 	mentorRepo    *repository.MentorRepository
+	// For importing a curriculum from a book: images go to store, repositories come from github
+	store  storage.Storage
+	github *github.Client
 }
 
 func NewRoomContentHandler(
@@ -47,8 +52,13 @@ func NewRoomContentHandler(
 	programRepo *repository.ProgramRepository,
 	applicantRepo *repository.ApplicantRepository,
 	mentorRepo *repository.MentorRepository,
+	store storage.Storage,
+	githubClient *github.Client,
 ) *RoomContentHandler {
-	return &RoomContentHandler{contentRepo: contentRepo, programRepo: programRepo, applicantRepo: applicantRepo, mentorRepo: mentorRepo}
+	return &RoomContentHandler{
+		contentRepo: contentRepo, programRepo: programRepo, applicantRepo: applicantRepo, mentorRepo: mentorRepo,
+		store: store, github: githubClient,
+	}
 }
 
 // canEdit: superadmins, admins/reviewers of the program's organization, and the program's mentors.
@@ -133,11 +143,13 @@ func (h *RoomContentHandler) GetContent(w http.ResponseWriter, r *http.Request) 
 		for _, item := range content.Curriculum {
 			if item.IsFor(fellow.ID, fellow.TrackID) {
 				item.TrackID, item.TargetApplicantIDs = nil, nil
+				item.Source, item.SourceFile = "", ""
 				mine = append(mine, item)
 			}
 		}
 		shown := *content
 		shown.Curriculum = mine
+		shown.CurriculumSource = nil
 		content = &shown
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"content": content, "can_edit": canEdit})
@@ -209,6 +221,7 @@ func (h *RoomContentHandler) SaveCurriculum(w http.ResponseWriter, r *http.Reque
 		items = append(items, model.CurriculumItem{
 			ID: roomItemID(it.ID), Title: title, Description: desc, StartDate: start, EndDate: end,
 			TrackID: it.TrackID, TargetApplicantIDs: uniqueIDs(it.TargetApplicantIDs),
+			Source: strings.TrimSpace(it.Source), SourceFile: strings.TrimSpace(it.SourceFile),
 		})
 	}
 	content, err := h.contentRepo.SaveCurriculum(r.Context(), program.ID, claims.UserID, items)

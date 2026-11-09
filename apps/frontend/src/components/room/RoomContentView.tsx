@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDown,
@@ -13,6 +13,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Upload,
   User,
   UserCheck,
   Users,
@@ -29,8 +30,10 @@ import { MarkdownContent } from '@/components/ui/MarkdownContent';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { focusItemDomId, useFocusItem } from '@/hooks/useFocusItem';
 import { roomLink } from '@/utils/shareLinks';
+import { markdownPreview } from '@/utils/markdownPreview';
 import { mentorService } from '@/services/mentorService';
 import { FellowPicker } from '@/components/sessions/FellowPicker';
+import { BookImportDialog, BookSourceBar } from './BookImport';
 
 interface RoomContentViewProps {
   programId: string;
@@ -114,6 +117,7 @@ const audienceLabel = (item: CurriculumItem, tracks: Array<{ id: string; name: s
 export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, section, orgSlug, programSlug, focusId, tracks = [] }) => {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: roomContentQueryKey(programId),
@@ -123,6 +127,10 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
   const canEdit = Boolean(data?.can_edit);
   const curriculum = data?.content.curriculum || [];
   const resources = data?.content.resources || [];
+  const bookSource = section === 'curriculum' ? data?.content.curriculum_source : undefined;
+  const hasBookModules = curriculum.some((c) => c.source);
+  // The module being edited, when it came from the imported book
+  const editingFromBook = draft?.id ? curriculum.find((c) => c.id === draft.id && c.source) : undefined;
   const items: Array<CurriculumItem | RoomResource> = section === 'curriculum' ? curriculum : resources;
   const highlighted = useFocusItem(focusId, !isLoading);
   const linkTo = (id: string) => (orgSlug && programSlug ? roomLink(orgSlug, programSlug, section, id) : '');
@@ -183,6 +191,8 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
             end_date: draft.end_date,
             track_id: draft.track_id || undefined,
             target_applicant_ids: draft.audience === 'specific' ? draft.target_ids : undefined,
+            source: editingFromBook?.source,
+            source_file: editingFromBook?.source_file,
           }
         : { id: draft.id || '', title: draft.title, description: draft.description, url: draft.url, category: draft.category };
     const next = draft.id
@@ -223,13 +233,22 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
   return (
     <div className="content-card space-y-4">
       {canEdit && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {section === 'curriculum' && (
+            <button type="button" onClick={() => setImporting(true)} className="btn btn-sm btn-outline">
+              <Upload className="w-3.5 h-3.5" />
+              <span>Import Book</span>
+            </button>
+          )}
           <button type="button" onClick={() => openEditor()} className="btn btn-sm btn-primary">
             <Plus className="w-3.5 h-3.5" />
             <span>Add {noun}</span>
           </button>
         </div>
       )}
+
+      {canEdit && bookSource && hasBookModules && <BookSourceBar programId={programId} source={bookSource} onImport={() => setImporting(true)} />}
+      {importing && <BookImportDialog programId={programId} source={bookSource} onClose={() => setImporting(false)} />}
 
       {items.length === 0 ? (
         <div className="py-12 text-center space-y-2">
@@ -272,7 +291,9 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
                       </span>
                     )}
                   </div>
-                  {range && <p className="meta-text">{range}</p>}
+                  {(range || (canEdit && item.source_file)) && (
+                    <p className="meta-text">{[range, canEdit && item.source_file ? `Book: ${item.source_file}` : ''].filter(Boolean).join(' · ')}</p>
+                  )}
                   {item.description && (
                     <div className="pt-2">
                       <ModuleContent markdown={item.description} startOpen={current || item.id === focusId} />
@@ -438,6 +459,13 @@ export const RoomContentView: React.FC<RoomContentViewProps> = ({ programId, sec
 
               {section === 'curriculum' && (
                 <ModuleAudience programId={programId} tracks={tracks} fellows={allFellows} draft={draft} onChange={setDraft} />
+              )}
+
+              {editingFromBook && (
+                <p className="text-xs text-amber-700">
+                  This module comes from <code>{editingFromBook.source_file}</code> in the imported book. Change its content there: the next import
+                  replaces the title and content here. Dates and audience are kept.
+                </p>
               )}
 
               {section === 'curriculum' ? (
@@ -645,19 +673,23 @@ const ModuleContent: React.FC<{ markdown: string; startOpen: boolean }> = ({ mar
   const [open, setOpen] = useState(startOpen);
   const [isLong, setIsLong] = useState(false);
 
+  // A long module (a whole book chapter) renders only its start until it is opened
+  const preview = useMemo(() => markdownPreview(markdown), [markdown]);
+  const truncated = preview !== markdown;
+
   useLayoutEffect(() => {
     // Fold only when it saves real space, not to hide the last line or two
-    if (ref.current) setIsLong(ref.current.scrollHeight > COLLAPSED_HEIGHT_PX + 80);
-  }, [markdown]);
+    if (ref.current) setIsLong(truncated || ref.current.scrollHeight > COLLAPSED_HEIGHT_PX + 80);
+  }, [markdown, truncated]);
 
-  const folded = isLong && !open;
+  const folded = (isLong || truncated) && !open;
   return (
     <div>
       <div ref={ref} className={`relative ${folded ? 'max-h-60 overflow-hidden' : ''}`}>
-        <MarkdownContent>{markdown}</MarkdownContent>
+        <MarkdownContent>{folded ? preview : markdown}</MarkdownContent>
         {folded && <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />}
       </div>
-      {isLong && (
+      {(isLong || truncated) && (
         <button type="button" onClick={() => setOpen((o) => !o)} className="btn btn-sm btn-ghost mt-2 -ml-2">
           {open ? 'Show less' : 'Read more'}
         </button>

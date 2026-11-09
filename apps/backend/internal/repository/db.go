@@ -564,6 +564,8 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
+	-- Where the curriculum was imported from (a Leanpub-style book on GitHub or in a zip)
+	ALTER TABLE program_room_content ADD COLUMN IF NOT EXISTS curriculum_source JSONB;
 	`
 
 	if _, err := pool.Exec(ctx, schema); err != nil {

@@ -17,6 +17,10 @@ type CurriculumItem struct {
 	// one track, and/or a list of fellows (a group or one person).
 	TrackID            *uuid.UUID  `json:"track_id,omitempty"`
 	TargetApplicantIDs []uuid.UUID `json:"target_applicant_ids,omitempty"`
+	// Source is the book chapter a module was imported from (see CurriculumSource); a new import
+	// replaces its title and content. Empty for modules written in FellowHire.
+	Source     string `json:"source,omitempty"`
+	SourceFile string `json:"source_file,omitempty"`
 }
 
 // IsFor reports whether a fellow (their application) is in this module's audience.
@@ -56,4 +60,20 @@ type ProgramRoomContent struct {
 	Curriculum []CurriculumItem `json:"curriculum"`
 	Resources  []RoomResource   `json:"resources"`
 	UpdatedAt  *time.Time       `json:"updated_at,omitempty"`
+	// CurriculumSource is the book the curriculum was last imported from (staff only).
+	CurriculumSource *CurriculumSource `json:"curriculum_source,omitempty"`
+}
+
+// CurriculumSource is where a curriculum's modules were imported from: a Leanpub-style book
+// (Book.txt plus Markua chapters) in a GitHub repository or an uploaded zip.
+type CurriculumSource struct {
+	Kind       string     `json:"kind"`           // github | zip
+	Repo       string     `json:"repo,omitempty"` // owner/name
+	Ref        string     `json:"ref,omitempty"`  // branch, tag or commit; empty: default branch
+	Path       string     `json:"path,omitempty"` // folder holding the book, when not found by itself
+	Commit     string     `json:"commit,omitempty"`
+	FileName   string     `json:"file_name,omitempty"`
+	BookDir    string     `json:"book_dir,omitempty"`
+	ImportedAt time.Time  `json:"imported_at"`
+	ImportedBy *uuid.UUID `json:"imported_by,omitempty"`
 }

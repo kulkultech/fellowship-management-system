@@ -108,9 +108,10 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 		handler.NewReminders(repository.NewReminderRepository(pool), sessionRepo, assignmentRepo, applicantRepo,
 			programRepo, orgRepo, emailSvc, cfg.SES.FrontendURL, logger).Start(context.Background())
 	}
-	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo)
+	githubClient := github.NewClient(cfg.GitHubToken)
+	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo, store, githubClient)
 	fellowGroupHandler := handler.NewFellowGroupHandler(repository.NewFellowGroupRepository(pool), programRepo, applicantRepo, mentorRepo)
-	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, github.NewClient(cfg.GitHubToken))
+	githubHandler := handler.NewGitHubHandler(repository.NewGitHubRepository(pool), programRepo, applicantRepo, mentorRepo, githubClient)
 	if pool != nil {
 		githubHandler.StartAutoSync(context.Background())
 	}
@@ -373,6 +374,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 			// Compressed: the curriculum can hold whole chapters of course material
 			protected.With(chimiddleware.Compress(5, "application/json")).Get("/programs/{programId}/room-content", roomContentHandler.GetContent)
 			protected.Put("/programs/{programId}/room-content/curriculum", roomContentHandler.SaveCurriculum)
+			protected.Post("/programs/{programId}/room-content/curriculum/import", roomContentHandler.ImportCurriculum)
 			protected.Put("/programs/{programId}/room-content/resources", roomContentHandler.SaveResources)
 
 			// Fellow Groups: named sets of fellows for targeting sessions and assignments

@@ -42,17 +42,21 @@ func (r *RoomContentRepository) Get(ctx context.Context, programID uuid.UUID) (*
 			cp := *c
 			cp.Curriculum = append([]model.CurriculumItem{}, c.Curriculum...)
 			cp.Resources = append([]model.RoomResource{}, c.Resources...)
+			if c.CurriculumSource != nil {
+				src := *c.CurriculumSource
+				cp.CurriculumSource = &src
+			}
 			return &cp, nil
 		}
 		return emptyRoomContent(programID), nil
 	}
 
-	var rawCurriculum, rawResources []byte
+	var rawCurriculum, rawResources, rawSource []byte
 	var updatedAt time.Time
 	err := r.pool.QueryRow(ctx,
-		`SELECT curriculum, resources, updated_at FROM program_room_content WHERE program_id = $1`,
+		`SELECT curriculum, resources, curriculum_source, updated_at FROM program_room_content WHERE program_id = $1`,
 		programID,
-	).Scan(&rawCurriculum, &rawResources, &updatedAt)
+	).Scan(&rawCurriculum, &rawResources, &rawSource, &updatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return emptyRoomContent(programID), nil
 	}
@@ -63,6 +67,12 @@ func (r *RoomContentRepository) Get(ctx context.Context, programID uuid.UUID) (*
 	content.UpdatedAt = &updatedAt
 	_ = json.Unmarshal(rawCurriculum, &content.Curriculum)
 	_ = json.Unmarshal(rawResources, &content.Resources)
+	if len(rawSource) > 0 && string(rawSource) != "null" {
+		var src model.CurriculumSource
+		if json.Unmarshal(rawSource, &src) == nil {
+			content.CurriculumSource = &src
+		}
+	}
 	if content.Curriculum == nil {
 		content.Curriculum = []model.CurriculumItem{}
 	}
@@ -75,6 +85,38 @@ func (r *RoomContentRepository) Get(ctx context.Context, programID uuid.UUID) (*
 // SaveCurriculum replaces the program's curriculum list.
 func (r *RoomContentRepository) SaveCurriculum(ctx context.Context, programID, updatedBy uuid.UUID, items []model.CurriculumItem) (*model.ProgramRoomContent, error) {
 	return r.save(ctx, programID, updatedBy, "curriculum", items)
+}
+
+// SaveImportedCurriculum replaces the curriculum with the result of a book import and records
+// where it came from.
+func (r *RoomContentRepository) SaveImportedCurriculum(ctx context.Context, programID, updatedBy uuid.UUID, items []model.CurriculumItem, source model.CurriculumSource) (*model.ProgramRoomContent, error) {
+	if r.pool == nil {
+		if _, err := r.save(ctx, programID, updatedBy, "curriculum", items); err != nil {
+			return nil, err
+		}
+		r.mu.Lock()
+		src := source
+		r.mem[programID].CurriculumSource = &src
+		r.mu.Unlock()
+		return r.Get(ctx, programID)
+	}
+	rawItems, err := json.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("room_content_repo: encode curriculum: %w", err)
+	}
+	rawSource, err := json.Marshal(source)
+	if err != nil {
+		return nil, fmt.Errorf("room_content_repo: encode curriculum source: %w", err)
+	}
+	if _, err := r.pool.Exec(ctx, `
+		INSERT INTO program_room_content (program_id, curriculum, curriculum_source, updated_by, updated_at)
+		VALUES ($1, $2, $3, $4, now())
+		ON CONFLICT (program_id) DO UPDATE SET curriculum = EXCLUDED.curriculum,
+			curriculum_source = EXCLUDED.curriculum_source, updated_by = EXCLUDED.updated_by, updated_at = now()
+	`, programID, rawItems, rawSource, updatedBy); err != nil {
+		return nil, fmt.Errorf("room_content_repo: save imported curriculum: %w", err)
+	}
+	return r.Get(ctx, programID)
 }
 
 // SaveResources replaces the program's resource list.

@@ -44,7 +44,7 @@ func TestProgramRoomContent(t *testing.T) {
 		OrganizationID: org.ID, ProgramID: program.ID, Email: "applicant@room.test", FullName: "Applicant", CurrentStage: model.StageTestInProgress,
 	})
 
-	h := handler.NewRoomContentHandler(repository.NewRoomContentRepository(nil), programRepo, applicantRepo, mentorRepo)
+	h := handler.NewRoomContentHandler(repository.NewRoomContentRepository(nil), programRepo, applicantRepo, mentorRepo, nil, nil)
 	r := chi.NewRouter()
 	r.Get("/programs/{programId}/room-content", h.GetContent)
 	r.Put("/programs/{programId}/room-content/curriculum", h.SaveCurriculum)
@@ -178,7 +178,7 @@ func TestCurriculumModuleAudience(t *testing.T) {
 		OrganizationID: org.ID, ProgramID: program.ID, Email: "budi@aud.test", FullName: "Budi", CurrentStage: model.StageApprovedForLive, TrackID: &backend,
 	})
 
-	h := handler.NewRoomContentHandler(repository.NewRoomContentRepository(nil), programRepo, applicantRepo, mentorRepo)
+	h := handler.NewRoomContentHandler(repository.NewRoomContentRepository(nil), programRepo, applicantRepo, mentorRepo, nil, nil)
 	r := chi.NewRouter()
 	r.Get("/programs/{programId}/room-content", h.GetContent)
 	r.Put("/programs/{programId}/room-content/curriculum", h.SaveCurriculum)

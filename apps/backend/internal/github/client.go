@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -330,4 +331,57 @@ func UsernameFromProfile(profile string) string {
 		return ""
 	}
 	return s
+}
+
+// ErrTooLarge is returned when a download is bigger than the caller allows.
+var ErrTooLarge = errors.New("github: repository archive is too large")
+
+// DownloadZipball downloads a repository's files at ref (empty: the default branch) as a zip.
+// Private repositories need a token that can read them.
+func (c *Client) DownloadZipball(ctx context.Context, owner, repo, ref string, maxBytes int64) ([]byte, error) {
+	target := fmt.Sprintf("%s/repos/%s/%s/zipball", c.baseURL, url.PathEscape(owner), url.PathEscape(repo))
+	if ref = strings.Trim(ref, "/"); ref != "" {
+		parts := strings.Split(ref, "/")
+		for i, p := range parts {
+			parts[i] = url.PathEscape(p)
+		}
+		target += "/" + strings.Join(parts, "/")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	// GitHub redirects to codeload.github.com; the Authorization header is not sent there (other
+	// host), and the redirect URL carries its own short-lived token for private repositories.
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("github: download failed: %w", err)
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
+		return nil, ErrNotFound
+	case (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests) &&
+		resp.Header.Get("X-RateLimit-Remaining") == "0":
+		return nil, ErrRateLimited
+	case resp.StatusCode >= 300:
+		return nil, fmt.Errorf("github: unexpected status %d downloading %s/%s", resp.StatusCode, owner, repo)
+	}
+	if resp.ContentLength > maxBytes {
+		return nil, ErrTooLarge
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("github: download failed: %w", err)
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, ErrTooLarge
+	}
+	return data, nil
 }
