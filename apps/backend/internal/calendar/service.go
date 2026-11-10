@@ -599,9 +599,15 @@ const meetSettingsScope = "https://www.googleapis.com/auth/meetings.space.settin
 
 // enableAutoRecording turns on auto-recording for the Meet room with the given meeting code.
 // Meet then starts recording as soon as someone allowed to record joins.
+// A meeting code only works as an alias for reading a space, so the space's own name is looked up
+// first and the update is sent to that name.
 func (s *googleCalendarService) enableAutoRecording(ctx context.Context, client *http.Client, meetingCode string) error {
-	apiURL := fmt.Sprintf("%s/spaces/%s?updateMask=config.artifactConfig.recordingConfig.autoRecordingGeneration",
-		s.meetAPIBase, url.PathEscape(meetingCode))
+	spaceName, err := s.lookupSpaceName(ctx, client, meetingCode)
+	if err != nil {
+		return err
+	}
+	apiURL := fmt.Sprintf("%s/%s?updateMask=config.artifactConfig.recordingConfig.autoRecordingGeneration",
+		s.meetAPIBase, spaceName)
 	body := `{"config":{"artifactConfig":{"recordingConfig":{"autoRecordingGeneration":"ON"}}}}`
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, apiURL, strings.NewReader(body))
 	if err != nil {
@@ -613,9 +619,41 @@ func (s *googleCalendarService) enableAutoRecording(ctx context.Context, client 
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("google meet api error %d: %s", resp.StatusCode, string(msg))
+	return meetAPIError(resp)
+}
+
+// lookupSpaceName returns the space's resource name (spaces/{id}) for a meeting code.
+func (s *googleCalendarService) lookupSpaceName(ctx context.Context, client *http.Client, meetingCode string) (string, error) {
+	apiURL := fmt.Sprintf("%s/spaces/%s", s.meetAPIBase, url.PathEscape(meetingCode))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return "", err
 	}
-	return nil
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if err := meetAPIError(resp); err != nil {
+		return "", err
+	}
+	var space struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&space); err != nil {
+		return "", fmt.Errorf("google meet api: reading space: %w", err)
+	}
+	id, ok := strings.CutPrefix(space.Name, "spaces/")
+	if !ok || id == "" || strings.Contains(id, "/") {
+		return "", fmt.Errorf("google meet api: unexpected space name %q", space.Name)
+	}
+	return "spaces/" + url.PathEscape(id), nil
+}
+
+func meetAPIError(resp *http.Response) error {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	return fmt.Errorf("google meet api error %d: %s", resp.StatusCode, string(msg))
 }
