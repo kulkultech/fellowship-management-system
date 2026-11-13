@@ -359,11 +359,21 @@ interface ServerStage {
   signal?: string;
 }
 
+// What a program prints when it reads input that was never given (Java's Scanner, Python's input(), C's scanf…)
+const NO_INPUT_ERRORS = ['NoSuchElementException', 'EOFError', 'EOF when reading'];
+
 /**
  * Runs a file on the server's code runner (a sandbox with time and memory limits and no network).
- * Used for compiled and other languages that cannot run in the browser.
+ * Used for compiled and other languages that cannot run in the browser. `stdin` is what the program
+ * reads as keyboard input, one value per line.
  */
-export async function runOnServer(language: string, languageName: string, fileName: string, code: string): Promise<ExecutionResult> {
+export async function runOnServer(
+  language: string,
+  languageName: string,
+  fileName: string,
+  code: string,
+  stdin = ''
+): Promise<ExecutionResult> {
   const { apiClient } = await import('@/services/apiClient');
   const start = performance.now();
   const timestamp = new Date().toLocaleTimeString();
@@ -378,7 +388,7 @@ export async function runOnServer(language: string, languageName: string, fileNa
   };
 
   try {
-    const { data } = await apiClient.post('/code/run', { language, file_name: fileName, code });
+    const { data } = await apiClient.post('/code/run', { language, file_name: fileName, code, stdin: stdin || undefined });
     const compile: ServerStage | undefined = data.compile;
     const run: ServerStage = data.run;
     const version = data.version ? ` ${data.version}` : '';
@@ -399,6 +409,14 @@ export async function runOnServer(language: string, languageName: string, fileNa
     }
     if (run.code !== 0 && run.code !== null) {
       add('error', `Exited with code ${run.code} (${languageName}${version}).`);
+      if (NO_INPUT_ERRORS.some((e) => run.stderr?.includes(e))) {
+        add(
+          'warn',
+          stdin.trim()
+            ? 'The program asked for more input than the Input box has. Add one more line per value it reads.'
+            : 'The program is waiting for keyboard input. Type it in the Input box under the console, one value per line, then run again.'
+        );
+      }
       return { logs, durationMs: ms, success: false };
     }
     add('success', `Finished in ${ms}ms (${languageName}${version}).`);

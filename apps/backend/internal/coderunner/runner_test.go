@@ -53,6 +53,14 @@ func TestRunner(t *testing.T) {
 		t.Fatalf("expected the newest installed version and limits, sent %v", body)
 	}
 
+	// Keyboard input from the workspace's Input box reaches the program as stdin
+	if _, err := c.Run(context.Background(), "go", "main.go", "package main", "Budi\n30\n"); err != nil {
+		t.Fatalf("run with input: %v", err)
+	}
+	if body["stdin"] != "Budi\n30\n" {
+		t.Fatalf("expected the input to be sent as stdin, sent %v", body["stdin"])
+	}
+
 	if _, err := c.Run(context.Background(), "rust", "main.rs", "fn main(){}", ""); err != ErrUnavailable {
 		t.Fatalf("expected a not-installed language to be reported, got %v", err)
 	}

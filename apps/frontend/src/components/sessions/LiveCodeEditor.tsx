@@ -29,6 +29,7 @@ import {
   generateHtmlPreview,
   LogItem,
 } from './codeRunners';
+import { registerJavaSnippets } from './javaSnippets';
 
 export type SupportedLanguage =
   | 'java' | 'html' | 'css' | 'javascript' | 'typescript' | 'python'
@@ -550,6 +551,8 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
   ]);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [hasCopied, setHasCopied] = useState<boolean>(false);
+  // Keyboard input for programs that read it (Scanner, input(), scanf), one value per line
+  const [stdin, setStdin] = useState<string>('');
 
   const editorRef = useRef<any>(null);
   // The mounted Monaco instance (the editor remounts when switching to and from preview-only view)
@@ -665,7 +668,8 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     }
   }, [currentLang]);
 
-  const handleEditorMount: OnMount = (editor) => {
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    registerJavaSnippets(monaco);
     editorRef.current = editor;
     setEditorInstance(editor);
     editor.onDidDispose(() => {
@@ -711,7 +715,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentLang, codeMap]);
+  }, [currentLang, codeMap, stdin]);
 
   // Run Code logic using multi-language execution engines
   const handleRunCode = async () => {
@@ -744,7 +748,13 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       } else if (currentConfig.server) {
         // Compiled and run in the server's sandbox
         setRightPanelTab('console');
-        const res = await runOnServer(currentLang, currentConfig.name, fileName || `main${currentConfig.extension}`, codeMap[currentLang]);
+        const res = await runOnServer(
+          currentLang,
+          currentConfig.name,
+          fileName || `main${currentConfig.extension}`,
+          codeMap[currentLang],
+          stdin
+        );
         setConsoleLogs((prev) => [...prev, ...res.logs]);
         runLogs = res.logs;
       }
@@ -1121,6 +1131,9 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
                 renderWhitespace: 'selection',
                 formatOnPaste: true,
                 formatOnType: true,
+                // Tab expands a shortcut such as sout; shortcuts are listed first in suggestions
+                tabCompletion: 'on',
+                snippetSuggestions: 'top',
                 lineNumbersMinChars: 3,
                 fontFamily: `'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace`,
               }}
@@ -1263,6 +1276,27 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
               </div>
             )}
 
+            {/* Keyboard input for server-run programs (Scanner, input(), scanf) */}
+            {rightPanelTab === 'console' && currentConfig.server && (
+              <div className="border-t border-slate-800 bg-slate-900/60 px-4 py-2.5 flex flex-col gap-1.5">
+                <label htmlFor="program-stdin" className="text-2xs font-bold text-slate-400">
+                  Input
+                </label>
+                <textarea
+                  id="program-stdin"
+                  rows={3}
+                  value={stdin}
+                  onChange={(e) => setStdin(e.target.value)}
+                  spellCheck={false}
+                  placeholder={'One value per line, for example:\nBudi\n30'}
+                  className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 font-mono text-2xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-kulkul-purple"
+                />
+                <p className="text-3xs text-slate-500">
+                  The program reads these lines in order when it asks for input. Sent with each Run.
+                </p>
+              </div>
+            )}
+
             {/* Panel Body: Live Web Preview iframe */}
             {rightPanelTab === 'web-preview' && (
               <div className="flex-1 bg-slate-900/50 p-3 overflow-hidden flex items-center justify-center">
@@ -1289,7 +1323,19 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       </div>
 
       {/* 4. FOOTER STATUS BAR */}
-      <div className="bg-slate-950 px-4 py-1.5 border-t border-slate-800 text-3xs text-slate-500 flex items-center justify-end">
+      <div className="bg-slate-950 px-4 py-1.5 border-t border-slate-800 text-3xs text-slate-500 flex items-center justify-end gap-4">
+        {currentLang === 'java' && (
+          <span>
+            Shortcuts: type{' '}
+            {['sout', 'souf', 'psvm', 'fori', 'iter'].map((s, i) => (
+              <React.Fragment key={s}>
+                {i > 0 && ', '}
+                <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{s}</kbd>
+              </React.Fragment>
+            ))}{' '}
+            then Tab
+          </span>
+        )}
         <span>Press <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Ctrl+Enter</kbd> to Run</span>
       </div>
     </div>
