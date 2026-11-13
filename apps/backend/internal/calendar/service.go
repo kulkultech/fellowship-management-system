@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -84,9 +85,10 @@ type Service interface {
 type googleCalendarService struct {
 	calendarID string
 	jwtConfig  *jwt.Config
-	// meetConfig is set when auto-recording is on; it asks for the Meet settings scope separately,
-	// so a missing grant only skips recording instead of breaking calendar events.
+	// meetConfig and meetClient are set when auto-recording is on; they ask for the Meet settings
+	// scope separately, so a missing grant only skips recording instead of breaking calendar events.
 	meetConfig  *jwt.Config
+	meetClient  func(context.Context) *http.Client
 	meetAPIBase string
 	logger      *slog.Logger
 	httpClient  *http.Client
@@ -130,6 +132,7 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 				meetCfg := *jwtCfg
 				meetCfg.Scopes = []string{meetSettingsScope}
 				svc.meetConfig = &meetCfg
+				svc.meetClient = meetCfg.Client
 			}
 			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID, "impersonate", jwtCfg.Subject, "meet_auto_record", cfg.AutoRecord)
 		}
@@ -311,8 +314,13 @@ func (s *googleCalendarService) UpdateEvent(ctx context.Context, eventID string,
 		InvitedAttendees:     attendeeEmails,
 	}
 
-	if s.jwtConfig != nil && eventID != "" && !strings.HasPrefix(eventID, "fms-") {
-		_ = s.patchGoogleCalendarAPI(ctx, eventID, req, meetURL, description)
+	if eventID != "" && !strings.HasPrefix(eventID, "fms-") {
+		if s.jwtConfig != nil {
+			_ = s.patchGoogleCalendarAPI(ctx, eventID, req, meetURL, description)
+		}
+		// Saving a session also turns on auto-recording for its Meet room, so rooms created before
+		// auto-recording was enabled can be fixed by editing the session.
+		s.turnOnAutoRecording(ctx, meetingCodeFromURL(meetURL))
 	}
 
 	return res, nil
@@ -453,11 +461,7 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 		meetURL = fallbackMeetURL
 	}
 
-	if s.meetConfig != nil && respBody.ConferenceData.ConferenceID != "" {
-		if err := s.enableAutoRecording(ctx, s.meetConfig.Client(ctx), respBody.ConferenceData.ConferenceID); err != nil {
-			s.logger.Warn("could not turn on Meet auto-recording; the meeting will not record on its own", "meeting_code", respBody.ConferenceData.ConferenceID, "error", err)
-		}
-	}
+	s.turnOnAutoRecording(ctx, respBody.ConferenceData.ConferenceID)
 
 	return &EventResult{
 		EventID:    respBody.ID,
@@ -596,6 +600,35 @@ func untilAsUTC(rrule string, loc *time.Location) string {
 }
 
 const meetSettingsScope = "https://www.googleapis.com/auth/meetings.space.settings"
+
+// meetingCodePattern matches a Google Meet code such as abc-defg-hij.
+var meetingCodePattern = regexp.MustCompile(`^[a-z]{3}-[a-z]{4}-[a-z]{3}$`)
+
+// meetingCodeFromURL returns the meeting code of a Google Meet link, or "" for any other link.
+func meetingCodeFromURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host != "meet.google.com" {
+		return ""
+	}
+	code := strings.Trim(u.Path, "/")
+	if !meetingCodePattern.MatchString(code) {
+		return ""
+	}
+	return code
+}
+
+// turnOnAutoRecording turns on auto-recording for a Meet room when auto-recording is enabled, and
+// logs the outcome either way. A failure only means the meeting won't record on its own.
+func (s *googleCalendarService) turnOnAutoRecording(ctx context.Context, meetingCode string) {
+	if s.meetClient == nil || meetingCode == "" {
+		return
+	}
+	if err := s.enableAutoRecording(ctx, s.meetClient(ctx), meetingCode); err != nil {
+		s.logger.Warn("could not turn on Meet auto-recording; the meeting will not record on its own", "meeting_code", meetingCode, "error", err)
+		return
+	}
+	s.logger.Info("turned on Meet auto-recording", "meeting_code", meetingCode)
+}
 
 // enableAutoRecording turns on auto-recording for the Meet room with the given meeting code.
 // Meet then starts recording as soon as someone allowed to record joins.
