@@ -599,7 +599,8 @@ export const SessionWorkspacePage: React.FC = () => {
       portalType={portalType}
       title={title}
       subtitle={subtitle}
-      companyName={user?.organization?.name}
+      companyId={user?.role === 'superadmin' ? session?.organization_id : undefined}
+      companyName={user?.role === 'superadmin' ? undefined : user?.organization?.name}
       companyLogoUrl={user?.organization?.logo_url}
       candidateEmail={portalType === 'candidate' ? user?.email : undefined}
       navItems={[]}

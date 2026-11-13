@@ -431,7 +431,17 @@ func (h *SessionHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, sess)
+	// The workspace page shows which organization the session belongs to
+	resp := struct {
+		*model.ProgramSession
+		OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
+	}{ProgramSession: sess}
+	if h.programRepo != nil {
+		if prog, err := h.programRepo.GetByID(r.Context(), sess.ProgramID); err == nil && prog != nil {
+			resp.OrganizationID = &prog.OrganizationID
+		}
+	}
+	httpx.JSON(w, http.StatusOK, resp)
 }
 
 // UpdateSession handles PUT /api/v1/programs/{programId}/sessions/{sessionId}

@@ -51,6 +51,8 @@ interface DashboardLayoutProps {
   title?: string;
   subtitle?: string;
   companyName?: string;
+  /** The organization being viewed, when it may differ from the signed-in user's own (superadmins) */
+  companyId?: string;
   companyLogoUrl?: string;
   navItems: NavItem[];
   activeNavId: string;
@@ -70,6 +72,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   title,
   subtitle,
   companyName,
+  companyId,
   companyLogoUrl,
   navItems: rawNavItems,
   activeNavId,
@@ -203,6 +206,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {user?.role === 'superadmin' && (portalType === 'company_admin' || portalType === 'superadmin') && (
               <SuperadminCompanySwitcher
                 variant="header"
+                activeOrgId={companyId}
                 activeOrgName={companyName}
               />
             )}

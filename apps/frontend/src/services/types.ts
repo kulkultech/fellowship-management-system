@@ -739,6 +739,8 @@ export interface SessionAttendance {
 export interface ProgramSession {
   id: string;
   program_id: string;
+  // Only on GET /sessions/{id}: the organization that runs the program
+  organization_id?: string;
   // Recurring sessions: every date is its own session, linked by series_id
   series_id?: string;
   recurrence_rule?: string; // RRULE value, e.g. FREQ=WEEKLY;BYDAY=MO

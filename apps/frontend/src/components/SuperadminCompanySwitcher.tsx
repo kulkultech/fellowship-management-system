@@ -87,7 +87,9 @@ export const SuperadminCompanySwitcher: React.FC<SuperadminCompanySwitcherProps>
       companies.find((c) => c.id === user?.organization_id || c.id === user?.organization?.id) ||
       (companies.length > 0 ? companies[0] : null);
 
+  // A known organization ID names the workspace being viewed, over any fallback name
   const displayCompanyName =
+    (currentOrgId && activeCompany?.name) ||
     activeOrgName ||
     activeCompany?.name ||
     user?.organization?.name ||
