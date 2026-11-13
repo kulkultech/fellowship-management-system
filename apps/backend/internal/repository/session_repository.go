@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -1110,4 +1111,61 @@ func (r *SessionRepository) SetSessionEnded(ctx context.Context, id uuid.UUID, e
 		return ErrSessionNotFound
 	}
 	return nil
+}
+
+// ListSessionsAwaitingRecording returns the sessions held in a Google Meet room that ended in
+// (from, to] and have no recording link yet, oldest first.
+func (r *SessionRepository) ListSessionsAwaitingRecording(ctx context.Context, from, to time.Time) ([]uuid.UUID, error) {
+	if r.pool == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		var ids []uuid.UUID
+		for _, s := range r.memSessions {
+			if s.RecordingURL == "" && strings.HasPrefix(s.MeetingURL, "https://meet.google.com/") &&
+				s.EndTime.After(from) && !s.EndTime.After(to) {
+				ids = append(ids, s.ID)
+			}
+		}
+		return ids, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT id FROM program_sessions
+		WHERE recording_url = '' AND meeting_url LIKE 'https://meet.google.com/%'
+			AND end_time > $1 AND end_time <= $2
+		ORDER BY end_time`, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("session_repo: list sessions awaiting recording: %w", err)
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("session_repo: scan session awaiting recording: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// SetRecordingURL saves a recording link on a session that has none yet, so a link someone typed in
+// is never replaced. It reports whether the link was saved.
+func (r *SessionRepository) SetRecordingURL(ctx context.Context, id uuid.UUID, recordingURL string) (bool, error) {
+	if r.pool == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		s, ok := r.memSessions[id]
+		if !ok || s.RecordingURL != "" {
+			return false, nil
+		}
+		s.RecordingURL = recordingURL
+		return true, nil
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE program_sessions SET recording_url = $2, updated_at = now() WHERE id = $1 AND recording_url = ''`,
+		id, recordingURL)
+	if err != nil {
+		return false, fmt.Errorf("session_repo: set recording url: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }

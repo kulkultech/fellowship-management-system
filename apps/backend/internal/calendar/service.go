@@ -70,7 +70,11 @@ type Config struct {
 	Impersonate string
 	// AutoRecord turns on Meet's auto-recording for the Meet rooms Google creates for events.
 	// It needs the meetings.space.settings scope added to the domain-wide delegation grant.
+	// It also turns on fetching finished recordings into FellowHire (meetings.space.readonly scope).
 	AutoRecord bool
+	// ShareRecordings gives each session's invitees view access to its recording in Google Drive.
+	// It needs the drive scope in the domain-wide delegation grant.
+	ShareRecordings bool
 }
 
 // Service defines methods for calendar & Google Meet operations.
@@ -112,21 +116,11 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 		meetAPIBase: "https://meet.googleapis.com/v2",
 	}
 
-	rawJSON := strings.TrimSpace(cfg.ServiceAccountJSON)
-	if rawJSON != "" {
-		// If ServiceAccountJSON is a path to a file, read the file
-		if _, err := os.Stat(rawJSON); err == nil {
-			content, readErr := os.ReadFile(rawJSON)
-			if readErr == nil {
-				rawJSON = string(content)
-			}
-		}
-
-		jwtCfg, err := google.JWTConfigFromJSON([]byte(rawJSON), "https://www.googleapis.com/auth/calendar.events")
+	if strings.TrimSpace(cfg.ServiceAccountJSON) != "" {
+		jwtCfg, err := serviceAccountJWT(cfg, calendarEventsScope)
 		if err != nil {
 			logger.Warn("invalid Google service account JSON; running calendar service in standalone mode", "error", err)
 		} else {
-			jwtCfg.Subject = strings.TrimSpace(cfg.Impersonate)
 			svc.jwtConfig = jwtCfg
 			if cfg.AutoRecord {
 				meetCfg := *jwtCfg
@@ -141,6 +135,26 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 	}
 
 	return svc
+}
+
+const calendarEventsScope = "https://www.googleapis.com/auth/calendar.events"
+
+// serviceAccountJWT reads the service account key (raw JSON or a path to it) and returns a config
+// that acts as the impersonated Workspace user with one scope. Each Google feature asks for its own
+// scope, so a scope missing from the domain-wide delegation grant only breaks that feature.
+func serviceAccountJWT(cfg Config, scope string) (*jwt.Config, error) {
+	raw := strings.TrimSpace(cfg.ServiceAccountJSON)
+	if _, err := os.Stat(raw); err == nil {
+		if content, readErr := os.ReadFile(raw); readErr == nil {
+			raw = string(content)
+		}
+	}
+	jwtCfg, err := google.JWTConfigFromJSON([]byte(raw), scope)
+	if err != nil {
+		return nil, err
+	}
+	jwtCfg.Subject = strings.TrimSpace(cfg.Impersonate)
+	return jwtCfg, nil
 }
 
 // GenerateGoogleCalendarWebURL builds a 1-click Google Calendar web creation URL.

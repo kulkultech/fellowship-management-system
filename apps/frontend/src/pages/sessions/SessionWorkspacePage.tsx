@@ -17,6 +17,7 @@ import {
   Pencil,
   Flag,
   RotateCcw,
+  PlayCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '@/components/DashboardLayout';
@@ -806,6 +807,19 @@ export const SessionWorkspacePage: React.FC = () => {
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
               </button>
+            )}
+            {session.recording_url && (
+              <a
+                href={session.recording_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-sm btn-outline w-full"
+                title="Watch the session recording"
+              >
+                <PlayCircle className="w-3.5 h-3.5" />
+                <span>Watch Recording</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
             )}
             {session.meeting_url && (
               <a

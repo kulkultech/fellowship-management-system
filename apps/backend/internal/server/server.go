@@ -80,12 +80,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	candidateHandler := handler.NewCandidateHandler(orgRepo, programRepo, trackRepo, applicantRepo, submissionRepo, aiInterviewRepo)
 	mentorHandler := handler.NewMentorHandler(mentorRepo, userRepo, programRepo, applicantRepo).
 		WithProgress(submissionRepo, aiInterviewRepo, repository.NewAssignmentRepository(pool, applicantRepo, userRepo), sessionRepo)
-	calendarSvc := calendar.NewService(calendar.Config{
+	calendarCfg := calendar.Config{
 		CalendarID:         cfg.GoogleCalendar.CalendarID,
 		ServiceAccountJSON: cfg.GoogleCalendar.ServiceAccountJSON,
 		Impersonate:        cfg.GoogleCalendar.Impersonate,
 		AutoRecord:         cfg.GoogleCalendar.MeetAutoRecord,
-	}, logger)
+		ShareRecordings:    cfg.GoogleCalendar.ShareRecordings,
+	}
+	calendarSvc := calendar.NewService(calendarCfg, logger)
 	// Live session workspace hub. With REDIS_URL set, instances relay updates to each other so
 	// participants connected to different backend instances share one workspace.
 	wsOpts := sessionws.Options{AllowedOrigins: append([]string{cfg.SES.FrontendURL}, cfg.CORSAllowedOrigins...)}
@@ -107,6 +109,10 @@ func New(cfg *config.Config, pool *pgxpool.Pool, logger *slog.Logger) http.Handl
 	if pool != nil {
 		handler.NewReminders(repository.NewReminderRepository(pool), sessionRepo, assignmentRepo, applicantRepo,
 			programRepo, orgRepo, emailSvc, cfg.SES.FrontendURL, logger).Start(context.Background())
+		// Google Meet recordings appear on their sessions once Meet has processed them
+		if recordings := calendar.NewRecordings(calendarCfg, logger); recordings != nil {
+			handler.NewRecordingSync(sessionRepo, recordings, logger).Start(context.Background())
+		}
 	}
 	githubClient := github.NewClient(cfg.GitHubToken)
 	roomContentHandler := handler.NewRoomContentHandler(repository.NewRoomContentRepository(pool), programRepo, applicantRepo, mentorRepo, store, githubClient)

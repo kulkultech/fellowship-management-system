@@ -38,6 +38,7 @@ import {
   CalendarDays,
   Repeat,
   MessageSquare,
+  PlayCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
@@ -882,6 +883,19 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           </Link>
                         )}
 
+                        {sess.recording_url && (
+                          <a
+                            href={sess.recording_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-sm btn-outline"
+                            title="Watch the session recording"
+                          >
+                            <PlayCircle className="w-3.5 h-3.5" />
+                            <span>Recording</span>
+                          </a>
+                        )}
+
                         <Link
                           to={`/sessions/${sess.id}/room`}
                           className="btn btn-sm btn-outline"
@@ -1640,6 +1654,29 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                   The Meet link appears on the session after you save. If Google Calendar can't create
                   it, edit the session and paste a link.
                 </p>
+              )}
+
+              {editingSession && (
+                <div>
+                  <label htmlFor="session-recording-url" className="field-label">
+                    Recording link
+                  </label>
+                  <div className="relative">
+                    <PlayCircle className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      id="session-recording-url"
+                      type="url"
+                      placeholder="Added automatically after a Google Meet session"
+                      value={formRecordingUrl}
+                      onChange={(e) => setFormRecordingUrl(e.target.value)}
+                      className="form-input pl-10"
+                    />
+                  </div>
+                  <p className="meta-text mt-1.5">
+                    Recordings of Google Meet sessions appear here once Meet has processed them. Paste a
+                    link for any other recording, such as Zoom.
+                  </p>
+                </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

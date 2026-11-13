@@ -33,6 +33,7 @@ import {
   BookOpen,
   Link2,
   MessageSquare,
+  PlayCircle,
 } from 'lucide-react';
 import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignmentsView';
 import { RoomContentView, roomContentQueryKey } from '@/components/room/RoomContentView';
@@ -567,6 +568,19 @@ export const ProgramRoomPage: React.FC = () => {
                                 <MessageSquare className="w-3.5 h-3.5" />
                                 <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
                               </Link>
+                            )}
+
+                            {sess.recording_url && (
+                              <a
+                                href={sess.recording_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-sm btn-outline"
+                                title="Watch the session recording"
+                              >
+                                <PlayCircle className="w-3.5 h-3.5" />
+                                <span>Recording</span>
+                              </a>
                             )}
 
                             <Link

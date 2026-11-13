@@ -79,6 +79,7 @@ type GoogleCalendarConfig struct {
 	ServiceAccountJSON string
 	Impersonate        string
 	MeetAutoRecord     bool
+	ShareRecordings    bool
 }
 
 func (g GoogleCalendarConfig) Enabled() bool {
@@ -149,6 +150,7 @@ func Load() (*Config, error) {
 			ServiceAccountJSON: getString("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
 			Impersonate:        getString("GOOGLE_CALENDAR_IMPERSONATE", ""),
 			MeetAutoRecord:     getBool("GOOGLE_MEET_AUTO_RECORD", false),
+			ShareRecordings:    getBool("GOOGLE_MEET_SHARE_RECORDINGS", false),
 		},
 		GitHubToken: getString("GITHUB_TOKEN", ""),
 		RedisURL:    getString("REDIS_URL", ""),
