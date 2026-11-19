@@ -838,6 +838,15 @@ export interface CreateSessionPayload {
 }
 
 /** Which sessions of a repeating series an edit or delete applies to (as in Google Calendar). */
+/** A program mentor a session can be given. hosts_meet: the session's Meet is created as them, so their joining starts auto-recording. */
+export interface SessionMentor {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  role_title: string;
+  hosts_meet: boolean;
+}
+
 /** How the sessions list is ordered: by start time, or sessions not over yet first. */
 export type SessionSort = 'oldest' | 'newest' | 'upcoming';
 

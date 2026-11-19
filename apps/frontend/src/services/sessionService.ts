@@ -2,6 +2,7 @@ import { apiClient } from './apiClient';
 import type {
   ProgramSession,
   SessionSort,
+  SessionMentor,
   SessionAttendance,
   AttendanceStatus,
   FellowAttendanceSummary,
@@ -59,6 +60,12 @@ export const sessionService = {
       },
     });
     return { ...res.data, sessions: res.data.sessions || [] };
+  },
+
+  /** The program's mentors, for picking a session's mentor. */
+  listSessionMentors: async (programId: string): Promise<SessionMentor[]> => {
+    const res = await apiClient.get(`/programs/${programId}/sessions/mentors`);
+    return res.data.mentors || [];
   },
 
   getSession: async (programId: string, sessionId: string): Promise<ProgramSession> => {

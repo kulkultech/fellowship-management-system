@@ -108,6 +108,46 @@ func (h *SessionHandler) canManageSessions(r *http.Request, programID uuid.UUID)
 	return false
 }
 
+// sessionMentor is a program mentor a session can be given. HostsMeet is true when the session's
+// Calendar event and Meet room would be created as them, so their joining starts auto-recording.
+type sessionMentor struct {
+	UserID    uuid.UUID `json:"user_id"`
+	Name      string    `json:"user_name"`
+	Email     string    `json:"user_email"`
+	RoleTitle string    `json:"role_title"`
+	HostsMeet bool      `json:"hosts_meet"`
+}
+
+// ListSessionMentors handles GET /api/v1/programs/{programId}/sessions/mentors: the program's
+// mentors, for picking a session's mentor.
+func (h *SessionHandler) ListSessionMentors(w http.ResponseWriter, r *http.Request) {
+	programID, err := uuid.Parse(chi.URLParam(r, "programId"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+	if !h.canManageSessions(r, programID) {
+		httpx.Error(w, http.StatusForbidden, "unauthorized to manage sessions for this program")
+		return
+	}
+	mentors := []sessionMentor{}
+	if h.mentorRepo != nil {
+		list, err := h.mentorRepo.ListMentorsByProgram(r.Context(), programID)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to list mentors")
+			return
+		}
+		for _, m := range list {
+			hosts := false
+			if h.calendarService != nil && m.UserEmail != "" {
+				hosts = h.calendarService.HostFor(m.UserEmail) == strings.ToLower(strings.TrimSpace(m.UserEmail))
+			}
+			mentors = append(mentors, sessionMentor{UserID: m.UserID, Name: m.UserName, Email: m.UserEmail, RoleTitle: m.RoleTitle, HostsMeet: hosts})
+		}
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"mentors": mentors})
+}
+
 // ListSessions handles GET /api/v1/programs/{programId}/sessions
 func (h *SessionHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	programIDStr := chi.URLParam(r, "programId")

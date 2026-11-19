@@ -8,7 +8,6 @@ import type {
   CreateSessionPayload,
   AttendanceStatus,
   Track,
-  ProgramMentor,
   MentorAttendance,
   RecurrenceScope,
   SessionSort,
@@ -67,7 +66,6 @@ interface ProgramSessionsViewProps {
   programName?: string;
   isMentor?: boolean;
   tracks?: Track[];
-  mentors?: ProgramMentor[];
   /** Show the metric cards above the sessions (default true) */
   showSummary?: boolean;
 }
@@ -77,7 +75,6 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   programId,
   isMentor = false,
   tracks = [],
-  mentors = [],
 }) => {
   const queryClient = useQueryClient();
   // Sessions, calendar or attendance tracker: kept in the address so Back returns to the same tab
@@ -363,6 +360,22 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     enabled: Boolean(programId),
   });
   const allFellows = fellowsData?.fellows || [];
+
+  // The program's mentors, for the session's mentor (loaded when the form opens)
+  const { data: mentors = [] } = useQuery({
+    queryKey: ['program-session-mentors', programId],
+    queryFn: () => sessionService.listSessionMentors(programId),
+    enabled: Boolean(programId) && isCreateModalOpen,
+    staleTime: 60 * 1000,
+  });
+  const findMentor = (id?: string | null) => (id ? mentors.find((m) => m.user_id === id) : undefined);
+  const selectedMentor = findMentor(formMentorId);
+  // A Workspace mentor hosts the session's Meet, so changing to or from one moves the Meet
+  const mentorHostMayChange =
+    Boolean(editingSession) &&
+    !editingSession?.series_id &&
+    formMentorId !== (editingSession?.mentor_id || '') &&
+    Boolean(selectedMentor?.hosts_meet || findMentor(editingSession?.mentor_id)?.hosts_meet);
 
   const [formAudience, setFormAudience] = useState<'all' | 'group'>('all');
   const [selectedFellowIds, setSelectedFellowIds] = useState<string[]>([]);
@@ -1627,21 +1640,33 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
 
                 {mentors.length > 0 && (
                   <div>
-                    <label className="field-label">
-                      Session Host / Mentor
+                    <label className="field-label" htmlFor="session-mentor">
+                      Mentor
                     </label>
                     <select
+                      id="session-mentor"
                       value={formMentorId}
                       onChange={(e) => setFormMentorId(e.target.value)}
                       className="form-input"
                     >
-                      <option value="">Select Mentor</option>
+                      <option value="">No mentor</option>
                       {mentors.map((m) => (
                         <option key={m.user_id} value={m.user_id}>
-                          {m.user_name || m.user_email} ({m.role_title})
+                          {m.user_name || m.user_email}
+                          {m.role_title ? ` (${m.role_title})` : ''}
                         </option>
                       ))}
                     </select>
+                    {selectedMentor && (
+                      <p className="meta-text mt-1">
+                        {selectedMentor.hosts_meet
+                          ? `${selectedMentor.user_name || selectedMentor.user_email} hosts the Google Meet, so recording starts when they join.`
+                          : 'This mentor has no company Google account, so they can’t host the Google Meet or start its recording.'}
+                      </p>
+                    )}
+                    {mentorHostMayChange && (
+                      <p className="meta-text mt-1">Changing the Meet host gives this session a new Meet link.</p>
+                    )}
                   </div>
                 )}
               </div>
