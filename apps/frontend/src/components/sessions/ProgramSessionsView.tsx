@@ -855,12 +855,23 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                           setActiveAttendanceSession(sess);
                         }}
                         className="btn btn-sm btn-outline"
-                        title={sess.pending_count ? `${sess.pending_count} check-in(s) waiting for review` : 'Take attendance'}
+                        title={
+                          sess.pending_count
+                            ? `${sess.pending_count} check-in${sess.pending_count === 1 ? '' : 's'} waiting for review`
+                            : 'Take attendance'
+                        }
+                        aria-label={
+                          sess.pending_count ? `Attendance, ${sess.pending_count} to review` : 'Attendance'
+                        }
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>
-                          Attendance{sess.pending_count ? ` (${sess.pending_count} to review)` : ''}
-                        </span>
+                        {/* Check-ins to review swap the icon instead of lengthening the label, so the
+                            buttons keep their place on every card */}
+                        {sess.pending_count ? (
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>Attendance</span>
                       </button>
 
                       <button
