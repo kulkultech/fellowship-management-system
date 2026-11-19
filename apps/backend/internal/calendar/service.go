@@ -45,6 +45,9 @@ type CreateEventRequest struct {
 	OrganizerEmail   string
 	OrganizerName    string
 	WorkspaceURL     string
+	// CoHosts are emails made co-hosts of the event's Meet room (the program's mentors), so the
+	// meeting can start recording when one of them joins instead of only when the organizer does.
+	CoHosts []string
 	// Recurrence is an RRULE value (e.g. FREQ=WEEKLY;BYDAY=MO) for a repeating event; TimeZone is
 	// the IANA zone it repeats in. Both are empty for a single event.
 	Recurrence string
@@ -91,11 +94,15 @@ type googleCalendarService struct {
 	jwtConfig  *jwt.Config
 	// meetConfig and meetClient are set when auto-recording is on; they ask for the Meet settings
 	// scope separately, so a missing grant only skips recording instead of breaking calendar events.
-	meetConfig  *jwt.Config
-	meetClient  func(context.Context) *http.Client
-	meetAPIBase string
-	logger      *slog.Logger
-	httpClient  *http.Client
+	meetConfig *jwt.Config
+	meetClient func(context.Context) *http.Client
+	// membersClient adds co-hosts; it asks for the meetings.space.created scope on its own, so a
+	// missing grant only skips co-hosts.
+	membersClient func(context.Context) *http.Client
+	organizer     string
+	meetAPIBase   string
+	logger        *slog.Logger
+	httpClient    *http.Client
 }
 
 // NewService initializes a new Calendar & Google Meet service.
@@ -127,7 +134,11 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 				meetCfg.Scopes = []string{meetSettingsScope}
 				svc.meetConfig = &meetCfg
 				svc.meetClient = meetCfg.Client
+				membersCfg := *jwtCfg
+				membersCfg.Scopes = []string{meetMembersScope}
+				svc.membersClient = membersCfg.Client
 			}
+			svc.organizer = strings.ToLower(jwtCfg.Subject)
 			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID, "impersonate", jwtCfg.Subject, "meet_auto_record", cfg.AutoRecord)
 		}
 	} else {
@@ -335,6 +346,7 @@ func (s *googleCalendarService) UpdateEvent(ctx context.Context, eventID string,
 		// Saving a session also turns on auto-recording for its Meet room, so rooms created before
 		// auto-recording was enabled can be fixed by editing the session.
 		s.turnOnAutoRecording(ctx, meetingCodeFromURL(meetURL))
+		s.addCoHosts(ctx, meetingCodeFromURL(meetURL), req.CoHosts)
 	}
 
 	return res, nil
@@ -476,6 +488,7 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 	}
 
 	s.turnOnAutoRecording(ctx, respBody.ConferenceData.ConferenceID)
+	s.addCoHosts(ctx, respBody.ConferenceData.ConferenceID, req.CoHosts)
 
 	return &EventResult{
 		EventID:    respBody.ID,
@@ -695,6 +708,111 @@ func (s *googleCalendarService) lookupSpaceName(ctx context.Context, client *htt
 		return "", fmt.Errorf("google meet api: unexpected space name %q", space.Name)
 	}
 	return "spaces/" + url.PathEscape(id), nil
+}
+
+const meetMembersScope = "https://www.googleapis.com/auth/meetings.space.created"
+
+// addCoHosts makes each email a co-host of the Meet room, skipping the organizer and anyone who
+// already is a member, and logs the outcome. Meet starts auto-recording when the host or a co-host
+// joins, so this lets a mentor's arrival start the recording. A failure only means fewer co-hosts.
+func (s *googleCalendarService) addCoHosts(ctx context.Context, meetingCode string, emails []string) {
+	if s.meetClient == nil || s.membersClient == nil || meetingCode == "" {
+		return
+	}
+	want := map[string]bool{}
+	for _, e := range emails {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" && e != s.organizer {
+			want[e] = true
+		}
+	}
+	if len(want) == 0 {
+		return
+	}
+	added, err := s.addSpaceCoHosts(ctx, meetingCode, want)
+	if err != nil {
+		s.logger.Warn("could not add Meet co-hosts; only the organizer can start the recording", "meeting_code", meetingCode, "added", added, "error", err)
+		return
+	}
+	s.logger.Info("Meet co-hosts up to date", "meeting_code", meetingCode, "added", added, "co_hosts", len(want))
+}
+
+// addSpaceCoHosts adds the wanted emails that are not members yet as co-hosts, and returns how
+// many it added.
+func (s *googleCalendarService) addSpaceCoHosts(ctx context.Context, meetingCode string, want map[string]bool) (int, error) {
+	spaceName, err := s.lookupSpaceName(ctx, s.meetClient(ctx), meetingCode)
+	if err != nil {
+		return 0, err
+	}
+	client := s.membersClient(ctx)
+
+	existing, err := s.listMemberEmails(ctx, client, spaceName)
+	if err != nil {
+		return 0, err
+	}
+	added := 0
+	for email := range want {
+		if existing[email] {
+			continue
+		}
+		body, _ := json.Marshal(map[string]string{"email": email, "role": "COHOST"})
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/%s/members", s.meetAPIBase, spaceName), bytes.NewReader(body))
+		if err != nil {
+			return added, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			return added, err
+		}
+		err = meetAPIError(resp)
+		resp.Body.Close()
+		if err != nil {
+			return added, fmt.Errorf("adding %s: %w", email, err)
+		}
+		added++
+	}
+	return added, nil
+}
+
+// listMemberEmails returns the emails (lowercased) of a space's members.
+func (s *googleCalendarService) listMemberEmails(ctx context.Context, client *http.Client, spaceName string) (map[string]bool, error) {
+	emails := map[string]bool{}
+	pageToken := ""
+	for {
+		apiURL := fmt.Sprintf("%s/%s/members?pageSize=250", s.meetAPIBase, spaceName)
+		if pageToken != "" {
+			apiURL += "&pageToken=" + url.QueryEscape(pageToken)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		var page struct {
+			Members []struct {
+				Email string `json:"email"`
+			} `json:"members"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		err = meetAPIError(resp)
+		if err == nil {
+			err = json.NewDecoder(resp.Body).Decode(&page)
+		}
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("listing members: %w", err)
+		}
+		for _, m := range page.Members {
+			emails[strings.ToLower(m.Email)] = true
+		}
+		if page.NextPageToken == "" {
+			return emails, nil
+		}
+		pageToken = page.NextPageToken
+	}
 }
 
 func meetAPIError(resp *http.Response) error {

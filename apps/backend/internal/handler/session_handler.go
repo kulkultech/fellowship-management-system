@@ -192,6 +192,25 @@ func sessionMatches(s model.ProgramSession, q string) bool {
 	return false
 }
 
+// meetCoHosts lists who should co-host a session's Meet room: the program's mentors and the
+// session's own mentor, so whichever of them joins can start the auto-recording.
+func (h *SessionHandler) meetCoHosts(ctx context.Context, programID uuid.UUID, attendees []calendar.Attendee) []string {
+	var emails []string
+	if h.mentorRepo != nil {
+		if mentors, err := h.mentorRepo.ListMentorsByProgram(ctx, programID); err == nil {
+			for _, m := range mentors {
+				emails = append(emails, m.UserEmail)
+			}
+		}
+	}
+	for _, a := range attendees {
+		if a.Role == "mentor" {
+			emails = append(emails, a.Email)
+		}
+	}
+	return emails
+}
+
 // sortSessions orders sessions for ?sort: "newest" (latest start first), "upcoming" (sessions not
 // over yet, soonest first, then past ones, most recent first) or, by default, "oldest".
 func sortSessions(sessions []model.ProgramSession, order string, now time.Time) {
@@ -406,6 +425,7 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 			OrganizerEmail:   organizerEmail,
 			OrganizerName:    organizerName,
 			WorkspaceURL:     workspaceURL,
+			CoHosts:          h.meetCoHosts(r.Context(), programID, invitedAttendees),
 		})
 		if evErr == nil && evRes != nil {
 			sess.GoogleCalendarEventID = evRes.EventID
@@ -581,6 +601,7 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 			MeetingURL:   existing.MeetingURL,
 			Attendees:    attendees,
 			WorkspaceURL: workspaceURL,
+			CoHosts:      h.meetCoHosts(r.Context(), programID, attendees),
 		})
 	}
 

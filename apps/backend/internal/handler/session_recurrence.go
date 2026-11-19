@@ -110,6 +110,7 @@ func (h *SessionHandler) createRecurringSessions(w http.ResponseWriter, r *http.
 			StartTime: first.StartTime, EndTime: first.EndTime, MeetingURL: first.MeetingURL,
 			AutoGenerateMeet: c.autoGenMeeting, Attendees: c.attendees, OrganizerEmail: c.organizerEmail,
 			Recurrence: plan.normalized, TimeZone: series.Timezone,
+			CoHosts: h.meetCoHosts(ctx, first.ProgramID, c.attendees),
 		})
 		if evErr == nil && ev != nil {
 			series.GoogleCalendarEventID = ev.EventID
