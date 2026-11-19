@@ -11,6 +11,7 @@ import type {
   ProgramMentor,
   MentorAttendance,
   RecurrenceScope,
+  SessionSort,
 } from '@/services/types';
 import {
   Calendar,
@@ -96,19 +97,21 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const [sessionPageSize, setSessionPageSize] = useState(10);
   const debouncedSessionSearch = useDebouncedValue(searchQuery.trim(), 300);
   const sessionTrackId = selectedTrackFilter !== 'all' ? selectedTrackFilter : '';
+  const [sessionSort, setSessionSort] = useUrlState<SessionSort>('sort', 'oldest');
   useEffect(() => {
     setSessionPage(1);
-  }, [programId, debouncedSessionSearch, sessionTrackId, sessionPageSize]);
+  }, [programId, debouncedSessionSearch, sessionTrackId, sessionPageSize, sessionSort]);
   const {
     data: sessionPageData,
     isLoading: isLoadingSessions,
     isFetching: isFetchingSessions,
   } = useQuery({
-    queryKey: ['program-sessions', programId, 'page', sessionPage, sessionPageSize, debouncedSessionSearch, sessionTrackId],
+    queryKey: ['program-sessions', programId, 'page', sessionPage, sessionPageSize, debouncedSessionSearch, sessionTrackId, sessionSort],
     queryFn: () =>
       sessionService.listSessionsPage(programId, sessionPage, sessionPageSize, {
         q: debouncedSessionSearch,
         trackId: sessionTrackId,
+        sort: sessionSort,
       }),
     enabled: Boolean(programId),
     placeholderData: keepPreviousData,
@@ -335,6 +338,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   const repeatChanged = normalizeRule(formRepeatRule) !== originalRepeatRule;
   // A repeating session skips holidays itself, so only a single session is blocked on one
   const blockHoliday = isHolidaySelected && !formRepeatRule;
+  // The end must come after the start (date-time strings in the same format compare correctly)
+  const endsTooEarly =
+    Boolean(formStartDate && formStartTime && formEndDate && formEndTime) &&
+    `${formEndDate}T${formEndTime}` <= `${formStartDate}T${formStartTime}`;
 
   const { data: repeatPreview, error: repeatPreviewError } = useQuery({
     queryKey: ['recurrence-preview', programId, formStartDate, formStartTime, formRepeatRule, syncIndonesianCalendar],
@@ -421,6 +428,10 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     mutationFn: async (scope?: RecurrenceScope) => {
       if (formAudience === 'group' && selectedFellowIds.length === 0) {
         throw new Error('Please select at least 1 fellow for a group session');
+      }
+
+      if (endsTooEarly) {
+        throw new Error('The session must end after it starts');
       }
 
       if (blockHoliday) {
@@ -719,8 +730,18 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 />
               </div>
 
-              {tracks.length > 0 && (
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={sessionSort}
+                  onChange={(e) => setSessionSort(e.target.value as SessionSort)}
+                  className="filter-select"
+                  aria-label="Sort sessions"
+                >
+                  <option value="oldest">Oldest first</option>
+                  <option value="newest">Newest first</option>
+                  <option value="upcoming">Upcoming first</option>
+                </select>
+                {tracks.length > 0 && (
                   <select
                     value={selectedTrackFilter}
                     onChange={(e) => setSelectedTrackFilter(e.target.value)}
@@ -734,8 +755,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {isLoadingSessions ? (
@@ -1347,7 +1368,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       type="date"
                       required
                       value={formStartDate}
-                      onChange={(e) => setFormStartDate(e.target.value)}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        // A session that ended on its start day keeps doing so when the start day moves
+                        if (formEndDate === formStartDate || (next && formEndDate < next)) setFormEndDate(next);
+                        setFormStartDate(next);
+                      }}
                       className={`form-input ${
                         syncIndonesianCalendar && startHolidayInfo.isHoliday
                           ? 'border-rose-400 bg-rose-50/30 focus:ring-rose-200'
@@ -1372,10 +1398,12 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     <input
                       type="date"
                       required
+                      min={formStartDate || undefined}
                       value={formEndDate}
                       onChange={(e) => setFormEndDate(e.target.value)}
+                      aria-invalid={endsTooEarly}
                       className={`form-input ${
-                        syncIndonesianCalendar && endHolidayInfo.isHoliday
+                        endsTooEarly || (syncIndonesianCalendar && endHolidayInfo.isHoliday)
                           ? 'border-rose-400 bg-rose-50/30 focus:ring-rose-200'
                           : ''
                       }`}
@@ -1385,9 +1413,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       required
                       value={formEndTime}
                       onChange={(e) => setFormEndTime(e.target.value)}
-                      className="form-input"
+                      aria-invalid={endsTooEarly}
+                      className={`form-input ${endsTooEarly ? 'border-rose-400 bg-rose-50/30 focus:ring-rose-200' : ''}`}
                     />
                   </div>
+                  {endsTooEarly && (
+                    <p className="text-xs font-semibold text-rose-600 mt-1">The session must end after it starts.</p>
+                  )}
                 </div>
               </div>
 
@@ -1637,8 +1669,14 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={saveSessionMutation.isPending || blockHoliday || (!!formRepeatRule && repeatChanged && !!repeatPreviewError)}
-                  title={blockHoliday ? 'Cannot schedule on an Indonesian national holiday' : undefined}
+                  disabled={saveSessionMutation.isPending || blockHoliday || endsTooEarly || (!!formRepeatRule && repeatChanged && !!repeatPreviewError)}
+                  title={
+                    endsTooEarly
+                      ? 'The session must end after it starts'
+                      : blockHoliday
+                      ? 'Cannot schedule on an Indonesian national holiday'
+                      : undefined
+                  }
                   className="btn btn-sm btn-primary"
                 >
                   {saveSessionMutation.isPending ? (

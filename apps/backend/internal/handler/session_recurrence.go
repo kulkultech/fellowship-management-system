@@ -263,7 +263,7 @@ func (h *SessionHandler) updateRecurringSessions(w http.ResponseWriter, r *http.
 		}
 	}
 	if !newEnd.After(newStart) {
-		httpx.Error(w, http.StatusBadRequest, "end_time must be after start_time")
+		httpx.Error(w, http.StatusBadRequest, "the session must end after it starts")
 		return
 	}
 	duration := newEnd.Sub(newStart)

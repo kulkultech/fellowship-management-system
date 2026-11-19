@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import type {
   ProgramSession,
+  SessionSort,
   SessionAttendance,
   AttendanceStatus,
   FellowAttendanceSummary,
@@ -35,12 +36,12 @@ export const sessionService = {
     return res.data.sessions || [];
   },
 
-  /** One page of a program's sessions (oldest first), optionally searched and filtered by track. */
+  /** One page of a program's sessions (oldest first unless sorted), optionally searched and filtered by track. */
   listSessionsPage: async (
     programId: string,
     page: number,
     pageSize: number,
-    filters: { q?: string; trackId?: string } = {}
+    filters: { q?: string; trackId?: string; sort?: SessionSort } = {}
   ): Promise<{
     sessions: ProgramSession[];
     total: number;
@@ -54,6 +55,7 @@ export const sessionService = {
         page_size: pageSize,
         ...(filters.q ? { q: filters.q } : {}),
         ...(filters.trackId ? { track_id: filters.trackId } : {}),
+        ...(filters.sort && filters.sort !== 'oldest' ? { sort: filters.sort } : {}),
       },
     });
     return { ...res.data, sessions: res.data.sessions || [] };

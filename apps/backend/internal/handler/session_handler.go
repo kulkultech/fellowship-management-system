@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -152,6 +153,7 @@ func (h *SessionHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	if sessions == nil {
 		sessions = []model.ProgramSession{}
 	}
+	sortSessions(sessions, r.URL.Query().Get("sort"), time.Now())
 
 	page, paged := httpx.ParsePage(r)
 	if !paged {
@@ -188,6 +190,29 @@ func sessionMatches(s model.ProgramSession, q string) bool {
 		}
 	}
 	return false
+}
+
+// sortSessions orders sessions for ?sort: "newest" (latest start first), "upcoming" (sessions not
+// over yet, soonest first, then past ones, most recent first) or, by default, "oldest".
+func sortSessions(sessions []model.ProgramSession, order string, now time.Time) {
+	switch order {
+	case "newest":
+		sort.SliceStable(sessions, func(i, j int) bool { return sessions[i].StartTime.After(sessions[j].StartTime) })
+	case "upcoming":
+		sort.SliceStable(sessions, func(i, j int) bool {
+			a, b := sessions[i], sessions[j]
+			aOver, bOver := !a.EndTime.After(now), !b.EndTime.After(now)
+			if aOver != bOver {
+				return !aOver
+			}
+			if aOver {
+				return a.StartTime.After(b.StartTime)
+			}
+			return a.StartTime.Before(b.StartTime)
+		})
+	default:
+		sort.SliceStable(sessions, func(i, j int) bool { return sessions[i].StartTime.Before(sessions[j].StartTime) })
+	}
 }
 
 // fellowAttendanceStats counts a fellow's attended (present or late) and awaiting-review sessions.
@@ -265,8 +290,8 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if endTime.Before(startTime) {
-		httpx.Error(w, http.StatusBadRequest, "end_time must be after start_time")
+	if !endTime.After(startTime) {
+		httpx.Error(w, http.StatusBadRequest, "the session must end after it starts")
 		return
 	}
 
@@ -523,8 +548,8 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 		}
 		existing.EndTime = et
 	}
-	if existing.EndTime.Before(existing.StartTime) {
-		httpx.Error(w, http.StatusBadRequest, "end_time must be after start_time")
+	if !existing.EndTime.After(existing.StartTime) {
+		httpx.Error(w, http.StatusBadRequest, "the session must end after it starts")
 		return
 	}
 	if u := calendar.ManualMeetingURL(req.MeetingURL); u != "" {

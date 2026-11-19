@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -136,5 +138,36 @@ func TestAssignmentRecipients(t *testing.T) {
 	trackOnly := &model.ProgramAssignment{Status: model.AssignmentStatusPublished, TrackID: &track}
 	if got := names(assignmentRecipients(fellows, nil, trackOnly)); got != "alex@example.com;" {
 		t.Errorf("track assignment emails %q, want Alex", got)
+	}
+}
+
+func TestSortSessions(t *testing.T) {
+	now := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
+	at := func(title string, hours int) model.ProgramSession {
+		start := now.Add(time.Duration(hours) * time.Hour)
+		return model.ProgramSession{Title: title, StartTime: start, EndTime: start.Add(2 * time.Hour)}
+	}
+	titles := func(ss []model.ProgramSession) string {
+		out := make([]string, len(ss))
+		for i, s := range ss {
+			out[i] = s.Title
+		}
+		return strings.Join(out, ",")
+	}
+	list := func() []model.ProgramSession {
+		// "live" started an hour ago and is still running
+		return []model.ProgramSession{at("next-week", 168), at("last-week", -168), at("live", -1), at("yesterday", -24), at("tomorrow", 24)}
+	}
+	for order, want := range map[string]string{
+		"":         "last-week,yesterday,live,tomorrow,next-week",
+		"oldest":   "last-week,yesterday,live,tomorrow,next-week",
+		"newest":   "next-week,tomorrow,live,yesterday,last-week",
+		"upcoming": "live,tomorrow,next-week,yesterday,last-week",
+	} {
+		ss := list()
+		sortSessions(ss, order, now)
+		if got := titles(ss); got != want {
+			t.Errorf("sort %q = %s, want %s", order, got, want)
+		}
 	}
 }

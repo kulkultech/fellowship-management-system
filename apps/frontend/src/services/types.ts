@@ -838,6 +838,9 @@ export interface CreateSessionPayload {
 }
 
 /** Which sessions of a repeating series an edit or delete applies to (as in Google Calendar). */
+/** How the sessions list is ordered: by start time, or sessions not over yet first. */
+export type SessionSort = 'oldest' | 'newest' | 'upcoming';
+
 export type RecurrenceScope = 'this' | 'following' | 'all';
 
 export interface RecurrencePreview {
