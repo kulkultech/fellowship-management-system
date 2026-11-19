@@ -43,6 +43,7 @@ import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { Pagination } from '@/components/ui/Pagination';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useUrlState } from '@/hooks/useUrlState';
+import { sessionStatus } from './sessionStatus';
 import { usePaging } from '@/hooks/usePaging';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
@@ -621,6 +622,13 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
     };
   }, [summaryPage, totalProgramSessions]);
 
+  // The clock the cards compare against, so a session turns "Live now", then "Ended", on its own
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const formatDateTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
@@ -793,15 +801,26 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredSessions.map((sess) => (
-                  // Just the title and when it is: the session itself happens in the Live Workspace
+                {filteredSessions.map((sess) => {
+                  // Just the title and when it is: the session itself happens in the Live Workspace.
+                  // Ended sessions are greyed out so the ones still to come stand out.
+                  const status = sessionStatus(sess, now);
+                  return (
                   <div
                     key={sess.id}
-                    className="panel hover:border-slate-300 transition flex flex-col xl:flex-row xl:items-center justify-between gap-3"
+                    className={`${status === 'ended' ? 'panel-muted' : 'panel'} hover:border-slate-300 transition flex flex-col xl:flex-row xl:items-center justify-between gap-3`}
                   >
                     <Link to={`/sessions/${sess.id}/room`} className="min-w-0 flex-1 group">
-                      <h4 className="card-title break-words group-hover:text-kulkul-purple transition">{sess.title}</h4>
+                      <h4
+                        className={`card-title break-words group-hover:text-kulkul-purple transition ${
+                          status === 'ended' ? 'text-slate-500' : ''
+                        }`}
+                      >
+                        {sess.title}
+                      </h4>
                       <p className="meta-text mt-0.5">
+                        {status === 'ended' && <span className="font-bold text-slate-600">Ended &middot; </span>}
+                        {status === 'live' && <span className="font-bold text-emerald-700">Live now &middot; </span>}
                         {formatDateTime(sess.start_time)} &ndash;{' '}
                         {new Date(sess.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         {sess.recurrence_description && <> &middot; {sess.recurrence_description}</>}
@@ -811,7 +830,7 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                     <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                       <Link
                         to={`/sessions/${sess.id}/room`}
-                        className="btn btn-sm btn-primary"
+                        className={`btn btn-sm ${status === 'ended' ? 'btn-outline' : 'btn-primary'}`}
                         title="Enter Live Workspace (Code Studio, Excalidraw Whiteboard, Notes)"
                       >
                         <Code2 className="w-3.5 h-3.5" />
@@ -867,7 +886,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 <Pagination
                   page={sessionPage}
                   pageSize={sessionPageSize}
