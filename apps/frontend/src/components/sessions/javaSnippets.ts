@@ -7,13 +7,16 @@ export interface CodeSnippet {
 }
 
 /**
- * IntelliJ-style shortcuts for Java: type the prefix, then press Tab or Enter.
+ * IntelliJ- and Eclipse-style shortcuts for Java: type the prefix, then press Tab or Enter.
  * `$1`, `${1:name}` are the stops Tab moves through; `$0` is where the cursor ends.
  */
 export const JAVA_SNIPPETS: CodeSnippet[] = [
   { prefix: 'sout', description: 'System.out.println', body: 'System.out.println($0);' },
   { prefix: 'souf', description: 'System.out.printf', body: 'System.out.printf("$1%n"$0);' },
   { prefix: 'serr', description: 'System.err.println', body: 'System.err.println($0);' },
+  // Eclipse names for the same two
+  { prefix: 'sysout', description: 'System.out.println', body: 'System.out.println($0);' },
+  { prefix: 'syserr', description: 'System.err.println', body: 'System.err.println($0);' },
   { prefix: 'psvm', description: 'main method', body: 'public static void main(String[] args) {\n\t$0\n}' },
   { prefix: 'main', description: 'main method', body: 'public static void main(String[] args) {\n\t$0\n}' },
   { prefix: 'fori', description: 'for loop with an index', body: 'for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n\t$0\n}' },

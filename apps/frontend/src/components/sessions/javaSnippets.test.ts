@@ -19,6 +19,9 @@ describe('Java shortcuts', () => {
     const prefixes = JAVA_SNIPPETS.map((s) => s.prefix);
     expect(prefixes).toEqual(expect.arrayContaining(['sout', 'souf', 'serr', 'psvm', 'fori', 'iter']));
     expect(JAVA_SNIPPETS.find((s) => s.prefix === 'sout')?.body).toBe('System.out.println($0);');
+    // Fellows who learned Eclipse type sysout
+    expect(JAVA_SNIPPETS.find((s) => s.prefix === 'sysout')?.body).toBe('System.out.println($0);');
+    expect(JAVA_SNIPPETS.find((s) => s.prefix === 'syserr')?.body).toBe('System.err.println($0);');
   });
 
   it('register once per Monaco instance, for Java only', () => {
