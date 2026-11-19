@@ -39,7 +39,7 @@ func fakeMeetRecordingsAPI(t *testing.T, gotFilter *string) *httptest.Server {
 }
 
 func testRecordings(srv *httptest.Server) *Recordings {
-	client := func(context.Context) *http.Client { return srv.Client() }
+	client := func(context.Context, string) *http.Client { return srv.Client() }
 	return &Recordings{meetAPIBase: srv.URL, driveAPIBase: srv.URL, readClient: client, shareClient: client}
 }
 
@@ -49,7 +49,7 @@ func TestFindRecording(t *testing.T) {
 	defer srv.Close()
 
 	start := time.Date(2026, 11, 13, 3, 0, 0, 0, time.UTC)
-	rec, err := testRecordings(srv).FindRecording(context.Background(), "https://meet.google.com/tai-rgbk-gjv", start, start.Add(2*time.Hour))
+	rec, err := testRecordings(srv).FindRecording(context.Background(), "", "https://meet.google.com/tai-rgbk-gjv", start, start.Add(2*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,10 +79,10 @@ func TestFindRecordingNotReadyOrNotMeet(t *testing.T) {
 	r := testRecordings(srv)
 	start := time.Date(2026, 11, 13, 3, 0, 0, 0, time.UTC)
 
-	if rec, err := r.FindRecording(context.Background(), "https://meet.google.com/abc-defg-hij", start, start.Add(time.Hour)); err != nil || rec != nil {
+	if rec, err := r.FindRecording(context.Background(), "", "https://meet.google.com/abc-defg-hij", start, start.Add(time.Hour)); err != nil || rec != nil {
 		t.Fatalf("still recording: got %+v, %v; want nothing yet", rec, err)
 	}
-	if rec, err := r.FindRecording(context.Background(), "https://zoom.us/j/1", start, start.Add(time.Hour)); err != nil || rec != nil {
+	if rec, err := r.FindRecording(context.Background(), "", "https://zoom.us/j/1", start, start.Add(time.Hour)); err != nil || rec != nil {
 		t.Fatalf("zoom link: got %+v, %v; want nothing", rec, err)
 	}
 }
@@ -93,7 +93,7 @@ func TestFindRecordingReportsMissingScope(t *testing.T) {
 	}))
 	defer srv.Close()
 	start := time.Now()
-	_, err := testRecordings(srv).FindRecording(context.Background(), "https://meet.google.com/abc-defg-hij", start, start)
+	_, err := testRecordings(srv).FindRecording(context.Background(), "", "https://meet.google.com/abc-defg-hij", start, start)
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		t.Fatalf("err = %v, want the 403 reported", err)
 	}
@@ -119,7 +119,7 @@ func TestShareRecording(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := testRecordings(srv).ShareRecording(context.Background(), "file123", []string{"budi@gmail.com", "not-google@example.com", "sari@gmail.com"})
+	err := testRecordings(srv).ShareRecording(context.Background(), "", "file123", []string{"budi@gmail.com", "not-google@example.com", "sari@gmail.com"})
 	if len(shared) != 2 || shared[0] != "budi@gmail.com" || shared[1] != "sari@gmail.com" {
 		t.Fatalf("shared with %v, want the two Google accounts", shared)
 	}
@@ -129,7 +129,34 @@ func TestShareRecording(t *testing.T) {
 
 	off := testRecordings(srv)
 	off.shareClient = nil
-	if err := off.ShareRecording(context.Background(), "file123", []string{"x@gmail.com"}); err != nil || len(shared) != 2 {
+	if err := off.ShareRecording(context.Background(), "", "file123", []string{"x@gmail.com"}); err != nil || len(shared) != 2 {
 		t.Fatalf("sharing off should do nothing, got %v", err)
+	}
+}
+
+func TestRecordingsActAsTheSessionsHost(t *testing.T) {
+	var filter string
+	srv := fakeMeetRecordingsAPI(t, &filter)
+	defer srv.Close()
+
+	var actedAs []string
+	client := func(_ context.Context, host string) *http.Client {
+		actedAs = append(actedAs, host)
+		return srv.Client()
+	}
+	r := &Recordings{meetAPIBase: srv.URL, driveAPIBase: srv.URL, readClient: client, shareClient: client}
+	start := time.Date(2026, 11, 13, 3, 0, 0, 0, time.UTC)
+	rec, err := r.FindRecording(context.Background(), "umar@kulkul.tech", "https://meet.google.com/tai-rgbk-gjv", start, start.Add(2*time.Hour))
+	if err != nil || rec == nil {
+		t.Fatalf("rec = %v, err = %v", rec, err)
+	}
+	_ = r.ShareRecording(context.Background(), "umar@kulkul.tech", rec.FileID, []string{"budi@gmail.com"})
+	for _, h := range actedAs {
+		if h != "umar@kulkul.tech" {
+			t.Fatalf("recordings looked up or shared as %v, want the host's account", actedAs)
+		}
+	}
+	if len(actedAs) != 2 {
+		t.Fatalf("expected a lookup and a share, got %v", actedAs)
 	}
 }

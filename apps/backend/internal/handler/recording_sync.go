@@ -22,9 +22,10 @@ const (
 
 // RecordingFinder looks up a session's Meet recording and shares it; *calendar.Recordings does both.
 type RecordingFinder interface {
-	FindRecording(ctx context.Context, meetingURL string, start, end time.Time) (*calendar.Recording, error)
+	// host is the Google account that owns the session's Meet room ("" = the default account)
+	FindRecording(ctx context.Context, host, meetingURL string, start, end time.Time) (*calendar.Recording, error)
 	SharingEnabled() bool
-	ShareRecording(ctx context.Context, fileID string, emails []string) error
+	ShareRecording(ctx context.Context, host, fileID string, emails []string) error
 }
 
 // RecordingSync adds Google Meet recordings to sessions once Meet has finished processing them.
@@ -70,7 +71,7 @@ func (s *RecordingSync) RunOnce(ctx context.Context, now time.Time) {
 		if err != nil {
 			continue
 		}
-		rec, err := s.finder.FindRecording(ctx, sess.MeetingURL, sess.StartTime, sess.EndTime)
+		rec, err := s.finder.FindRecording(ctx, sess.GoogleCalendarHost, sess.MeetingURL, sess.StartTime, sess.EndTime)
 		if err != nil {
 			s.logger.Warn("recordings: could not look up the Meet recording", slog.String("session_id", id.String()), slog.Any("error", err))
 			continue
@@ -102,7 +103,7 @@ func (s *RecordingSync) RunOnce(ctx context.Context, now time.Time) {
 				emails = append(emails, e)
 			}
 		}
-		if err := s.finder.ShareRecording(ctx, rec.FileID, emails); err != nil {
+		if err := s.finder.ShareRecording(ctx, sess.GoogleCalendarHost, rec.FileID, emails); err != nil {
 			s.logger.Warn("recordings: share with invitees", slog.String("session_id", id.String()), slog.Any("error", err))
 		}
 	}

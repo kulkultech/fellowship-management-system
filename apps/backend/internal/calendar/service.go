@@ -45,9 +45,11 @@ type CreateEventRequest struct {
 	OrganizerEmail   string
 	OrganizerName    string
 	WorkspaceURL     string
-	// CoHosts are emails made co-hosts of the event's Meet room (the program's mentors), so the
-	// meeting can start recording when one of them joins instead of only when the organizer does.
-	CoHosts []string
+	// HostEmail is who should own the event and its Meet room. CreateEvent uses it when the address
+	// is in the default account's Workspace domain (the session's mentor, so their joining starts
+	// auto-recording) and otherwise falls back to the default account. UpdateEvent and DeleteEvent
+	// take the host the event was created as ("" = the default account).
+	HostEmail string
 	// Recurrence is an RRULE value (e.g. FREQ=WEEKLY;BYDAY=MO) for a repeating event; TimeZone is
 	// the IANA zone it repeats in. Both are empty for a single event.
 	Recurrence string
@@ -62,6 +64,8 @@ type EventResult struct {
 	GoogleCalendarWebURL string   `json:"google_calendar_web_url"`
 	ICSData              []byte   `json:"-"`
 	InvitedAttendees     []string `json:"invited_attendees"`
+	// Host is the Google account that owns the event, "" when it was not created in Google Calendar.
+	Host string `json:"-"`
 }
 
 // Config holds Google Calendar service configuration.
@@ -84,7 +88,10 @@ type Config struct {
 type Service interface {
 	CreateEvent(ctx context.Context, req CreateEventRequest) (*EventResult, error)
 	UpdateEvent(ctx context.Context, eventID string, req CreateEventRequest) (*EventResult, error)
-	DeleteEvent(ctx context.Context, eventID string) error
+	DeleteEvent(ctx context.Context, eventID, host string) error
+	// HostFor returns the Google account that would own an event for this mentor email: the mentor
+	// when they are in the default account's Workspace domain, otherwise the default account.
+	HostFor(email string) string
 	GenerateGoogleCalendarWebURL(title, description, location string, start, end time.Time, attendeeEmails []string) string
 	GenerateICS(title, description, location string, start, end time.Time, organizerEmail, organizerName string, attendees []Attendee) []byte
 }
@@ -95,14 +102,51 @@ type googleCalendarService struct {
 	// meetConfig and meetClient are set when auto-recording is on; they ask for the Meet settings
 	// scope separately, so a missing grant only skips recording instead of breaking calendar events.
 	meetConfig *jwt.Config
-	meetClient func(context.Context) *http.Client
-	// membersClient adds co-hosts; it asks for the meetings.space.created scope on its own, so a
-	// missing grant only skips co-hosts.
-	membersClient func(context.Context) *http.Client
-	organizer     string
-	meetAPIBase   string
-	logger        *slog.Logger
-	httpClient    *http.Client
+	meetClient func(ctx context.Context, host string) *http.Client
+	// defaultHost is the account events belong to unless a mentor in hostDomain hosts them
+	defaultHost string
+	hostDomain  string
+	meetAPIBase string
+	logger      *slog.Logger
+	httpClient  *http.Client
+}
+
+// clientAs returns HTTP clients that act as a given Workspace user ("" = the config's own user).
+func clientAs(cfg *jwt.Config) func(ctx context.Context, host string) *http.Client {
+	return func(ctx context.Context, host string) *http.Client {
+		c := *cfg
+		if host != "" {
+			c.Subject = host
+		}
+		return c.Client(ctx)
+	}
+}
+
+func (s *googleCalendarService) HostFor(email string) string {
+	if s.jwtConfig == nil {
+		return ""
+	}
+	e := strings.ToLower(strings.TrimSpace(email))
+	if e != "" && s.hostDomain != "" && strings.HasSuffix(e, "@"+s.hostDomain) {
+		return e
+	}
+	return s.defaultHost
+}
+
+func (s *googleCalendarService) hostOrDefault(host string) string {
+	if h := strings.ToLower(strings.TrimSpace(host)); h != "" {
+		return h
+	}
+	return s.defaultHost
+}
+
+// calendarIDFor is the calendar an event of this host lives in: the configured calendar for the
+// default account, a mentor's own primary calendar otherwise.
+func (s *googleCalendarService) calendarIDFor(host string) string {
+	if host == s.defaultHost {
+		return s.calendarID
+	}
+	return "primary"
 }
 
 // NewService initializes a new Calendar & Google Meet service.
@@ -133,12 +177,12 @@ func NewService(cfg Config, logger *slog.Logger) Service {
 				meetCfg := *jwtCfg
 				meetCfg.Scopes = []string{meetSettingsScope}
 				svc.meetConfig = &meetCfg
-				svc.meetClient = meetCfg.Client
-				membersCfg := *jwtCfg
-				membersCfg.Scopes = []string{meetMembersScope}
-				svc.membersClient = membersCfg.Client
+				svc.meetClient = clientAs(&meetCfg)
 			}
-			svc.organizer = strings.ToLower(jwtCfg.Subject)
+			svc.defaultHost = strings.ToLower(jwtCfg.Subject)
+			if _, domain, ok := strings.Cut(svc.defaultHost, "@"); ok {
+				svc.hostDomain = domain
+			}
 			logger.Info("Google Calendar API client successfully initialized with service account", "calendar_id", calID, "impersonate", jwtCfg.Subject, "meet_auto_record", cfg.AutoRecord)
 		}
 	} else {
@@ -294,10 +338,18 @@ func (s *googleCalendarService) CreateEvent(ctx context.Context, req CreateEvent
 		InvitedAttendees:     attendeeEmails,
 	}
 
-	// 5. If Google Service Account is configured, attempt direct Google Calendar API integration
+	// 5. If Google Service Account is configured, attempt direct Google Calendar API integration,
+	// as the session's mentor when they can host it, else (or if that fails) as the default account
 	if s.jwtConfig != nil {
-		apiResult, err := s.callGoogleCalendarAPI(ctx, req, meetURL, description)
+		host := s.HostFor(req.HostEmail)
+		apiResult, err := s.callGoogleCalendarAPI(ctx, host, req, meetURL, description)
+		if err != nil && host != s.defaultHost {
+			s.logger.Warn("could not create the Calendar event as the session's mentor; creating it as the default account", "mentor", host, "error", err)
+			host = s.defaultHost
+			apiResult, err = s.callGoogleCalendarAPI(ctx, host, req, meetURL, description)
+		}
 		if err == nil && apiResult != nil {
+			result.Host = host
 			result.EventID = apiResult.EventID
 			if apiResult.MeetingURL != "" {
 				result.MeetingURL = apiResult.MeetingURL
@@ -340,27 +392,29 @@ func (s *googleCalendarService) UpdateEvent(ctx context.Context, eventID string,
 	}
 
 	if eventID != "" && !strings.HasPrefix(eventID, "fms-") {
+		host := s.hostOrDefault(req.HostEmail)
+		res.Host = host
 		if s.jwtConfig != nil {
-			_ = s.patchGoogleCalendarAPI(ctx, eventID, req, meetURL, description)
+			_ = s.patchGoogleCalendarAPI(ctx, host, eventID, req, meetURL, description)
 		}
 		// Saving a session also turns on auto-recording for its Meet room, so rooms created before
 		// auto-recording was enabled can be fixed by editing the session.
-		s.turnOnAutoRecording(ctx, meetingCodeFromURL(meetURL))
-		s.addCoHosts(ctx, meetingCodeFromURL(meetURL), req.CoHosts)
+		s.turnOnAutoRecording(ctx, host, meetingCodeFromURL(meetURL))
 	}
 
 	return res, nil
 }
 
 // DeleteEvent deletes an event from Google Calendar if synced.
-func (s *googleCalendarService) DeleteEvent(ctx context.Context, eventID string) error {
+func (s *googleCalendarService) DeleteEvent(ctx context.Context, eventID, host string) error {
 	if s.jwtConfig == nil || eventID == "" || strings.HasPrefix(eventID, "fms-") {
 		return nil
 	}
 
-	client := s.jwtConfig.Client(ctx)
+	host = s.hostOrDefault(host)
+	client := clientAs(s.jwtConfig)(ctx, host)
 	apiURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/%s/events/%s?sendUpdates=all",
-		url.PathEscape(s.calendarID), url.PathEscape(eventID))
+		url.PathEscape(s.calendarIDFor(host)), url.PathEscape(eventID))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, apiURL, nil)
 	if err != nil {
@@ -382,8 +436,8 @@ func (s *googleCalendarService) DeleteEvent(ctx context.Context, eventID string)
 }
 
 // callGoogleCalendarAPI calls Google Calendar REST API v3 to create event with Hangouts Meet.
-func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req CreateEventRequest, fallbackMeetURL, description string) (*EventResult, error) {
-	client := s.jwtConfig.Client(ctx)
+func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, host string, req CreateEventRequest, fallbackMeetURL, description string) (*EventResult, error) {
+	client := clientAs(s.jwtConfig)(ctx, host)
 
 	type apiAttendee struct {
 		Email       string `json:"email"`
@@ -392,7 +446,8 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 
 	var attendees []apiAttendee
 	for _, a := range req.Attendees {
-		if a.Email != "" {
+		// The host organizes the event, so they aren't invited to it as well
+		if a.Email != "" && !strings.EqualFold(strings.TrimSpace(a.Email), host) {
 			attendees = append(attendees, apiAttendee{
 				Email:       a.Email,
 				DisplayName: a.Name,
@@ -438,7 +493,7 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 	}
 
 	apiURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/%s/events?conferenceDataVersion=1&sendUpdates=all",
-		url.PathEscape(s.calendarID))
+		url.PathEscape(s.calendarIDFor(host)))
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(jsonBytes))
 	if err != nil {
@@ -487,8 +542,7 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 		meetURL = fallbackMeetURL
 	}
 
-	s.turnOnAutoRecording(ctx, respBody.ConferenceData.ConferenceID)
-	s.addCoHosts(ctx, respBody.ConferenceData.ConferenceID, req.CoHosts)
+	s.turnOnAutoRecording(ctx, host, respBody.ConferenceData.ConferenceID)
 
 	return &EventResult{
 		EventID:    respBody.ID,
@@ -498,8 +552,8 @@ func (s *googleCalendarService) callGoogleCalendarAPI(ctx context.Context, req C
 }
 
 // patchGoogleCalendarAPI updates an existing event in Google Calendar.
-func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, eventID string, req CreateEventRequest, meetURL, description string) error {
-	client := s.jwtConfig.Client(ctx)
+func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, host, eventID string, req CreateEventRequest, meetURL, description string) error {
+	client := clientAs(s.jwtConfig)(ctx, host)
 
 	payload := map[string]any{
 		"summary":     req.Title,
@@ -519,7 +573,7 @@ func (s *googleCalendarService) patchGoogleCalendarAPI(ctx context.Context, even
 
 	jsonBytes, _ := json.Marshal(payload)
 	apiURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/%s/events/%s?sendUpdates=all",
-		url.PathEscape(s.calendarID), url.PathEscape(eventID))
+		url.PathEscape(s.calendarIDFor(host)), url.PathEscape(eventID))
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, apiURL, bytes.NewReader(jsonBytes))
 	if err != nil {
@@ -646,15 +700,15 @@ func meetingCodeFromURL(raw string) string {
 
 // turnOnAutoRecording turns on auto-recording for a Meet room when auto-recording is enabled, and
 // logs the outcome either way. A failure only means the meeting won't record on its own.
-func (s *googleCalendarService) turnOnAutoRecording(ctx context.Context, meetingCode string) {
+func (s *googleCalendarService) turnOnAutoRecording(ctx context.Context, host, meetingCode string) {
 	if s.meetClient == nil || meetingCode == "" {
 		return
 	}
-	if err := s.enableAutoRecording(ctx, s.meetClient(ctx), meetingCode); err != nil {
-		s.logger.Warn("could not turn on Meet auto-recording; the meeting will not record on its own", "meeting_code", meetingCode, "error", err)
+	if err := s.enableAutoRecording(ctx, s.meetClient(ctx, host), meetingCode); err != nil {
+		s.logger.Warn("could not turn on Meet auto-recording; the meeting will not record on its own", "meeting_code", meetingCode, "host", host, "error", err)
 		return
 	}
-	s.logger.Info("turned on Meet auto-recording", "meeting_code", meetingCode)
+	s.logger.Info("turned on Meet auto-recording", "meeting_code", meetingCode, "host", host)
 }
 
 // enableAutoRecording turns on auto-recording for the Meet room with the given meeting code.
@@ -708,111 +762,6 @@ func (s *googleCalendarService) lookupSpaceName(ctx context.Context, client *htt
 		return "", fmt.Errorf("google meet api: unexpected space name %q", space.Name)
 	}
 	return "spaces/" + url.PathEscape(id), nil
-}
-
-const meetMembersScope = "https://www.googleapis.com/auth/meetings.space.created"
-
-// addCoHosts makes each email a co-host of the Meet room, skipping the organizer and anyone who
-// already is a member, and logs the outcome. Meet starts auto-recording when the host or a co-host
-// joins, so this lets a mentor's arrival start the recording. A failure only means fewer co-hosts.
-func (s *googleCalendarService) addCoHosts(ctx context.Context, meetingCode string, emails []string) {
-	if s.meetClient == nil || s.membersClient == nil || meetingCode == "" {
-		return
-	}
-	want := map[string]bool{}
-	for _, e := range emails {
-		if e = strings.ToLower(strings.TrimSpace(e)); e != "" && e != s.organizer {
-			want[e] = true
-		}
-	}
-	if len(want) == 0 {
-		return
-	}
-	added, err := s.addSpaceCoHosts(ctx, meetingCode, want)
-	if err != nil {
-		s.logger.Warn("could not add Meet co-hosts; only the organizer can start the recording", "meeting_code", meetingCode, "added", added, "error", err)
-		return
-	}
-	s.logger.Info("Meet co-hosts up to date", "meeting_code", meetingCode, "added", added, "co_hosts", len(want))
-}
-
-// addSpaceCoHosts adds the wanted emails that are not members yet as co-hosts, and returns how
-// many it added.
-func (s *googleCalendarService) addSpaceCoHosts(ctx context.Context, meetingCode string, want map[string]bool) (int, error) {
-	spaceName, err := s.lookupSpaceName(ctx, s.meetClient(ctx), meetingCode)
-	if err != nil {
-		return 0, err
-	}
-	client := s.membersClient(ctx)
-
-	existing, err := s.listMemberEmails(ctx, client, spaceName)
-	if err != nil {
-		return 0, err
-	}
-	added := 0
-	for email := range want {
-		if existing[email] {
-			continue
-		}
-		body, _ := json.Marshal(map[string]string{"email": email, "role": "COHOST"})
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/%s/members", s.meetAPIBase, spaceName), bytes.NewReader(body))
-		if err != nil {
-			return added, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			return added, err
-		}
-		err = meetAPIError(resp)
-		resp.Body.Close()
-		if err != nil {
-			return added, fmt.Errorf("adding %s: %w", email, err)
-		}
-		added++
-	}
-	return added, nil
-}
-
-// listMemberEmails returns the emails (lowercased) of a space's members.
-func (s *googleCalendarService) listMemberEmails(ctx context.Context, client *http.Client, spaceName string) (map[string]bool, error) {
-	emails := map[string]bool{}
-	pageToken := ""
-	for {
-		apiURL := fmt.Sprintf("%s/%s/members?pageSize=250", s.meetAPIBase, spaceName)
-		if pageToken != "" {
-			apiURL += "&pageToken=" + url.QueryEscape(pageToken)
-		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		var page struct {
-			Members []struct {
-				Email string `json:"email"`
-			} `json:"members"`
-			NextPageToken string `json:"nextPageToken"`
-		}
-		err = meetAPIError(resp)
-		if err == nil {
-			err = json.NewDecoder(resp.Body).Decode(&page)
-		}
-		resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("listing members: %w", err)
-		}
-		for _, m := range page.Members {
-			emails[strings.ToLower(m.Email)] = true
-		}
-		if page.NextPageToken == "" {
-			return emails, nil
-		}
-		pageToken = page.NextPageToken
-	}
 }
 
 func meetAPIError(resp *http.Response) error {

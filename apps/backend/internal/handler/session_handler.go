@@ -192,23 +192,42 @@ func sessionMatches(s model.ProgramSession, q string) bool {
 	return false
 }
 
-// meetCoHosts lists who should co-host a session's Meet room: the program's mentors and the
-// session's own mentor, so whichever of them joins can start the auto-recording.
-func (h *SessionHandler) meetCoHosts(ctx context.Context, programID uuid.UUID, attendees []calendar.Attendee) []string {
-	var emails []string
-	if h.mentorRepo != nil {
-		if mentors, err := h.mentorRepo.ListMentorsByProgram(ctx, programID); err == nil {
-			for _, m := range mentors {
-				emails = append(emails, m.UserEmail)
-			}
-		}
-	}
+// mentorEmail is the email of the session's mentor among its invitees, "" when it has none.
+func mentorEmail(attendees []calendar.Attendee) string {
 	for _, a := range attendees {
-		if a.Role == "mentor" {
-			emails = append(emails, a.Email)
+		if a.Role == "mentor" && strings.TrimSpace(a.Email) != "" {
+			return a.Email
 		}
 	}
-	return emails
+	return ""
+}
+
+// moveToMentorsCalendar re-creates a session's Calendar event under the account that should host it
+// now, when its mentor changed who that is. Meet only starts auto-recording when the host joins, and
+// the host is whoever owns the event, so a session taught by a Workspace mentor belongs to them.
+// The Meet room comes with the event, so the session gets a new Meet link; the old event is
+// cancelled. It reports whether it moved the event; a session with its own (non-Meet) link stays.
+func (h *SessionHandler) moveToMentorsCalendar(ctx context.Context, sess *model.ProgramSession, evReq calendar.CreateEventRequest, mentor string) bool {
+	current := h.calendarService.HostFor(sess.GoogleCalendarHost)
+	want := h.calendarService.HostFor(mentor)
+	if want == current || !strings.HasPrefix(sess.MeetingURL, "https://meet.google.com/") {
+		return false
+	}
+	evReq.HostEmail = mentor
+	evReq.MeetingURL = ""
+	evReq.AutoGenerateMeet = true
+	ev, err := h.calendarService.CreateEvent(ctx, evReq)
+	if err != nil || ev == nil || ev.Host == "" {
+		return false
+	}
+	_ = h.calendarService.DeleteEvent(ctx, sess.GoogleCalendarEventID, sess.GoogleCalendarHost)
+	sess.GoogleCalendarEventID = ev.EventID
+	sess.GoogleCalendarHTMLLink = ev.HTMLLink
+	sess.GoogleCalendarHost = ev.Host
+	if ev.MeetingURL != "" {
+		sess.MeetingURL = ev.MeetingURL
+	}
+	return true
 }
 
 // sortSessions orders sessions for ?sort: "newest" (latest start first), "upcoming" (sessions not
@@ -425,10 +444,11 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 			OrganizerEmail:   organizerEmail,
 			OrganizerName:    organizerName,
 			WorkspaceURL:     workspaceURL,
-			CoHosts:          h.meetCoHosts(r.Context(), programID, invitedAttendees),
+			HostEmail:        mentorEmail(invitedAttendees),
 		})
 		if evErr == nil && evRes != nil {
 			sess.GoogleCalendarEventID = evRes.EventID
+			sess.GoogleCalendarHost = evRes.Host
 			sess.GoogleCalendarHTMLLink = evRes.HTMLLink
 			calWebURL = evRes.GoogleCalendarWebURL
 			if evRes.MeetingURL != "" {
@@ -590,7 +610,7 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 	if h.calendarService != nil && existing.GoogleCalendarEventID != "" {
 		attendees, _ := h.sessionRepo.GetSessionInvitedAttendees(r.Context(), programID, existing.TrackID, existing.TargetApplicantIDs, existing.MentorID)
 		workspaceURL := fmt.Sprintf("%s/sessions/%s/room", h.frontendURL, existing.ID)
-		_, _ = h.calendarService.UpdateEvent(r.Context(), existing.GoogleCalendarEventID, calendar.CreateEventRequest{
+		evReq := calendar.CreateEventRequest{
 			SessionID:    existing.ID,
 			ProgramID:    programID,
 			Title:        existing.Title,
@@ -601,8 +621,11 @@ func (h *SessionHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 			MeetingURL:   existing.MeetingURL,
 			Attendees:    attendees,
 			WorkspaceURL: workspaceURL,
-			CoHosts:      h.meetCoHosts(r.Context(), programID, attendees),
-		})
+			HostEmail:    existing.GoogleCalendarHost,
+		}
+		if !h.moveToMentorsCalendar(r.Context(), existing, evReq, mentorEmail(attendees)) {
+			_, _ = h.calendarService.UpdateEvent(r.Context(), existing.GoogleCalendarEventID, evReq)
+		}
 	}
 
 	updated, err := h.sessionRepo.UpdateSession(r.Context(), existing)
@@ -679,7 +702,7 @@ func (h *SessionHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if h.calendarService != nil && existing.GoogleCalendarEventID != "" {
-			_ = h.calendarService.DeleteEvent(r.Context(), existing.GoogleCalendarEventID)
+			_ = h.calendarService.DeleteEvent(r.Context(), existing.GoogleCalendarEventID, existing.GoogleCalendarHost)
 		}
 	}
 

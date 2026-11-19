@@ -72,12 +72,12 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 			id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
 			target_applicant_ids, google_calendar_event_id, google_calendar_html_link,
-			created_at, updated_at, series_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+			created_at, updated_at, series_id, google_calendar_host
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
 			target_applicant_ids, COALESCE(google_calendar_event_id, ''), COALESCE(google_calendar_html_link, ''),
-			created_at, updated_at, series_id
+			created_at, updated_at, series_id, google_calendar_host
 	`
 	var res model.ProgramSession
 	var resRawTargets []byte
@@ -85,12 +85,12 @@ func (r *SessionRepository) CreateSession(ctx context.Context, s *model.ProgramS
 		s.ID, s.ProgramID, s.TrackID, s.Title, s.Description, string(s.SessionType),
 		s.StartTime, s.EndTime, s.MeetingURL, s.RecordingURL, s.MentorID,
 		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink,
-		s.CreatedAt, s.UpdatedAt, s.SeriesID,
+		s.CreatedAt, s.UpdatedAt, s.SeriesID, s.GoogleCalendarHost,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
 		&resRawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
-		&res.CreatedAt, &res.UpdatedAt, &res.SeriesID,
+		&res.CreatedAt, &res.UpdatedAt, &res.SeriesID, &res.GoogleCalendarHost,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: create: %w", err)
@@ -124,7 +124,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 		SELECT s.id, s.program_id, s.track_id, COALESCE(t.name, ''), s.title, s.description, s.session_type,
 			s.start_time, s.end_time, s.meeting_url, s.recording_url, s.mentor_id, COALESCE(u.name, ''),
 			COALESCE(s.target_applicant_ids, '[]'::jsonb),
-			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''),
+			COALESCE(s.google_calendar_event_id, ''), COALESCE(s.google_calendar_html_link, ''), s.google_calendar_host,
 			COALESCE(s.workspace_state, '{}'::jsonb),
 			s.created_at, s.updated_at,
 			s.series_id, COALESCE(ss.rrule, ''), COALESCE(ss.timezone, ''),
@@ -142,7 +142,7 @@ func (r *SessionRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.TrackName, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID, &res.MentorName,
-		&rawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
+		&rawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink, &res.GoogleCalendarHost,
 		&rawWorkspace,
 		&res.CreatedAt, &res.UpdatedAt,
 		&res.SeriesID, &res.RecurrenceRule, &res.RecurrenceTimezone,
@@ -387,24 +387,24 @@ func (r *SessionRepository) UpdateSession(ctx context.Context, s *model.ProgramS
 		SET title = $2, description = $3, session_type = $4, start_time = $5, end_time = $6,
 			meeting_url = $7, recording_url = $8, mentor_id = $9, track_id = $10,
 			target_applicant_ids = $11, google_calendar_event_id = $12, google_calendar_html_link = $13,
-			series_id = $14, updated_at = now()
+			series_id = $14, google_calendar_host = COALESCE(NULLIF($15, ''), google_calendar_host), updated_at = now()
 		WHERE id = $1
 		RETURNING id, program_id, track_id, title, description, session_type,
 			start_time, end_time, meeting_url, recording_url, mentor_id,
 			target_applicant_ids, COALESCE(google_calendar_event_id, ''), COALESCE(google_calendar_html_link, ''),
-			created_at, updated_at, series_id
+			created_at, updated_at, series_id, google_calendar_host
 	`
 	var res model.ProgramSession
 	var resRawTargets []byte
 	err := r.pool.QueryRow(ctx, query,
 		s.ID, s.Title, s.Description, string(s.SessionType), s.StartTime, s.EndTime,
 		s.MeetingURL, s.RecordingURL, s.MentorID, s.TrackID,
-		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink, s.SeriesID,
+		rawTargets, s.GoogleCalendarEventID, s.GoogleCalendarHTMLLink, s.SeriesID, s.GoogleCalendarHost,
 	).Scan(
 		&res.ID, &res.ProgramID, &res.TrackID, &res.Title, &res.Description, &res.SessionType,
 		&res.StartTime, &res.EndTime, &res.MeetingURL, &res.RecordingURL, &res.MentorID,
 		&resRawTargets, &res.GoogleCalendarEventID, &res.GoogleCalendarHTMLLink,
-		&res.CreatedAt, &res.UpdatedAt, &res.SeriesID,
+		&res.CreatedAt, &res.UpdatedAt, &res.SeriesID, &res.GoogleCalendarHost,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound

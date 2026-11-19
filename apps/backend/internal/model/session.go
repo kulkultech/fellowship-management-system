@@ -46,6 +46,9 @@ type ProgramSession struct {
 	TargetApplicantIDs     []uuid.UUID `json:"target_applicant_ids"`
 	GoogleCalendarEventID  string          `json:"google_calendar_event_id,omitempty"`
 	GoogleCalendarHTMLLink string          `json:"google_calendar_html_link,omitempty"`
+	// GoogleCalendarHost is the Google account that owns the Calendar event and its Meet room
+	// ("" = the default account); it is the Meet host, whose joining starts auto-recording.
+	GoogleCalendarHost string `json:"-"`
 	WorkspaceState         json.RawMessage `json:"workspace_state,omitempty"`
 
 	// Recurring sessions: the series this occurrence belongs to and its repeat rule
@@ -80,6 +83,7 @@ type SessionSeries struct {
 	RRule                 string     `json:"rrule"`
 	Timezone              string     `json:"timezone"`
 	GoogleCalendarEventID string     `json:"google_calendar_event_id,omitempty"`
+	GoogleCalendarHost    string     `json:"-"`
 	CreatedBy             *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`

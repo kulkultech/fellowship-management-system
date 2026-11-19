@@ -32,8 +32,10 @@ type Recording struct {
 type Recordings struct {
 	meetAPIBase  string
 	driveAPIBase string
-	readClient   func(context.Context) *http.Client // meetings.space.readonly
-	shareClient  func(context.Context) *http.Client // drive; nil when sharing is off
+	// Both act as a session's host, the account that owns its Meet room and recordings ("" = the
+	// default account)
+	readClient  func(ctx context.Context, host string) *http.Client // meetings.space.readonly
+	shareClient func(ctx context.Context, host string) *http.Client // drive; nil when sharing is off
 }
 
 // NewRecordings returns nil unless the service account is set up and Meet auto-recording is on.
@@ -52,11 +54,11 @@ func NewRecordings(cfg Config, logger *slog.Logger) *Recordings {
 	r := &Recordings{
 		meetAPIBase:  "https://meet.googleapis.com/v2",
 		driveAPIBase: "https://www.googleapis.com/drive/v3",
-		readClient:   readCfg.Client,
+		readClient:   clientAs(readCfg),
 	}
 	if cfg.ShareRecordings {
 		if shareCfg, err := serviceAccountJWT(cfg, driveScope); err == nil {
-			r.shareClient = shareCfg.Client
+			r.shareClient = clientAs(shareCfg)
 		}
 	}
 	logger.Info("Meet recordings will be added to sessions", "share_with_invitees", r.shareClient != nil)
@@ -79,12 +81,13 @@ type meetRecording struct {
 // FindRecording returns the first finished recording of the Meet meeting at meetingURL that started
 // around the session's time, or nil when there is none (yet). Recurring sessions share one Meet room,
 // so the time window is what picks this session's meeting.
-func (r *Recordings) FindRecording(ctx context.Context, meetingURL string, start, end time.Time) (*Recording, error) {
+// host is the account that owns the Meet room ("" = the default account).
+func (r *Recordings) FindRecording(ctx context.Context, host, meetingURL string, start, end time.Time) (*Recording, error) {
 	code := meetingCodeFromURL(meetingURL)
 	if code == "" {
 		return nil, nil
 	}
-	client := r.readClient(ctx)
+	client := r.readClient(ctx, host)
 
 	filter := fmt.Sprintf(`space.meeting_code = "%s" AND start_time >= "%s" AND start_time <= "%s"`,
 		code, meetTimestamp(start.Add(-conferenceEarlyStart)), meetTimestamp(end))
@@ -122,11 +125,12 @@ func (r *Recordings) SharingEnabled() bool { return r.shareClient != nil }
 // ShareRecording gives each email view access to the recording, without Google's notification email
 // (FellowHire shows the recording on the session instead). It tries every email and reports the ones
 // that failed, for example addresses that aren't Google accounts.
-func (r *Recordings) ShareRecording(ctx context.Context, fileID string, emails []string) error {
+// host owns the recording file ("" = the default account).
+func (r *Recordings) ShareRecording(ctx context.Context, host, fileID string, emails []string) error {
 	if r.shareClient == nil || fileID == "" {
 		return nil
 	}
-	client := r.shareClient(ctx)
+	client := r.shareClient(ctx, host)
 	apiURL := fmt.Sprintf("%s/files/%s/permissions?sendNotificationEmail=false&supportsAllDrives=true",
 		r.driveAPIBase, url.PathEscape(fileID))
 	var failed []string

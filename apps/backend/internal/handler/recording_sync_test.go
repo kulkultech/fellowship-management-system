@@ -22,7 +22,7 @@ type fakeRecordingFinder struct {
 	shared     map[string][]string // file ID → emails
 }
 
-func (f *fakeRecordingFinder) FindRecording(_ context.Context, meetingURL string, _, _ time.Time) (*calendar.Recording, error) {
+func (f *fakeRecordingFinder) FindRecording(_ context.Context, _, meetingURL string, _, _ time.Time) (*calendar.Recording, error) {
 	f.asked = append(f.asked, meetingURL)
 	if meetingURL == f.failFor {
 		return nil, errors.New("google api error 403")
@@ -32,7 +32,7 @@ func (f *fakeRecordingFinder) FindRecording(_ context.Context, meetingURL string
 
 func (f *fakeRecordingFinder) SharingEnabled() bool { return f.sharing }
 
-func (f *fakeRecordingFinder) ShareRecording(_ context.Context, fileID string, emails []string) error {
+func (f *fakeRecordingFinder) ShareRecording(_ context.Context, _, fileID string, emails []string) error {
 	if f.shared == nil {
 		f.shared = map[string][]string{}
 	}

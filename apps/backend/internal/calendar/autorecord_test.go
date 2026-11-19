@@ -97,7 +97,7 @@ func TestUpdateEventTurnsOnAutoRecording(t *testing.T) {
 
 	svc := &googleCalendarService{
 		meetAPIBase: srv.URL,
-		meetClient:  func(context.Context) *http.Client { return srv.Client() },
+		meetClient:  func(context.Context, string) *http.Client { return srv.Client() },
 		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	if _, err := svc.UpdateEvent(context.Background(), "google-event-1", CreateEventRequest{MeetingURL: "https://meet.google.com/abc-defg-hij"}); err != nil {
@@ -115,7 +115,7 @@ func TestUpdateEventLeavesOtherMeetingsAlone(t *testing.T) {
 
 	svc := &googleCalendarService{
 		meetAPIBase: srv.URL,
-		meetClient:  func(context.Context) *http.Client { return srv.Client() },
+		meetClient:  func(context.Context, string) *http.Client { return srv.Client() },
 		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	ctx := context.Background()

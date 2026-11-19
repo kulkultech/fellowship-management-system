@@ -28,9 +28,6 @@ func TestAutoRecordUsesSeparateMeetScope(t *testing.T) {
 	if len(svc.meetConfig.Scopes) != 1 || svc.meetConfig.Scopes[0] != meetSettingsScope || svc.meetConfig.Subject != "ragil@kulkul.tech" {
 		t.Fatalf("meet config = %v / %q", svc.meetConfig.Scopes, svc.meetConfig.Subject)
 	}
-	if svc.membersClient == nil || svc.organizer != "ragil@kulkul.tech" {
-		t.Fatal("auto-record on but no co-host client or organizer")
-	}
 	if len(svc.jwtConfig.Scopes) != 1 || svc.jwtConfig.Scopes[0] != "https://www.googleapis.com/auth/calendar.events" {
 		t.Fatalf("calendar scopes changed: %v", svc.jwtConfig.Scopes)
 	}

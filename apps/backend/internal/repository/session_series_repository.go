@@ -66,9 +66,9 @@ func (r *SessionRepository) CreateSeries(ctx context.Context, series *model.Sess
 		return &cp, nil
 	}
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO session_series (id, program_id, rrule, timezone, google_calendar_event_id, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, series.ID, series.ProgramID, series.RRule, series.Timezone, series.GoogleCalendarEventID, series.CreatedBy, series.CreatedAt, series.UpdatedAt)
+		INSERT INTO session_series (id, program_id, rrule, timezone, google_calendar_event_id, created_by, created_at, updated_at, google_calendar_host)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, series.ID, series.ProgramID, series.RRule, series.Timezone, series.GoogleCalendarEventID, series.CreatedBy, series.CreatedAt, series.UpdatedAt, series.GoogleCalendarHost)
 	if err != nil {
 		return nil, fmt.Errorf("session_repo: create series: %w", err)
 	}
@@ -88,9 +88,9 @@ func (r *SessionRepository) GetSeries(ctx context.Context, id uuid.UUID) (*model
 	}
 	var s model.SessionSeries
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, program_id, rrule, timezone, google_calendar_event_id, created_by, created_at, updated_at
+		SELECT id, program_id, rrule, timezone, google_calendar_event_id, created_by, created_at, updated_at, google_calendar_host
 		FROM session_series WHERE id = $1
-	`, id).Scan(&s.ID, &s.ProgramID, &s.RRule, &s.Timezone, &s.GoogleCalendarEventID, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt)
+	`, id).Scan(&s.ID, &s.ProgramID, &s.RRule, &s.Timezone, &s.GoogleCalendarEventID, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt, &s.GoogleCalendarHost)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSeriesNotFound
 	}

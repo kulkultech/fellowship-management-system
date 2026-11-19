@@ -542,6 +542,9 @@ func AutoMigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
 	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS series_id UUID REFERENCES session_series(id) ON DELETE SET NULL;
+	-- The Google account that owns a session's Calendar event and Meet room ('' = the default account)
+	ALTER TABLE program_sessions ADD COLUMN IF NOT EXISTS google_calendar_host VARCHAR(255) NOT NULL DEFAULT '';
+	ALTER TABLE session_series ADD COLUMN IF NOT EXISTS google_calendar_host VARCHAR(255) NOT NULL DEFAULT '';
 	CREATE INDEX IF NOT EXISTS idx_program_sessions_series ON program_sessions(series_id, start_time);
 
 	-- When a mentor marks a session as ended in the workspace (opens session feedback)

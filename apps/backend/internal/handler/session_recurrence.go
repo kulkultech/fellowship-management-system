@@ -110,10 +110,12 @@ func (h *SessionHandler) createRecurringSessions(w http.ResponseWriter, r *http.
 			StartTime: first.StartTime, EndTime: first.EndTime, MeetingURL: first.MeetingURL,
 			AutoGenerateMeet: c.autoGenMeeting, Attendees: c.attendees, OrganizerEmail: c.organizerEmail,
 			Recurrence: plan.normalized, TimeZone: series.Timezone,
-			CoHosts: h.meetCoHosts(ctx, first.ProgramID, c.attendees),
+			HostEmail: mentorEmail(c.attendees),
 		})
 		if evErr == nil && ev != nil {
 			series.GoogleCalendarEventID = ev.EventID
+			series.GoogleCalendarHost = ev.Host
+			tmpl.GoogleCalendarHost = ev.Host
 			calLink = ev.GoogleCalendarWebURL
 			if ev.MeetingURL != "" {
 				tmpl.MeetingURL = ev.MeetingURL
@@ -538,7 +540,7 @@ func (h *SessionHandler) deleteRecurringSessions(w http.ResponseWriter, r *http.
 	switch {
 	case remaining == 0:
 		if h.calendarService != nil && series.GoogleCalendarEventID != "" {
-			_ = h.calendarService.DeleteEvent(ctx, series.GoogleCalendarEventID)
+			_ = h.calendarService.DeleteEvent(ctx, series.GoogleCalendarEventID, series.GoogleCalendarHost)
 		}
 		err = h.sessionRepo.DeleteSeries(ctx, series.ID)
 	case scope == "following":
