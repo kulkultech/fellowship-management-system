@@ -59,8 +59,11 @@ export const ProgramRoomPage: React.FC = () => {
   const sectionParam = searchParams.get('section') as RoomSection | null;
   const activeTab: RoomSection = sectionParam && ROOM_SECTIONS.includes(sectionParam) ? sectionParam : 'assignments';
   const focusId = searchParams.get('item') || undefined;
-  const setActiveTab = (section: RoomSection) =>
-    setSearchParams(section === 'assignments' ? {} : { section }, { replace: true });
+  // Each section is its own history entry, so Back returns to the previous section
+  const setActiveTab = (section: RoomSection) => {
+    if (section === activeTab && !focusId) return;
+    setSearchParams(section === 'assignments' ? {} : { section });
+  };
 
   // A shared link opened while signed out: sign in, then come back here
   useEffect(() => {

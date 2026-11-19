@@ -10,6 +10,7 @@ import { uploadService } from '@/services/uploadService';
 import { DashboardLayout, type NavItem } from '@/components/DashboardLayout';
 import { ApplicationFormBuilder } from '@/components/admin/ApplicationFormBuilder';
 import { InviteFellowModal } from '@/components/admin/InviteFellowModal';
+import { useUrlState } from '@/hooks/useUrlState';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import type {
   MCQQuestion,
@@ -215,6 +216,8 @@ export interface DashboardPageProps {
   defaultView?: 'programs' | 'pipeline' | 'stages' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github';
 }
 
+type DashboardView = NonNullable<DashboardPageProps['defaultView']>;
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => {
   const navigate = useNavigate();
   const params = useParams();
@@ -239,14 +242,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     }
   }, [user, impersonatedOrgId, navigate]);
 
-  const initialView = defaultView || (searchParams.get('view') as any) || 'programs';
-  // Navigation View: 'programs' | 'pipeline' | 'stages' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'
-  const [currentView, setCurrentView] = useState<'programs' | 'pipeline' | 'stages' | 'questions' | 'track_editor' | 'ai_rubric' | 'create_program' | 'form_builder' | 'team' | 'email_templates' | 'sessions' | 'github'>(initialView);
+  // The open view, program and candidate live in the address, so Back and Forward step through them
+  // and a reload or copied link opens the same place
+  const [viewParam, setViewParam] = useUrlState<DashboardView>('view', defaultView || 'programs');
+  const currentView = viewParam;
+  const setCurrentView = (view: DashboardView) => {
+    if (defaultView && view !== defaultView) {
+      // Routes such as /admin/programs/new open one view; moving on continues on the dashboard
+      const next = new URLSearchParams(window.location.search);
+      next.delete('view');
+      if (view !== 'programs') next.set('view', view);
+      const search = next.toString();
+      navigate(`/admin/dashboard${search ? `?${search}` : ''}`);
+      return;
+    }
+    setViewParam(view);
+  };
 
   const [selectedStage, setSelectedStage] = useState<string>('');
   const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
+  const [candidateParam, setCandidateParam] = useUrlState<string>('candidate', '');
+  const selectedApplicantId = candidateParam || null;
+  const setSelectedApplicantId = (id: string | null) => setCandidateParam(id ?? '');
   const [activeDrawerTab, setActiveDrawerTab] = useState<'answers' | 'ai' | 'profile' | 'credentials' | 'review'>('answers');
   const [applicantToDelete, setApplicantToDelete] = useState<{ id: string; name: string; email: string } | null>(null);
 
@@ -372,9 +390,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const [rubricTargetProgram, setRubricTargetProgram] = useState<Program | null>(null);
   const [rubricForm, setRubricForm] = useState<AIInterviewRubric>(DEFAULT_FELLOWSHIP_RUBRIC);
 
-  const handleOpenRubricPage = (targetProg: Program) => {
+  const handleOpenRubricPage = (targetProg: Program, opened: 'by-click' | 'on-load' = 'by-click') => {
     setRubricTargetProgram(targetProg);
-    setActiveProgramSlug(targetProg.slug);
+    setActiveProgramSlug(targetProg.slug, { replace: opened === 'on-load' });
     if (targetProg.ai_interview_rubric && targetProg.ai_interview_rubric.questions?.length > 0) {
       setRubricForm(targetProg.ai_interview_rubric);
     } else {
@@ -383,14 +401,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
     setCurrentView('ai_rubric');
   };
 
-  useEffect(() => {
-    if (defaultView) {
-      setCurrentView(defaultView);
-    }
-  }, [defaultView]);
-
   // Active Program selection
-  const [activeProgramSlug, setActiveProgramSlug] = useState('');
+  const [activeProgramSlug, setActiveProgramSlug] = useUrlState<string>('program', '');
   const [isCompanySettingsOpen, setIsCompanySettingsOpen] = useState(false);
 
   // Fetch current organization details (supports superadmin impersonation)
@@ -413,7 +425,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
       const targetSlug = params.programSlug || searchParams.get('program') || activeProgramSlug;
       const target = allPrograms.find((p) => p.slug === targetSlug) || allPrograms[0];
       if (target) {
-        handleOpenRubricPage(target);
+        handleOpenRubricPage(target, 'on-load');
       }
     }
   }, [currentView, rubricTargetProgram, allPrograms, activeProgramSlug, params.programSlug, searchParams]);
@@ -421,10 +433,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   useEffect(() => {
     if (allPrograms.length > 0) {
       if (!activeProgramSlug || !allPrograms.some((p) => p.slug === activeProgramSlug)) {
-        setActiveProgramSlug(allPrograms[0].slug);
+        setActiveProgramSlug(allPrograms[0].slug, { replace: true });
       }
     } else {
-      setActiveProgramSlug('');
+      setActiveProgramSlug('', { replace: true });
     }
   }, [allPrograms, activeProgramSlug]);
 
@@ -432,6 +444,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
   const { data: programData } = useQuery({
     queryKey: ['program', orgSlug, activeProgramSlug],
     queryFn: () => programService.getProgram(orgSlug, activeProgramSlug),
+    // Wait until a program is picked; an empty slug asks for /programs/<org>/ and gets a 404
+    enabled: Boolean(orgSlug && activeProgramSlug),
   });
 
   const program = programData?.program;
@@ -2751,7 +2765,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ defaultView }) => 
               </div>
 
               {/* Stage Filter Tabs & Active Track Indicator & Track Actions */}
-              <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+              <div className="flex items-center gap-2 flex-wrap xl:justify-end">
                 {selectedTrackFilter && (
                   <div className="flex items-center gap-1.5 text-xs font-bold text-kulkul-purple">
                     <Award className="w-3.5 h-3.5 text-kulkul-orange" />

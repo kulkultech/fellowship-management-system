@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as Y from 'yjs';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -542,6 +542,12 @@ export const SessionWorkspacePage: React.FC = () => {
 
   const home = dashboardHome(user?.role);
   const backUrl = orgSlug && programSlug ? `/programs/${orgSlug}/${programSlug}/room` : home.path;
+  // Opened from inside the app: go back to exactly where we came from (same menu, program and tab),
+  // like the browser's Back button. Opened from a link: go to the dashboard instead
+  const goBack = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate(backUrl, { replace: true });
+  };
   const portalType = home.portal;
 
   const roleLabel = (role: string) =>
@@ -628,7 +634,7 @@ export const SessionWorkspacePage: React.FC = () => {
         <p className="text-xs text-slate-500">
           The requested fellowship session could not be retrieved or has expired.
         </p>
-        <button type="button" onClick={() => navigate(backUrl)} className="btn btn-sm btn-outline">
+        <button type="button" onClick={goBack} className="btn btn-sm btn-outline">
           Return to Dashboard
         </button>
       </div>
@@ -759,7 +765,7 @@ export const SessionWorkspacePage: React.FC = () => {
 
         {/* Right: session details and actions */}
         <aside className="w-full xl:w-72 shrink-0 space-y-4 xl:sticky xl:top-28 order-first xl:order-none">
-          <div className="content-card p-5 sm:p-5 space-y-4">
+          <div className="hidden xl:block content-card p-5 sm:p-5 space-y-4">
             <div className="flex items-center justify-between gap-2">
               <span className="subsection-title">Session</span>
               <span
@@ -801,10 +807,11 @@ export const SessionWorkspacePage: React.FC = () => {
             </dl>
           </div>
 
-          <div className="content-card p-5 sm:p-5 space-y-2.5">
+          {/* Narrow screens: one compact row of buttons, so the workspace stays near the top */}
+          <div className="content-card p-4 sm:p-4 xl:p-5 flex flex-wrap items-center gap-2 xl:block xl:space-y-2.5">
             {/* Once the session has ended, feedback is the main thing to do here */}
             {isSessionEnded && (
-              <button type="button" onClick={openFeedback} className="btn btn-sm btn-primary w-full">
+              <button type="button" onClick={openFeedback} className="btn btn-sm btn-primary xl:w-full">
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{isMentorOrAdmin ? 'View Feedback' : 'Give Feedback'}</span>
               </button>
@@ -814,7 +821,7 @@ export const SessionWorkspacePage: React.FC = () => {
                 href={session.recording_url}
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-sm btn-outline w-full"
+                className="btn btn-sm btn-outline xl:w-full"
                 title="Watch the session recording"
               >
                 <PlayCircle className="w-3.5 h-3.5" />
@@ -827,7 +834,7 @@ export const SessionWorkspacePage: React.FC = () => {
                 href={session.meeting_url}
                 target="_blank"
                 rel="noreferrer"
-                className={`btn btn-sm w-full ${isSessionEnded ? 'btn-outline' : 'btn-primary'}`}
+                className={`btn btn-sm xl:w-full ${isSessionEnded ? 'btn-outline' : 'btn-primary'}`}
                 title="Open live video call"
               >
                 <Video className="w-3.5 h-3.5" />
@@ -861,7 +868,7 @@ export const SessionWorkspacePage: React.FC = () => {
                   type="button"
                   disabled={mentorCheckInMutation.isPending}
                   onClick={() => mentorCheckInMutation.mutate()}
-                  className="btn btn-sm btn-success w-full"
+                  className="btn btn-sm btn-success xl:w-full"
                   title={`Present until ${formatClock(mentorCheckIn.late_after)}, late after that`}
                 >
                   {mentorCheckInMutation.isPending ? (
@@ -872,7 +879,7 @@ export const SessionWorkspacePage: React.FC = () => {
                   <span>Check In</span>
                 </button>
               ) : new Date(mentorCheckIn.opens_at).getTime() > Date.now() ? (
-                <button type="button" disabled className="btn btn-sm btn-outline w-full">
+                <button type="button" disabled className="btn btn-sm btn-outline xl:w-full">
                   <Clock className="w-3.5 h-3.5" />
                   <span>Check-in opens at {formatClock(mentorCheckIn.opens_at)}</span>
                 </button>
@@ -884,7 +891,7 @@ export const SessionWorkspacePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAttendanceDrawerOpen(true)}
-                className="btn btn-sm btn-outline w-full"
+                className="btn btn-sm btn-outline xl:w-full"
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Attendance</span>
@@ -897,7 +904,7 @@ export const SessionWorkspacePage: React.FC = () => {
                   type="button"
                   disabled={endSessionMutation.isPending}
                   onClick={() => endSessionMutation.mutate(false)}
-                  className="btn btn-sm btn-ghost w-full"
+                  className="btn btn-sm btn-ghost xl:w-full"
                   title="Undo ending the session; feedback closes until it is ended again"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -912,7 +919,7 @@ export const SessionWorkspacePage: React.FC = () => {
                       endSessionMutation.mutate(true);
                     }
                   }}
-                  className="btn btn-sm btn-outline w-full"
+                  className="btn btn-sm btn-outline xl:w-full"
                 >
                   {endSessionMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
                   <span>End Session</span>
@@ -921,10 +928,10 @@ export const SessionWorkspacePage: React.FC = () => {
 
             {sessionId && <CopyLinkButton url={workspaceLink(sessionId)} what="workspace" withLabel fullWidth />}
 
-            <Link to={backUrl} className="btn btn-sm btn-outline w-full">
+            <button type="button" onClick={goBack} className="btn btn-sm btn-outline xl:w-full">
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>{orgSlug && programSlug ? 'Back to Program Room' : 'Back to Dashboard'}</span>
-            </Link>
+            </button>
 
             {!isMentorOrAdmin && (
               <label className="flex items-center gap-2 pt-2 text-xs font-bold text-slate-700 cursor-pointer select-none">

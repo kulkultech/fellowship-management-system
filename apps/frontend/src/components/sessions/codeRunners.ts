@@ -424,7 +424,9 @@ export async function runOnServer(
   } catch (err: any) {
     const status = err?.response?.status;
     const message = err?.response?.data?.error || err?.message || 'Run failed';
-    if (status === 503) {
+    if (status === 503 && message.includes('offline')) {
+      add('error', `${languageName} can't run right now: the code runner is offline. Try again in a minute; if it keeps happening, tell your mentor.`);
+    } else if (status === 503) {
       add('error', `${languageName} runs on the code runner, which isn't available yet (${message}).`);
     } else if (status === 429) {
       add('warn', message);

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -103,6 +104,11 @@ func (h *CodeHandler) Run(w http.ResponseWriter, r *http.Request) {
 	result, err := h.runner.Run(r.Context(), req.Language, name, req.Code, req.Stdin)
 	if err != nil {
 		switch {
+		case errors.Is(err, coderunner.ErrOffline):
+			// The network detail (address, "connection refused") helps whoever runs the server, not
+			// the fellow pressing Run
+			slog.Warn("code run: the code runner is offline", slog.Any("error", err))
+			httpx.Error(w, http.StatusServiceUnavailable, coderunner.ErrOffline.Error())
 		case errors.Is(err, coderunner.ErrNotConfigured), errors.Is(err, coderunner.ErrUnavailable):
 			httpx.Error(w, http.StatusServiceUnavailable, err.Error())
 		default:

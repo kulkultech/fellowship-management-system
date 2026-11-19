@@ -14,7 +14,10 @@ const scannerCrash = {
 };
 
 describe('runOnServer', () => {
-  beforeEach(() => post.mockReset());
+  // Braces matter: a function returned from beforeEach runs as cleanup, and mockReset returns the spy
+  beforeEach(() => {
+    post.mockReset();
+  });
 
   it('sends the input box text as the program’s keyboard input', async () => {
     post.mockResolvedValue({ data: { run: { stdout: 'Hello Budi, you are 30 years old!\n', stderr: '', code: 0 } } });
@@ -49,5 +52,18 @@ describe('runOnServer', () => {
     const res = await runOnServer('java', 'Java', 'InputExample.java', 'class X {}', 'Budi');
 
     expect(res.logs.some((l) => l.type === 'warn' && l.content.includes('more input than the Input box has'))).toBe(true);
+  });
+
+  it('says plainly that the code runner is offline, without network details', async () => {
+    const offline = Object.assign(new Error('Request failed with status code 503'), {
+      response: { status: 503, data: { error: 'the code runner is offline right now' } },
+    });
+    post.mockRejectedValue(offline);
+    const res = await runOnServer('java', 'Java', 'Main.java', 'class X {}');
+
+    expect(res.success).toBe(false);
+    const error = res.logs.find((l) => l.type === 'error');
+    expect(error?.content).toContain('the code runner is offline');
+    expect(error?.content).toContain('tell your mentor');
   });
 });

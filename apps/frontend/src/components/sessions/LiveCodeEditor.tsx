@@ -1031,8 +1031,8 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       </div>
 
       {/* 2. SUB-BAR: File Info & Preferences */}
-      <div className="bg-slate-900 px-4 py-1.5 border-b border-slate-800 flex items-center justify-between text-2xs text-slate-400">
-        <div className="flex items-center gap-2">
+      <div className="bg-slate-900 px-4 py-1.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-2xs text-slate-400">
+        <div className="flex items-center gap-2 min-w-0">
           <span className="font-mono text-slate-300 font-bold flex items-center gap-1.5">
             <span className="text-3xs px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-sans">
               {currentConfig.tag}
@@ -1046,7 +1046,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
         </div>
 
         {/* Preferences */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-1">
             <span className="text-slate-500">Theme:</span>
             <button
@@ -1101,12 +1101,14 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
       </div>
 
       {/* 3. MAIN WORKSPACE (EDITOR & OUTPUT / PREVIEW) */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-950">
+      {/* Side by side only on very wide screens; otherwise the console sits under the editor so
+          neither gets squeezed (the workspace also has a sidebar and a session panel) */}
+      <div className="flex-1 flex flex-col 2xl:flex-row overflow-hidden min-h-0 bg-slate-950">
         {/* LEFT: MONACO EDITOR */}
         {(viewMode === 'split' || viewMode === 'editor-only') && (
           <div
             className={`flex-1 flex flex-col overflow-hidden relative ${
-              viewMode === 'split' ? 'lg:border-r border-slate-800' : 'w-full'
+              viewMode === 'split' ? '2xl:border-r border-slate-800' : 'w-full'
             }`}
           >
             <Editor
@@ -1151,7 +1153,7 @@ export const LiveCodeEditor: React.FC<LiveCodeEditorProps> = ({
         {(viewMode === 'split' || viewMode === 'preview-only') && (
           <div
             className={`flex flex-col overflow-hidden bg-slate-950 ${
-              viewMode === 'split' ? 'lg:w-[48%] h-64 lg:h-auto border-t lg:border-t-0 border-slate-800' : 'w-full h-full'
+              viewMode === 'split' ? '2xl:w-[48%] h-64 2xl:h-auto border-t 2xl:border-t-0 border-slate-800' : 'w-full h-full'
             }`}
           >
             {/* Panel Tabs Header */}

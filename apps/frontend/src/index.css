@@ -243,12 +243,14 @@
   }
 
   /* Row directly above a table: search on the left, filters on the right */
+  /* Search and filters stack until the screen is wide enough to hold them side by side
+     (the dashboard sidebar takes room too), so filter buttons never wrap raggedly */
   .table-toolbar {
-    @apply flex flex-col sm:flex-row sm:items-center justify-between gap-3;
+    @apply flex flex-col xl:flex-row xl:items-center justify-between gap-3;
   }
 
   .search-field {
-    @apply relative w-full sm:w-72;
+    @apply relative w-full xl:w-72;
   }
 
   .search-field > svg {

@@ -36,20 +36,17 @@ import {
   Camera,
   Code2,
   CalendarDays,
-  Repeat,
-  MessageSquare,
   PlayCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { IndonesianCalendarView } from './IndonesianCalendarView';
 import { Pagination } from '@/components/ui/Pagination';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useUrlState } from '@/hooks/useUrlState';
 import { usePaging } from '@/hooks/usePaging';
 import { FellowPicker } from './FellowPicker';
 import { getIndonesianHoliday } from '@/utils/indonesianHolidays';
-import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
-import { workspaceLink } from '@/utils/shareLinks';
 import { CustomRecurrenceDialog, RecurrenceScopeDialog } from './RecurrenceDialogs';
 import {
   PRESETS,
@@ -82,7 +79,8 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
   mentors = [],
 }) => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'sessions' | 'calendar' | 'summary'>('sessions');
+  // Sessions, calendar or attendance tracker: kept in the address so Back returns to the same tab
+  const [activeTab, setActiveTab] = useUrlState<'sessions' | 'calendar' | 'summary'>('tab', 'sessions');
 
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -762,182 +760,77 @@ export const ProgramSessionsView: React.FC<ProgramSessionsViewProps> = ({
             ) : (
               <div className="space-y-3">
                 {filteredSessions.map((sess) => (
+                  // Just the title and when it is: the session itself happens in the Live Workspace
                   <div
                     key={sess.id}
-                    className="panel hover:border-slate-300 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="panel hover:border-slate-300 transition flex flex-col xl:flex-row xl:items-center justify-between gap-3"
                   >
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-11 h-11 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-100">
-                        <Video className="w-5 h-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="card-title">{sess.title}</h4>
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            {sess.session_type.replace('_', ' ')}
-                          </span>
-                          {sess.recurrence_description && (
-                            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                              <Repeat className="w-3.5 h-3.5" />
-                              {sess.recurrence_description}
-                            </span>
-                          )}
-                          {sess.target_applicant_ids && sess.target_applicant_ids.length > 0 ? (
-                            <span className="text-xs font-bold text-indigo-700 flex items-center gap-1">
-                              <Users className="w-3.5 h-3.5" />
-                              Group ({sess.target_applicant_ids.length} {sess.target_applicant_ids.length === 1 ? 'fellow' : 'fellows'})
-                            </span>
-                          ) : null}
-                          {sess.track_name && tracks.length > 0 && (
-                            <span className="text-xs font-bold text-kulkul-purple">
-                              {sess.track_name}
-                            </span>
-                          )}
-                        </div>
+                    <Link to={`/sessions/${sess.id}/room`} className="min-w-0 flex-1 group">
+                      <h4 className="card-title break-words group-hover:text-kulkul-purple transition">{sess.title}</h4>
+                      <p className="meta-text mt-0.5">
+                        {formatDateTime(sess.start_time)} &ndash;{' '}
+                        {new Date(sess.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {sess.recurrence_description && <> &middot; {sess.recurrence_description}</>}
+                      </p>
+                    </Link>
 
-                        {sess.description && (
-                          <p className="text-xs text-slate-600 line-clamp-1">{sess.description}</p>
-                        )}
+                    <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                      <Link
+                        to={`/sessions/${sess.id}/room`}
+                        className="btn btn-sm btn-primary"
+                        title="Enter Live Workspace (Code Studio, Excalidraw Whiteboard, Notes)"
+                      >
+                        <Code2 className="w-3.5 h-3.5" />
+                        <span>Live Workspace</span>
+                      </Link>
 
-                        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap pt-0.5">
-                          <span className="flex items-center gap-1 font-medium">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            {formatDateTime(sess.start_time)} &ndash;{' '}
-                            {new Date(sess.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          {sess.mentor_name && (
-                            <span>&bull; Lead: <strong>{sess.mentor_name}</strong></span>
-                          )}
-                          {sess.google_calendar_event_id && (
-                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700" title="Synchronized with Google Calendar">
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Calendar Synced</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Action & Attendance Stat */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0 self-stretch lg:self-auto pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 w-full lg:w-auto justify-between lg:justify-end">
-                      <div className="flex items-center gap-3">
-                        {sess.pending_count !== undefined && sess.pending_count > 0 && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 animate-pulse">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{sess.pending_count} Pending Review</span>
-                          </span>
-                        )}
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-700">
-                          <Users className="w-3.5 h-3.5 text-slate-400" />
-                          <span>
-                            {sess.present_count || 0} / {sess.total_fellows || cohortMetrics.totalFellows} Present
-                          </span>
-                          {sess.attendance_rate !== undefined && (
-                            <span
-                              className={`ml-1 text-xs font-extrabold ${
-                                sess.attendance_rate >= 80
-                                  ? 'text-emerald-700'
-                                  : sess.attendance_rate >= 65
-                                  ? 'text-amber-700'
-                                  : 'text-rose-700'
-                              }`}
-                            >
-                              ({sess.attendance_rate}%)
-                            </span>
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-                        {sess.meeting_url && (
-                          <a
-                            href={sess.meeting_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-sm btn-outline"
-                            title="Join Google Meet"
-                          >
-                            <Video className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Meet</span>
-                          </a>
-                        )}
-                        {sess.meeting_url && <CopyLinkButton url={sess.meeting_url} what="meeting" />}
-
-                        {!sess.google_calendar_event_id && (
-                          <a
-                            href={getGoogleCalendarUrl(sess)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-sm btn-outline"
-                            title="Add to Google Calendar"
-                          >
-                            <Calendar className="w-3.5 h-3.5 text-kulkul-purple" />
-                            <span>Calendar</span>
-                          </a>
-                        )}
-
-                        {sess.ended_at && (
-                          <Link to={`/sessions/${sess.id}/room?tab=feedback`} className="btn btn-sm btn-outline">
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Feedback</span>
-                          </Link>
-                        )}
-
-                        {sess.recording_url && (
-                          <a
-                            href={sess.recording_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-sm btn-outline"
-                            title="Watch the session recording"
-                          >
-                            <PlayCircle className="w-3.5 h-3.5" />
-                            <span>Recording</span>
-                          </a>
-                        )}
-
-                        <Link
-                          to={`/sessions/${sess.id}/room`}
+                      {sess.meeting_url && (
+                        <a
+                          href={sess.meeting_url}
+                          target="_blank"
+                          rel="noreferrer"
                           className="btn btn-sm btn-outline"
-                          title="Enter Live Workspace (Code Studio, Excalidraw Whiteboard, Notes)"
+                          title="Join Google Meet"
                         >
-                          <Code2 className="w-3.5 h-3.5" />
-                          <span>Live Workspace</span>
-                        </Link>
-                        <CopyLinkButton url={workspaceLink(sess.id)} what="workspace" />
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Meet</span>
+                        </a>
+                      )}
 
-                        <button
-                          onClick={() => {
-                            setActiveAttendanceSession(sess);
-                          }}
-                          className="btn btn-sm btn-success"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Attendance</span>
-                        </button>
+                      <button
+                        onClick={() => {
+                          setActiveAttendanceSession(sess);
+                        }}
+                        className="btn btn-sm btn-outline"
+                        title={sess.pending_count ? `${sess.pending_count} check-in(s) waiting for review` : 'Take attendance'}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>
+                          Attendance{sess.pending_count ? ` (${sess.pending_count} to review)` : ''}
+                        </span>
+                      </button>
 
-                        <button
-                          onClick={() => openEditModal(sess)}
-                          className="btn btn-icon-sm btn-ghost"
-                          title="Edit Session"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                      <button
+                        onClick={() => openEditModal(sess)}
+                        className="btn btn-icon-sm btn-ghost"
+                        title="Edit Session"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
 
-                        <button
-                          onClick={() => {
-                            if (sess.series_id) {
-                              setScopeDialog({ mode: 'delete', session: sess });
-                            } else if (window.confirm(`Are you sure you want to delete session "${sess.title}"?`)) {
-                              deleteSessionMutation.mutate({ sessionId: sess.id });
-                            }
-                          }}
-                          className="btn btn-icon-sm btn-ghost-danger"
-                          title="Delete Session"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => {
+                          if (sess.series_id) {
+                            setScopeDialog({ mode: 'delete', session: sess });
+                          } else if (window.confirm(`Are you sure you want to delete session "${sess.title}"?`)) {
+                            deleteSessionMutation.mutate({ sessionId: sess.id });
+                          }
+                        }}
+                        className="btn btn-icon-sm btn-ghost-danger"
+                        title="Delete Session"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}

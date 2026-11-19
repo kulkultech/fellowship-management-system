@@ -40,7 +40,7 @@ export const CopyLinkButton: React.FC<CopyLinkButtonProps> = ({ url, withLabel =
     <button
       type="button"
       onClick={handleClick}
-      className={`${withLabel ? 'btn btn-sm btn-outline' : 'btn btn-icon-sm btn-ghost'} ${fullWidth ? 'w-full' : ''}`}
+      className={`${withLabel ? 'btn btn-sm btn-outline' : 'btn btn-icon-sm btn-ghost'} ${fullWidth ? 'xl:w-full' : ''}`}
       title={label}
       aria-label={label}
     >

@@ -64,3 +64,25 @@ func TestCodeRun(t *testing.T) {
 		t.Fatalf("expected the per-user rate limit to apply")
 	}
 }
+
+func TestCodeRunWhenRunnerIsOffline(t *testing.T) {
+	// A runner that has gone away: connections to it are refused
+	piston := httptest.NewServer(http.NotFoundHandler())
+	url := piston.URL
+	piston.Close()
+
+	h := handler.NewCodeHandler(coderunner.New(url))
+	var buf bytes.Buffer
+	_ = json.NewEncoder(&buf).Encode(map[string]any{"language": "java", "file_name": "Main.java", "code": "class Main {}"})
+	req := httptest.NewRequest(http.MethodPost, "/code/run", &buf)
+	req = req.WithContext(middleware.WithUser(req.Context(), &auth.Claims{UserID: uuid.New(), Role: "candidate"}))
+	w := httptest.NewRecorder()
+	h.Run(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when the runner is offline, got %d %s", w.Code, w.Body.String())
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte("offline")) || bytes.Contains(w.Body.Bytes(), []byte("dial tcp")) || bytes.Contains(w.Body.Bytes(), []byte(url)) {
+		t.Fatalf("expected a plain offline message without network details, got %s", w.Body.String())
+	}
+}

@@ -59,6 +59,9 @@ var (
 	ErrNotConfigured = errors.New("the code runner is not set up")
 	ErrUnsupported   = errors.New("this language cannot be run")
 	ErrUnavailable   = errors.New("this language is not installed on the code runner yet")
+	// ErrOffline: the runner can't be reached (its server is down or restarting). The wrapped
+	// error has the network detail for the logs; people see only this message.
+	ErrOffline = errors.New("the code runner is offline right now")
 )
 
 // Stage is the output of compiling or running.
@@ -112,7 +115,7 @@ func (c *Client) installed(ctx context.Context) (map[string]string, error) {
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("code runner unreachable: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrOffline, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -185,7 +188,7 @@ func (c *Client) Run(ctx context.Context, languageID, fileName, code, stdin stri
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("code runner unreachable: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrOffline, err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4*MaxOutputBytes))

@@ -30,19 +30,37 @@ import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignme
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { Pagination } from '@/components/ui/Pagination';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useUrlState } from '@/hooks/useUrlState';
 import { workspaceLink } from '@/utils/shareLinks';
 import { ProgramGitHubActivityView } from '@/components/github/ProgramGitHubActivityView';
 
 // Every menu uses the same card shape as the shared sessions, assignments, and GitHub views
 const cardShell = 'content-card';
 
+const LAST_PROGRAM_KEY = 'fellowhire.mentor.lastProgram';
+const readRememberedProgram = (): string | null => {
+  try {
+    return localStorage.getItem(LAST_PROGRAM_KEY);
+  } catch {
+    return null;
+  }
+};
+const rememberProgram = (programId: string) => {
+  try {
+    localStorage.setItem(LAST_PROGRAM_KEY, programId);
+  } catch {
+    // Private windows can refuse storage; the address still holds the program
+  }
+};
+
 export const MentorDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [activeNavId, setActiveNavId] = useState<string>('overview');
+  // The open menu and program live in the address, so Back and Forward move between them
+  const [activeNavId, setActiveNavId] = useUrlState<string>('view', 'overview');
 
   // Program selection for fellow listing
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
+  const [selectedProgramId, setSelectedProgramId] = useUrlState<string>('program', 'all');
   const [searchFellowQuery, setSearchFellowQuery] = useState<string>('');
   const [selectedFellow, setSelectedFellow] = useState<MentorFellow | null>(null);
 
@@ -61,9 +79,15 @@ export const MentorDashboardPage: React.FC = () => {
   // 2. Fetch Fellows for the Selected Program or First Program
   const activeProgramId = useMemo(() => {
     if (selectedProgramId !== 'all') return selectedProgramId;
+    // With no program in the address, reopen the one picked last time rather than the first
+    const remembered = readRememberedProgram();
+    if (remembered && programs.some((p) => p.program_id === remembered)) return remembered;
     if (programs.length > 0) return programs[0].program_id;
     return '';
   }, [selectedProgramId, programs]);
+  useEffect(() => {
+    if (selectedProgramId !== 'all') rememberProgram(selectedProgramId);
+  }, [selectedProgramId]);
 
   // Cohort fellows: one page at a time, searched by the server
   const [fellowPage, setFellowPage] = useState(1);
