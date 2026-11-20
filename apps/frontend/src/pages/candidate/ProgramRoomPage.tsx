@@ -39,7 +39,9 @@ import { ProgramAssignmentsView } from '@/components/assignments/ProgramAssignme
 import { RoomContentView, roomContentQueryKey } from '@/components/room/RoomContentView';
 import { roomContentService } from '@/services/roomContentService';
 import { uploadService } from '@/services/uploadService';
-import type { ProgramSession, SessionAttendance } from '@/services/types';
+import type { ProgramSession, SessionAttendance, SessionSort } from '@/services/types';
+import { useUrlState } from '@/hooks/useUrlState';
+import { sessionStatus } from '@/components/sessions/sessionStatus';
 import { getGoogleCalendarUrl } from '@/utils/googleCalendar';
 import { SessionParticipantsDialog } from '@/components/sessions/SessionParticipantsDialog';
 import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
@@ -84,6 +86,13 @@ export const ProgramRoomPage: React.FC = () => {
   const [isUploadingProof, setIsUploadingProof] = useState<boolean>(false);
   const [viewProofAttendance, setViewProofAttendance] = useState<SessionAttendance | null>(null);
 
+  // The clock the session cards compare against, so a session turns "Live now", then "Ended", on its own
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // 1. Fetch Program Info
   const { data: progData, isLoading: isLoadingProg } = useQuery({
     queryKey: ['program-room-info', orgSlug, programSlug],
@@ -114,13 +123,15 @@ export const ProgramRoomPage: React.FC = () => {
   // 3. Live program sessions, one page at a time from the server
   const [sessionPage, setSessionPage] = useState(1);
   const [sessionPageSize, setSessionPageSize] = useState(10);
+  // Fellows mostly want the next session, so the upcoming ones come first unless they pick another order
+  const [sessionSort, setSessionSort] = useUrlState<SessionSort>('sort', 'upcoming');
   const {
     data: sessionPageData,
     isLoading: isLoadingSessions,
     isFetching: isFetchingSessions,
   } = useQuery({
-    queryKey: ['candidate-program-sessions', program?.id, sessionPage, sessionPageSize],
-    queryFn: () => sessionService.listSessionsPage(program!.id, sessionPage, sessionPageSize),
+    queryKey: ['candidate-program-sessions', program?.id, sessionPage, sessionPageSize, sessionSort],
+    queryFn: () => sessionService.listSessionsPage(program!.id, sessionPage, sessionPageSize, { sort: sessionSort }),
     enabled: Boolean(program?.id),
     placeholderData: keepPreviousData,
   });
@@ -393,6 +404,21 @@ export const ProgramRoomPage: React.FC = () => {
             )}
 
             <div className="content-card space-y-6">
+              <div className="flex justify-end">
+                <select
+                  value={sessionSort}
+                  onChange={(e) => {
+                    setSessionSort(e.target.value as SessionSort);
+                    setSessionPage(1);
+                  }}
+                  className="filter-select"
+                  aria-label="Sort sessions"
+                >
+                  <option value="upcoming">Upcoming first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="newest">Newest first</option>
+                </select>
+              </div>
               {isLoadingSessions ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <Loader2 className="w-8 h-8 animate-spin text-kulkul-purple" />
@@ -412,6 +438,8 @@ export const ProgramRoomPage: React.FC = () => {
                         sess.fellow_attendance?.status === 'absent' && sess.fellow_attendance?.proof_image_url
                       );
 
+                      // Ended sessions are greyed out so the ones still to come stand out
+                      const status = sessionStatus(sess, now);
                       const startDate = new Date(sess.start_time);
                       const endDate = new Date(sess.end_time);
                       const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -427,7 +455,7 @@ export const ProgramRoomPage: React.FC = () => {
                       return (
                         <div
                           key={sess.id}
-                          className="panel-muted hover:border-slate-300 transition flex flex-col xl:flex-row xl:items-center justify-between gap-4"
+                          className={`${status === 'ended' ? 'panel-muted' : 'panel'} hover:border-slate-300 transition flex flex-col xl:flex-row xl:items-center justify-between gap-4`}
                         >
                           <div className="flex items-start gap-3.5 min-w-0 flex-1">
                             <div className="w-10 h-10 rounded-2xl bg-purple-50 text-kulkul-purple flex items-center justify-center shrink-0 border border-purple-200">
@@ -435,7 +463,7 @@ export const ProgramRoomPage: React.FC = () => {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="card-title">{sess.title}</h4>
+                                <h4 className={`card-title ${status === 'ended' ? 'text-slate-500' : ''}`}>{sess.title}</h4>
                                 <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
                                   {sess.session_type.replace('_', ' ')}
                                 </span>
@@ -460,6 +488,18 @@ export const ProgramRoomPage: React.FC = () => {
                                 <p className="text-xs text-slate-600 mt-0.5 line-clamp-1">{sess.description}</p>
                               )}
                               <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                                {status === 'ended' && (
+                                  <>
+                                    <span className="font-bold text-slate-600">Ended</span>
+                                    <span>&bull;</span>
+                                  </>
+                                )}
+                                {status === 'live' && (
+                                  <>
+                                    <span className="font-bold text-emerald-700">Live now</span>
+                                    <span>&bull;</span>
+                                  </>
+                                )}
                                 <span>{formattedDate}</span>
                                 <span>&bull;</span>
                                 <span className="flex items-center gap-1">
